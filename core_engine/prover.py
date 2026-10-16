@@ -301,13 +301,68 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         if not result.candidate_proof:
             return
 
+        reflection_note = "TCS-Bench candidate proof generated."
+        if result.verified:
+            try:
+                from .heuristic_validation import is_valid_universal_heuristic
+
+                target_match = re.search(r"Target Problem \(your task\):\s*(.+)$", problem, re.DOTALL)
+                target_text = target_match.group(1).strip() if target_match else problem[-1500:]
+                prompt = [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a cognitive reflection engine for theoretical computer science and mathematical proof construction. "
+                            "Analyze this VERIFIED theorem and proof trajectory. Distill 1-2 concise sentences stating a universal "
+                            "proof strategy, reduction invariant, potential-function technique, or quantifier/boundary discipline that "
+                            "made the proof rigorous. "
+                            "STRICT RULES: "
+                            "(1) Must be 100% universal and domain-reusable across problems. "
+                            "(2) NEVER mention paper titles, author names, Theorem/Lemma/Claim numbers, arXiv IDs, or task-specific variable values. "
+                            "(3) Start with an actionable directive (e.g., 'When bounding...', 'To prove...', 'Always verify...'). "
+                            "If no universal proof heuristic applies, output 'NONE'."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Target Statement:\n{target_text[:1200]}\n\n"
+                            f"Verified Proof Excerpt:\n{result.candidate_proof[:2500]}"
+                        ),
+                    },
+                ]
+                resp = self.client.complete(
+                    prompt,
+                    max_tokens=180,
+                    temperature=0.2,
+                    enable_thinking=False,
+                )
+                reflection = (resp.content or "").strip()
+                if reflection and "NONE" not in reflection.upper():
+                    is_valid, reason = is_valid_universal_heuristic(
+                        reflection,
+                        problem_statement=target_text,
+                        problem_id=task_id,
+                    )
+                    if is_valid:
+                        metadata = {"task_id": task_id, "problem_id": task_id}
+                        added = self.memory.add_procedural_heuristic(reflection, metadata=metadata)
+                        if added:
+                            result.learned_heuristics.append(reflection)
+                            reflection_note = reflection
+                            self._log_write(f"\n[CoALA Procedural Memory] Learned new heuristic:\n{reflection}\n")
+                    else:
+                        logger.info(f"Skipping non-universal TCS reflection heuristic: {reason} ('{reflection[:60]}')")
+            except Exception as e:
+                logger.warning(f"Post-proof procedural heuristic extraction error: {e}")
+
         try:
             self.memory.record_episode(
                 problem=f"[{task_id}] {problem[:500]}",
                 code_blocks=result.code_history,
                 verified=result.verified,
                 answer=result.candidate_proof[:200],
-                critique="TCS-Bench candidate proof generated.",
+                critique=reflection_note,
             )
         except Exception as e:
             logger.warning(f"Error recording TCS episode: {e}")
@@ -433,7 +488,9 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
 
         retrieved: List[str] = []
         try:
-            retrieved = self.memory.query_procedural_heuristics(concept_query, limit=5, min_score=0.68)
+            retrieved = self.memory.query_procedural_heuristics(
+                concept_query, limit=5, min_score=0.68, exclude_task_id=task_id
+            )
             if retrieved:
                 self._log_write(f"[CoALA Procedural Memory] Retrieved {len(retrieved)} relevant rules for '{concept_query[:80]}':\n")
                 for h in retrieved:
