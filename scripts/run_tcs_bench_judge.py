@@ -197,8 +197,8 @@ def main() -> None:
     parser.add_argument("--replicates", type=int, default=TCS_JUDGE_REPLICATES,
                         help=f"Independent Config-B judge calls per task; median is reported "
                              f"(default: {TCS_JUDGE_REPLICATES}). Use 1 to reproduce the legacy single-call judge.")
-    parser.add_argument("--adaptive", action="store_true", default=tcs_cfg.pipeline_judge_adaptive,
-                        help=f"Adaptive replicates: stop after 1 call if it is outside threshold +/- 0.20 (default: {tcs_cfg.pipeline_judge_adaptive})")
+    parser.add_argument("--adaptive", action="store_true", default=True,
+                        help="Adaptive replicates: stop after 1 call if it is outside threshold +/- 0.20 (default: True)")
     parser.add_argument("--no-adaptive", action="store_false", dest="adaptive",
                         help="Disable adaptive replicates and always run all replicates")
     parser.add_argument("--no-thinking", action="store_true", default=False,
@@ -260,11 +260,11 @@ def main() -> None:
                 out = {"task_id": tid, "status": "error",
                        "error": f"{type(exc).__name__}: {exc}"}
             results.append(out)
-            a = out.get("a", {})
+            a = out.get("a") or {}
             b = out.get("b")
             if out["status"] == "judged":
                 a_str = f"A={a.get('ones', '?')}/4 -> {a.get('verdict', '?')}" \
-                    if "a" in out else "A=-"
+                    if a else "A=-"
                 b_str = (f"B={b['validity']:.2f} -> {b['verdict']} "
                          f"(reps={b.get('replicate_validities')}, P(pass)={b.get('pass_probability')})") \
                     if b and b.get("validity") is not None else "B=-"
@@ -280,9 +280,9 @@ def main() -> None:
     parse_errors = [r for r in results if r["status"] == "judge_parse_error"]
     no_proof = [r for r in results if r["status"] == "no_proof"]
     errors = [r for r in results if r["status"] == "error"]
-    a1 = sum(1 for r in judged if r.get("a", {}).get("verdict") == "1")
-    a0 = sum(1 for r in judged if r.get("a", {}).get("verdict") == "0")
-    a_inc = sum(1 for r in judged if r.get("a", {}).get("verdict") == "INCONCLUSIVE")
+    a1 = sum(1 for r in judged if (r.get("a") or {}).get("verdict") == "1")
+    a0 = sum(1 for r in judged if (r.get("a") or {}).get("verdict") == "0")
+    a_inc = sum(1 for r in judged if (r.get("a") or {}).get("verdict") == "INCONCLUSIVE")
     a_denom = a1 + a0
     b_scores = [r["b"]["validity"] for r in judged
                 if r.get("b") and r["b"].get("validity") is not None]
@@ -292,12 +292,12 @@ def main() -> None:
     b_pp = [r["b"]["pass_probability"] for r in judged
             if r.get("b") and r["b"].get("pass_probability") is not None]
     agreement = sum(1 for r in judged
-                    if r.get("a", {}).get("verdict") in ("0", "1")
+                    if (r.get("a") or {}).get("verdict") in ("0", "1")
                     and r.get("b") and r["b"].get("verdict") in ("0", "1")
-                    and r["a"]["verdict"] == r["b"]["verdict"])
+                    and (r.get("a") or {})["verdict"] == r["b"]["verdict"])
     a_votes_hist: Dict[str, int] = {}
     for r in judged:
-        v = str(r.get("a", {}).get("ones", "?"))
+        v = str((r.get("a") or {}).get("ones", "?"))
         a_votes_hist[v] = a_votes_hist.get(v, 0) + 1
 
     summary = {
