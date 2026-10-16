@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prime Math Research Portal — Autonomous Mathematical Prover</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#1e1b4b',
+            },
+            surface: {
+              900: '#0b0f19',
+              800: '#111827',
+              700: '#1f2937',
+              600: '#374151',
+            }
+          },
+          fontFamily: {
+            mono: ['"Fira Code"', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
+            serif: ['"Computer Modern"', 'Georgia', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- KaTeX for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #111827; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    .terminal-scroll { font-family: 'Fira Code', monospace; }
+  </style>
+</head>
+<body class="bg-surface-900 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- ── Top Navigation Bar ─────────────────────────────────────────────── -->
+  <header class="border-b border-surface-700 bg-surface-800/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('submit')">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-brand-500/20">
+          <span class="font-serif font-bold text-xl text-white">ℙ</span>
+        </div>
+        <div>
+          <div class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+            PRIME MATH
+          </div>
+          <div class="text-[10px] tracking-widest text-indigo-400 font-mono font-medium uppercase">
+            Research Prover Portal
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="hidden md:flex items-center space-x-1" id="nav-tabs">
+        <button onclick="switchTab('submit')" id="tab-btn-submit" class="px-3 py-2 rounded-lg text-sm font-medium transition text-white bg-surface-700">
+          Submit Problem
+        </button>
+        <button onclick="switchTab('queue')" id="tab-btn-queue" class="px-3 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white hover:bg-surface-700/50">
+          Live Queue & Jobs
+        </button>
+        <button onclick="switchTab('studio')" id="tab-btn-studio" class="px-3 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white hover:bg-surface-700/50">
+          Proof Studio & Logs
+        </button>
+        <button onclick="switchTab('architecture')" id="tab-btn-architecture" class="px-3 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white hover:bg-surface-700/50">
+          Prover Engine
+        </button>
+        <button onclick="switchTab('admin')" id="tab-btn-admin" class="hidden px-3 py-2 rounded-lg text-sm font-medium transition text-amber-400 hover:bg-surface-700/50">
+          Operator Admin
+        </button>
+      </nav>
+
+      <!-- Status Indicator & User Menu -->
+      <div class="flex items-center space-x-3">
+        <!-- Live Cluster Status Pill -->
+        <div id="cluster-status-pill" class="flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="cluster-status-text">Workers Ready</span>
+        </div>
+
+        <!-- User profile / Auth -->
+        <div id="user-section" class="flex items-center space-x-2">
+          <div id="user-badge" class="hidden flex items-center space-x-2 bg-surface-700/60 px-3 py-1.5 rounded-lg border border-surface-600 text-xs">
+            <i data-lucide="user" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <span id="user-email-display" class="font-mono text-slate-300"></span>
+            <span id="user-role-badge" class="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-brand-500/20 text-brand-300"></span>
+            <button onclick="handleLogout()" title="Sign Out" class="text-slate-400 hover:text-rose-400 ml-1">
+              <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <button id="login-modal-btn" onclick="openAuthModal()" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-brand-600 hover:bg-brand-500 text-white shadow transition flex items-center space-x-1.5">
+            <i data-lucide="key" class="w-3.5 h-3.5"></i>
+            <span>Access Portal</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Operator Priority Banner (Active when locked) ───────────────────── -->
+  <div id="operator-priority-banner" class="hidden bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border-b border-amber-500/40 px-4 py-2.5 text-amber-300 text-xs font-mono">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <i data-lucide="shield-alert" class="w-4 h-4 text-amber-400 animate-bounce"></i>
+        <span><strong>OPERATOR PRIORITY MODE ACTIVE:</strong> <span id="operator-banner-reason">Local benchmark evaluation running on APU workers.</span> Submissions are queued in held state and will process automatically when operator jobs complete.</span>
+      </div>
+      <span class="text-[10px] uppercase tracking-wider bg-amber-500/30 px-2 py-0.5 rounded text-amber-200">Precedence Enabled</span>
+    </div>
+  </div>
+
+  <!-- ── Main Application Content ────────────────────────────────────────── -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- ── TAB 1: Submit Problem ─────────────────────────────────────────── -->
+    <div id="tab-submit" class="tab-pane space-y-6">
+      
+      <!-- Intro Hero Banner -->
+      <div class="bg-gradient-to-r from-surface-800 to-surface-700/60 p-6 rounded-2xl border border-surface-600/60 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div class="space-y-2 max-w-3xl">
+          <div class="flex items-center space-x-2">
+            <span class="px-2.5 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider font-semibold bg-brand-500/20 text-brand-300 border border-brand-500/30">
+              Autonomous Theorem Proving
+            </span>
+            <span class="text-xs text-slate-400 font-mono">Multi-Agent Cognitive Loop</span>
+          </div>
+          <h1 class="text-2xl font-bold tracking-tight text-white">
+            Submit Open Conjecture or Lemma for Formal Proving
+          </h1>
+          <p class="text-sm text-slate-300 leading-relaxed">
+            Submit your conjecture in standardized JSON format. Our multi-stage architecture deploys an isolated <strong>Context Architect</strong>, multi-turn <strong>Deductive Logician</strong>, an AST-protected <strong>Python REPL Kernel</strong>, closed-loop <strong>Academic Proof Auditor</strong>, and final <strong>Publication Scribe</strong> to synthesize publication-grade proofs.
+          </p>
+        </div>
+
+        <!-- Quick Load Example Pills -->
+        <div class="bg-surface-900/60 p-4 rounded-xl border border-surface-700 space-y-2.5 min-w-[280px]">
+          <div class="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
+            <span>Load Curated Examples:</span>
+          </div>
+          <div class="flex flex-col space-y-1.5" id="example-buttons-container">
+            <!-- Populated dynamically via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Submission Form Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: JSON & Field Inputs (7 cols) -->
+        <div class="lg:col-span-7 space-y-5">
+          <div class="bg-surface-800 p-6 rounded-2xl border border-surface-700 space-y-4 shadow-lg">
+            
+            <div class="flex items-center justify-between border-b border-surface-700 pb-3">
+              <h2 class="text-base font-semibold text-white flex items-center space-x-2">
+                <i data-lucide="file-code" class="w-4 h-4 text-brand-400"></i>
+                <span>Problem Definition</span>
+              </h2>
+              <div class="flex items-center space-x-2">
+                <button type="button" onclick="formatJSONInput()" class="text-xs px-2.5 py-1 rounded bg-surface-700 hover:bg-surface-600 text-slate-300 font-mono transition">
+                  Format JSON
+                </button>
+                <button type="button" onclick="validateCurrentInput()" class="text-xs px-2.5 py-1 rounded bg-brand-600/30 hover:bg-brand-600/50 text-brand-300 border border-brand-500/30 font-mono transition">
+                  Validate Schema
+                </button>
+              </div>
+            </div>
+
+            <!-- Structured Editor Input Mode -->
+            <div class="space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-mono text-slate-400 mb-1">problem_id (slug):</label>
+                  <input type="text" id="input-problem-id" placeholder="e.g. partition-parity-lemma" class="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-100 font-mono focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-mono text-slate-400 mb-1">Mathematical Field:</label>
+                  <select id="input-field" class="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-brand-500">
+                    <option value="Combinatorics & Number Theory">Combinatorics & Number Theory</option>
+                    <option value="Theoretical Computer Science & Complexity">Theoretical Computer Science & Complexity</option>
+                    <option value="Algebraic Geometry & Topology">Algebraic Geometry & Topology</option>
+                    <option value="Analysis & Differential Equations">Analysis & Differential Equations</option>
+                    <option value="Probability & Stochastic Processes">Probability & Stochastic Processes</option>
+                    <option value="Discrete Geometry & Additive Combinatorics">Discrete Geometry & Additive Combinatorics</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-mono text-slate-400 mb-1">Title:</label>
+                <input type="text" id="input-title" placeholder="Descriptive theorem title..." class="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-brand-500">
+              </div>
+
+              <div>
+                <label class="block text-xs font-mono text-slate-400 mb-1">Context & Definitions (LaTeX Supported):</label>
+                <textarea id="input-context" rows="6" placeholder="Define symbols, ambient partition shapes, preliminary lemmas..." class="w-full bg-surface-900 border border-surface-700 rounded-lg p-3 text-sm font-mono text-slate-200 focus:outline-none focus:border-brand-500"></textarea>
+              </div>
+
+              <div>
+                <label class="block text-xs font-mono text-slate-400 mb-1">Target Statement to Prove (LaTeX Supported):</label>
+                <textarea id="input-statement" rows="4" placeholder="For any partition \lambda \vdash n'..." class="w-full bg-surface-900 border border-surface-700 rounded-lg p-3 text-sm font-mono text-slate-200 focus:outline-none focus:border-brand-500"></textarea>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-mono text-slate-400 mb-1">Hypotheses (comma separated):</label>
+                  <input type="text" id="input-hypotheses" placeholder="s <= s(lambda), d(lambda) >= 2s" class="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-100 font-mono focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-mono text-slate-400 mb-1">Max Solver Turns:</label>
+                  <select id="input-max-turns" class="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-brand-500">
+                    <option value="6">6 Turns (Standard)</option>
+                    <option value="8" selected>8 Turns (Default TCS Benchmark)</option>
+                    <option value="12">12 Turns (Deep Overtime Mode)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Raw JSON toggle accordion -->
+              <details class="text-xs text-slate-400 pt-2 border-t border-surface-700">
+                <summary class="cursor-pointer hover:text-white font-mono flex items-center justify-between">
+                  <span>Advanced: Direct Raw JSON Editor</span>
+                  <span class="text-[10px] text-brand-400">Sync with Form</span>
+                </summary>
+                <div class="mt-3">
+                  <textarea id="input-raw-json" rows="10" placeholder="Paste full problem JSON..." class="w-full bg-surface-900 border border-surface-700 rounded-lg p-3 font-mono text-xs text-slate-300 focus:outline-none focus:border-brand-500"></textarea>
+                </div>
+              </details>
+
+              <!-- Validation Feedback Area -->
+              <div id="validation-feedback" class="hidden p-3 rounded-lg text-xs font-mono"></div>
+
+              <!-- Submit Action Button -->
+              <div class="pt-2 flex items-center justify-between">
+                <div class="text-xs text-slate-400 flex items-center space-x-1.5">
+                  <i data-lucide="cpu" class="w-4 h-4 text-indigo-400"></i>
+                  <span>Processed on dedicated Strix Halo APU queue</span>
+                </div>
+                <button type="button" onclick="submitProblemForm()" class="px-6 py-2.5 rounded-xl font-medium text-sm bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white shadow-lg shadow-brand-500/20 transition flex items-center space-x-2">
+                  <i data-lucide="play" class="w-4 h-4"></i>
+                  <span>Submit to Prover Queue</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Live KaTeX Preview & Context Inspector (5 cols) -->
+        <div class="lg:col-span-5 space-y-5">
+          <div class="bg-surface-800 p-6 rounded-2xl border border-surface-700 space-y-4 shadow-lg sticky top-24">
+            <div class="flex items-center justify-between border-b border-surface-700 pb-3">
+              <h2 class="text-base font-semibold text-white flex items-center space-x-2">
+                <i data-lucide="eye" class="w-4 h-4 text-emerald-400"></i>
+                <span>Live Mathematical Preview (KaTeX)</span>
+              </h2>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Rendered</span>
+            </div>
+
+            <!-- Preview Card -->
+            <div class="space-y-4 overflow-y-auto max-h-[600px] pr-2">
+              <div>
+                <h3 id="preview-title" class="text-lg font-bold text-white font-serif">Theorem Title</h3>
+                <span id="preview-field" class="text-xs text-brand-300 font-mono">Field</span>
+              </div>
+
+              <div class="border-t border-surface-700/60 pt-3">
+                <div class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Target Conjecture:</div>
+                <div id="preview-statement" class="p-3.5 bg-surface-900 rounded-xl border border-surface-700 text-sm text-slate-100 font-serif leading-relaxed">
+                  Enter statement to preview...
+                </div>
+              </div>
+
+              <div class="border-t border-surface-700/60 pt-3">
+                <div class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Context & Definitions:</div>
+                <div id="preview-context" class="p-3.5 bg-surface-900/80 rounded-xl border border-surface-700 text-xs text-slate-300 font-serif leading-relaxed">
+                  Enter definitions and context...
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── TAB 2: Live Queue & Jobs ──────────────────────────────────────── -->
+    <div id="tab-queue" class="tab-pane hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-800 p-6 rounded-2xl border border-surface-700">
+        <div>
+          <h2 class="text-xl font-bold text-white">Autonomous Prover Queue</h2>
+          <p class="text-xs text-slate-400 mt-1">Live scoreboard of pending, executing, and verified mathematical proofs.</p>
+        </div>
+        <div class="flex items-center space-x-3">
+          <button onclick="refreshQueue()" class="px-3 py-1.5 rounded-lg text-xs font-mono bg-surface-700 hover:bg-surface-600 text-slate-200 transition flex items-center space-x-1.5">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Queue Table -->
+      <div class="bg-surface-800 rounded-2xl border border-surface-700 overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono">
+            <thead class="bg-surface-900/80 text-slate-400 border-b border-surface-700">
+              <tr>
+                <th class="p-4">Status</th>
+                <th class="p-4">Problem</th>
+                <th class="p-4">Field</th>
+                <th class="p-4">Turns</th>
+                <th class="p-4">Validity</th>
+                <th class="p-4">Duration</th>
+                <th class="p-4">Submitted</th>
+                <th class="p-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="queue-table-body" class="divide-y divide-surface-700 text-slate-200">
+              <!-- Dynamically populated via JS -->
+              <tr>
+                <td colspan="8" class="p-8 text-center text-slate-500 font-mono">
+                  Loading queue records...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB 3: Proof Studio & Live Logs ───────────────────────────────── -->
+    <div id="tab-studio" class="tab-pane hidden space-y-6">
+      
+      <!-- Studio Header -->
+      <div class="bg-surface-800 p-6 rounded-2xl border border-surface-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span id="studio-job-id" class="px-2 py-0.5 rounded text-[10px] font-mono bg-brand-500/20 text-brand-300">Select a Job</span>
+            <span id="studio-job-status" class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-surface-700 text-slate-300">IDLE</span>
+          </div>
+          <h2 id="studio-job-title" class="text-lg font-bold text-white mt-1">Proof Studio & Execution Workspace</h2>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="copyCurrentProof()" id="btn-copy-proof" class="px-3.5 py-1.5 rounded-lg text-xs font-mono bg-brand-600 hover:bg-brand-500 text-white transition flex items-center space-x-1.5 shadow">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span>Copy LaTeX</span>
+          </button>
+          <button onclick="downloadProofTex()" id="btn-download-tex" class="px-3.5 py-1.5 rounded-lg text-xs font-mono bg-surface-700 hover:bg-surface-600 text-slate-200 transition flex items-center space-x-1.5">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Download .tex</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Studio Two-Column Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left: Live Log Terminal (6 cols) -->
+        <div class="lg:col-span-6 space-y-4">
+          <div class="bg-surface-800 p-4 rounded-2xl border border-surface-700 shadow-xl flex flex-col h-[700px]">
+            <div class="flex items-center justify-between border-b border-surface-700 pb-3 mb-3">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i>
+                <span class="text-xs font-mono font-semibold text-slate-200">Live Agent Trajectory Logs</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button onclick="toggleTerminalAutoScroll()" id="btn-autoscroll" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Auto-scroll: ON
+                </button>
+                <button onclick="clearTerminalLog()" class="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-700 text-slate-400 hover:text-white">
+                  Clear
+                </button>
+              </div>
+            </div>
+            
+            <!-- Terminal Output Window -->
+            <div id="terminal-log-output" class="flex-1 bg-surface-900 p-4 rounded-xl font-mono text-xs text-slate-300 overflow-y-auto whitespace-pre-wrap leading-relaxed border border-surface-700/60 selection:bg-brand-600">
+              Select a job from the queue to stream live logs...
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Publication LaTeX Proof Viewer (6 cols) -->
+        <div class="lg:col-span-6 space-y-4">
+          <div class="bg-surface-800 p-6 rounded-2xl border border-surface-700 shadow-xl flex flex-col h-[700px]">
+            <div class="flex items-center justify-between border-b border-surface-700 pb-3 mb-3">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="book-open" class="w-4 h-4 text-brand-400"></i>
+                <span class="text-xs font-mono font-semibold text-slate-200">Publication LaTeX Proof</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button onclick="toggleProofSourceView()" id="btn-toggle-source" class="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-700 text-slate-300 hover:text-white">
+                  View Source LaTeX
+                </button>
+              </div>
+            </div>
+
+            <!-- Proof Content Display -->
+            <div class="flex-1 overflow-y-auto pr-2">
+              <!-- KaTeX Rendered Proof Pane -->
+              <div id="proof-rendered-pane" class="bg-surface-900 p-6 rounded-xl border border-surface-700 font-serif text-sm text-slate-100 leading-relaxed space-y-4">
+                <div class="text-center text-slate-500 font-mono py-12">
+                  No verified formal proof artifact emitted yet for this job.
+                </div>
+              </div>
+
+              <!-- Raw LaTeX Source Pane (Hidden by default) -->
+              <textarea id="proof-source-pane" readonly class="hidden w-full h-full bg-surface-900 p-4 rounded-xl border border-surface-700 font-mono text-xs text-slate-200 leading-relaxed"></textarea>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── TAB 4: Prover Architecture ────────────────────────────────────── -->
+    <div id="tab-architecture" class="tab-pane hidden space-y-6">
+      <div class="bg-surface-800 p-8 rounded-2xl border border-surface-700 max-w-4xl mx-auto space-y-6">
+        <div>
+          <h2 class="text-2xl font-bold text-white font-serif">The Prime Math Agent Framework</h2>
+          <p class="text-sm text-slate-300 mt-1">Autonomous multi-agent mathematical reasoning harness designed for theoretical research.</p>
+        </div>
+
+        <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+          <p>
+            Unlike general-purpose conversational LLMs that hallucinate inductive leaps, <strong>Prime Math</strong> executes a disciplined, multi-turn cognitive cycle governed by formal guardrails:
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div class="p-4 bg-surface-900 rounded-xl border border-surface-700 space-y-1.5">
+              <div class="text-xs font-mono font-bold text-indigo-400 flex items-center space-x-1.5">
+                <i data-lucide="compass" class="w-4 h-4"></i>
+                <span>1. Context Architect</span>
+              </div>
+              <p class="text-xs text-slate-400">Analyzes theorem preconditions, extracts invariants, maps combinatorial constraints, and isolates verified definitions.</p>
+            </div>
+
+            <div class="p-4 bg-surface-900 rounded-xl border border-surface-700 space-y-1.5">
+              <div class="text-xs font-mono font-bold text-emerald-400 flex items-center space-x-1.5">
+                <i data-lucide="binary" class="w-4 h-4"></i>
+                <span>2. AST-Scanned REPL Kernel</span>
+              </div>
+              <p class="text-xs text-slate-400">Executes SymPy, Z3, and NetworkX computations in a secure isolated environment. AST inspection blocks unverified assumptions.</p>
+            </div>
+
+            <div class="p-4 bg-surface-900 rounded-xl border border-surface-700 space-y-1.5">
+              <div class="text-xs font-mono font-bold text-amber-400 flex items-center space-x-1.5">
+                <i data-lucide="shield-check" class="w-4 h-4"></i>
+                <span>3. Academic Proof Auditor</span>
+              </div>
+              <p class="text-xs text-slate-400">Independent adversarial referee subagent that scores validity, rigor, and boundary conditions. Flags structural gaps with surgical precision.</p>
+            </div>
+
+            <div class="p-4 bg-surface-900 rounded-xl border border-surface-700 space-y-1.5">
+              <div class="text-xs font-mono font-bold text-rose-400 flex items-center space-x-1.5">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                <span>4. Golden Balance Pivot Gate</span>
+              </div>
+              <p class="text-xs text-slate-400">Protects improving drafts on single strikes while immediately executing clean-slate hard pivots on confirmed dead ends.</p>
+            </div>
+          </div>
+
+          <div class="p-4 bg-brand-900/30 rounded-xl border border-brand-500/30 space-y-1.5">
+            <div class="text-xs font-mono font-bold text-brand-300 flex items-center space-x-1.5">
+              <i data-lucide="award" class="w-4 h-4"></i>
+              <span>5. Publication Scribe Subagent</span>
+            </div>
+            <p class="text-xs text-slate-300">An isolated synthesis subagent that receives the verified claim ledger and typesets a self-contained, journal-grade LaTeX proof.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB 5: Operator Admin (Admin Only) ────────────────────────────── -->
+    <div id="tab-admin" class="tab-pane hidden space-y-6">
+      <div class="bg-surface-800 p-6 rounded-2xl border border-surface-700 space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-amber-400 flex items-center space-x-2">
+            <i data-lucide="sliders" class="w-5 h-5"></i>
+            <span>Operator Precedence & Cluster Controls</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">Manage worker concurrency and toggle operator lock during high-priority benchmark evaluation.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Operator Priority Switch -->
+          <div class="bg-surface-900 p-5 rounded-xl border border-surface-700 space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-sm font-bold text-white">Operator Priority Lock</div>
+                <div class="text-xs text-slate-400">Holds web queue jobs so local operator tasks have 100% priority.</div>
+              </div>
+              <button onclick="toggleOperatorLock()" id="btn-operator-lock-toggle" class="px-4 py-2 rounded-lg font-mono text-xs font-bold transition">
+                TOGGLE
+              </button>
+            </div>
+            <div>
+              <label class="block text-xs font-mono text-slate-400 mb-1">Reason Message (Displayed to users):</label>
+              <input type="text" id="admin-lock-reason" class="w-full bg-surface-800 border border-surface-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono">
+            </div>
+          </div>
+
+          <!-- Generate Invitation Keys -->
+          <div class="bg-surface-900 p-5 rounded-xl border border-surface-700 space-y-3">
+            <div>
+              <div class="text-sm font-bold text-white">Issue Invitation Key</div>
+              <div class="text-xs text-slate-400">Generate a unique key for an invited research mathematician.</div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <input type="text" id="admin-invite-notes" placeholder="Notes (e.g. Dr. Terence Tao)" class="flex-1 bg-surface-800 border border-surface-700 rounded-lg px-3 py-1.5 text-xs text-slate-200">
+              <button onclick="generateInviteKey()" class="px-4 py-1.5 bg-brand-600 hover:bg-brand-500 rounded-lg text-xs font-medium text-white transition">
+                Generate
+              </button>
+            </div>
+            <div id="new-invite-output" class="hidden p-2 rounded bg-surface-800 text-xs font-mono text-brand-300"></div>
+          </div>
+        </div>
+
+        <!-- Invitation Keys Table -->
+        <div class="space-y-3">
+          <h3 class="text-xs font-mono font-bold text-slate-300 uppercase">Active Invitation Keys</h3>
+          <div class="bg-surface-900 rounded-xl border border-surface-700 overflow-hidden">
+            <table class="w-full text-left text-xs font-mono">
+              <thead class="bg-surface-800 text-slate-400 border-b border-surface-700">
+                <tr>
+                  <th class="p-3">Key Code</th>
+                  <th class="p-3">Created</th>
+                  <th class="p-3">Used By</th>
+                  <th class="p-3">Notes</th>
+                </tr>
+              </thead>
+              <tbody id="invitations-table-body" class="divide-y divide-surface-800 text-slate-300">
+                <!-- Dynamically loaded -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── Authentication & Invitation Modal ──────────────────────────────── -->
+  <div id="auth-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-surface-800 border border-surface-700 max-w-md w-full rounded-2xl p-6 shadow-2xl space-y-5 animate-in fade-in duration-200">
+      
+      <div class="flex items-center justify-between border-b border-surface-700 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-serif font-bold">
+            ℙ
+          </div>
+          <div>
+            <h3 class="font-bold text-white text-base">Mathematician Access</h3>
+            <p class="text-[10px] text-indigo-400 font-mono">Invitation-Protected Research Portal</p>
+          </div>
+        </div>
+        <button onclick="closeAuthModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-mono text-slate-300 mb-1">Academic Email:</label>
+          <input type="email" id="auth-email" placeholder="mathematician@ias.edu" class="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-brand-500 font-mono">
+        </div>
+
+        <div>
+          <label class="block text-xs font-mono text-slate-300 mb-1">Invitation Code / Key:</label>
+          <input type="text" id="auth-invite-code" placeholder="PRIME_MATH_MATHEMATICIAN_2026" class="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-brand-500 font-mono uppercase">
+          <p class="text-[10px] text-slate-500 mt-1">Default master key: <code class="text-indigo-400">PRIME_MATH_MATHEMATICIAN_2026</code></p>
+        </div>
+
+        <div id="auth-error-msg" class="hidden p-2.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-mono"></div>
+
+        <button onclick="handleLoginSubmit()" class="w-full py-2.5 rounded-xl font-medium text-sm bg-brand-600 hover:bg-brand-500 text-white shadow-lg transition flex items-center justify-center space-x-1.5">
+          <i data-lucide="unlock" class="w-4 h-4"></i>
+          <span>Authenticate & Enter Portal</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Application Client Logic ────────────────────────────────────────── -->
+  <script>
+    // Global state
+    let currentUser = null;
+    let currentJobId = null;
+    let logEventSource = null;
+    let terminalAutoScroll = true;
+    let proofSourceVisible = false;
+    let examplesCache = [];
+
+    // Initialize application on load
+    document.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+      await checkAuthStatus();
+      await loadExamples();
+      setupFormListeners();
+      await refreshQueue();
+      setInterval(pollQueueAndStatus, 4000);
+    });
+
+    // ── Tab Navigation ───────────────────────────────────────────────────────
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('#nav-tabs button').forEach(el => {
+        el.classList.remove('bg-surface-700', 'text-white');
+        el.classList.add('text-slate-400');
+      });
+
+      const activePane = document.getElementById(`tab-${tabId}`);
+      const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+      if (activePane) activePane.classList.remove('hidden');
+      if (activeBtn) {
+        activeBtn.classList.add('bg-surface-700', 'text-white');
+        activeBtn.classList.remove('text-slate-400');
+      }
+
+      if (tabId === 'queue') refreshQueue();
+      if (tabId === 'admin') loadAdminData();
+      lucide.createIcons();
+    }
+
+    // ── Auth Handling ────────────────────────────────────────────────────────
+    async function checkAuthStatus() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          currentUser = await res.json();
+          renderUserUI();
+        } else {
+          currentUser = null;
+          renderUserUI();
+        }
+      } catch {
+        currentUser = null;
+        renderUserUI();
+      }
+    }
+
+    function renderUserUI() {
+      const userBadge = document.getElementById('user-badge');
+      const loginBtn = document.getElementById('login-modal-btn');
+      const adminTabBtn = document.getElementById('tab-btn-admin');
+
+      if (currentUser) {
+        userBadge.classList.remove('hidden');
+        loginBtn.classList.add('hidden');
+        document.getElementById('user-email-display').innerText = currentUser.email;
+        document.getElementById('user-role-badge').innerText = currentUser.role;
+        if (currentUser.role === 'admin') {
+          adminTabBtn.classList.remove('hidden');
+        } else {
+          adminTabBtn.classList.add('hidden');
+        }
+      } else {
+        userBadge.classList.add('hidden');
+        loginBtn.classList.remove('hidden');
+        adminTabBtn.classList.add('hidden');
+      }
+    }
+
+    function openAuthModal() {
+      document.getElementById('auth-modal').classList.remove('hidden');
+      document.getElementById('auth-error-msg').classList.add('hidden');
+    }
+
+    function closeAuthModal() {
+      document.getElementById('auth-modal').classList.add('hidden');
+    }
+
+    async function handleLoginSubmit() {
+      const email = document.getElementById('auth-email').value.trim();
+      const code = document.getElementById('auth-invite-code').value.trim();
+      const errBox = document.getElementById('auth-error-msg');
+
+      if (!email || !code) {
+        errBox.innerText = "Please enter both email and invitation code.";
+        errBox.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, invite_code: code }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          currentUser = { email: data.email, role: data.role };
+          renderUserUI();
+          closeAuthModal();
+          await refreshQueue();
+        } else {
+          errBox.innerText = data.detail || "Authentication failed.";
+          errBox.classList.remove('hidden');
+        }
+      } catch (err) {
+        errBox.innerText = "Connection error. Please try again.";
+        errBox.classList.remove('hidden');
+      }
+    }
+
+    async function handleLogout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      currentUser = null;
+      renderUserUI();
+    }
+
+    // ── Examples & Form Population ───────────────────────────────────────────
+    async function loadExamples() {
+      try {
+        const res = await fetch('/api/examples');
+        examplesCache = await res.json();
+        const container = document.getElementById('example-buttons-container');
+        container.innerHTML = '';
+
+        examplesCache.forEach((ex, idx) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'text-left px-2.5 py-1.5 rounded-lg text-xs font-mono text-slate-300 hover:text-white hover:bg-surface-800 transition border border-surface-700/60 truncate flex items-center justify-between';
+          btn.innerHTML = `<span>${ex.title}</span> <span class="text-[10px] text-brand-400 ml-1">Load</span>`;
+          btn.onclick = () => loadExampleIntoForm(idx);
+          container.appendChild(btn);
+        });
+
+        // Load first example by default
+        if (examplesCache.length > 0) {
+          loadExampleIntoForm(0);
+        }
+      } catch (e) {
+        console.error("Could not load examples:", e);
+      }
+    }
+
+    function loadExampleIntoForm(index) {
+      const ex = examplesCache[index];
+      if (!ex) return;
+
+      document.getElementById('input-problem-id').value = ex.problem_id;
+      document.getElementById('input-title').value = ex.title;
+      document.getElementById('input-field').value = ex.field || 'Combinatorics & Number Theory';
+      document.getElementById('input-context').value = ex.context || '';
+      document.getElementById('input-statement').value = ex.statement || '';
+      document.getElementById('input-hypotheses').value = (ex.hypotheses || []).join(', ');
+      document.getElementById('input-max-turns').value = ex.max_iterations || 8;
+
+      syncFormToRawJSON();
+      renderLatexPreview();
+    }
+
+    function setupFormListeners() {
+      const inputs = ['input-title', 'input-field', 'input-context', 'input-statement'];
+      inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('input', () => {
+            syncFormToRawJSON();
+            renderLatexPreview();
+          });
+        }
+      });
+
+      const rawEl = document.getElementById('input-raw-json');
+      if (rawEl) {
+        rawEl.addEventListener('input', () => {
+          try {
+            const data = JSON.parse(rawEl.value);
+            if (data.problem_id) document.getElementById('input-problem-id').value = data.problem_id;
+            if (data.title) document.getElementById('input-title').value = data.title;
+            if (data.field) document.getElementById('input-field').value = data.field;
+            if (data.context) document.getElementById('input-context').value = data.context;
+            if (data.statement) document.getElementById('input-statement').value = data.statement;
+            if (data.hypotheses) document.getElementById('input-hypotheses').value = data.hypotheses.join(', ');
+            renderLatexPreview();
+          } catch {}
+        });
+      }
+    }
+
+    function syncFormToRawJSON() {
+      const obj = {
+        problem_id: document.getElementById('input-problem-id').value.trim(),
+        title: document.getElementById('input-title').value.trim(),
+        field: document.getElementById('input-field').value,
+        context: document.getElementById('input-context').value.trim(),
+        statement: document.getElementById('input-statement').value.trim(),
+        hypotheses: document.getElementById('input-hypotheses').value.split(',').map(s => s.trim()).filter(Boolean),
+        max_iterations: parseInt(document.getElementById('input-max-turns').value) || 8,
+      };
+      document.getElementById('input-raw-json').value = JSON.stringify(obj, null, 2);
+    }
+
+    function renderLatexPreview() {
+      const title = document.getElementById('input-title').value || "Theorem Title";
+      const field = document.getElementById('input-field').value;
+      const context = document.getElementById('input-context').value || "Enter definitions and context...";
+      const statement = document.getElementById('input-statement').value || "Enter target statement to prove...";
+
+      document.getElementById('preview-title').innerText = title;
+      document.getElementById('preview-field').innerText = field;
+
+      const stmtEl = document.getElementById('preview-statement');
+      stmtEl.innerText = statement;
+
+      const ctxEl = document.getElementById('preview-context');
+      ctxEl.innerText = context;
+
+      if (window.renderMathInElement) {
+        renderMathInElement(stmtEl, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '\\[', right: '\\]', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\(', right: '\\)', display: false}
+          ],
+          throwOnError: false
+        });
+        renderMathInElement(ctxEl, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '\\[', right: '\\]', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\(', right: '\\)', display: false}
+          ],
+          throwOnError: false
+        });
+      }
+    }
+
+    function formatJSONInput() {
+      syncFormToRawJSON();
+    }
+
+    function validateCurrentInput() {
+      const fb = document.getElementById('validation-feedback');
+      fb.classList.remove('hidden');
+
+      const pid = document.getElementById('input-problem-id').value.trim();
+      const title = document.getElementById('input-title').value.trim();
+      const stmt = document.getElementById('input-statement').value.trim();
+
+      if (!pid || !title || !stmt) {
+        fb.className = "p-3 rounded-lg text-xs font-mono bg-rose-500/10 text-rose-300 border border-rose-500/30";
+        fb.innerText = "❌ Validation Failed: problem_id, title, and statement are strictly required.";
+        return false;
+      }
+
+      fb.className = "p-3 rounded-lg text-xs font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/30";
+      fb.innerText = "✓ Schema Valid: Problem specification is ready for autonomous proving.";
+      return true;
+    }
+
+    // ── Problem Submission ───────────────────────────────────────────────────
+    async function submitProblemForm() {
+      if (!currentUser) {
+        openAuthModal();
+        return;
+      }
+
+      if (!validateCurrentInput()) return;
+
+      const payload = {
+        problem_id: document.getElementById('input-problem-id').value.trim(),
+        title: document.getElementById('input-title').value.trim(),
+        field: document.getElementById('input-field').value,
+        context: document.getElementById('input-context').value.trim(),
+        statement: document.getElementById('input-statement').value.trim(),
+        hypotheses: document.getElementById('input-hypotheses').value.split(',').map(s => s.trim()).filter(Boolean),
+        max_iterations: parseInt(document.getElementById('input-max-turns').value) || 8,
+      };
+
+      try {
+        const res = await fetch('/api/problems/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          switchTab('queue');
+          await refreshQueue();
+          selectJob(data.job_id);
+        } else {
+          alert(`Submission failed: ${data.detail || 'Unknown error'}`);
+        }
+      } catch (err) {
+        alert("Submission network error: " + err.message);
+      }
+    }
+
+    // ── Queue & Job Status ───────────────────────────────────────────────────
+    async function refreshQueue() {
+      try {
+        const res = await fetch('/api/jobs');
+        if (!res.ok) return;
+        const jobs = await res.json();
+        const tbody = document.getElementById('queue-table-body');
+        tbody.innerHTML = '';
+
+        if (jobs.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500 font-mono">No mathematical problems in queue. Submit a problem to start!</td></tr>`;
+          return;
+        }
+
+        jobs.forEach(j => {
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-surface-700/40 transition cursor-pointer";
+          tr.onclick = (e) => {
+            if (!e.target.closest('button')) selectJob(j.id);
+          };
+
+          let statusBadge = '';
+          if (j.status === 'running') {
+            statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse">Running</span>`;
+          } else if (j.status === 'completed') {
+            statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Verified</span>`;
+          } else if (j.status === 'held_operator_priority') {
+            statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">Held (Priority)</span>`;
+          } else if (j.status === 'queued') {
+            statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-slate-700 text-slate-300">Queued (${j.queue_position ? '#' + j.queue_position : '-'})</span>`;
+          } else {
+            statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-rose-500/20 text-rose-300">${j.status}</span>`;
+          }
+
+          const valText = j.validity !== null && j.validity !== undefined ? `${j.validity.toFixed(2)}` : '-';
+          const durText = j.duration_s ? `${j.duration_s.toFixed(1)}s` : '-';
+          const timeAgo = formatTimeAgo(j.created_at);
+
+          tr.innerHTML = `
+            <td class="p-4">${statusBadge}</td>
+            <td class="p-4 font-bold text-white max-w-[200px] truncate" title="${j.title}">${j.title}</td>
+            <td class="p-4 text-slate-400 max-w-[150px] truncate">${j.field}</td>
+            <td class="p-4 text-slate-300">${j.iterations} / ${j.max_iterations}</td>
+            <td class="p-4 font-bold ${j.validity >= 0.5 ? 'text-emerald-400' : 'text-slate-400'}">${valText}</td>
+            <td class="p-4 text-slate-400">${durText}</td>
+            <td class="p-4 text-slate-400">${timeAgo}</td>
+            <td class="p-4 text-right">
+              <button onclick="selectJob('${j.id}')" class="px-2.5 py-1 rounded bg-surface-700 hover:bg-brand-600 text-slate-200 hover:text-white transition text-xs">
+                Inspect
+              </button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+      } catch (err) {
+        console.error("Queue refresh error:", err);
+      }
+    }
+
+    async function pollQueueAndStatus() {
+      try {
+        const res = await fetch('/api/health');
+        if (res.ok) {
+          const h = await res.json();
+          const pill = document.getElementById('cluster-status-pill');
+          const pillText = document.getElementById('cluster-status-text');
+          const banner = document.getElementById('operator-priority-banner');
+
+          if (h.operator_lock) {
+            pill.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20";
+            pillText.innerText = "Operator Priority";
+            banner.classList.remove('hidden');
+            document.getElementById('operator-banner-reason').innerText = h.operator_lock_reason || "Operator benchmark active.";
+          } else {
+            pill.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+            pillText.innerText = `${h.active_workers} / ${h.max_workers} Workers Active`;
+            banner.classList.add('hidden');
+          }
+        }
+      } catch {}
+
+      // If viewing studio tab and job is running, refresh details
+      if (currentJobId) {
+        loadJobDetails(currentJobId, false);
+      }
+    }
+
+    // ── Proof Studio & Live Logs ─────────────────────────────────────────────
+    async function selectJob(jobId) {
+      currentJobId = jobId;
+      switchTab('studio');
+      await loadJobDetails(jobId, true);
+      startLiveLogStream(jobId);
+    }
+
+    async function loadJobDetails(jobId, fullReset = true) {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        if (!res.ok) return;
+        const job = await res.json();
+
+        document.getElementById('studio-job-id').innerText = job.id;
+        document.getElementById('studio-job-status').innerText = job.status.toUpperCase();
+        document.getElementById('studio-job-title').innerText = job.title;
+
+        // Render proof if present
+        const proofPane = document.getElementById('proof-rendered-pane');
+        const sourcePane = document.getElementById('proof-source-pane');
+
+        if (job.candidate_proof && job.candidate_proof.trim()) {
+          sourcePane.value = job.candidate_proof;
+          proofPane.innerHTML = `<div class="prose prose-invert max-w-none">${escapeHtml(job.candidate_proof).replace(/\\n/g, '<br>')}</div>`;
+          if (window.renderMathInElement) {
+            renderMathInElement(proofPane, {
+              delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '\\[', right: '\\]', display: true},
+                {left: '$', right: '$', display: false},
+                {left: '\\(', right: '\\)', display: false}
+              ],
+              throwOnError: false
+            });
+          }
+        } else if (fullReset) {
+          proofPane.innerHTML = `<div class="text-center text-slate-500 font-mono py-12">Prover in progress (Turn ${job.iterations}/${job.max_iterations}). Awaiting formal proof emission...</div>`;
+          sourcePane.value = "";
+        }
+      } catch (err) {
+        console.error("Job detail load error:", err);
+      }
+    }
+
+    function startLiveLogStream(jobId) {
+      if (logEventSource) {
+        logEventSource.close();
+      }
+
+      const term = document.getElementById('terminal-log-output');
+      term.innerText = `[Connecting to live log stream for ${jobId}...]\n`;
+
+      logEventSource = new EventSource(`/api/jobs/${jobId}/logs/stream`);
+      logEventSource.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.chunk) {
+            term.innerText += data.chunk;
+            if (terminalAutoScroll) {
+              term.scrollTop = term.scrollHeight;
+            }
+          }
+          if (data.done) {
+            term.innerText += `\n[Job completed with status: ${data.status}]\n`;
+            logEventSource.close();
+          }
+        } catch {}
+      };
+
+      logEventSource.onerror = () => {
+        term.innerText += `\n[Live stream paused / job idle]\n`;
+        logEventSource.close();
+      };
+    }
+
+    function toggleTerminalAutoScroll() {
+      terminalAutoScroll = !terminalAutoScroll;
+      const btn = document.getElementById('btn-autoscroll');
+      btn.innerText = `Auto-scroll: ${terminalAutoScroll ? 'ON' : 'OFF'}`;
+      btn.className = terminalAutoScroll
+        ? "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+        : "text-[10px] font-mono px-2 py-0.5 rounded bg-surface-700 text-slate-400";
+    }
+
+    function clearTerminalLog() {
+      document.getElementById('terminal-log-output').innerText = "";
+    }
+
+    function toggleProofSourceView() {
+      proofSourceVisible = !proofSourceVisible;
+      const rPane = document.getElementById('proof-rendered-pane');
+      const sPane = document.getElementById('proof-source-pane');
+      const btn = document.getElementById('btn-toggle-source');
+
+      if (proofSourceVisible) {
+        rPane.classList.add('hidden');
+        sPane.classList.remove('hidden');
+        btn.innerText = "View Rendered LaTeX";
+      } else {
+        rPane.classList.remove('hidden');
+        sPane.classList.add('hidden');
+        btn.innerText = "View Source LaTeX";
+      }
+    }
+
+    async function copyCurrentProof() {
+      const sourcePane = document.getElementById('proof-source-pane');
+      if (!sourcePane.value) {
+        alert("No proof content available to copy.");
+        return;
+      }
+      await navigator.clipboard.writeText(sourcePane.value);
+      alert("Formal LaTeX proof copied to clipboard!");
+    }
+
+    function downloadProofTex() {
+      const sourcePane = document.getElementById('proof-source-pane');
+      if (!sourcePane.value) {
+        alert("No proof content available to download.");
+        return;
+      }
+      const blob = new Blob([sourcePane.value], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${currentJobId || 'proof'}.tex`;
+      a.click();
+    }
+
+    // ── Admin Controls ───────────────────────────────────────────────────────
+    async function loadAdminData() {
+      try {
+        const sRes = await fetch('/api/admin/settings');
+        if (sRes.ok) {
+          const s = await sRes.json();
+          const btn = document.getElementById('btn-operator-lock-toggle');
+          if (s.operator_lock) {
+            btn.className = "px-4 py-2 rounded-lg font-mono text-xs font-bold transition bg-amber-500 hover:bg-amber-400 text-surface-900";
+            btn.innerText = "LOCKED (OPERATOR PRIORITY)";
+          } else {
+            btn.className = "px-4 py-2 rounded-lg font-mono text-xs font-bold transition bg-surface-700 hover:bg-surface-600 text-slate-300";
+            btn.innerText = "UNLOCKED (NORMAL QUEUE)";
+          }
+          document.getElementById('admin-lock-reason').value = s.operator_lock_reason || "";
+        }
+
+        const iRes = await fetch('/api/admin/invitations');
+        if (iRes.ok) {
+          const invites = await iRes.json();
+          const tbody = document.getElementById('invitations-table-body');
+          tbody.innerHTML = '';
+          invites.forEach(inv => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td class="p-3 font-bold text-brand-300">${inv.code}</td>
+              <td class="p-3 text-slate-400">${formatTimeAgo(inv.created_at)}</td>
+              <td class="p-3 text-slate-300">${inv.used_by || '<span class="text-emerald-400">Unused</span>'}</td>
+              <td class="p-3 text-slate-400">${inv.notes || '-'}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+      } catch (err) {
+        console.error("Admin data load error:", err);
+      }
+    }
+
+    async function toggleOperatorLock() {
+      const reason = document.getElementById('admin-lock-reason').value.trim() || "Operator evaluation running on local APU workers";
+      const btn = document.getElementById('btn-operator-lock-toggle');
+      const isCurrentlyLocked = btn.innerText.includes("LOCKED");
+      const newLocked = !isCurrentlyLocked;
+
+      await fetch('/api/admin/lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locked: newLocked, reason }),
+      });
+      await loadAdminData();
+      await pollQueueAndStatus();
+    }
+
+    async function generateInviteKey() {
+      const notes = document.getElementById('admin-invite-notes').value.trim() || "Mathematician Key";
+      const res = await fetch('/api/admin/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      });
+      const data = await res.json();
+      const out = document.getElementById('new-invite-output');
+      out.classList.remove('hidden');
+      out.innerHTML = `Generated Key: <strong class="text-white select-all">${data.code}</strong> (Copied!)`;
+      await navigator.clipboard.writeText(data.code);
+      await loadAdminData();
+    }
+
+    // ── Utilities ────────────────────────────────────────────────────────────
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function formatTimeAgo(isoString) {
+      if (!isoString) return '-';
+      const sec = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+      if (sec < 60) return `${sec}s ago`;
+      const min = Math.floor(sec / 60);
+      if (min < 60) return `${min}m ago`;
+      const hrs = Math.floor(min / 60);
+      return `${hrs}h ago`;
+    }
+  </script>
+</body>
+</html>
