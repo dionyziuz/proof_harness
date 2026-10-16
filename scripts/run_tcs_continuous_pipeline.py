@@ -466,6 +466,18 @@ def process_single_task(
     summary = scorecard.record_judgment(orig_idx, task_id, solve_rec, judge_rec)
     display_task_update(summary, orig_idx, task_id, solve_rec, judge_rec)
 
+    # Step 5.5: Automatic Procedural Memory Hygiene (prune unconfirmed heuristics if Official TCS Judge rejects)
+    try:
+        b_val = (judge_rec.get("b") or {}).get("validity")
+        threshold = summary.get("threshold", TCS_PASS_THRESHOLD)
+        if (b_val is None or b_val < threshold) and solve_rec.get("learned_heuristics"):
+            from core_engine.memory import CoALAMemoryManager
+            pruned_n = CoALAMemoryManager().remove_by_task_id("prime_math_procedural", task_id)
+            if pruned_n:
+                log(f"[yellow][{task_id}] Pruned {pruned_n} unconfirmed heuristic(s) after Official TCS Judge rejection.[/yellow]")
+    except Exception as e:
+        log(f"[yellow]Procedural memory hygiene check warning for {task_id}: {e}[/yellow]")
+
     # Step 6: Live Telegram notification
     if getattr(args, "telegram", False):
         try:

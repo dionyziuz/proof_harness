@@ -999,7 +999,14 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 # High-Confidence Early Exit (requires validity >= 0.90)
                 # Borderline drafts (e.g. validity 0.80 - 0.89) are saved in best_candidate,
                 # but the loop continues across the full turn budget to resolve subtle defects.
-                is_high_confidence_exit = (validity >= THRESHOLDS.early_exit_validity and verdict == "VALID")
+                no_referee_issues = not issues or issues.strip().lower() == "none"
+                is_high_confidence_exit = (
+                    verdict == "VALID"
+                    and (
+                        validity >= THRESHOLDS.early_exit_validity
+                        or (turn >= current_max_turns and no_referee_issues)
+                    )
+                )
                 if is_high_confidence_exit:
                     self._log_write(f"[Audit Passed] Proof verified on Turn {turn} (validity: {validity:.2f}). Early-terminating to prevent multi-turn degradation.\n")
                     if on_step:
@@ -1019,6 +1026,13 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                             "Re-check every step of the proof for gaps, unproved claims, missing base cases and "
                             "unverified lemma preconditions, and tighten the argument."
                         )
+                    elif verdict == "VALID" and no_referee_issues:
+                        issues = (
+                            f"The referee scored this draft as VALID (validity: {validity:.2f}) with no fatal flaws, "
+                            f"but below the {THRESHOLDS.early_exit_validity:.2f} early-termination threshold. "
+                            "Tighten every intermediate justification, explicitly verify all boundary and base cases, "
+                            "and ensure every inequality direction and theorem precondition is proved step-by-step."
+                        )
                     else:
                         rejection_count += 1
                     self._log_write(f"[Audit Flagged Issues] (verdict: {verdict}, validity: {validity:.2f}, rejection #{rejection_count})\n{issues}\n")
@@ -1032,7 +1046,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                     # dynamically grant a 4-turn overtime extension for surgical repair.
                     enable_overtime = getattr(self.config, "enable_overtime", True)
                     overtime_iters = getattr(self.config, "overtime_iterations", 4)
-                    overtime_thresh = getattr(self.config, "overtime_validity_threshold", 0.30)
+                    overtime_thresh = getattr(self.config, "overtime_validity_threshold", 0.35)
                     overtime_triggered_now = False
                     if (
                         enable_overtime
@@ -1040,10 +1054,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                         and current_max_turns == max_turns
                         and not result.verified
                     ):
-                        best_val = max(
-                            pool.best_validity if pool.best else validity,
-                            getattr(audit_res, "structural_validity", 0.0),
-                        )
+                        best_val = pool.best_validity if pool.best else validity
                         if best_val >= overtime_thresh:
                             current_max_turns += overtime_iters
                             overtime_triggered_now = True
@@ -1633,17 +1644,31 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
 
         try:
             if best_candidate and is_valid_latex_proof(best_candidate.proof):
+                result.candidate_proof = best_candidate.proof
+                result.final_response = best_candidate.proof
+                if best_candidate.verdict == "VALID" and (
+                    not best_candidate.issues or best_candidate.issues.strip().lower() == "none"
+                ):
+                    self._log_write(
+                        f"\n[Synthesis Optimization] Best Candidate (Turn {best_candidate.turn}, "
+                        f"validity: {best_candidate.validity:.2f}) already passed two-pass audit with no issues; "
+                        f"skipping redundant revision passes.\n"
+                    )
+                    result.verified = True
+                    return best_candidate
                 self._log_write(
                     f"\n[Synthesis Optimization] Skipping redundant Attempt 2 (Synthesis Turn); "
                     f"entering Synthesis Revision 1/2 directly on Best Candidate (Turn {best_candidate.turn}, "
                     f"validity: {best_candidate.validity:.2f}, structural: {best_candidate.structural_validity:.2f}).\n"
                 )
                 current_proof = best_candidate.proof
-                current_issues = best_candidate.issues or last_issues
+                current_issues = (
+                    best_candidate.issues
+                    if (best_candidate.issues and best_candidate.issues.strip().lower() != "none")
+                    else last_issues
+                )
                 current_synth_text = best_candidate.proof
                 synth_text = best_candidate.proof
-                result.candidate_proof = best_candidate.proof
-                result.final_response = best_candidate.proof
             else:
                 self._log_write("\n[Synthesis Turn: Emitting Publication Proof]\n")
                 synth_reasoning_text, synth_text = self._stream_completion_with_retry(

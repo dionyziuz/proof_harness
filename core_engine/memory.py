@@ -216,6 +216,30 @@ class CoALAMemoryManager:
             _COLLECTIONS_CACHE.pop(str(col_dir), None)
             return uid
 
+    def remove_by_task_id(self, collection_name: str, task_id: str) -> int:
+        """Removes any entries associated with a given task_id (e.g., if an external judge rejects the proof)."""
+        if not task_id:
+            return 0
+        with self._lock:
+            col_dir, index_path, meta_path = self._ensure_collection(collection_name)
+            meta_store = self._load_metadata(meta_path)
+            to_remove = [k for k, v in meta_store.items() if isinstance(v, dict) and v.get("task_id") == task_id]
+            if not to_remove:
+                return 0
+            index = self._open_or_rebuild_index(index_path, meta_path)
+            for k in to_remove:
+                meta_store.pop(k, None)
+                try:
+                    uid = int(k)
+                    if index.contains(uid):
+                        index.remove(uid)
+                except Exception:
+                    pass
+            index.write(str(index_path))
+            self._save_metadata(meta_path, meta_store)
+            _COLLECTIONS_CACHE.pop(str(col_dir), None)
+            return len(to_remove)
+
     def check_health(self) -> bool:
         """Verifies the built-in TurboVec library and local storage directory are available."""
         if self.base_url and ("99999" in self.base_url or "invalid" in self.base_url):

@@ -134,7 +134,7 @@ class TCSConfig:
     # High-Potential Overtime Gate
     enable_overtime: bool = True
     overtime_iterations: int = 4
-    overtime_validity_threshold: float = 0.30
+    overtime_validity_threshold: float = 0.35
     overtime_seconds_per_iter: float = 450.0
 
     # Subagents: Proof Auditor
@@ -209,7 +209,7 @@ def load_tcs_config(env_path: Optional[Path] = None, reload: bool = False) -> TC
 
         enable_overtime=_bool_env("TCS_ENABLE_OVERTIME", True),
         overtime_iterations=_int_env("TCS_OVERTIME_ITERATIONS", 4),
-        overtime_validity_threshold=_float_env("TCS_OVERTIME_VALIDITY_THRESHOLD", 0.30),
+        overtime_validity_threshold=_float_env("TCS_OVERTIME_VALIDITY_THRESHOLD", 0.35),
         overtime_seconds_per_iter=_float_env("TCS_OVERTIME_SECONDS_PER_ITER", 450.0),
 
         auditor_max_tokens=_int_env("TCS_AUDITOR_MAX_TOKENS", 8192),
