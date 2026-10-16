@@ -225,6 +225,19 @@ class ProverAuditorMixin:
                 f"cap \"validity\" at <= 0.25, and return \"verdict\": \"REJECT\"."
             )
 
+        # Stage 1.75: Stateful Prior-Defect Verification
+        prior_defects: List[str] = getattr(self, "_prior_audit_defects", [])
+        if prior_defects:
+            prior_block = "\n".join(f"  {idx + 1}. {d[:600]}" for idx, d in enumerate(prior_defects[-3:]))
+            stage1_note += (
+                f"\n\n[PRIOR REFEREE DEFECTS FROM EARLIER DRAFTS (MUST BE VERIFIED FIXED)]:\n"
+                f"{prior_block}\n"
+                f"CRITICAL: Check line-by-line whether the candidate proof still contains or relies on any of the "
+                f"prior defects listed above (including unstated parameter assumptions such as beta <= 1, sign errors, "
+                f"or unproved claims). If ANY prior defect remains unresolved anywhere in the proof, you MUST set "
+                f"\"verdict\": \"REJECT\" and cap \"validity\" at <= 0.40."
+            )
+
         audit_system = load_tcs_prompt("proof_auditor")
         audit_user = f"Target Problem & Context:\n{task_prompt}\n\nCandidate Proof to Audit:\n{proof_text}\n{stage1_note}"
         cfg = getattr(self, "config", None)
@@ -252,24 +265,25 @@ class ProverAuditorMixin:
                 break
             self._log_write("[Proof Auditor] Inconclusive referee output; retrying once.\n")
 
-        # Stage 2.5: Adversarial Confirmation on Borderline VALID ([0.75, 0.88])
+        # Stage 2.5: Adversarial Confirmation on VALID ([0.70, 0.92) or whenever prior defects existed)
         # Single-pass auditors occasionally rubber-stamp polished prose that contains an inverted
-        # inequality direction or an unproved complementary regime.
-        if result.verdict == "VALID" and 0.75 <= result.validity < 0.88:
+        # inequality direction, an unremoved prior defect, or an unproved complementary regime.
+        if result.verdict == "VALID" and (0.70 <= result.validity < 0.92 or bool(prior_defects)):
             try:
                 confirm_prompt = (
                     f"{audit_user}\n\n"
                     "[ADVERSARIAL SECOND-OPINION CHECK]:\n"
-                    "A preliminary review scored this draft as borderline valid. Perform a strict verification of:\n"
-                    "1. Statement & Domain Fidelity: Does the proof introduce ANY unstated parameter/structural restriction "
-                    "without proving the complementary regime?\n"
-                    "2. Inequality Direction Integrity: Does every chained inequality hold in the stated direction across the full domain?\n"
-                    "3. Unproved Intermediate Claims: Are any helper claims or lemma preconditions asserted without proof?\n"
+                    "A preliminary review scored this draft as valid. Perform a strict independent verification of:\n"
+                    "1. Prior Defect Elimination: Were ALL prior referee defects from earlier drafts completely removed?\n"
+                    "2. Statement & Domain Fidelity: Does the proof introduce ANY unstated parameter/structural restriction "
+                    "(e.g., 0 < beta <= 1) without proving the complementary regime?\n"
+                    "3. Inequality & Sign Integrity: Does every chained inequality and algebraic sign hold across the full domain?\n"
+                    "4. Unproved Intermediate Claims: Are any helper claims or lemma preconditions asserted without proof?\n"
                     "Respond with the required JSON object."
                 )
                 c_resp = self.client.complete(
                     [{"role": "system", "content": audit_system}, {"role": "user", "content": confirm_prompt}],
-                    temperature=0.1,
+                    temperature=0.2,
                     max_tokens=getattr(cfg, "auditor_max_tokens", 8192),
                     enable_thinking=True,
                     thinking_budget_tokens=getattr(cfg, "auditor_thinking_budget", 4096),
@@ -282,6 +296,12 @@ class ProverAuditorMixin:
                     result = c_result
             except Exception as e:
                 self._log_write(f"[Borderline Confirmation Warning]: {e}\n")
+
+        if result.verdict == "REJECT" and result.issues and result.issues.lower() != "none":
+            if not hasattr(self, "_prior_audit_defects"):
+                self._prior_audit_defects = []
+            if result.issues not in self._prior_audit_defects:
+                self._prior_audit_defects.append(result.issues)
 
         return result
 

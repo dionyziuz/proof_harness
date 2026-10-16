@@ -466,6 +466,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         context architect blueprint, and falsifier subagents.
         """
         self.memory.check_health()
+        self._prior_audit_defects = []
 
         if reset_kernel:
             self.kernel.reset()
