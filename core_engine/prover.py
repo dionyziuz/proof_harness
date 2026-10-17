@@ -1088,9 +1088,8 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                         pool_has_viable_foundation = bool(
                             pool.best
                             and (
-                                pool.best_validity >= THRESHOLDS.judge_pass_threshold
-                                or pool.best.has_substantive_structure
-                                or pool.best.structural_validity >= 0.40
+                                pool.best_validity >= THRESHOLDS.pivot_threshold
+                                or (pool.best.has_substantive_structure and pool.best.structural_validity >= 0.45)
                             )
                         )
                         is_improving = rejection_count >= 2 and (

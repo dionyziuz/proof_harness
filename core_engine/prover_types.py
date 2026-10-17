@@ -37,9 +37,13 @@ class AuditResult:
     @property
     def has_substantive_structure(self) -> bool:
         """True when the referee's structural sub-scores indicate a substantive partial proof
-        (completeness >= 0.35 or rigor >= 0.35) that should undergo surgical repair rather than
-        a destructive clean-slate hard pivot, even if a boolean gate capped overall validity.
+        that should undergo surgical repair rather than a destructive clean-slate hard pivot.
+        Requires genuine mathematical validity (validity >= 0.30 or structural_validity >= 0.45)
+        in addition to structural components, preventing superficial formatting from blocking pivots
+        on fundamentally flawed reductions.
         """
+        if self.validity < 0.30 and self.structural_validity < 0.45:
+            return False
         return self.completeness >= 0.35 or self.rigor >= 0.35
 
     def __iter__(self):
@@ -69,6 +73,8 @@ class CandidateRecord:
     @property
     def has_substantive_structure(self) -> bool:
         """True when structural sub-scores indicate a substantive partial proof."""
+        if self.validity < 0.30 and self.structural_validity < 0.45:
+            return False
         return self.completeness >= 0.35 or self.rigor >= 0.35
 
 
@@ -78,7 +84,7 @@ class ProverThresholds:
     early_exit_validity: float = 0.90       # Stop exploring only when the internal referee is near-certain
     audit_valid_floor: float = 0.80         # Internal referee VALID requires validity >= this (unless verdict text VALID >= 0.75)
     audit_verdict_floor: float = 0.75       # Referee explicitly says VALID and scores at least this
-    pivot_threshold: float = 0.25           # Below this after repeated stagnant rejections -> abandon reduction path
+    pivot_threshold: float = 0.30           # Below this after repeated stagnant rejections -> abandon reduction path
     hard_pivot_floor: float = 0.05          # At/below this -> abandon immediately
     restore_margin: float = 0.10            # Restore best earlier candidate if current is worse by this margin
     judge_pass_threshold: float = 0.50      # Benchmark passing threshold for the TCS referee
