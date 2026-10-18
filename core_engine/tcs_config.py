@@ -112,9 +112,9 @@ class TCSConfig:
     combinatorial_ceiling_n: int = 7
 
     # Subagents: Context Architect
-    architect_max_tokens: int = 4096
-    architect_thinking_budget: int = 1536
-    architect_timeout_seconds: float = 120.0
+    architect_max_tokens: int = 8192
+    architect_thinking_budget: int = 2048
+    architect_timeout_seconds: float = 180.0
 
     # Subagents: Computational Falsifier
     falsifier_max_tokens: int = 4096
@@ -191,9 +191,9 @@ def load_tcs_config(env_path: Optional[Path] = None, reload: bool = False) -> TC
         kernel_timeout_seconds=_float_env("TCS_KERNEL_TIMEOUT_SECONDS", 12.0),
         combinatorial_ceiling_n=_int_env("TCS_COMBINATORIAL_CEILING_N", 7),
 
-        architect_max_tokens=_int_env("TCS_ARCHITECT_MAX_TOKENS", 4096),
-        architect_thinking_budget=_int_env("TCS_ARCHITECT_THINKING_BUDGET", 1536),
-        architect_timeout_seconds=_float_env("TCS_ARCHITECT_TIMEOUT_SECONDS", 120.0),
+        architect_max_tokens=_int_env("TCS_ARCHITECT_MAX_TOKENS", 8192),
+        architect_thinking_budget=_int_env("TCS_ARCHITECT_THINKING_BUDGET", 2048),
+        architect_timeout_seconds=_float_env("TCS_ARCHITECT_TIMEOUT_SECONDS", 180.0),
 
         falsifier_max_tokens=_int_env("TCS_FALSIFIER_MAX_TOKENS", 4096),
         falsifier_thinking_budget=_int_env("TCS_FALSIFIER_THINKING_BUDGET", 1536),

@@ -72,9 +72,13 @@ class ProverStagesMixin:
             resp = self.client.complete(
                 [{"role": "system", "content": arch_system}, {"role": "user", "content": arch_user}],
                 temperature=0.2,
-                **self._stage_budget("architect", 4096, 1536, 120.0),
+                **self._stage_budget("architect", 8192, 2048, 180.0),
             )
             blueprint = resp.content.strip() if resp.content else ""
+            # Guard against leaked scratchpad fragments when reasoning budget exhausts output tokens
+            if blueprint and len(blueprint) < 250 and "###" not in blueprint and "Strategy" not in blueprint:
+                self._log_write(f"[Context Architect] Discarding truncated scratchpad fragment ({len(blueprint)} chars).\n")
+                blueprint = ""
             self._log_write(f"[Context Architect Output]:\n{blueprint}\n")
             if blueprint and hasattr(self, "kernel"):
                 self._seed_state_from_blueprint(blueprint)
@@ -256,7 +260,9 @@ class ProverStagesMixin:
         verifier_user = (
             f"Referee Rejection Critique:\n{issues}\n\n"
             f"Candidate Proof Under Review:\n{proof_context}\n\n"
-            "Write a Python script to stress-test this mathematical issue:"
+            "CRITICAL: Do NOT test whether the overall Target Theorem holds (the Target Theorem is already known to be true!). "
+            "Write a Python script to test ONLY the specific disputed intermediate claim, decomposition, or inequality "
+            "in the Candidate Proof that the referee objected to:"
         )
 
         verified_facts: List[str] = []
@@ -283,7 +289,7 @@ class ProverStagesMixin:
                             )
                         else:
                             self._log_write(f"[Critique Kernel Output (Verified)]: {out[:500]}\n")
-                            verified_facts.append(f"REPL Verified Invariant: {out[:300]}")
+                            verified_facts.append(f"REPL Verified Disputed Step: {out[:300]}")
                 else:
                     err_msg = exec_res.error or "Assertion failed"
                     if "timed out" in err_msg.lower() or "timeoutexception" in err_msg.lower():
@@ -373,6 +379,7 @@ class ProverStagesMixin:
             code_blocks = self.extract_code_blocks(content)
             executed_code = None
             script_error: Optional[str] = None
+            out = ""
 
             for code in code_blocks[:1]:
                 executed_code = code
@@ -392,19 +399,40 @@ class ProverStagesMixin:
                     # Script crashed for a non-mathematical reason (NameError, timeout, ImportError...).
                     script_error = err_msg[:300] or "unknown script error"
                     self._log_write(f"[Skeptic Kernel: script error, attack inconclusive]: {err_msg[:400]}\n")
-                elif "counterexample found" in out.lower():
+                elif "counterexample found" in out.lower() or self._is_stdout_counterexample(out):
                     self._log_write(f"[Skeptic Kernel ALERT: Counterexample Discovered]: {out[:400]}\n")
                     return _finish(SKEPTIC_REFUTED, f"Counterexample discovered: {out[:300]}", code)
                 else:
                     self._log_write(f"[Skeptic Kernel Output]: {out[:300]}\n")
 
-            verdict, reason = self._parse_skeptic_verdict(content)
-            if verdict == SKEPTIC_REFUTED:
-                return _finish(SKEPTIC_REFUTED, reason or "Skeptic refuted the claim.", executed_code)
-            if verdict == SKEPTIC_VERIFIED and script_error is None:
-                return _finish(SKEPTIC_VERIFIED, reason or "No counterexample found on small instances.", executed_code)
             if script_error is not None:
                 return _finish(SKEPTIC_INCONCLUSIVE, f"Attack script crashed ({script_error}); claim not checked.", executed_code)
+
+            verdict, reason = self._parse_skeptic_verdict(content)
+            if verdict == SKEPTIC_REFUTED:
+                # Fail-closed against single-turn hallucinated text refutations:
+                # Because the LLM writes its text verdict in the same completion before code executes,
+                # a REFUTED text verdict without an assertion failure or stdout counterexample/refutation
+                # is unverified speculation and must be downgraded to INCONCLUSIVE.
+                out_low = out.lower()
+                if (
+                    executed_code is not None
+                    and out
+                    and any(kw in out_low for kw in ("counterexample", "refuted", "violat", "false", "fail", "mismatch", "invalid"))
+                    and "no counterexample" not in out_low
+                    and "0 counterexample" not in out_low
+                ):
+                    return _finish(SKEPTIC_REFUTED, f"{reason or 'Skeptic refuted the claim.'} (stdout: {out[:200]})", executed_code)
+                self._log_write(
+                    f"[Skeptic Kernel: unverified text REFUTED downgraded to INCONCLUSIVE (no empirical counterexample in stdout)]: {reason[:200]}\n"
+                )
+                return _finish(
+                    SKEPTIC_INCONCLUSIVE,
+                    f"Skeptic expressed textual doubt ({reason[:200]}), but attack script produced no concrete counterexample.",
+                    executed_code,
+                )
+            if verdict == SKEPTIC_VERIFIED and script_error is None:
+                return _finish(SKEPTIC_VERIFIED, reason or "No counterexample found on small instances.", executed_code)
             return _finish(SKEPTIC_INCONCLUSIVE, "Skeptic produced no explicit VERIFIED/REFUTED verdict.", executed_code)
 
         except Exception as e:

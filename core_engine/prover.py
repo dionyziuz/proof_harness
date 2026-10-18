@@ -1082,19 +1082,36 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                         #    AND not has_substantive_structure (completeness < 0.35 and rigor < 0.35)
                         #    AND no upward progress (neither validity nor structural_validity improved by > 0.05).
                         # 3. NEVER trigger a Clean-Slate Hard Pivot when overtime_triggered_now is True OR when pool.best
-                        #    already holds a high-validity / substantive candidate foundation — restore pool.best for Surgical Revision instead!
-                        has_substantive_structure = getattr(audit_res, "has_substantive_structure", False)
+                        #    already holds a high-validity / non-stagnant candidate foundation — restore pool.best for Surgical Revision instead!
+                        #    Note: low-validity structural protection (validity < pivot_threshold with structural_validity >= 0.40)
+                        #    grants one surgical revision window (rejection_count <= 2); if revision still fails at rejection_count >= 3,
+                        #    unlock Clean-Slate Hard Pivot so dead reductions (e.g. dimensionally invalid formulas) are not locked forever.
+                        has_substantive_structure = (
+                            getattr(audit_res, "has_substantive_structure", False)
+                            and rejection_count <= 2
+                        )
                         structural_val = getattr(audit_res, "structural_validity", validity)
+                        best_stagnant_count = getattr(pool.best, "stagnant_revisions", 0) if pool.best else 0
                         pool_has_viable_foundation = bool(
                             pool.best
                             and (
-                                pool.best_validity >= THRESHOLDS.pivot_threshold
-                                or (pool.best.has_substantive_structure and pool.best.structural_validity >= 0.45)
+                                pool.best.verdict == "VALID"
+                                or pool.best_validity >= THRESHOLDS.judge_pass_threshold
+                                or (
+                                    pool.best_validity >= THRESHOLDS.pivot_threshold
+                                    and best_stagnant_count < 2
+                                )
+                                or (
+                                    pool.best.has_substantive_structure
+                                    and pool.best.structural_validity >= 0.40
+                                    and rejection_count <= 2
+                                    and best_stagnant_count < 2
+                                )
                             )
                         )
                         is_improving = rejection_count >= 2 and (
                             validity > prev_rejected_validity + 0.05
-                            or structural_val > prev_structural_validity + 0.05
+                            or (rejection_count <= 2 and structural_val > prev_structural_validity + 0.05)
                         )
                         would_hard_pivot_raw = (not audit_inconclusive) and (
                             (validity <= THRESHOLDS.hard_pivot_floor)
@@ -1127,7 +1144,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                             dead_routes_directive = "\n".join(f"  ❌ {dr}" for dr in dead_routes)
 
                             # 1. Prune the low-validity refuted candidate from the pool so it cannot anchor search or become the final output
-                            pruned = pool.prune_abandoned(THRESHOLDS.pivot_threshold)
+                            pruned = pool.prune_abandoned(THRESHOLDS.pivot_threshold, force=True)
                             if pruned:
                                 self._log_write(
                                     f"[Candidate Pool Pruned] Purged refuted candidate from Turn {pruned.turn} "
@@ -1139,11 +1156,13 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                                 else:
                                     result.candidate_proof = ""
 
-                            # 2. Reset the Python execution kernel and state machine completely (clean slate)
+                            # 2. Reset the Python execution kernel, state machine, and prior-defect memory completely (clean slate)
                             self.kernel.reset()
                             self.kernel.execute("state.checkpoint('init')")
+                            if hasattr(self, "_prior_audit_defects"):
+                                self._prior_audit_defects.clear()
                             self._log_write(
-                                "[Kernel State Purged] Python namespace and mathematical state machine reset to clean init. "
+                                "[Kernel State Purged] Python namespace, mathematical state machine, and pre-pivot defect ledger reset to clean init. "
                                 "All dead-end variables, invariants, and lemmas cleared.\n"
                             )
 
@@ -1219,13 +1238,26 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
 
                         else:
                             # Best-Candidate Restoration for Overtime & Revision:
-                            # If an earlier iteration produced a higher-validity (or higher structural_validity) draft than
-                            # the current turn (e.g. Turn 6 was 0.78 but Turn 8 truncated to 0.15, or Turn 10 had rigor=0.75
-                            # while Turn 11 dropped to rigor=0.35), restore the highest-scoring candidate draft and its
-                            # referee issues so revision directly repairs the best mathematical foundation!
-                            if pool.best and (
+                            # Restore pool.best when it is a VALID candidate (e.g. Task 18 at 0.78) or when a rejected candidate
+                            # has not yet exhausted its 2 surgical revision attempts (stagnant_revisions < 2).
+                            # Once a rejected candidate has stagnated for >= 2 revisions without improvement (e.g. Tasks 51 & 109),
+                            # stop overwriting the draft verbatim and direct the solver to prove the missing auxiliary bridging lemma.
+                            stagnant_rejected_loop = bool(
+                                pool.best
+                                and pool.best.verdict != "VALID"
+                                and getattr(pool.best, "stagnant_revisions", 0) >= 2
+                            )
+                            can_restore_best = bool(
+                                pool.best
+                                and (
+                                    pool.best.verdict == "VALID"
+                                    or pool.best_validity >= THRESHOLDS.audit_verdict_floor
+                                    or not stagnant_rejected_loop
+                                )
+                            )
+                            if can_restore_best and (
                                 pool.best_validity >= THRESHOLDS.judge_pass_threshold
-                                or pool.best.structural_validity >= 0.45
+                                or (pool.best.structural_validity >= 0.45 and rejection_count <= 2)
                             ) and (
                                 overtime_triggered_now
                                 or (turn >= max_turns and (validity < pool.best_validity or structural_val < pool.best.structural_validity))
@@ -1256,7 +1288,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                                 evidence_parts.append("--- Verified REPL Computational Facts (This Turn) ---\n" + "\n".join(exec_feedbacks))
                             if critique_verified:
                                 evidence_parts.append(
-                                    "--- ✓ Dynamic REPL Check: Candidate Invariant Held on Tested Instances (Retain Verified Math; Clarify Exposition) ---\n"
+                                    "--- ✓ Dynamic REPL Check: Disputed Candidate Step Held on Tested Instances (Retain Verified Math; Clarify Proof of This Step) ---\n"
                                     + "\n".join(f"✓ {f}" for f in critique_verified)
                                 )
                             if critique_alerts:
@@ -1265,14 +1297,25 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                             if evidence_parts:
                                 repl_evidence = "\n".join(evidence_parts) + "\n----------------------------------------------------\n\n"
 
-                            strategic_pivot_directive = (
-                                "\n[STRATEGIC SURGICAL REVISION DIRECTIVE]\n"
-                                f"Your previous candidate proof draft achieved strong validity ({validity:.2f}) and is provided in full above.\n"
-                                "An independent mathematical referee audited it and flagged only specific, isolated defects.\n"
-                                "- SURGICAL REPAIR OVER REWRITES: Make targeted, surgical repairs directly to the specific defect(s) flagged by the referee (e.g., supply missing base cases, prove complementary domain regimes, correct parameter bounds/inequalities, or articulate the missing deductive link in the flagged step).\n"
-                                "- PRESERVE VALID SUB-CLAIMS: Retain all established lemmas, verified equations, and valid inductive machinery from your previous draft.\n"
-                                "- EXPLICIT GAP RESOLUTION: Ensure the specific step, claim, or boundary condition flagged by the referee is now stated and verified with complete, rigorous deductions from first principles.\n\n"
-                            )
+                            if stagnant_rejected_loop or rejection_count >= 3:
+                                strategic_pivot_directive = (
+                                    "\n[AUXILIARY BRIDGING LEMMA & SUB-CLAIM ISOLATION DIRECTIVE]\n"
+                                    f"Repeated local revisions of your draft (validity: {validity:.2f}) have failed to resolve the referee's core mathematical objection.\n"
+                                    "CRITICAL: Do NOT repeat the same unproved transition or make cosmetic prose edits to the disputed step!\n"
+                                    "- ISOLATE & PROVE THE MISSING AUXILIARY LEMMA: Identify the exact intermediate property, extremal split choice (e.g., minimal/maximal split index), conditioning invariant, or algebraic identity needed to bridge the gap flagged by the referee, and state and prove it as a self-contained `\\begin{claim} ... \\end{claim}\\begin{proof} ... \\end{proof}` from first principles.\n"
+                                    "- REPLACE BROKEN INTERMEDIATE STEPS: If your previous intermediate decomposition or matrix/vector operation was invalid, replace that sub-argument with an alternative reduction using the Context lemmas (e.g., iterative matrix-vector products, extremal witnesses, or conditioning on unordered realizations).\n\n"
+                                )
+                                rule2_text = "2. Replace Stagnant Sub-Arguments: Retain valid setup definitions, but replace the repeatedly rejected step with a newly proved auxiliary claim or alternative reduction."
+                            else:
+                                strategic_pivot_directive = (
+                                    "\n[STRATEGIC SURGICAL REVISION DIRECTIVE]\n"
+                                    f"Your previous candidate proof draft achieved strong validity ({validity:.2f}) and is provided in full above.\n"
+                                    "An independent mathematical referee audited it and flagged only specific, isolated defects.\n"
+                                    "- SURGICAL REPAIR OVER REWRITES: Make targeted, surgical repairs directly to the specific defect(s) flagged by the referee (e.g., supply missing base cases, prove complementary domain regimes, correct parameter bounds/inequalities, or articulate the missing deductive link in the flagged step).\n"
+                                    "- PRESERVE VALID SUB-CLAIMS: Retain all established lemmas, verified equations, and valid inductive machinery from your previous draft.\n"
+                                    "- EXPLICIT GAP RESOLUTION: Ensure the specific step, claim, or boundary condition flagged by the referee is now stated and verified with complete, rigorous deductions from first principles.\n\n"
+                                )
+                                rule2_text = "2. Modular Lemma Immutability: Keep all sound lemmas, definitions, and unflagged derivations from your previous draft verbatim. Do NOT rephrase, alter, or weaken sound parts. Focus 100% of your mathematical repair on the specific defective step or claim identified by the referee."
 
                             st_res = self.kernel.execute("print(state.status())")
                             state_summary = (st_res.stdout or "").strip()
@@ -1286,7 +1329,6 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                                 f"{clean_candidate}\n\n"
                                 "% [End of candidate proof under revision]"
                             )
-                            rule2_text = "2. Modular Lemma Immutability: Keep all sound lemmas, definitions, and unflagged derivations from your previous draft verbatim. Do NOT rephrase, alter, or weaken sound parts. Focus 100% of your mathematical repair on the specific defective step or claim identified by the referee."
 
                             revision_prompt = (
                                 f"{state_ledger_block}"
@@ -1486,10 +1528,13 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
             )
 
         # Attempt 1: Isolated Publication Scribe Subagent using Verified Lemma Ledger
-        # ONLY invoke the from-scratch Scribe when exploratory turns ended without a valid LaTeX candidate proof!
-        # When best_candidate already has a valid LaTeX proof, skip Attempt 1 to save 300-600s and proceed directly
-        # to Attempt 2 / Revision seeded with best_candidate.
-        if not (best_candidate and is_valid_latex_proof(best_candidate.proof)):
+        # Invoke the from-scratch Scribe when exploratory turns ended without a passing LaTeX candidate proof (< 0.50)!
+        # Only skip Attempt 1 when best_candidate already has a valid LaTeX proof with validity >= judge_pass_threshold (0.50).
+        if not (
+            best_candidate
+            and is_valid_latex_proof(best_candidate.proof)
+            and best_candidate.validity >= THRESHOLDS.judge_pass_threshold
+        ):
             st_res = self.kernel.execute("print(state.status())")
             state_summary = (st_res.stdout or "").strip()
             v_lemmas = []
@@ -1501,7 +1546,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 task_prompt=task_prompt,
                 verified_ledger=v_lemmas,
                 state_summary=state_summary,
-                candidate_draft=result.final_response or "",
+                candidate_draft=(best_candidate.proof if best_candidate else (result.final_response or "")),
                 on_step=on_step,
             )
             if scribe_proof and is_valid_latex_proof(scribe_proof):

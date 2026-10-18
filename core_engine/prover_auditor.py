@@ -230,12 +230,15 @@ class ProverAuditorMixin:
         if prior_defects:
             prior_block = "\n".join(f"  {idx + 1}. {d[:600]}" for idx, d in enumerate(prior_defects[-3:]))
             stage1_note += (
-                f"\n\n[PRIOR REFEREE DEFECTS FROM EARLIER DRAFTS (MUST BE VERIFIED FIXED)]:\n"
+                f"\n\n[PRIOR REFEREE DEFECTS FROM EARLIER DRAFTS (VERIFY IF RESOLVED OR BYPASSED)]:\n"
                 f"{prior_block}\n"
-                f"CRITICAL: Check line-by-line whether the candidate proof still contains or relies on any of the "
-                f"prior defects listed above (including unstated parameter assumptions such as beta <= 1, sign errors, "
-                f"or unproved claims). If ANY prior defect remains unresolved anywhere in the proof, you MUST set "
-                f"\"verdict\": \"REJECT\" and cap \"validity\" at <= 0.40."
+                f"CRITICAL: Check line-by-line whether the candidate proof still contains an unproved gap from the "
+                f"prior defects listed above. NOTE: A prior defect IS resolved if the candidate proof either (a) directly "
+                f"repairs the step, (b) pivots to an alternative proof route that does not rely on the flawed step, OR "
+                f"(c) proves a bridging claim from the Context definitions showing that the required precondition holds "
+                f"automatically. Do NOT blindly repeat an earlier objection if the current draft supplies a valid mathematical "
+                f"argument discharging it. Only if a prior defect genuinely remains unproved and actively relied upon in "
+                f"the current draft, set \"verdict\": \"REJECT\" and cap \"validity\" at <= 0.40."
             )
 
         audit_system = load_tcs_prompt("proof_auditor")
@@ -274,10 +277,10 @@ class ProverAuditorMixin:
                     f"{audit_user}\n\n"
                     "[ADVERSARIAL SECOND-OPINION CHECK]:\n"
                     "A preliminary review scored this draft as valid. Perform a strict independent verification of:\n"
-                    "1. Prior Defect Elimination: Were ALL prior referee defects from earlier drafts completely removed?\n"
+                    "1. Prior Defect Elimination: Were ALL prior referee defects from earlier drafts either repaired, bypassed by an alternative route, or discharged by a valid bridging lemma?\n"
                     "2. Statement & Domain Fidelity: Does the proof introduce ANY unstated parameter/structural restriction "
                     "(e.g., 0 < beta <= 1) without proving the complementary regime?\n"
-                    "3. Inequality & Sign Integrity: Does every chained inequality and algebraic sign hold across the full domain?\n"
+                    "3. Inequality & Sign Integrity: Does every chained inequality, matrix/vector dimension, and algebraic sign hold across the full domain?\n"
                     "4. Unproved Intermediate Claims: Are any helper claims or lemma preconditions asserted without proof?\n"
                     "Respond with the required JSON object."
                 )

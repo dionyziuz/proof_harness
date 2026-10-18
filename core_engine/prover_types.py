@@ -38,11 +38,11 @@ class AuditResult:
     def has_substantive_structure(self) -> bool:
         """True when the referee's structural sub-scores indicate a substantive partial proof
         that should undergo surgical repair rather than a destructive clean-slate hard pivot.
-        Requires genuine mathematical validity (validity >= 0.30 or structural_validity >= 0.45)
+        Requires genuine mathematical validity (validity >= 0.30 or structural_validity >= 0.40)
         in addition to structural components, preventing superficial formatting from blocking pivots
         on fundamentally flawed reductions.
         """
-        if self.validity < 0.30 and self.structural_validity < 0.45:
+        if self.validity < 0.30 and self.structural_validity < 0.40 - 1e-6:
             return False
         return self.completeness >= 0.35 or self.rigor >= 0.35
 
@@ -61,6 +61,7 @@ class CandidateRecord:
     rigor: float = 0.0
     completeness: float = 0.0
     boundary_cases: float = 0.0
+    stagnant_revisions: int = 0
 
     @property
     def structural_validity(self) -> float:
@@ -73,7 +74,7 @@ class CandidateRecord:
     @property
     def has_substantive_structure(self) -> bool:
         """True when structural sub-scores indicate a substantive partial proof."""
-        if self.validity < 0.30 and self.structural_validity < 0.45:
+        if self.validity < 0.30 and self.structural_validity < 0.40 - 1e-6:
             return False
         return self.completeness >= 0.35 or self.rigor >= 0.35
 
@@ -216,6 +217,7 @@ class CandidatePool:
                 and self._best.rigor >= record.rigor + 0.15
                 and validity <= self._best.validity + 0.05
             ):
+                self._best.stagnant_revisions += 1
                 return False
             if (
                 record.structural_validity > self._best.structural_validity + 0.01
@@ -236,6 +238,7 @@ class CandidatePool:
                 and turn >= self._best.turn
                 and len(proof) >= int(0.70 * len(self._best.proof))
             ):
+                record.stagnant_revisions = self._best.stagnant_revisions + 1
                 self._best = record
                 return True
 
@@ -247,9 +250,13 @@ class CandidatePool:
         # Equal validity (when no structural sub-scores differentiate the drafts):
         # For passing/viable candidates (validity >= 0.50), Occam's razor favors the tighter proof.
         if validity == self._best.validity and validity >= 0.50 and len(proof) < len(self._best.proof):
+            if verdict != "VALID":
+                record.stagnant_revisions = self._best.stagnant_revisions + 1
             self._best = record
             return True
 
+        if self._best.verdict != "VALID":
+            self._best.stagnant_revisions += 1
         return False
 
     def demote_current_best(self, max_validity: float = 0.10) -> bool:
@@ -264,12 +271,12 @@ class CandidatePool:
             return True
         return False
 
-    def prune_abandoned(self, max_validity_floor: float = 0.25) -> Optional[CandidateRecord]:
+    def prune_abandoned(self, max_validity_floor: float = 0.25, force: bool = False) -> Optional[CandidateRecord]:
         """Prunes the current best candidate if it belongs to an abandoned/refuted reduction
-        (i.e. validity < max_validity_floor and lacks substantive partial structure).
+        (i.e. validity < max_validity_floor and either force=True on hard pivot or lacks substantive structure).
         Returns the pruned candidate if one was removed.
         """
-        if self._best and self._best.validity < max_validity_floor and not self._best.has_substantive_structure:
+        if self._best and self._best.validity < max_validity_floor and (force or not self._best.has_substantive_structure):
             pruned = self._best
             self._best = None
             return pruned

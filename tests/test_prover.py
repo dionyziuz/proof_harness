@@ -136,7 +136,7 @@ def test_tcs_hermetic_isolation_guarantee():
 
 def test_golden_balance_thresholds():
     assert THRESHOLDS.hard_pivot_floor == 0.05
-    assert THRESHOLDS.pivot_threshold == 0.25
+    assert THRESHOLDS.pivot_threshold == 0.30
     assert THRESHOLDS.judge_pass_threshold == 0.50
 
 
@@ -205,7 +205,7 @@ def test_synchronized_overtime_clock_extension():
     max_turns = 8
     max_time_seconds = 3600.0
     solve_deadline = 10000.0
-    validity = 0.30
+    validity = 0.35
 
     if cfg.enable_overtime and current_max_turns == max_turns and validity >= cfg.overtime_validity_threshold:
         current_max_turns += cfg.overtime_iterations
@@ -266,6 +266,18 @@ def test_skeptic_is_fail_closed(_mem):
     # Script crashed with a non-assertion error + VERIFIED text -> INCONCLUSIVE
     crashed = SimpleNamespace(success=False, error="NameError: name 'nx' is not defined", stdout="", result_repr="")
     host = _skeptic_host(content="```python\nnx.foo()\n```\nVERIFIED: fine", exec_result=crashed)
+    status, _, _ = host._run_adversarial_skeptic("t", "task", "claim text that is long enough", "")
+    assert status == SKEPTIC_INCONCLUSIVE
+
+    # Script timed out / crashed + hallucinated REFUTED text -> INCONCLUSIVE (Task 160 Turn 5 fix!)
+    timed_out = SimpleNamespace(success=False, error="TimeoutException: Execution timed out after 15.0s", stdout="", result_repr="")
+    host = _skeptic_host(content="```python\nwhile True: pass\n```\nREFUTED: w* not in W(v)", exec_result=timed_out)
+    status, _, _ = host._run_adversarial_skeptic("t", "task", "claim text that is long enough", "")
+    assert status == SKEPTIC_INCONCLUSIVE
+
+    # Script ran cleanly with 0 counterexamples + hallucinated REFUTED text -> INCONCLUSIVE
+    clean_run = SimpleNamespace(success=True, error=None, stdout="0 counterexamples found", result_repr="")
+    host = _skeptic_host(content="```python\nprint('0 counterexamples found')\n```\nREFUTED: speculative doubt", exec_result=clean_run)
     status, _, _ = host._run_adversarial_skeptic("t", "task", "claim text that is long enough", "")
     assert status == SKEPTIC_INCONCLUSIVE
 
@@ -952,4 +964,63 @@ def test_v43_candidate_pool_structural_arbitration_and_demotion():
     assert pool.best_validity == 0.10
 
 
+def test_v44_third_low_validity_rejection_unlocks_hard_pivot_and_clears_prior_defects():
+    """While rejection #2 with has_substantive_structure grants one surgical revision window,
+    if rejection #3 still fails below pivot_threshold (e.g. Task 142 at 0.25 -> 0.20),
+    Clean-Slate Hard Pivot must unlock, prune the dead candidate, and clear _prior_audit_defects.
+    """
+    prover = MathProver()
+    prover._log_write = lambda *_a, **_k: None
+    prover.compactor = MagicMock()
+    prover.compactor.should_compact.return_value = False
 
+    with patch.object(prover, "_run_context_architect", return_value="### Strategy Alpha\nblueprint"), \
+         patch.object(prover, "_run_computational_falsifier", return_value=([], [])), \
+         patch.object(prover.memory, "query_procedural_heuristics", return_value=[]), \
+         patch.object(prover.memory, "check_health", return_value=True):
+        messages, result, _ = prover._init_solve_session("t_142", "Target Problem: prove Theorem.", max_turns=6, reset_kernel=True)
+
+    prover._prior_audit_defects = ["Old pre-pivot defect that must be cleared on hard pivot"]
+
+    p_draft = "\\begin{proof}\n" + ("By block concatenation [D_1 | D_h] * U^{-1}, the bound follows. " * 4) + "\n\\end{proof}"
+    p_valid = "\\begin{proof}\n" + ("By iterative matrix-vector products w_r = A w_{r-1} in O(h n^2) time, the bound follows. " * 4) + "\n\\end{proof}"
+
+    captured_prompts = []
+
+    def fake_stream(messages, **_kw):
+        captured_prompts.append([dict(m) for m in messages])
+        idx = len(captured_prompts)
+        if idx in (1, 2, 3):
+            return (f"t{idx}", p_draft)
+        if idx == 4:
+            # Turn 4 is 1-Turn REPL-First Pivot Gate after Turn 3 hard pivot
+            return ("t4", "```python\nprint('Iterative matrix-vector verified')\n```")
+        return ("t5", p_valid)
+
+    audit_results = iter([
+        AuditResult(verdict="REJECT", issues="Dimension mismatch", validity=0.20, rigor=0.40, completeness=0.50, boundary_cases=0.50),
+        AuditResult(verdict="REJECT", issues="Still dimension mismatch", validity=0.25, rigor=0.40, completeness=0.50, boundary_cases=0.60),
+        AuditResult(verdict="REJECT", issues="Unfixed dimension mismatch", validity=0.20, rigor=0.40, completeness=0.50, boundary_cases=0.50),
+        AuditResult(verdict="VALID", issues="", validity=0.93, rigor=0.92, completeness=0.95, boundary_cases=0.90),
+    ])
+
+    with patch.object(prover, "_stream_completion_with_retry", side_effect=fake_stream), \
+         patch.object(prover, "_audit_proof_draft", side_effect=lambda *_a, **_k: next(audit_results)), \
+         patch.object(prover, "_run_critique_falsifier", return_value=([], [])), \
+         patch.object(prover, "_run_publication_scribe", return_value=None):
+        best, _ = prover._run_exploratory_turns(
+            task_id="t_142",
+            task_prompt="Target Problem: prove Theorem.",
+            messages=messages,
+            result=result,
+            max_turns=6,
+            start_wall_time=0.0,
+        )
+
+    assert result.verified is True
+    assert best is not None and best.validity == pytest.approx(0.93)
+    # Turn 3 (index 2, after rejection #2) received Surgical Revision
+    assert "Here is the candidate proof under revision:" in "\n".join(m["content"] for m in captured_prompts[2])
+    # Turn 4 (index 3, after rejection #3) unlocked Clean-Slate Hard Pivot & cleared _prior_audit_defects!
+    assert "1-TURN REPL-FIRST PIVOT GATE" in captured_prompts[3][-1]["content"]
+    assert prover._prior_audit_defects == []
