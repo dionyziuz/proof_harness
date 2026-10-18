@@ -331,6 +331,13 @@ def process_single_task(
     solve_out = run_dir / "tasks" / f"{task_id}.json"
     judge_out = run_dir / "judgments" / f"judge_{task_id}.json"
     task_log = run_dir / "logs" / f"{task_id}.log"
+    ckpt_path = run_dir / "checkpoints" / f"{task_id}.ckpt.json"
+
+    if args.force and ckpt_path.exists():
+        try:
+            ckpt_path.unlink()
+        except Exception:
+            pass
 
     # Step 1: Check if already judged and valid
     if judge_out.exists() and solve_out.exists() and not args.force:
@@ -386,7 +393,12 @@ def process_single_task(
         )
 
         def on_step(event: str, data: Any) -> None:
-            if event == "turn_start":
+            if event == "checkpoint_resume":
+                log(
+                    f"[{task_id}] [bold yellow]>>> Resumed from checkpoint at stage='{data.get('stage')}', "
+                    f"turn={data.get('completed_turn')}/{args.max_iterations}[/bold yellow]"
+                )
+            elif event == "turn_start":
                 log(f"[{task_id}] Turn {data}/{args.max_iterations} started")
             elif event == "audit_result":
                 verdict = data.get("verdict", "")
@@ -405,6 +417,7 @@ def process_single_task(
                     max_iterations=args.max_iterations,
                     max_time_seconds=args.timeout,
                     on_step=on_step,
+                    checkpoint_path=ckpt_path,
                 )
                 break
             except Exception as exc:

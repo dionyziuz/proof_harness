@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from .kernel import ExecutionResult
 
@@ -77,6 +77,33 @@ class CandidateRecord:
         if self.validity < 0.30 and self.structural_validity < 0.40 - 1e-6:
             return False
         return self.completeness >= 0.35 or self.rigor >= 0.35
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "proof": self.proof,
+            "validity": float(self.validity),
+            "verdict": self.verdict,
+            "issues": self.issues,
+            "turn": int(self.turn),
+            "rigor": float(self.rigor),
+            "completeness": float(self.completeness),
+            "boundary_cases": float(self.boundary_cases),
+            "stagnant_revisions": int(self.stagnant_revisions),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "CandidateRecord":
+        return cls(
+            proof=str(data.get("proof", "")),
+            validity=float(data.get("validity", 0.0)),
+            verdict=str(data.get("verdict", "")),
+            issues=str(data.get("issues", "")),
+            turn=int(data.get("turn", 0)),
+            rigor=float(data.get("rigor", 0.0)),
+            completeness=float(data.get("completeness", 0.0)),
+            boundary_cases=float(data.get("boundary_cases", 0.0)),
+            stagnant_revisions=int(data.get("stagnant_revisions", 0)),
+        )
 
 
 @dataclass(frozen=True)
@@ -311,6 +338,23 @@ class CandidatePool:
             return pruned
         return None
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "best": self._best.to_dict() if self._best is not None else None,
+            "history": [r.to_dict() for r in self._history],
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "CandidatePool":
+        pool = cls()
+        if not data:
+            return pool
+        pool._history = [CandidateRecord.from_dict(r) for r in (data.get("history") or [])]
+        best_data = data.get("best")
+        if best_data:
+            pool._best = CandidateRecord.from_dict(best_data)
+        return pool
+
 
 @dataclass
 class ProofResult:
@@ -355,6 +399,71 @@ class ProofResult:
             self.candidate_proof = self.proof
         if not self.theorem and self.task_id:
             self.theorem = self.task_id
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "problem": self.problem,
+            "task_id": self.task_id,
+            "candidate_proof": self.candidate_proof,
+            "verified": bool(self.verified),
+            "iterations": int(self.iterations),
+            "reasoning_traces": list(self.reasoning_traces),
+            "code_history": list(self.code_history),
+            "execution_history": [ex.to_dict() for ex in self.execution_history],
+            "retrieved_heuristics": list(self.retrieved_heuristics),
+            "learned_heuristics": list(self.learned_heuristics),
+            "blueprint": self.blueprint,
+            "verified_facts": list(self.verified_facts),
+            "falsified_alerts": list(self.falsified_alerts),
+            "final_response": self.final_response,
+            "log_file": str(self.log_file),
+            "duration_s": float(self.duration_s or 0.0),
+            "error": self.error,
+            "conjecture": self.conjecture,
+            "status": self.status,
+            "theorem": self.theorem,
+            "proof": self.proof,
+            "verified_invariants": list(self.verified_invariants),
+            "implementation": self.implementation,
+            "research_briefing": self.research_briefing,
+            "audit_verdict": self.audit_verdict,
+            "audit_validity": self.audit_validity,
+            "lean_verdict": self.lean_verdict,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ProofResult":
+        return cls(
+            problem=str(data.get("problem", "")),
+            task_id=str(data.get("task_id", "")),
+            candidate_proof=data.get("candidate_proof"),
+            verified=bool(data.get("verified", False)),
+            iterations=int(data.get("iterations", 0)),
+            reasoning_traces=list(data.get("reasoning_traces") or []),
+            code_history=list(data.get("code_history") or []),
+            execution_history=[
+                ExecutionResult.from_dict(ex) for ex in (data.get("execution_history") or [])
+            ],
+            retrieved_heuristics=list(data.get("retrieved_heuristics") or []),
+            learned_heuristics=list(data.get("learned_heuristics") or []),
+            blueprint=data.get("blueprint"),
+            verified_facts=list(data.get("verified_facts") or []),
+            falsified_alerts=list(data.get("falsified_alerts") or []),
+            final_response=str(data.get("final_response", "")),
+            log_file=str(data.get("log_file", DEFAULT_LOG_PATH)),
+            duration_s=float(data.get("duration_s") or 0.0),
+            error=data.get("error"),
+            conjecture=str(data.get("conjecture", "")),
+            status=str(data.get("status", "INCONCLUSIVE")),
+            theorem=str(data.get("theorem", "")),
+            proof=str(data.get("proof", "")),
+            verified_invariants=list(data.get("verified_invariants") or []),
+            implementation=data.get("implementation"),
+            research_briefing=data.get("research_briefing"),
+            audit_verdict=data.get("audit_verdict"),
+            audit_validity=data.get("audit_validity"),
+            lean_verdict=data.get("lean_verdict"),
+        )
 
 
 TCSSolveResult = ProofResult

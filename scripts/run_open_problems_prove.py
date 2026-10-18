@@ -296,12 +296,14 @@ You are tasked with resolving the following open mathematical conjecture formali
     else:
         # FrontierMath 50 problem: Full 8-iteration closed-loop solver
         task_prompt = problem["prompt"]
+        ckpt_path = run_dir / "checkpoints" / f"{pid}.ckpt.json"
         solve_res = prover.solve(
             task_id=pid,
             task_prompt=task_prompt,
             max_iterations=args.max_iterations,
             max_time_seconds=args.max_time,
             enable_literature_search=args.literature_search,
+            checkpoint_path=ckpt_path,
         )
         is_pass = solve_res.verified
         candidate = solve_res.candidate_proof or ""

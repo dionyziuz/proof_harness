@@ -158,6 +158,12 @@ def load_tasks(tasks_dir: Path, limit: Optional[int], task_id: Optional[str] = N
 
 def solve_one(task: Dict[str, Any], args: argparse.Namespace, run_dir: Path) -> Dict[str, Any]:
     out_path = run_dir / "tasks" / f"{task['task_id']}.json"
+    ckpt_path = run_dir / "checkpoints" / f"{task['task_id']}.ckpt.json"
+    if args.force and ckpt_path.exists():
+        try:
+            ckpt_path.unlink()
+        except Exception:
+            pass
     if out_path.exists() and not args.force:
         try:
             prev = json.loads(out_path.read_text(encoding="utf-8"))
@@ -189,7 +195,12 @@ def solve_one(task: Dict[str, Any], args: argparse.Namespace, run_dir: Path) -> 
             )
             def on_step(event: str, data: Any) -> None:
                 tid = task["task_id"]
-                if event == "turn_start":
+                if event == "checkpoint_resume":
+                    log(
+                        f"[{tid}] [bold yellow]>>> Resumed from checkpoint at stage='{data.get('stage')}', "
+                        f"turn={data.get('completed_turn')}/{args.max_iterations}[/bold yellow]"
+                    )
+                elif event == "turn_start":
                     log(f"[{tid}] [bold cyan]>>> Turn {data}/{args.max_iterations} started[/bold cyan]")
                 elif event == "code_start":
                     first_line = data.strip().split("\n")[0] if data else ""
@@ -254,6 +265,7 @@ def solve_one(task: Dict[str, Any], args: argparse.Namespace, run_dir: Path) -> 
                 max_iterations=args.max_iterations,
                 max_time_seconds=args.timeout,
                 on_step=on_step,
+                checkpoint_path=ckpt_path,
             )
             rec: Dict[str, Any] = {
                 "task_id": task["task_id"],

@@ -1058,3 +1058,217 @@ def test_candidate_pool_reaudit_demotion_and_clean_valid_supersede():
     assert pool2.best.verdict == "VALID"
     assert pool2.best.issues == "none"
 
+
+def test_prover_turn_level_checkpoint_crash_at_turn_4_and_resume(tmp_path):
+    """Simulates a crash during Iteration 4 of Problem 3 and verifies that restarting
+    with a fresh MathProver resumes at the end of Iteration 3 / beginning of Iteration 4
+    with REPL variables, MathStateMachine, CandidatePool, and anchor messages intact.
+    """
+    ckpt_path = tmp_path / "checkpoints" / "task_3.ckpt.json"
+    task_prompt = "Target Problem (your task): Prove that for every graph G, the invariant holds."
+
+    # --- Process 1: Runs Turns 1..3 and crashes in Turn 4 ---
+    prover1 = MathProver(log_path=tmp_path / "task_3.log")
+    prover1.compactor = MagicMock()
+    prover1.compactor.should_compact.return_value = False
+
+    draft_turn3 = (
+        "\\begin{proof}\n"
+        + ("By the intermediate lemma verified in Python, the bound holds up to a boundary check. " * 4)
+        + "\n\\end{proof}"
+    )
+
+    p1_turns_started = []
+
+    def p1_stream(messages, **_kw):
+        turn_idx = len(p1_turns_started)
+        if turn_idx == 1:
+            return ("r1", "[CLAIM]: Lemma 1 holds for base graphs\n```python\nx_turn1 = 101\nprint('x_turn1 =', x_turn1)\n```")
+        if turn_idx == 2:
+            return ("r2", "```python\ny_turn2 = x_turn1 + 202\nprint('y_turn2 =', y_turn2)\n```")
+        if turn_idx == 3:
+            return ("r3", draft_turn3)
+        raise RuntimeError("Simulated process crash mid-Iteration 4!")
+
+    with patch.object(prover1, "_run_context_architect", return_value="Blueprint for task_3") as mock_arch1, \
+         patch.object(prover1, "_run_computational_falsifier", return_value=(["n=3 verified"], [])), \
+         patch.object(prover1.memory, "query_procedural_heuristics", return_value=["Use induction on |V|"]), \
+         patch.object(prover1.memory, "check_health", return_value=True), \
+         patch.object(prover1, "_stream_completion_with_retry", side_effect=p1_stream), \
+         patch.object(
+             prover1,
+             "_audit_proof_draft",
+             return_value=AuditResult(verdict="REJECT", issues="Missing n=1 base case", validity=0.65, rigor=0.70, completeness=0.65),
+         ), \
+         patch.object(prover1, "_run_critique_falsifier", return_value=([], [])), \
+         patch.object(prover1, "_run_adversarial_skeptic", return_value=(SKEPTIC_VERIFIED, "verified", None)):
+        with pytest.raises(RuntimeError, match="Simulated process crash mid-Iteration 4"):
+            prover1.solve(
+                task_id="task_3",
+                task_prompt=task_prompt,
+                max_iterations=5,
+                on_step=lambda ev, data: p1_turns_started.append(data) if ev == "turn_start" else None,
+                checkpoint_path=ckpt_path,
+            )
+
+    assert p1_turns_started == [1, 2, 3, 4]
+    assert mock_arch1.call_count == 1
+    assert ckpt_path.exists(), "Checkpoint file must exist after Turn 3 completed"
+
+    # --- Process 2 (Watchdog Restart): Brand-new MathProver + fresh kernel ---
+    prover2 = MathProver(log_path=tmp_path / "task_3.log")
+    prover2.compactor = MagicMock()
+    prover2.compactor.should_compact.return_value = False
+
+    final_proof_turn5 = (
+        "\\begin{proof}\n"
+        + ("Including the n=1 base case and combining with x_turn1=101 and y_turn2=303, the theorem holds completely. " * 4)
+        + "\n\\end{proof}"
+    )
+
+    p2_turns_started = []
+    p2_events = []
+
+    def p2_stream(messages, **_kw):
+        # First call in Process 2 MUST be Turn 4!
+        if len(p2_turns_started) == 1:
+            # Verify Turn-3 candidate anchor survived checkpoint serialization
+            joined = "\n".join(m["content"] for m in messages)
+            assert "Here is the candidate proof under revision:" in joined
+            return (
+                "r4",
+                "```python\nassert x_turn1 == 101 and y_turn2 == 303, f'Got {x_turn1}, {y_turn2}'\nprint('REPL state restored:', x_turn1 + y_turn2)\n```",
+            )
+        return ("r5", final_proof_turn5)
+
+    with patch.object(prover2, "_run_context_architect") as mock_arch2, \
+         patch.object(prover2, "_run_computational_falsifier") as mock_fals2, \
+         patch.object(prover2.memory, "check_health", return_value=True), \
+         patch.object(prover2, "_consolidate_learning"), \
+         patch.object(prover2, "_stream_completion_with_retry", side_effect=p2_stream), \
+         patch.object(
+             prover2,
+             "_audit_proof_draft",
+             return_value=AuditResult(verdict="VALID", issues="none", validity=0.92, rigor=0.92, completeness=0.95),
+         ), \
+         patch.object(prover2, "_run_publication_scribe", return_value=None):
+        res = prover2.solve(
+            task_id="task_3",
+            task_prompt=task_prompt,
+            max_iterations=5,
+            on_step=lambda ev, data: (
+                p2_turns_started.append(data) if ev == "turn_start" else p2_events.append((ev, data))
+            ),
+            checkpoint_path=ckpt_path,
+        )
+
+    # Must NOT have re-run initialization or Turns 1..3
+    assert mock_arch2.call_count == 0
+    assert mock_fals2.call_count == 0
+    assert p2_turns_started == [4, 5], f"Expected to resume directly at Turn 4, got {p2_turns_started}"
+    assert any(ev == "checkpoint_resume" and d["completed_turn"] == 3 for ev, d in p2_events)
+    assert res.verified is True
+    assert res.iterations == 5
+    assert "x_turn1 = 101" in res.code_history[0]
+    assert any("REPL state restored: 404" in er.stdout for er in res.execution_history)
+    # State machine verified lemmas from Turn 1 must also be preserved in restored kernel
+    assert any("Lemma 1 holds" in lem for lem in prover2.kernel._state_machine._verified_lemmas)
+    # Checkpoint file must be unlinked after normal completion
+    assert not ckpt_path.exists()
+
+
+def test_prover_synthesis_substage_checkpoint_and_resume(tmp_path):
+    """If the process crashes during the post-exploration synthesis pipeline (e.g. during
+    revision turn 1 after the initial synthesis pass completed), resuming starts directly
+    at revision turn 1 without re-running exploration or the initial synthesis pass.
+    """
+    ckpt_path = tmp_path / "checkpoints" / "task_synth.ckpt.json"
+    task_prompt = "Target Problem (your task): Prove the spectral bound."
+
+    prover1 = MathProver(log_path=tmp_path / "task_synth.log")
+    prover1.compactor = MagicMock()
+    prover1.compactor.should_compact.return_value = False
+
+    synth_draft = (
+        "\\begin{proof}\n"
+        + ("Initial synthesized proof draft from exploratory notes with a minor gap. " * 4)
+        + "\n\\end{proof}"
+    )
+
+    # Process 1: 1 exploratory turn (code only), then enters synthesis:
+    # scribe returns None -> synth_turn produces synth_draft (audited REJECT 0.60) -> crashes on rev_1!
+    p1_stream_calls = 0
+
+    def p1_stream(messages, **_kw):
+        nonlocal p1_stream_calls
+        p1_stream_calls += 1
+        if p1_stream_calls == 1:
+            return ("exp1", "```python\nz_val = 77\nprint(z_val)\n```")
+        if p1_stream_calls == 2:
+            return ("synth", synth_draft)
+        raise RuntimeError("Crash during synthesis revision 1!")
+
+    with patch.object(prover1, "_run_context_architect", return_value="Blueprint"), \
+         patch.object(prover1, "_run_computational_falsifier", return_value=([], [])), \
+         patch.object(prover1.memory, "query_procedural_heuristics", return_value=[]), \
+         patch.object(prover1.memory, "check_health", return_value=True), \
+         patch.object(prover1, "_stream_completion_with_retry", side_effect=p1_stream), \
+         patch.object(
+             prover1,
+             "_audit_proof_draft",
+             return_value=AuditResult(verdict="REJECT", issues="Explain step 2", validity=0.60, rigor=0.65, completeness=0.60),
+         ), \
+         patch.object(prover1, "_run_critique_falsifier", return_value=([], [])), \
+         patch.object(prover1, "_run_publication_scribe", return_value=None):
+        with pytest.raises(RuntimeError, match="Crash during synthesis revision 1"):
+            prover1.solve(
+                task_id="task_synth",
+                task_prompt=task_prompt,
+                max_iterations=1,
+                checkpoint_path=ckpt_path,
+            )
+
+    assert ckpt_path.exists()
+    ckpt_data = prover1._load_checkpoint(ckpt_path, "task_synth")
+    assert ckpt_data["stage"] == "synthesis"
+    assert ckpt_data["synthesis_state"]["substage"] == "after_synth_turn"
+
+    # Process 2: Resumes directly at after_synth_turn (runs rev_1 only)
+    prover2 = MathProver(log_path=tmp_path / "task_synth.log")
+    prover2.compactor = MagicMock()
+    prover2.compactor.should_compact.return_value = False
+
+    repaired_proof = (
+        "\\begin{proof}\n"
+        + ("Repaired synthesis proof with step 2 fully justified. " * 4)
+        + "\n\\end{proof}"
+    )
+    p2_stream_calls = 0
+
+    def p2_stream(messages, **_kw):
+        nonlocal p2_stream_calls
+        p2_stream_calls += 1
+        return ("rev1", repaired_proof)
+
+    with patch.object(prover2.memory, "check_health", return_value=True), \
+         patch.object(prover2, "_consolidate_learning"), \
+         patch.object(prover2, "_stream_completion_with_retry", side_effect=p2_stream), \
+         patch.object(prover2, "_run_critique_falsifier", return_value=([], [])), \
+         patch.object(
+             prover2,
+             "_audit_proof_draft",
+             return_value=AuditResult(verdict="VALID", issues="none", validity=0.91, rigor=0.90, completeness=0.92),
+         ), \
+         patch.object(prover2, "_run_publication_scribe", return_value=None):
+        res = prover2.solve(
+            task_id="task_synth",
+            task_prompt=task_prompt,
+            max_iterations=1,
+            checkpoint_path=ckpt_path,
+        )
+
+    assert p2_stream_calls == 1, f"Expected only 1 stream call (rev_1) on resume, got {p2_stream_calls}"
+    assert res.verified is True
+    assert res.candidate_proof == repaired_proof
+    assert not ckpt_path.exists()
+

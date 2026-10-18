@@ -96,6 +96,29 @@ class MathObject:
         clean = prop.strip().lower()
         return clean in self.revoked_properties
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "domain": self.domain,
+            "properties": sorted(self.properties),
+            "revoked_properties": dict(self.revoked_properties),
+            "parent": self.parent,
+            "derivation_op": self.derivation_op,
+            "metadata": dict(self.metadata),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "MathObject":
+        return cls(
+            name=str(data.get("name", "")),
+            domain=str(data.get("domain", "")),
+            properties=set(data.get("properties") or []),
+            revoked_properties=dict(data.get("revoked_properties") or {}),
+            parent=data.get("parent"),
+            derivation_op=data.get("derivation_op"),
+            metadata=dict(data.get("metadata") or {}),
+        )
+
 
 @dataclass
 class StateSnapshot:
@@ -105,6 +128,28 @@ class StateSnapshot:
     subgoals: List[Dict[str, Any]]
     verified_lemmas: List[str]
     namespace_keys: Set[str]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "objects": {k: v.to_dict() for k, v in self.objects.items()},
+            "subgoals": copy.deepcopy(self.subgoals),
+            "verified_lemmas": list(self.verified_lemmas),
+            "namespace_keys": sorted(self.namespace_keys),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "StateSnapshot":
+        return cls(
+            name=str(data.get("name", "")),
+            objects={
+                k: MathObject.from_dict(v)
+                for k, v in (data.get("objects") or {}).items()
+            },
+            subgoals=list(data.get("subgoals") or []),
+            verified_lemmas=list(data.get("verified_lemmas") or []),
+            namespace_keys=set(data.get("namespace_keys") or []),
+        )
 
 
 class MathStateMachine:
@@ -385,6 +430,30 @@ class MathStateMachine:
         for vl in self._verified_lemmas:
             lines.append(f"  ✓ {vl}")
         return "\n".join(lines)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serializes the current mathematical state machine to a JSON-compatible dictionary."""
+        return {
+            "objects": {k: v.to_dict() for k, v in self._objects.items()},
+            "subgoals": copy.deepcopy(self._subgoals),
+            "verified_lemmas": list(self._verified_lemmas),
+            "checkpoints": {k: v.to_dict() for k, v in self._checkpoints.items()},
+        }
+
+    def load_state_dict(self, data: Dict[str, Any]) -> None:
+        """Restores the mathematical state machine from a serialized dictionary."""
+        if not data:
+            return
+        self._objects = {
+            k: MathObject.from_dict(v)
+            for k, v in (data.get("objects") or {}).items()
+        }
+        self._subgoals = copy.deepcopy(list(data.get("subgoals") or []))
+        self._verified_lemmas = list(data.get("verified_lemmas") or [])
+        self._checkpoints = {
+            k: StateSnapshot.from_dict(v)
+            for k, v in (data.get("checkpoints") or {}).items()
+        }
 
 
 # Global singleton instance for REPL prelude

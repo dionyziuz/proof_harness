@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 import datetime
+import json
 import logging
 import os
 import re
@@ -82,6 +83,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         enable_literature_search: Optional[bool] = None,
         config: Optional[TCSConfig] = None,
         proof_mode: Optional[str] = None,
+        checkpoint_path: Optional[Path] = None,
     ):
         self.config = config or load_tcs_config()
         self.client = client or TunnelThinkingClient()
@@ -106,7 +108,132 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         self.default_max_iterations = default_max_iterations or self.config.solver_max_iterations
         self.log_path = log_path or DEFAULT_LOG_PATH
         self.enable_thinking = self.config.solver_enable_thinking if enable_thinking is None else enable_thinking
+        self.checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
+        self._post_reset_code_history: List[str] = []
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _get_state_machine_dict(self) -> Optional[Dict[str, Any]]:
+        """Serializes the current MathStateMachine from the kernel if available."""
+        sm = getattr(self.kernel, "_state_machine", None)
+        if sm is not None and hasattr(sm, "to_dict"):
+            try:
+                return sm.to_dict()
+            except Exception as e:
+                logger.warning(f"Failed to serialize MathStateMachine: {e}")
+        return None
+
+    def _restore_kernel_state(
+        self,
+        task_prompt: str,
+        ckpt: Dict[str, Any],
+        reset_kernel: bool = True,
+    ) -> None:
+        """Reconstructs the Python kernel namespace and MathStateMachine from a checkpoint."""
+        if reset_kernel:
+            self.kernel.reset()
+        self.kernel.execute(f"import re\nPROBLEM_TEXT = {repr(task_prompt)}")
+        self.kernel.execute("state.checkpoint('init')")
+        self._post_reset_code_history = [
+            str(c) for c in ckpt.get("post_reset_code_history", [])
+        ]
+        for code in self._post_reset_code_history:
+            try:
+                self.kernel.execute(code)
+            except Exception as e:
+                logger.warning(f"Error replaying checkpoint code block: {e}")
+        sm_dict = ckpt.get("state_machine")
+        sm = getattr(self.kernel, "_state_machine", None)
+        if isinstance(sm_dict, dict) and sm is not None and hasattr(sm, "load_state_dict"):
+            try:
+                sm.load_state_dict(sm_dict)
+            except Exception as e:
+                logger.warning(f"Failed to restore MathStateMachine from checkpoint: {e}")
+
+    def _save_checkpoint(
+        self,
+        ckpt_path: Optional[Path],
+        task_id: str,
+        stage: str,
+        start_wall_time: float,
+        messages: List[Dict[str, str]],
+        result: TCSSolveResult,
+        retrieved: List[str],
+        exploration_state: Optional[Dict[str, Any]] = None,
+        synthesis_state: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Atomically writes turn-level solver state to ckpt_path via temp file + rename."""
+        if not ckpt_path:
+            return
+        try:
+            ckpt_path = Path(ckpt_path)
+            ckpt_path.parent.mkdir(parents=True, exist_ok=True)
+            anchor_msgs = getattr(self, "_anchor_msgs", [])
+            anchor_indices = [
+                i for i, m in enumerate(messages)
+                if any(m is a for a in anchor_msgs)
+            ]
+            payload = {
+                "version": 1,
+                "task_id": str(task_id),
+                "stage": stage,
+                "timestamp": datetime.datetime.now().isoformat(),
+                "elapsed_s": round(max(0.0, time.perf_counter() - start_wall_time), 3),
+                "messages": messages,
+                "task_only_msg": getattr(self, "_task_only_msg", None),
+                "anchor_indices": anchor_indices,
+                "prior_audit_defects": list(getattr(self, "_prior_audit_defects", [])),
+                "post_reset_code_history": list(getattr(self, "_post_reset_code_history", [])),
+                "state_machine": self._get_state_machine_dict(),
+                "result": result.to_dict(),
+                "retrieved": list(retrieved),
+                "exploration_state": exploration_state,
+                "synthesis_state": synthesis_state,
+            }
+            tmp_path = ckpt_path.with_suffix(ckpt_path.suffix + ".tmp")
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, ckpt_path)
+        except Exception as e:
+            logger.warning(f"Failed to write solver checkpoint to {ckpt_path}: {e}")
+
+    def _load_checkpoint(
+        self,
+        ckpt_path: Optional[Path],
+        task_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Loads and validates an existing turn-level checkpoint for task_id."""
+        if not ckpt_path:
+            return None
+        ckpt_path = Path(ckpt_path)
+        if not ckpt_path.exists():
+            return None
+        try:
+            with open(ckpt_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict) or data.get("version") != 1:
+                return None
+            if str(data.get("task_id", "")) != str(task_id):
+                logger.warning(
+                    f"Checkpoint task_id mismatch ({data.get('task_id')} != {task_id}); ignoring."
+                )
+                return None
+            return data
+        except Exception as e:
+            logger.warning(f"Failed to load checkpoint {ckpt_path}: {e}")
+            return None
+
+    def _unlink_checkpoint(self, ckpt_path: Optional[Path]) -> None:
+        """Removes the checkpoint file and any leftover .tmp file upon solve completion."""
+        if not ckpt_path:
+            return
+        for p in (Path(ckpt_path), Path(ckpt_path).with_suffix(Path(ckpt_path).suffix + ".tmp")):
+            try:
+                if p.exists():
+                    p.unlink()
+            except Exception as e:
+                logger.debug(f"Could not unlink checkpoint {p}: {e}")
 
     def extract_code_blocks(self, text: str) -> List[str]:
         """Extracts python code blocks from markdown text, ignoring LaTeX/prose fences."""
@@ -262,6 +389,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         reset_kernel: bool = True,
         on_step: Optional[Any] = None,
         enable_literature_search: Optional[bool] = None,
+        checkpoint_path: Optional[Path] = None,
     ) -> ProofResult:
         """Derives, proves, and computationally verifies a mathematical conjecture or theorem.
 
@@ -275,6 +403,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
             reset_kernel=reset_kernel,
             on_step=on_step,
             enable_literature_search=lit_search,
+            checkpoint_path=checkpoint_path,
         )
         if res.final_response:
             m_thm = re.search(r"<theorem>(.*?)</theorem>", res.final_response, flags=re.DOTALL)
@@ -467,6 +596,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         """
         self.memory.check_health()
         self._prior_audit_defects = []
+        self._post_reset_code_history = []
 
         if reset_kernel:
             self.kernel.reset()
@@ -616,6 +746,8 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         start_wall_time: float,
         max_time_seconds: Optional[float] = None,
         on_step: Optional[Any] = None,
+        resume_state: Optional[Dict[str, Any]] = None,
+        checkpoint_cb: Optional[Any] = None,
     ) -> Tuple[Optional[CandidateRecord], str]:
         """Executes multi-turn exploratory reasoning, Python REPL verification,
         adversarial skeptic audits, and candidate proof validation.
@@ -633,7 +765,30 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         pivot_gate_msg_ref: Optional[Dict[str, str]] = None
         pivot_unlocked_revision_prompt: str = ""
         turn = 0
-        self.kernel.execute("state.checkpoint('init')")
+
+        if isinstance(resume_state, dict):
+            turn = int(resume_state.get("turn", 0))
+            current_max_turns = int(resume_state.get("current_max_turns", max_turns))
+            if resume_state.get("max_time_seconds") is not None:
+                max_time_seconds = float(resume_state["max_time_seconds"])
+            if isinstance(resume_state.get("pool"), dict):
+                pool = CandidatePool.from_dict(resume_state["pool"])
+            if isinstance(resume_state.get("best_candidate"), dict):
+                best_candidate = CandidateRecord.from_dict(resume_state["best_candidate"])
+            else:
+                best_candidate = pool.best
+            last_auditor_issues = str(resume_state.get("last_auditor_issues", ""))
+            rejection_count = int(resume_state.get("rejection_count", 0))
+            prev_rejected_validity = float(resume_state.get("prev_rejected_validity", 0.0))
+            prev_structural_validity = float(resume_state.get("prev_structural_validity", 0.0))
+            dead_routes = [str(x) for x in resume_state.get("dead_routes", [])]
+            repl_consecutive_turns = int(resume_state.get("repl_consecutive_turns", 0))
+            pivot_repl_gate_active = bool(resume_state.get("pivot_repl_gate_active", False))
+            pivot_unlocked_revision_prompt = str(resume_state.get("pivot_unlocked_revision_prompt", ""))
+            if pivot_repl_gate_active and messages:
+                pivot_gate_msg_ref = messages[-1]
+        else:
+            self.kernel.execute("state.checkpoint('init')")
 
         while turn < current_max_turns:
             turn += 1
@@ -792,6 +947,8 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
 
                     exec_res = self.kernel.execute(code)
                     result.execution_history.append(exec_res)
+                    if not (not exec_res.success and "timed out" in (exec_res.error or "").lower()):
+                        self._post_reset_code_history.append(code)
                     if on_step:
                         on_step("code_done", exec_res)
 
@@ -1154,6 +1311,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
 
                             # 2. Reset the Python execution kernel, state machine, and prior-defect memory completely (clean slate)
                             self.kernel.reset()
+                            self._post_reset_code_history.clear()
                             self.kernel.execute("state.checkpoint('init')")
                             if hasattr(self, "_prior_audit_defects"):
                                 self._prior_audit_defects.clear()
@@ -1368,7 +1526,6 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                         # Pin the draft under repair so neither compaction path can erase it.
                         self._anchor_msgs = [candidate_msg, revision_msg]
                         self._last_messages = messages
-                        continue
 
                     else:
                         self._log_write(f"[Max Turns Reached] Storing current candidate proof from Turn {turn}.\n")
@@ -1488,9 +1645,29 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                     if len(messages) >= 8 or self.compactor.should_compact(messages):
                         messages = self._compact_conversation_history(messages, turn + 1)
                     self._last_messages = messages
-                    continue
                 else:
                     break
+
+            if checkpoint_cb is not None:
+                checkpoint_cb(
+                    stage="exploration",
+                    messages=messages,
+                    exploration_state={
+                        "turn": turn,
+                        "current_max_turns": current_max_turns,
+                        "max_time_seconds": max_time_seconds,
+                        "pool": pool.to_dict(),
+                        "best_candidate": best_candidate.to_dict() if best_candidate else None,
+                        "last_auditor_issues": last_auditor_issues,
+                        "rejection_count": rejection_count,
+                        "prev_rejected_validity": prev_rejected_validity,
+                        "prev_structural_validity": prev_structural_validity,
+                        "dead_routes": list(dead_routes),
+                        "repl_consecutive_turns": repl_consecutive_turns,
+                        "pivot_repl_gate_active": pivot_repl_gate_active,
+                        "pivot_unlocked_revision_prompt": pivot_unlocked_revision_prompt,
+                    },
+                )
 
         self._last_messages = messages
         return best_candidate, last_auditor_issues
@@ -1505,6 +1682,8 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         last_issues: str,
         retrieved: List[str],
         on_step: Optional[Any] = None,
+        resume_state: Optional[Dict[str, Any]] = None,
+        checkpoint_cb: Optional[Any] = None,
     ) -> Optional[CandidateRecord]:
         """Runs the dedicated Publication Scribe synthesis turn, referee audit loop,
         and surgical repair passes.
@@ -1513,8 +1692,17 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         if on_step:
             on_step("synthesis_start", "")
 
+        substage = str(resume_state.get("substage", "init")) if isinstance(resume_state, dict) else "init"
         pool = CandidatePool()
-        if best_candidate and is_valid_latex_proof(best_candidate.proof):
+        if isinstance(resume_state, dict) and isinstance(resume_state.get("pool"), dict):
+            pool = CandidatePool.from_dict(resume_state["pool"])
+            if isinstance(resume_state.get("best_candidate"), dict):
+                best_candidate = CandidateRecord.from_dict(resume_state["best_candidate"])
+            else:
+                best_candidate = pool.best
+            if resume_state.get("last_issues") is not None:
+                last_issues = str(resume_state["last_issues"])
+        elif best_candidate and is_valid_latex_proof(best_candidate.proof):
             pool.offer(
                 best_candidate.proof,
                 best_candidate.validity,
@@ -1529,52 +1717,64 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         # Attempt 1: Isolated Publication Scribe Subagent using Verified Lemma Ledger
         # Invoke the from-scratch Scribe when exploratory turns ended without a passing LaTeX candidate proof (< 0.50)!
         # Only skip Attempt 1 when best_candidate already has a valid LaTeX proof with validity >= judge_pass_threshold (0.50).
-        if not (
-            best_candidate
-            and is_valid_latex_proof(best_candidate.proof)
-            and best_candidate.validity >= THRESHOLDS.judge_pass_threshold
-        ):
-            st_res = self.kernel.execute("print(state.status())")
-            state_summary = (st_res.stdout or "").strip()
-            v_lemmas = []
-            if hasattr(self.kernel, "_state_machine"):
-                v_lemmas = list(self.kernel._state_machine._verified_lemmas)
+        if substage == "init":
+            if not (
+                best_candidate
+                and is_valid_latex_proof(best_candidate.proof)
+                and best_candidate.validity >= THRESHOLDS.judge_pass_threshold
+            ):
+                st_res = self.kernel.execute("print(state.status())")
+                state_summary = (st_res.stdout or "").strip()
+                v_lemmas = []
+                if hasattr(self.kernel, "_state_machine"):
+                    v_lemmas = list(self.kernel._state_machine._verified_lemmas)
 
-            scribe_proof = self._run_publication_scribe(
-                task_id=task_id,
-                task_prompt=task_prompt,
-                verified_ledger=v_lemmas,
-                state_summary=state_summary,
-                candidate_draft=(best_candidate.proof if best_candidate else (result.final_response or "")),
-                on_step=on_step,
-            )
-            if scribe_proof and is_valid_latex_proof(scribe_proof):
-                self._log_write("\n[Auditing Synthesized Proof Draft from Publication Scribe]...\n")
-                if on_step:
-                    on_step("audit_start", scribe_proof)
-                s_audit = self._audit_proof_draft(task_prompt, scribe_proof)
-                s_verdict = s_audit.verdict
-                s_issues = s_audit.issues
-                s_val = s_audit.validity
-                if on_step:
-                    on_step("audit_result", {"verdict": s_verdict, "issues": s_issues, "validity": s_val})
-                if pool.offer(scribe_proof, s_val, s_verdict, s_issues, turn=990, audit_result=s_audit):
-                    best_candidate = pool.best
-                else:
-                    best_candidate = pool.best
-                if s_verdict == "VALID":
-                    self._log_write(f"[Publication Scribe Audit Passed!] Proof verified (validity: {s_val:.2f}).\n")
+                scribe_proof = self._run_publication_scribe(
+                    task_id=task_id,
+                    task_prompt=task_prompt,
+                    verified_ledger=v_lemmas,
+                    state_summary=state_summary,
+                    candidate_draft=(best_candidate.proof if best_candidate else (result.final_response or "")),
+                    on_step=on_step,
+                )
+                if scribe_proof and is_valid_latex_proof(scribe_proof):
+                    self._log_write("\n[Auditing Synthesized Proof Draft from Publication Scribe]...\n")
                     if on_step:
-                        on_step("proof_accepted", scribe_proof)
-                    result.candidate_proof = scribe_proof
-                    result.final_response = scribe_proof
-                    result.verified = True
-                    return best_candidate
-        else:
-            self._log_write(
-                f"[Synthesis Optimization] Skipping redundant from-scratch Scribe pass; "
-                f"seeding directly from Best Candidate (Turn {best_candidate.turn}, validity: {best_candidate.validity:.2f}).\n"
-            )
+                        on_step("audit_start", scribe_proof)
+                    s_audit = self._audit_proof_draft(task_prompt, scribe_proof)
+                    s_verdict = s_audit.verdict
+                    s_issues = s_audit.issues
+                    s_val = s_audit.validity
+                    if on_step:
+                        on_step("audit_result", {"verdict": s_verdict, "issues": s_issues, "validity": s_val})
+                    if pool.offer(scribe_proof, s_val, s_verdict, s_issues, turn=990, audit_result=s_audit):
+                        best_candidate = pool.best
+                    else:
+                        best_candidate = pool.best
+                    if s_verdict == "VALID":
+                        self._log_write(f"[Publication Scribe Audit Passed!] Proof verified (validity: {s_val:.2f}).\n")
+                        if on_step:
+                            on_step("proof_accepted", scribe_proof)
+                        result.candidate_proof = scribe_proof
+                        result.final_response = scribe_proof
+                        result.verified = True
+                        return best_candidate
+            else:
+                self._log_write(
+                    f"[Synthesis Optimization] Skipping redundant from-scratch Scribe pass; "
+                    f"seeding directly from Best Candidate (Turn {best_candidate.turn}, validity: {best_candidate.validity:.2f}).\n"
+                )
+            if checkpoint_cb is not None:
+                checkpoint_cb(
+                    stage="synthesis",
+                    messages=messages,
+                    synthesis_state={
+                        "substage": "after_scribe",
+                        "pool": pool.to_dict(),
+                        "best_candidate": best_candidate.to_dict() if best_candidate else None,
+                        "last_issues": last_issues,
+                    },
+                )
 
         # Attempt 2: Direct model synthesis turn with contract directive
         heuristics_reminder = ""
@@ -1695,132 +1895,168 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 synthesis_messages = comp_res.compacted_messages
 
         try:
-            if best_candidate and is_valid_latex_proof(best_candidate.proof):
-                result.candidate_proof = best_candidate.proof
-                result.final_response = best_candidate.proof
-                if (
-                    not best_has_issues
-                    and last_has_real_issues
-                    and best_candidate.turn < getattr(result, "iterations", 0)
-                ):
-                    best_candidate.issues = last_issues
-                    best_has_issues = True
-                if best_candidate.verdict == "VALID" and not best_has_issues:
-                    self._log_write(
-                        f"\n[Synthesis Optimization] Best Candidate (Turn {best_candidate.turn}, "
-                        f"validity: {best_candidate.validity:.2f}) already passed two-pass audit with no issues; "
-                        f"skipping redundant revision passes.\n"
-                    )
-                    result.verified = True
-                    return best_candidate
-                self._log_write(
-                    f"\n[Synthesis Optimization] Skipping redundant Attempt 2 (Synthesis Turn); "
-                    f"entering Synthesis Revision 1/2 directly on Best Candidate (Turn {best_candidate.turn}, "
-                    f"validity: {best_candidate.validity:.2f}, structural: {best_candidate.structural_validity:.2f}).\n"
-                )
-                current_proof = best_candidate.proof
-                current_issues = (
-                    best_candidate.issues
-                    if (best_candidate.issues and best_candidate.issues.strip().lower() != "none")
-                    else last_issues
-                )
-                current_synth_text = best_candidate.proof
-                synth_text = best_candidate.proof
-            else:
-                self._log_write("\n[Synthesis Turn: Emitting Publication Proof]\n")
-                synth_reasoning_text, synth_text = self._stream_completion_with_retry(
-                    messages=synthesis_messages,
-                    temperature=0.2,
-                    max_tokens=self.client.config.max_tokens,
-                    enable_thinking=self.enable_thinking,
-                    thinking_budget_tokens=self.client.config.thinking_token_budget or 16384,
-                    timeout_seconds=600.0,
-                    max_retries=5,
-                )
-                if not synth_text and synth_reasoning_text:
-                    p_fall = extract_latex_proof(synth_reasoning_text)
-                    if p_fall:
-                        synth_text = p_fall
-                self._log_write("\n" + synth_text + "\n")
-                proof = extract_latex_proof(synth_text)
-                if not proof and synth_text and synth_text.strip().endswith(r"\end{proof}") and not synth_text.strip().startswith(r"\begin{proof}"):
-                    proof = extract_latex_proof("\\begin{proof}\n" + synth_text.strip())
-                if proof and not is_valid_latex_proof(proof):
-                    san = sanitize_informal_proof(proof)
-                    if san and is_valid_latex_proof(san):
-                        proof = san
-                if not proof or not is_valid_latex_proof(proof):
-                    self._log_write("[Synthesis Notice] Direct extraction did not yield a valid publication proof. Invoking Journal Typesetter pass...\n")
-                    combined_synth_source = (
-                        f"{synth_reasoning_text[-25000:]}\n\n{synth_text}".strip()
-                        if synth_reasoning_text
-                        else synth_text
-                    )
-                    typeset_cand = self._typeset_publication_proof(task_prompt, combined_synth_source)
-                    if not typeset_cand:
-                        all_assistant_text = "\n\n--- Next Exploration Trace ---\n\n".join(
-                            m["content"] for m in messages if m.get("role") == "assistant" and m.get("content")
+            if substage in ("init", "after_scribe"):
+                if best_candidate and is_valid_latex_proof(best_candidate.proof):
+                    result.candidate_proof = best_candidate.proof
+                    result.final_response = best_candidate.proof
+                    if (
+                        not best_has_issues
+                        and last_has_real_issues
+                        and best_candidate.turn < getattr(result, "iterations", 0)
+                    ):
+                        best_candidate.issues = last_issues
+                        best_has_issues = True
+                    if best_candidate.verdict == "VALID" and not best_has_issues:
+                        self._log_write(
+                            f"\n[Synthesis Optimization] Best Candidate (Turn {best_candidate.turn}, "
+                            f"validity: {best_candidate.validity:.2f}) already passed two-pass audit with no issues; "
+                            f"skipping redundant revision passes.\n"
                         )
-                        if result.reasoning_traces:
-                            all_assistant_text = result.reasoning_traces[-1][-15000:] + "\n\n" + all_assistant_text
-                        if len(all_assistant_text.strip()) > 200:
-                            typeset_cand = self._typeset_publication_proof(task_prompt, all_assistant_text)
-                    if typeset_cand:
-                        self._log_write(f"[Journal Typesetter Success] Produced valid LaTeX proof ({len(typeset_cand)} chars).\n")
-                        proof = typeset_cand
-
-                if not proof or not is_valid_latex_proof(proof):
-                    s_verdict = "REJECT"
-                    s_issues = (
-                        "- Format and Closure Defect: The previous generation failed publication proof validation. "
-                        "Either \\begin{proof} ... \\end{proof} was incomplete, truncated, or missing proper closure, "
-                        "or the body contained informal stream-of-consciousness/conversational remarks, unproven assertions, "
-                        "or internal self-doubt. You must construct a complete, self-contained, formal mathematical LaTeX proof "
-                        "enclosed strictly in \\begin{proof} ... \\end{proof}."
-                    )
-                    self._log_write(f"[Synthesis Format Notice] {s_issues}\n")
-                    current_issues = s_issues
-                    current_proof = None
-                    current_synth_text = synth_text
-                else:
-                    self._log_write("\n[Auditing Synthesized Proof Draft]...\n")
-                    if on_step:
-                        on_step("audit_start", proof)
-                    s_audit = self._audit_proof_draft(task_prompt, proof)
-                    s_verdict = s_audit.verdict
-                    s_issues = s_audit.issues
-                    s_val = s_audit.validity
-                    if on_step:
-                        on_step("audit_result", {"verdict": s_verdict, "issues": s_issues, "validity": s_val})
-                    if is_valid_latex_proof(proof):
-                        if pool.offer(proof, s_val, s_verdict, s_issues, turn=990, audit_result=s_audit):
-                            self._log_write(f"[Best Candidate Updated in Synthesis] validity={s_val:.2f} ({len(proof)} chars)\n")
-                        best_candidate = pool.best
-                    if s_verdict == "VALID":
-                        self._log_write(f"[Synthesis Audit Passed] Final publication proof verified by referee (validity: {s_val:.2f}).\n")
-                        if on_step:
-                            on_step("proof_accepted", proof)
-                        result.candidate_proof = proof
-                        result.final_response = proof
                         result.verified = True
                         return best_candidate
-                    else:
-                        self._log_write(f"[Synthesis Audit Notes] (validity: {s_val:.2f}) {s_issues}\n")
+                    self._log_write(
+                        f"\n[Synthesis Optimization] Skipping redundant Attempt 2 (Synthesis Turn); "
+                        f"entering Synthesis Revision 1/2 directly on Best Candidate (Turn {best_candidate.turn}, "
+                        f"validity: {best_candidate.validity:.2f}, structural: {best_candidate.structural_validity:.2f}).\n"
+                    )
+                    current_proof = best_candidate.proof
+                    current_issues = (
+                        best_candidate.issues
+                        if (best_candidate.issues and best_candidate.issues.strip().lower() != "none")
+                        else last_issues
+                    )
+                    current_synth_text = best_candidate.proof
+                    synth_text = best_candidate.proof
+                else:
+                    self._log_write("\n[Synthesis Turn: Emitting Publication Proof]\n")
+                    synth_reasoning_text, synth_text = self._stream_completion_with_retry(
+                        messages=synthesis_messages,
+                        temperature=0.2,
+                        max_tokens=self.client.config.max_tokens,
+                        enable_thinking=self.enable_thinking,
+                        thinking_budget_tokens=self.client.config.thinking_token_budget or 16384,
+                        timeout_seconds=600.0,
+                        max_retries=5,
+                    )
+                    if not synth_text and synth_reasoning_text:
+                        p_fall = extract_latex_proof(synth_reasoning_text)
+                        if p_fall:
+                            synth_text = p_fall
+                    self._log_write("\n" + synth_text + "\n")
+                    proof = extract_latex_proof(synth_text)
+                    if not proof and synth_text and synth_text.strip().endswith(r"\end{proof}") and not synth_text.strip().startswith(r"\begin{proof}"):
+                        proof = extract_latex_proof("\\begin{proof}\n" + synth_text.strip())
+                    if proof and not is_valid_latex_proof(proof):
+                        san = sanitize_informal_proof(proof)
+                        if san and is_valid_latex_proof(san):
+                            proof = san
+                    if not proof or not is_valid_latex_proof(proof):
+                        self._log_write("[Synthesis Notice] Direct extraction did not yield a valid publication proof. Invoking Journal Typesetter pass...\n")
+                        combined_synth_source = (
+                            f"{synth_reasoning_text[-25000:]}\n\n{synth_text}".strip()
+                            if synth_reasoning_text
+                            else synth_text
+                        )
+                        typeset_cand = self._typeset_publication_proof(task_prompt, combined_synth_source)
+                        if not typeset_cand:
+                            all_assistant_text = "\n\n--- Next Exploration Trace ---\n\n".join(
+                                m["content"] for m in messages if m.get("role") == "assistant" and m.get("content")
+                            )
+                            if result.reasoning_traces:
+                                all_assistant_text = result.reasoning_traces[-1][-15000:] + "\n\n" + all_assistant_text
+                            if len(all_assistant_text.strip()) > 200:
+                                typeset_cand = self._typeset_publication_proof(task_prompt, all_assistant_text)
+                        if typeset_cand:
+                            self._log_write(f"[Journal Typesetter Success] Produced valid LaTeX proof ({len(typeset_cand)} chars).\n")
+                            proof = typeset_cand
+
+                    if not proof or not is_valid_latex_proof(proof):
+                        s_verdict = "REJECT"
+                        s_issues = (
+                            "- Format and Closure Defect: The previous generation failed publication proof validation. "
+                            "Either \\begin{proof} ... \\end{proof} was incomplete, truncated, or missing proper closure, "
+                            "or the body contained informal stream-of-consciousness/conversational remarks, unproven assertions, "
+                            "or internal self-doubt. You must construct a complete, self-contained, formal mathematical LaTeX proof "
+                            "enclosed strictly in \\begin{proof} ... \\end{proof}."
+                        )
+                        self._log_write(f"[Synthesis Format Notice] {s_issues}\n")
                         current_issues = s_issues
-                        current_proof = proof
+                        current_proof = None
                         current_synth_text = synth_text
-                        if is_valid_latex_proof(proof) and best_candidate is not None and best_candidate.proof == proof:
+                    else:
+                        self._log_write("\n[Auditing Synthesized Proof Draft]...\n")
+                        if on_step:
+                            on_step("audit_start", proof)
+                        s_audit = self._audit_proof_draft(task_prompt, proof)
+                        s_verdict = s_audit.verdict
+                        s_issues = s_audit.issues
+                        s_val = s_audit.validity
+                        if on_step:
+                            on_step("audit_result", {"verdict": s_verdict, "issues": s_issues, "validity": s_val})
+                        if is_valid_latex_proof(proof):
+                            if pool.offer(proof, s_val, s_verdict, s_issues, turn=990, audit_result=s_audit):
+                                self._log_write(f"[Best Candidate Updated in Synthesis] validity={s_val:.2f} ({len(proof)} chars)\n")
+                            best_candidate = pool.best
+                        if s_verdict == "VALID":
+                            self._log_write(f"[Synthesis Audit Passed] Final publication proof verified by referee (validity: {s_val:.2f}).\n")
+                            if on_step:
+                                on_step("proof_accepted", proof)
                             result.candidate_proof = proof
                             result.final_response = proof
+                            result.verified = True
+                            return best_candidate
+                        else:
+                            self._log_write(f"[Synthesis Audit Notes] (validity: {s_val:.2f}) {s_issues}\n")
+                            current_issues = s_issues
+                            current_proof = proof
+                            current_synth_text = synth_text
+                            if is_valid_latex_proof(proof) and best_candidate is not None and best_candidate.proof == proof:
+                                result.candidate_proof = proof
+                                result.final_response = proof
 
-                if on_step:
-                    on_step("synthesis_done", {"proof": proof, "valid": bool(proof and is_valid_latex_proof(proof))})
+                    if on_step:
+                        on_step("synthesis_done", {"proof": proof, "valid": bool(proof and is_valid_latex_proof(proof))})
+
+                if checkpoint_cb is not None and not result.verified:
+                    checkpoint_cb(
+                        stage="synthesis",
+                        messages=messages,
+                        synthesis_state={
+                            "substage": "after_synth_turn",
+                            "pool": pool.to_dict(),
+                            "best_candidate": best_candidate.to_dict() if best_candidate else None,
+                            "last_issues": last_issues,
+                            "current_proof": current_proof,
+                            "current_issues": current_issues,
+                            "current_synth_text": current_synth_text,
+                            "synth_text": synth_text,
+                        },
+                    )
+            else:
+                r_state = resume_state if isinstance(resume_state, dict) else {}
+                current_proof = r_state.get("current_proof")
+                current_issues = str(r_state.get("current_issues") or last_issues or "")
+                current_synth_text = str(r_state.get("current_synth_text") or current_proof or "")
+                synth_text = str(r_state.get("synth_text") or current_synth_text or "")
 
             # Attempt 3: Revision passes (up to 2 iterations)
             if not result.verified:
+                max_revision_iters = 2
+                if substage == "after_rev_1":
+                    start_rev_iter = 2
+                elif substage == "after_rev_2":
+                    start_rev_iter = max_revision_iters + 1
+                else:
+                    start_rev_iter = 1
+
                 # Always ensure Synthesis Revision starts from the highest-scoring candidate in pool.best
                 # rather than a degraded or lower-scoring [Synthesis Turn] draft!
-                if best_candidate and is_valid_latex_proof(best_candidate.proof) and best_candidate.proof != current_proof:
+                if (
+                    start_rev_iter == 1
+                    and best_candidate
+                    and is_valid_latex_proof(best_candidate.proof)
+                    and best_candidate.proof != current_proof
+                ):
                     self._log_write(
                         f"[Synthesis Revision Seeding] Seeding revision passes with highest-scoring candidate from Turn {best_candidate.turn} "
                         f"(validity: {best_candidate.validity:.2f}, structural: {best_candidate.structural_validity:.2f}).\n"
@@ -1829,7 +2065,6 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                     if best_candidate.issues and best_candidate.issues.strip().lower() != "none":
                         current_issues = best_candidate.issues
 
-                max_revision_iters = 2
                 deadline = getattr(self, "_solve_deadline", None)
                 if (
                     deadline is not None
@@ -1843,7 +2078,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                         f"passes for viable candidate (validity: {best_candidate.validity:.2f}).\n"
                     )
 
-                for rev_iter in range(1, max_revision_iters + 1):
+                for rev_iter in range(start_rev_iter, max_revision_iters + 1):
                     deadline = getattr(self, "_solve_deadline", None)
                     if deadline is not None and time.perf_counter() > deadline:
                         self._log_write("[Synthesis Revision] Wall-clock limit exceeded; skipping remaining revision passes.\n")
@@ -1930,6 +2165,8 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                                 self._log_write(f"[Synthesis Revision REPL Execution]:\n```python\n{c}\n```\n")
                                 ex_res = self.kernel.execute(c)
                                 result.execution_history.append(ex_res)
+                                if not (not ex_res.success and "timed out" in (ex_res.error or "").lower()):
+                                    self._post_reset_code_history.append(c)
                                 if ex_res.stdout:
                                     self._log_write(f"Stdout:\n{ex_res.stdout}\n")
 
@@ -2020,8 +2257,26 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                                 result.final_response = current_proof
                             if on_step:
                                 on_step("synthesis_done", {"proof": r_proof, "valid": bool(r_proof and is_valid_latex_proof(r_proof))})
+
+                        if checkpoint_cb is not None and not result.verified:
+                            checkpoint_cb(
+                                stage="synthesis",
+                                messages=messages,
+                                synthesis_state={
+                                    "substage": f"after_rev_{rev_iter}",
+                                    "pool": pool.to_dict(),
+                                    "best_candidate": best_candidate.to_dict() if best_candidate else None,
+                                    "last_issues": last_issues,
+                                    "current_proof": current_proof,
+                                    "current_issues": current_issues,
+                                    "current_synth_text": current_synth_text,
+                                    "synth_text": synth_text,
+                                },
+                            )
                     except Exception as rep_err:
                         self._log_write(f"[Synthesis Revision Error Attempt {rev_iter}] {rep_err}\n")
+                        if checkpoint_cb is not None:
+                            raise
                         if current_proof:
                             result.candidate_proof = current_proof
                             result.final_response = current_proof
@@ -2030,6 +2285,8 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 result.final_response = synth_text
         except Exception as e:
             self._log_write(f"Final proof synthesis failed: {e}\n")
+            if checkpoint_cb is not None:
+                raise
 
         return best_candidate
 
@@ -2097,6 +2354,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         reset_kernel: bool = True,
         on_step: Optional[Any] = None,
         enable_literature_search: Optional[bool] = None,
+        checkpoint_path: Optional[Path] = None,
     ) -> TCSSolveResult:
         """Solves a TCS-Bench theorem proving task through closed-loop reasoning."""
         if not task_prompt or not task_prompt.strip():
@@ -2111,33 +2369,142 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 duration_s=0.0,
             )
 
-        start_wall_time = time.perf_counter()
+        ckpt_path = Path(checkpoint_path) if checkpoint_path else self.checkpoint_path
+        ckpt = self._load_checkpoint(ckpt_path, task_id)
+
         max_turns = max_iterations or self.default_max_iterations
         if max_time_seconds is None:
             max_time_seconds = float(getattr(getattr(self, "config", None), "solver_timeout_seconds", 3600.0) or 3600.0)
-        self._solve_deadline = (start_wall_time + max_time_seconds) if max_time_seconds else None
 
-        # 1. Setup session & query TurboVec / subagents
-        messages, result, retrieved = self._init_solve_session(
-            task_id=task_id,
-            task_prompt=task_prompt,
-            max_turns=max_turns,
-            reset_kernel=reset_kernel,
-            on_step=on_step,
-            enable_literature_search=enable_literature_search,
-        )
+        if ckpt is not None:
+            prior_elapsed_s = float(ckpt.get("elapsed_s", 0.0))
+            start_wall_time = time.perf_counter() - prior_elapsed_s
+            exp_state = ckpt.get("exploration_state")
+            if isinstance(exp_state, dict) and exp_state.get("max_time_seconds") is not None:
+                max_time_seconds = float(exp_state["max_time_seconds"])
+            self._solve_deadline = (start_wall_time + max_time_seconds) if max_time_seconds else None
+
+            self.memory.check_health()
+            lit_search = self.enable_literature_search if enable_literature_search is None else enable_literature_search
+            if isinstance(self.kernel, TCSCompliantKernel):
+                self.kernel.allow_internet = lit_search
+            self._prior_audit_defects = [str(x) for x in ckpt.get("prior_audit_defects", [])]
+            self._restore_kernel_state(task_prompt, ckpt, reset_kernel=reset_kernel)
+
+            messages = [dict(m) for m in ckpt.get("messages", [])]
+            self._task_only_msg = dict(ckpt["task_only_msg"]) if isinstance(ckpt.get("task_only_msg"), dict) else None
+            anchor_indices = ckpt.get("anchor_indices", [])
+            self._anchor_msgs = [
+                messages[i]
+                for i in anchor_indices
+                if isinstance(i, int) and 0 <= i < len(messages)
+            ]
+            self._last_messages = messages
+            result = TCSSolveResult.from_dict(ckpt.get("result", {}))
+            result.log_file = str(self.log_path)
+            retrieved = [str(x) for x in ckpt.get("retrieved", [])]
+            stage = str(ckpt.get("stage", "init_done"))
+
+            safe_task_id = re.sub(r"\d{4}\.\d{4,5}", "[ID]", str(task_id))
+            self._log_write(
+                f"\n{'=' * 80}\n"
+                f"[CHECKPOINT RESUME] Task: {safe_task_id} | Stage: {stage} | "
+                f"Completed Turn: {result.iterations} | Prior Elapsed: {prior_elapsed_s:.1f}s\n"
+                f"{'=' * 80}\n"
+            )
+            if on_step:
+                on_step(
+                    "checkpoint_resume",
+                    {
+                        "stage": stage,
+                        "turn": result.iterations,
+                        "completed_turn": result.iterations,
+                        "elapsed_s": prior_elapsed_s,
+                    },
+                )
+        else:
+            start_wall_time = time.perf_counter()
+            self._solve_deadline = (start_wall_time + max_time_seconds) if max_time_seconds else None
+            stage = "init"
+
+            # 1. Setup session & query TurboVec / subagents
+            messages, result, retrieved = self._init_solve_session(
+                task_id=task_id,
+                task_prompt=task_prompt,
+                max_turns=max_turns,
+                reset_kernel=reset_kernel,
+                on_step=on_step,
+                enable_literature_search=enable_literature_search,
+            )
+            stage = "init_done"
+            self._save_checkpoint(
+                ckpt_path=ckpt_path,
+                task_id=task_id,
+                stage=stage,
+                start_wall_time=start_wall_time,
+                messages=messages,
+                result=result,
+                retrieved=retrieved,
+            )
+
+        def _checkpoint_cb(
+            stage: str,
+            messages: List[Dict[str, str]],
+            exploration_state: Optional[Dict[str, Any]] = None,
+            synthesis_state: Optional[Dict[str, Any]] = None,
+        ) -> None:
+            self._save_checkpoint(
+                ckpt_path=ckpt_path,
+                task_id=task_id,
+                stage=stage,
+                start_wall_time=start_wall_time,
+                messages=messages,
+                result=result,
+                retrieved=retrieved,
+                exploration_state=exploration_state,
+                synthesis_state=synthesis_state,
+            )
+
+        active_ckpt_cb = _checkpoint_cb if ckpt_path is not None else None
+        best_candidate: Optional[CandidateRecord] = None
+        last_issues: str = ""
 
         # 2. Multi-turn reasoning & REPL invariant verification loop
-        best_candidate, last_issues = self._run_exploratory_turns(
-            task_id=task_id,
-            task_prompt=task_prompt,
-            messages=messages,
-            result=result,
-            max_turns=max_turns,
-            start_wall_time=start_wall_time,
-            max_time_seconds=max_time_seconds,
-            on_step=on_step,
-        )
+        if stage in ("init_done", "exploration"):
+            best_candidate, last_issues = self._run_exploratory_turns(
+                task_id=task_id,
+                task_prompt=task_prompt,
+                messages=messages,
+                result=result,
+                max_turns=max_turns,
+                start_wall_time=start_wall_time,
+                max_time_seconds=max_time_seconds,
+                on_step=on_step,
+                resume_state=ckpt.get("exploration_state") if (ckpt and stage == "exploration") else None,
+                checkpoint_cb=active_ckpt_cb,
+            )
+            messages = getattr(self, "_last_messages", None) or messages
+            if active_ckpt_cb is not None and (not result.verified or not is_valid_latex_proof(result.candidate_proof)):
+                active_ckpt_cb(
+                    stage="synthesis",
+                    messages=messages,
+                    synthesis_state={
+                        "substage": "init",
+                        "best_candidate": best_candidate.to_dict() if best_candidate else None,
+                        "last_issues": last_issues,
+                    },
+                )
+        elif stage == "synthesis" and ckpt is not None:
+            syn_state = ckpt.get("synthesis_state") or {}
+            exp_state = ckpt.get("exploration_state") or {}
+            bc_dict = syn_state.get("best_candidate") or exp_state.get("best_candidate")
+            if isinstance(bc_dict, dict):
+                best_candidate = CandidateRecord.from_dict(bc_dict)
+            last_issues = str(
+                syn_state.get("last_issues")
+                or exp_state.get("last_auditor_issues")
+                or ""
+            )
 
         # 3. Final publication proof synthesis & referee audit loop
         if not result.verified or not is_valid_latex_proof(result.candidate_proof):
@@ -2150,16 +2517,20 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 last_issues=last_issues,
                 retrieved=retrieved,
                 on_step=on_step,
+                resume_state=ckpt.get("synthesis_state") if (ckpt and stage == "synthesis") else None,
+                checkpoint_cb=active_ckpt_cb,
             )
 
         # 4. Finalize result, recover best candidate, and consolidate learning to TurboVec
-        return self._finalize_result(
+        final_res = self._finalize_result(
             task_id=task_id,
             task_prompt=task_prompt,
             result=result,
             best_candidate=best_candidate,
             start_wall_time=start_wall_time,
         )
+        self._unlink_checkpoint(ckpt_path)
+        return final_res
 
 
 __all__ = [

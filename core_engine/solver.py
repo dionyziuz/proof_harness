@@ -13,8 +13,10 @@ Implements a CoALA closed-loop decision cycle with TurboVec Procedural Memory:
 from __future__ import annotations
 
 import datetime
+import json
 import logging
 import math
+import os
 import re
 import time
 from dataclasses import dataclass, field
@@ -74,6 +76,56 @@ class SolveResult:
     self_verified: bool = False
     is_correct: Optional[bool] = None
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Serializes SolveResult to a JSON-compatible dictionary."""
+        return {
+            "problem": self.problem,
+            "answer": self.answer,
+            "boxed_answer": self.boxed_answer,
+            "verified": self.verified,
+            "iterations": self.iterations,
+            "reasoning_traces": list(self.reasoning_traces),
+            "code_history": list(self.code_history),
+            "execution_history": [
+                ex.to_dict() if hasattr(ex, "to_dict") else ex
+                for ex in self.execution_history
+            ],
+            "retrieved_heuristics": list(self.retrieved_heuristics),
+            "learned_heuristics": list(self.learned_heuristics),
+            "research_briefing": self.research_briefing,
+            "final_response": self.final_response,
+            "log_file": self.log_file,
+            "self_verified": self.self_verified,
+            "is_correct": self.is_correct,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SolveResult":
+        """Reconstructs a SolveResult from a dictionary."""
+        exec_hist: List[ExecutionResult] = []
+        for ex in data.get("execution_history", []):
+            if isinstance(ex, ExecutionResult):
+                exec_hist.append(ex)
+            elif isinstance(ex, dict):
+                exec_hist.append(ExecutionResult.from_dict(ex))
+        return cls(
+            problem=str(data.get("problem", "")),
+            answer=data.get("answer"),
+            boxed_answer=data.get("boxed_answer"),
+            verified=bool(data.get("verified", False)),
+            iterations=int(data.get("iterations", 0)),
+            reasoning_traces=[str(x) for x in data.get("reasoning_traces", [])],
+            code_history=[str(x) for x in data.get("code_history", [])],
+            execution_history=exec_hist,
+            retrieved_heuristics=[str(x) for x in data.get("retrieved_heuristics", [])],
+            learned_heuristics=[str(x) for x in data.get("learned_heuristics", [])],
+            research_briefing=data.get("research_briefing"),
+            final_response=str(data.get("final_response", "")),
+            log_file=str(data.get("log_file", str(DEFAULT_LOG_PATH))),
+            self_verified=bool(data.get("self_verified", False)),
+            is_correct=data.get("is_correct"),
+        )
+
 
 class MathSolver:
     """Closed-loop agentic solver combining thinking LLMs, persistent REPL, and CoALA TurboVec memory."""
@@ -88,6 +140,7 @@ class MathSolver:
         default_max_iterations: int = 12,
         enable_pre_solve_research: bool = True,
         log_path: Optional[Path] = None,
+        checkpoint_path: Optional[Path] = None,
     ):
         self.client = client or TunnelThinkingClient()
         self.fast_composer = fast_composer or FastComposerClient()
@@ -101,12 +154,113 @@ class MathSolver:
         self.default_max_iterations = default_max_iterations
         self.enable_pre_solve_research = enable_pre_solve_research
         self.log_path = log_path or DEFAULT_LOG_PATH
+        self.checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         # Colosseum-style runtime state: failed fast-composer route context (injected into the
         # deep orchestrator prompt) and the trailing execution-error signature window for
         # stall detection (dead-route re-exploration directive).
         self._fast_composer_critique: Optional[str] = None
         self._error_signatures: List[str] = []
+
+    def _save_checkpoint(
+        self,
+        ckpt_path: Optional[Path],
+        problem: str,
+        completed_turn: int,
+        start_wall_time: float,
+        messages: List[Dict[str, str]],
+        result: SolveResult,
+    ) -> None:
+        """Atomically writes turn-level solver state to ckpt_path via temp file + rename."""
+        if not ckpt_path:
+            return
+        try:
+            ckpt_path = Path(ckpt_path)
+            ckpt_path.parent.mkdir(parents=True, exist_ok=True)
+            sm = getattr(self.kernel, "_state_machine", None)
+            sm_dict = sm.to_dict() if (sm is not None and hasattr(sm, "to_dict")) else None
+            payload = {
+                "version": 1,
+                "problem": problem,
+                "completed_turn": int(completed_turn),
+                "timestamp": datetime.datetime.now().isoformat(),
+                "elapsed_s": round(max(0.0, time.perf_counter() - start_wall_time), 3),
+                "messages": messages,
+                "result": result.to_dict(),
+                "fast_composer_critique": self._fast_composer_critique,
+                "error_signatures": list(self._error_signatures),
+                "state_machine": sm_dict,
+            }
+            tmp_path = ckpt_path.with_suffix(ckpt_path.suffix + ".tmp")
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, ckpt_path)
+        except Exception as e:
+            logger.warning(f"Failed to write MathSolver checkpoint to {ckpt_path}: {e}")
+
+    def _load_checkpoint(
+        self,
+        ckpt_path: Optional[Path],
+        problem: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Loads and validates an existing turn-level checkpoint for problem."""
+        if not ckpt_path:
+            return None
+        ckpt_path = Path(ckpt_path)
+        if not ckpt_path.exists():
+            return None
+        try:
+            with open(ckpt_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict) or data.get("version") != 1:
+                return None
+            if data.get("problem") != problem:
+                logger.warning("Checkpoint problem mismatch; ignoring stale checkpoint.")
+                return None
+            return data
+        except Exception as e:
+            logger.warning(f"Failed to load MathSolver checkpoint {ckpt_path}: {e}")
+            return None
+
+    def _restore_kernel_state(
+        self,
+        problem: str,
+        result: SolveResult,
+        state_machine_dict: Optional[Dict[str, Any]],
+        reset_kernel: bool = True,
+    ) -> None:
+        """Replays executed code history into the kernel and restores MathStateMachine."""
+        if reset_kernel:
+            self.kernel.reset()
+        self.kernel.execute(f"import re\nPROBLEM_TEXT = {repr(problem)}")
+        for idx, code in enumerate(result.code_history):
+            if idx < len(result.execution_history):
+                ex = result.execution_history[idx]
+                if not ex.success and "timed out" in (ex.error or "").lower():
+                    continue
+            try:
+                self.kernel.execute(code)
+            except Exception as e:
+                logger.warning(f"Error replaying solver code block: {e}")
+        sm = getattr(self.kernel, "_state_machine", None)
+        if isinstance(state_machine_dict, dict) and sm is not None and hasattr(sm, "load_state_dict"):
+            try:
+                sm.load_state_dict(state_machine_dict)
+            except Exception as e:
+                logger.warning(f"Failed to restore state machine in MathSolver: {e}")
+
+    def _unlink_checkpoint(self, ckpt_path: Optional[Path]) -> None:
+        """Removes the checkpoint file and any leftover .tmp file upon solve completion."""
+        if not ckpt_path:
+            return
+        for p in (Path(ckpt_path), Path(ckpt_path).with_suffix(Path(ckpt_path).suffix + ".tmp")):
+            try:
+                if p.exists():
+                    p.unlink()
+            except Exception as e:
+                logger.debug(f"Could not unlink checkpoint {p}: {e}")
 
     def extract_code_blocks(self, text: str) -> List[str]:
         """Extracts python code blocks from markdown text."""
@@ -1370,104 +1524,142 @@ class MathSolver:
         max_time_seconds: Optional[float] = None,
         reset_kernel: bool = True,
         on_step: Optional[Any] = None,
+        checkpoint_path: Optional[Path] = None,
     ) -> SolveResult:
         """Solves a math problem synchronously through the CoALA reasoning cycle with TurboVec memory."""
         # 1. Check TurboVec health strictly (raises TurboVecUnavailableError if down)
         self.memory.check_health()
 
-        start_wall_time = time.perf_counter()
         max_turns = max_iterations or self.default_max_iterations
-        if reset_kernel:
-            self.kernel.reset()
-        # Preload raw problem text into persistent kernel
-        self.kernel.execute(f"import re\nPROBLEM_TEXT = {repr(problem)}")
-
-        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self._log_write(
-            f"\n\n{'=' * 80}\n"
-            f"[{now_str}] PRIME MATH NEW SOLVE SESSION\n"
-            f"Problem: {problem}\n"
-            f"{'=' * 80}\n"
-        )
-        # Reset per-problem Colosseum runtime state (critique injection + stall window)
-        self._fast_composer_critique = None
-        self._error_signatures = []
-
-        # 0. TIER 1: Speculative Fast Composer Execution (Local Gemma 4 on LAN)
-        if self.fast_composer and self.fast_composer.fast_cfg.enabled:
-            fast_res = self._try_fast_composer(problem, on_step=on_step)
-            if fast_res:
-                return fast_res
-            self._log_write("[Two-Tier Routing] Fast Composer did not resolve. Escalating to Deep Orchestrator (Qwen 3.8)...\n")
-
-        # 1. Stage 0: Pre-Solve Academic Research & Literature Briefing
-        research_briefing = self._conduct_pre_solve_research(problem)
-
-        # 2. Retrieve domain-relevant procedural heuristics from TurboVec
-        # Formulate clean conceptual query from title/keywords to prevent 500-word embedding dilution
-        prob_id, prob_title = parse_benchmark_header(problem)
-        stripped_problem = strip_benchmark_prefix(problem)
-        first_line = stripped_problem.splitlines()[0] if stripped_problem.splitlines() else ""
-        clean_title = prob_title or (first_line.split(" - ")[-1].split(":")[0].strip() if " - " in first_line else first_line[:120])
-        concept_query = clean_title or stripped_problem[:200]
-        if self.fast_composer:
-            try:
-                queries = self.fast_composer.generate_research_queries(stripped_problem)
-                if queries:
-                    concept_query = f"{clean_title} {' '.join(queries)}".strip()
-            except Exception:
-                pass
-
-        retrieved = self.memory.query_procedural_heuristics(
-            concept_query, limit=5, min_score=0.50, exclude_problem_id=prob_id
-        )
-        if retrieved:
-            self._log_write(f"[CoALA Procedural Memory] Retrieved {len(retrieved)} relevant rules from TurboVec for '{concept_query}':\n")
-            for h in retrieved:
-                self._log_write(f"  • {h}\n")
-
-        system_content = MATH_SYSTEM_PROMPT
-        if retrieved:
-            heuristics_block = "\n\nRELEVANT PROCEDURAL RULES & PROVEN HEURISTICS (FROM COALA MEMORY):\n"
-            for h in retrieved:
-                heuristics_block += f"- {h}\n"
-            system_content += heuristics_block
-
-        if research_briefing:
-            briefing_block = (
-                "\n\nACADEMIC LITERATURE & THEORETICAL BRIEFING (PRE-SOLVE RESEARCH):\n"
-                f"{research_briefing}\n"
+        ckpt_path = Path(checkpoint_path) if checkpoint_path else self.checkpoint_path
+        ckpt = self._load_checkpoint(ckpt_path, problem) if ckpt_path else None
+        if ckpt is not None and ckpt.get("problem") == problem:
+            prior_elapsed = float(ckpt.get("elapsed_s", 0.0))
+            start_wall_time = time.perf_counter() - prior_elapsed
+            completed_turn = int(ckpt.get("completed_turn", 0))
+            start_turn = completed_turn + 1
+            messages: List[Dict[str, str]] = ckpt["messages"]
+            result = SolveResult.from_dict(ckpt["result"])
+            self._error_signatures = list(ckpt.get("error_signatures", []))
+            self._fast_composer_critique = ckpt.get("fast_composer_critique")
+            self._restore_kernel_state(
+                problem=problem,
+                result=result,
+                state_machine_dict=ckpt.get("state_machine"),
+                reset_kernel=reset_kernel,
             )
-            system_content += briefing_block
-
-        user_content = f"Solve the following mathematical problem:\n\n{problem}"
-        if self._fast_composer_critique:
-            user_content += (
-                "\n\n[FAST COMPOSER CRITIQUE - FALSIFIED SPECULATIVE ROUTE] "
-                f"{self._fast_composer_critique}"
-            )
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self._log_write(
-                f"[Two-Tier Routing] Injecting falsified-route critique into Deep Orchestrator prompt:\n"
-                f"{self._fast_composer_critique}\n"
+                f"\n\n{'=' * 80}\n"
+                f"[{now_str}] PRIME MATH RESUMING SOLVE SESSION FROM CHECKPOINT\n"
+                f"Completed Turn: {completed_turn} | Resuming at Turn: {start_turn}/{max_turns} | Prior Elapsed: {prior_elapsed:.1f}s\n"
+                f"{'=' * 80}\n"
+            )
+            if on_step:
+                on_step("checkpoint_resume", {"completed_turn": completed_turn, "start_turn": start_turn})
+        else:
+            start_wall_time = time.perf_counter()
+            start_turn = 1
+            if reset_kernel:
+                self.kernel.reset()
+            # Preload raw problem text into persistent kernel
+            self.kernel.execute(f"import re\nPROBLEM_TEXT = {repr(problem)}")
+
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self._log_write(
+                f"\n\n{'=' * 80}\n"
+                f"[{now_str}] PRIME MATH NEW SOLVE SESSION\n"
+                f"Problem: {problem}\n"
+                f"{'=' * 80}\n"
+            )
+            # Reset per-problem Colosseum runtime state (critique injection + stall window)
+            self._fast_composer_critique = None
+            self._error_signatures = []
+
+            # 0. TIER 1: Speculative Fast Composer Execution (Local Gemma 4 on LAN)
+            if self.fast_composer and self.fast_composer.fast_cfg.enabled:
+                fast_res = self._try_fast_composer(problem, on_step=on_step)
+                if fast_res:
+                    self._unlink_checkpoint(ckpt_path)
+                    return fast_res
+                self._log_write("[Two-Tier Routing] Fast Composer did not resolve. Escalating to Deep Orchestrator (Qwen 3.8)...\n")
+
+            # 1. Stage 0: Pre-Solve Academic Research & Literature Briefing
+            research_briefing = self._conduct_pre_solve_research(problem)
+
+            # 2. Retrieve domain-relevant procedural heuristics from TurboVec
+            # Formulate clean conceptual query from title/keywords to prevent 500-word embedding dilution
+            prob_id, prob_title = parse_benchmark_header(problem)
+            stripped_problem = strip_benchmark_prefix(problem)
+            first_line = stripped_problem.splitlines()[0] if stripped_problem.splitlines() else ""
+            clean_title = prob_title or (first_line.split(" - ")[-1].split(":")[0].strip() if " - " in first_line else first_line[:120])
+            concept_query = clean_title or stripped_problem[:200]
+            if self.fast_composer:
+                try:
+                    queries = self.fast_composer.generate_research_queries(stripped_problem)
+                    if queries:
+                        concept_query = f"{clean_title} {' '.join(queries)}".strip()
+                except Exception:
+                    pass
+
+            retrieved = self.memory.query_procedural_heuristics(
+                concept_query, limit=5, min_score=0.50, exclude_problem_id=prob_id
+            )
+            if retrieved:
+                self._log_write(f"[CoALA Procedural Memory] Retrieved {len(retrieved)} relevant rules from TurboVec for '{concept_query}':\n")
+                for h in retrieved:
+                    self._log_write(f"  • {h}\n")
+
+            system_content = MATH_SYSTEM_PROMPT
+            if retrieved:
+                heuristics_block = "\n\nRELEVANT PROCEDURAL RULES & PROVEN HEURISTICS (FROM COALA MEMORY):\n"
+                for h in retrieved:
+                    heuristics_block += f"- {h}\n"
+                system_content += heuristics_block
+
+            if research_briefing:
+                briefing_block = (
+                    "\n\nACADEMIC LITERATURE & THEORETICAL BRIEFING (PRE-SOLVE RESEARCH):\n"
+                    f"{research_briefing}\n"
+                )
+                system_content += briefing_block
+
+            user_content = f"Solve the following mathematical problem:\n\n{problem}"
+            if self._fast_composer_critique:
+                user_content += (
+                    "\n\n[FAST COMPOSER CRITIQUE - FALSIFIED SPECULATIVE ROUTE] "
+                    f"{self._fast_composer_critique}"
+                )
+                self._log_write(
+                    f"[Two-Tier Routing] Injecting falsified-route critique into Deep Orchestrator prompt:\n"
+                    f"{self._fast_composer_critique}\n"
+                )
+
+            messages = [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": user_content},
+            ]
+
+            result = SolveResult(
+                problem=problem,
+                answer=None,
+                boxed_answer=None,
+                verified=False,
+                iterations=0,
+                retrieved_heuristics=retrieved,
+                research_briefing=research_briefing,
+                log_file=str(self.log_path),
+            )
+            self._save_checkpoint(
+                ckpt_path,
+                problem=problem,
+                completed_turn=0,
+                start_wall_time=start_wall_time,
+                messages=messages,
+                result=result,
             )
 
-        messages: List[Dict[str, str]] = [
-            {"role": "system", "content": system_content},
-            {"role": "user", "content": user_content},
-        ]
-
-        result = SolveResult(
-            problem=problem,
-            answer=None,
-            boxed_answer=None,
-            verified=False,
-            iterations=0,
-            retrieved_heuristics=retrieved,
-            research_briefing=research_briefing,
-            log_file=str(self.log_path),
-        )
-
-        for turn in range(1, max_turns + 1):
+        for turn in range(start_turn, max_turns + 1):
             result.iterations = turn
 
             if max_time_seconds and (time.perf_counter() - start_wall_time) > max_time_seconds:
@@ -1486,7 +1678,16 @@ class MathSolver:
                         f"{comp_res.original_tokens} -> {comp_res.new_tokens} tokens\n"
                     )
 
-            if self._run_stream_turn(messages, result, turn, max_turns, on_step):
+            early_stop = self._run_stream_turn(messages, result, turn, max_turns, on_step)
+            self._save_checkpoint(
+                ckpt_path,
+                problem=problem,
+                completed_turn=turn,
+                start_wall_time=start_wall_time,
+                messages=messages,
+                result=result,
+            )
+            if early_stop:
                 break
 
         # 2.5. Post-solve adversarial verification (Colosseum): falsify the final boxed answer.
@@ -1585,6 +1786,7 @@ class MathSolver:
             f"[SESSION COMPLETE] Final Boxed Answer: {result.boxed_answer} (Verified: {result.verified}, Turns: {result.iterations})\n"
             f"{'=' * 80}\n"
         )
+        self._unlink_checkpoint(ckpt_path)
 
         return result
 
@@ -1594,103 +1796,139 @@ class MathSolver:
         max_iterations: Optional[int] = None,
         max_time_seconds: Optional[float] = None,
         reset_kernel: bool = True,
+        checkpoint_path: Optional[Path] = None,
     ) -> SolveResult:
         """Asynchronous version of solve with CoALA TurboVec integration."""
         # 1. Check TurboVec health strictly
         await self.memory.acheck_health()
 
-        start_wall_time = time.perf_counter()
         max_turns = max_iterations or self.default_max_iterations
-        if reset_kernel:
-            self.kernel.reset()
-        self.kernel.execute(f"import re\nPROBLEM_TEXT = {repr(problem)}")
-
-        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self._log_write(
-            f"\n\n{'=' * 80}\n"
-            f"[{now_str}] PRIME MATH NEW SOLVE SESSION\n"
-            f"Problem: {problem}\n"
-            f"{'=' * 80}\n"
-        )
-        # Reset per-problem Colosseum runtime state (critique injection + stall window)
-        self._fast_composer_critique = None
-        self._error_signatures = []
-
-        # 0. TIER 1: Speculative Fast Composer Execution (Local Gemma 4 on LAN)
-        if self.fast_composer and self.fast_composer.fast_cfg.enabled:
-            fast_res = await self._atry_fast_composer(problem)
-            if fast_res:
-                return fast_res
-            self._log_write("[Two-Tier Routing] Fast Composer did not resolve. Escalating to Deep Orchestrator (Qwen 3.8)...\n")
-
-        # 1. Stage 0: Pre-Solve Academic Research & Literature Briefing
-        research_briefing = await self._aconduct_pre_solve_research(problem)
-
-        # 2. Retrieve domain-relevant procedural heuristics
-        # Formulate clean conceptual query from title/keywords to prevent 500-word embedding dilution
-        prob_id, prob_title = parse_benchmark_header(problem)
-        stripped_problem = strip_benchmark_prefix(problem)
-        first_line = stripped_problem.splitlines()[0] if stripped_problem.splitlines() else ""
-        clean_title = prob_title or (first_line.split(" - ")[-1].split(":")[0].strip() if " - " in first_line else first_line[:120])
-        concept_query = clean_title or stripped_problem[:200]
-        if self.fast_composer:
-            try:
-                queries = await self.fast_composer.agenerate_research_queries(stripped_problem)
-                if queries:
-                    concept_query = f"{clean_title} {' '.join(queries)}".strip()
-            except Exception:
-                pass
-
-        retrieved = await self.memory.aquery_procedural_heuristics(
-            concept_query, limit=5, min_score=0.50, exclude_problem_id=prob_id
-        )
-        if retrieved:
-            self._log_write(f"[CoALA Procedural Memory] Retrieved {len(retrieved)} relevant rules from TurboVec for '{concept_query}':\n")
-            for h in retrieved:
-                self._log_write(f"  • {h}\n")
-
-        system_content = MATH_SYSTEM_PROMPT
-        if retrieved:
-            heuristics_block = "\n\nRELEVANT PROCEDURAL RULES & PROVEN HEURISTICS (FROM COALA MEMORY):\n"
-            for h in retrieved:
-                heuristics_block += f"- {h}\n"
-            system_content += heuristics_block
-
-        if research_briefing:
-            briefing_block = (
-                "\n\nACADEMIC LITERATURE & THEORETICAL BRIEFING (PRE-SOLVE RESEARCH):\n"
-                f"{research_briefing}\n"
+        ckpt_path = Path(checkpoint_path) if checkpoint_path else self.checkpoint_path
+        ckpt = self._load_checkpoint(ckpt_path, problem) if ckpt_path else None
+        if ckpt is not None and ckpt.get("problem") == problem:
+            prior_elapsed = float(ckpt.get("elapsed_s", 0.0))
+            start_wall_time = time.perf_counter() - prior_elapsed
+            completed_turn = int(ckpt.get("completed_turn", 0))
+            start_turn = completed_turn + 1
+            messages: List[Dict[str, str]] = ckpt["messages"]
+            result = SolveResult.from_dict(ckpt["result"])
+            self._error_signatures = list(ckpt.get("error_signatures", []))
+            self._fast_composer_critique = ckpt.get("fast_composer_critique")
+            self._restore_kernel_state(
+                problem=problem,
+                result=result,
+                state_machine_dict=ckpt.get("state_machine"),
+                reset_kernel=reset_kernel,
             )
-            system_content += briefing_block
-
-        user_content = f"Solve the following mathematical problem:\n\n{problem}"
-        if self._fast_composer_critique:
-            user_content += (
-                "\n\n[FAST COMPOSER CRITIQUE - FALSIFIED SPECULATIVE ROUTE] "
-                f"{self._fast_composer_critique}"
-            )
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self._log_write(
-                f"[Two-Tier Routing] Injecting falsified-route critique into Deep Orchestrator prompt:\n"
-                f"{self._fast_composer_critique}\n"
+                f"\n\n{'=' * 80}\n"
+                f"[{now_str}] PRIME MATH RESUMING SOLVE SESSION FROM CHECKPOINT\n"
+                f"Completed Turn: {completed_turn} | Resuming at Turn: {start_turn}/{max_turns} | Prior Elapsed: {prior_elapsed:.1f}s\n"
+                f"{'=' * 80}\n"
+            )
+        else:
+            start_wall_time = time.perf_counter()
+            start_turn = 1
+            if reset_kernel:
+                self.kernel.reset()
+            self.kernel.execute(f"import re\nPROBLEM_TEXT = {repr(problem)}")
+
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self._log_write(
+                f"\n\n{'=' * 80}\n"
+                f"[{now_str}] PRIME MATH NEW SOLVE SESSION\n"
+                f"Problem: {problem}\n"
+                f"{'=' * 80}\n"
+            )
+            # Reset per-problem Colosseum runtime state (critique injection + stall window)
+            self._fast_composer_critique = None
+            self._error_signatures = []
+
+            # 0. TIER 1: Speculative Fast Composer Execution (Local Gemma 4 on LAN)
+            if self.fast_composer and self.fast_composer.fast_cfg.enabled:
+                fast_res = await self._atry_fast_composer(problem)
+                if fast_res:
+                    self._unlink_checkpoint(ckpt_path)
+                    return fast_res
+                self._log_write("[Two-Tier Routing] Fast Composer did not resolve. Escalating to Deep Orchestrator (Qwen 3.8)...\n")
+
+            # 1. Stage 0: Pre-Solve Academic Research & Literature Briefing
+            research_briefing = await self._aconduct_pre_solve_research(problem)
+
+            # 2. Retrieve domain-relevant procedural heuristics
+            # Formulate clean conceptual query from title/keywords to prevent 500-word embedding dilution
+            prob_id, prob_title = parse_benchmark_header(problem)
+            stripped_problem = strip_benchmark_prefix(problem)
+            first_line = stripped_problem.splitlines()[0] if stripped_problem.splitlines() else ""
+            clean_title = prob_title or (first_line.split(" - ")[-1].split(":")[0].strip() if " - " in first_line else first_line[:120])
+            concept_query = clean_title or stripped_problem[:200]
+            if self.fast_composer:
+                try:
+                    queries = await self.fast_composer.agenerate_research_queries(stripped_problem)
+                    if queries:
+                        concept_query = f"{clean_title} {' '.join(queries)}".strip()
+                except Exception:
+                    pass
+
+            retrieved = await self.memory.aquery_procedural_heuristics(
+                concept_query, limit=5, min_score=0.50, exclude_problem_id=prob_id
+            )
+            if retrieved:
+                self._log_write(f"[CoALA Procedural Memory] Retrieved {len(retrieved)} relevant rules from TurboVec for '{concept_query}':\n")
+                for h in retrieved:
+                    self._log_write(f"  • {h}\n")
+
+            system_content = MATH_SYSTEM_PROMPT
+            if retrieved:
+                heuristics_block = "\n\nRELEVANT PROCEDURAL RULES & PROVEN HEURISTICS (FROM COALA MEMORY):\n"
+                for h in retrieved:
+                    heuristics_block += f"- {h}\n"
+                system_content += heuristics_block
+
+            if research_briefing:
+                briefing_block = (
+                    "\n\nACADEMIC LITERATURE & THEORETICAL BRIEFING (PRE-SOLVE RESEARCH):\n"
+                    f"{research_briefing}\n"
+                )
+                system_content += briefing_block
+
+            user_content = f"Solve the following mathematical problem:\n\n{problem}"
+            if self._fast_composer_critique:
+                user_content += (
+                    "\n\n[FAST COMPOSER CRITIQUE - FALSIFIED SPECULATIVE ROUTE] "
+                    f"{self._fast_composer_critique}"
+                )
+                self._log_write(
+                    f"[Two-Tier Routing] Injecting falsified-route critique into Deep Orchestrator prompt:\n"
+                    f"{self._fast_composer_critique}\n"
+                )
+
+            messages = [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": user_content},
+            ]
+
+            result = SolveResult(
+                problem=problem,
+                answer=None,
+                boxed_answer=None,
+                verified=False,
+                iterations=0,
+                retrieved_heuristics=retrieved,
+                research_briefing=research_briefing,
+                log_file=str(self.log_path),
+            )
+            self._save_checkpoint(
+                ckpt_path,
+                problem=problem,
+                completed_turn=0,
+                start_wall_time=start_wall_time,
+                messages=messages,
+                result=result,
             )
 
-        messages: List[Dict[str, str]] = [
-            {"role": "system", "content": system_content},
-            {"role": "user", "content": user_content},
-        ]
-
-        result = SolveResult(
-            problem=problem,
-            answer=None,
-            boxed_answer=None,
-            verified=False,
-            iterations=0,
-            retrieved_heuristics=retrieved,
-            research_briefing=research_briefing,
-            log_file=str(self.log_path),
-        )
-
-        for turn in range(1, max_turns + 1):
+        for turn in range(start_turn, max_turns + 1):
             result.iterations = turn
 
             if max_time_seconds and (time.perf_counter() - start_wall_time) > max_time_seconds:
@@ -1709,7 +1947,16 @@ class MathSolver:
                         f"{comp_res.original_tokens} -> {comp_res.new_tokens} tokens\n"
                     )
 
-            if await self._arun_stream_turn(messages, result, turn, max_turns):
+            early_stop = await self._arun_stream_turn(messages, result, turn, max_turns)
+            self._save_checkpoint(
+                ckpt_path,
+                problem=problem,
+                completed_turn=turn,
+                start_wall_time=start_wall_time,
+                messages=messages,
+                result=result,
+            )
+            if early_stop:
                 break
 
         # 2.5. Post-solve adversarial verification (Colosseum): falsify the final boxed answer.
@@ -1808,5 +2055,6 @@ class MathSolver:
             f"[SESSION COMPLETE] Final Boxed Answer: {result.boxed_answer} (Verified: {result.verified}, Turns: {result.iterations})\n"
             f"{'=' * 80}\n"
         )
+        self._unlink_checkpoint(ckpt_path)
 
         return result

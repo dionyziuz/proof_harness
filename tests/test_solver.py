@@ -590,3 +590,90 @@ def test_solve_passes_exclude_problem_id_to_procedural_query():
     kall = mock_memory.query_procedural_heuristics.call_args
     assert kall[1]["exclude_problem_id"] == "123"
 
+
+def test_solver_turn_level_checkpoint_crash_at_turn_4_and_resume(tmp_path):
+    """Simulates a crash during Iteration 4 in MathSolver.solve() and verifies that
+    restarting with checkpoint_path resumes directly at Iteration 4 with REPL variables
+    and conversation history preserved, and unlinks the checkpoint upon completion.
+    """
+    from unittest.mock import MagicMock
+
+    ckpt_path = tmp_path / "checkpoints" / "prob_3.ckpt.json"
+    problem_text = "Find the value of c after three steps."
+
+    # --- Process 1: Completes Turns 1, 2, 3 and crashes on Turn 4 ---
+    mock_client1 = MagicMock()
+    mock_client1.config.max_context_window = 131072
+    mock_client1.config.max_tokens = 32768
+
+    p1_calls = 0
+
+    def p1_stream(*_a, **_kw):
+        nonlocal p1_calls
+        p1_calls += 1
+        if p1_calls == 1:
+            return iter([("content", "```python\na = 10\nprint('a =', a)\n```")])
+        if p1_calls == 2:
+            return iter([("content", "```python\nb = a * 2\nprint('b =', b)\n```")])
+        if p1_calls == 3:
+            return iter([("content", "```python\nc = b + 5\nprint('c =', c)\n```")])
+        raise RuntimeError("Simulated crash at Turn 4 in MathSolver!")
+
+    mock_client1.stream_complete.side_effect = p1_stream
+    mock_fast = MagicMock()
+    mock_fast.fast_cfg.enabled = False
+    mock_memory = MagicMock()
+    mock_memory.query_procedural_heuristics.return_value = []
+
+    solver1 = MathSolver(
+        client=mock_client1,
+        fast_composer=mock_fast,
+        memory=mock_memory,
+        enable_pre_solve_research=False,
+        log_path=tmp_path / "solver.log",
+    )
+    with pytest.raises(RuntimeError, match="Simulated crash at Turn 4 in MathSolver"):
+        solver1.solve(problem_text, max_iterations=4, checkpoint_path=ckpt_path)
+
+    assert p1_calls == 4
+    assert ckpt_path.exists()
+
+    # --- Process 2: Fresh MathSolver resumes from ckpt_path at Turn 4 ---
+    mock_client2 = MagicMock()
+    mock_client2.config.max_context_window = 131072
+    mock_client2.config.max_tokens = 32768
+    mock_client2.complete.return_value.content = "VERIFIED"
+
+    p2_calls = 0
+
+    def p2_stream(*_a, **_kw):
+        nonlocal p2_calls
+        p2_calls += 1
+        return iter([("content", "```python\nassert c == 25\nprint(c)\n```\nTherefore the answer is \\boxed{25}.")])
+
+    mock_client2.stream_complete.side_effect = p2_stream
+    mock_memory2 = MagicMock()
+
+    solver2 = MathSolver(
+        client=mock_client2,
+        fast_composer=mock_fast,
+        memory=mock_memory2,
+        enable_pre_solve_research=False,
+        log_path=tmp_path / "solver.log",
+    )
+    events = []
+    res = solver2.solve(
+        problem_text,
+        max_iterations=4,
+        on_step=lambda ev, data: events.append((ev, data)),
+        checkpoint_path=ckpt_path,
+    )
+
+    assert p2_calls == 1, f"Expected only Turn 4 to run on resume, but stream_complete was called {p2_calls} times"
+    assert mock_memory2.query_procedural_heuristics.call_count == 0
+    assert any(ev == "checkpoint_resume" and d["completed_turn"] == 3 and d["start_turn"] == 4 for ev, d in events)
+    assert res.boxed_answer == "25"
+    assert res.iterations == 4
+    assert len(res.code_history) == 4
+    assert not ckpt_path.exists()
+

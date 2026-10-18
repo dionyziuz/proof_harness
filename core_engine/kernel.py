@@ -346,6 +346,28 @@ class ExecutionResult:
     error: Optional[str]
     execution_time: float
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "success": bool(self.success),
+            "stdout": self.stdout or "",
+            "stderr": self.stderr or "",
+            "result_repr": self.result_repr,
+            "error": self.error,
+            "execution_time": float(self.execution_time or 0.0),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ExecutionResult":
+        return cls(
+            success=bool(data.get("success", False)),
+            stdout=str(data.get("stdout") or ""),
+            stderr=str(data.get("stderr") or ""),
+            result_value=None,
+            result_repr=data.get("result_repr"),
+            error=data.get("error"),
+            execution_time=float(data.get("execution_time") or 0.0),
+        )
+
 
 class TimeoutException(BaseException):
     """Raised when user code execution exceeds allowed runtime.
