@@ -1024,3 +1024,37 @@ def test_v44_third_low_validity_rejection_unlocks_hard_pivot_and_clears_prior_de
     # Turn 4 (index 3, after rejection #3) unlocked Clean-Slate Hard Pivot & cleared _prior_audit_defects!
     assert "1-TURN REPL-FIRST PIVOT GATE" in captured_prompts[3][-1]["content"]
     assert prover._prior_audit_defects == []
+
+
+def test_candidate_pool_reaudit_demotion_and_clean_valid_supersede():
+    """If an earlier borderline VALID proof (0.82, issues='none') is later found to have
+    defects (either on re-audit of the identical text or via post-restore defect attachment),
+    CandidatePool must:
+    1. Demote the stale record when the identical proof text is re-audited as REJECT.
+    2. Allow a cleanly verified VALID candidate (e.g. 0.78 VALID, issues='none') to supersede
+       an incumbent carrying unresolved referee issues.
+    """
+    pool = CandidatePool()
+    p_turn9 = r"\begin{proof} Turn 9 proof with subtle lifting gap \end{proof}"
+    p_repaired = r"\begin{proof} Repaired proof fixing lifting gap rigorously \end{proof}"
+
+    assert pool.offer(p_turn9, 0.82, "VALID", "none", turn=9) is True
+    assert pool.best.validity == pytest.approx(0.82)
+    assert pool.best.verdict == "VALID"
+
+    # Re-auditing the identical proof on Turn 12 as REJECT must demote the false-positive 0.82
+    assert pool.offer(p_turn9, 0.30, "REJECT", "Lifting claim invalid when CC edge overlaps", turn=12) is True
+    assert pool.best.validity == pytest.approx(0.30)
+    assert pool.best.verdict == "REJECT"
+    assert "Lifting claim invalid" in pool.best.issues
+
+    # Also verify that if an incumbent at 0.82 carries attached referee issues from a later turn,
+    # a cleanly verified VALID revision at 0.78 (issues='none') supersedes it.
+    pool2 = CandidatePool()
+    pool2.offer(p_turn9, 0.82, "VALID", "none", turn=9)
+    pool2.best.issues = "Lifting claim invalid when CC edge overlaps"
+    assert pool2.offer(p_repaired, 0.78, "VALID", "none", turn=991) is True
+    assert pool2.best.proof == p_repaired
+    assert pool2.best.verdict == "VALID"
+    assert pool2.best.issues == "none"
+

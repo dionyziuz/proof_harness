@@ -179,6 +179,35 @@ class CandidatePool:
             self._best = record
             return True
 
+        # 1. Same-proof re-audit demotion: if the identical proof text is re-audited on a later turn
+        #    and rejected with concrete issues, update the stale score/verdict so a single-turn
+        #    false positive (e.g. 0.82 VALID later rejected at 0.30 REJECT) does not freeze the pool.
+        has_real_issues = bool(issues and issues.strip().lower() != "none")
+        best_has_real_issues = bool(
+            self._best.issues and self._best.issues.strip().lower() != "none"
+        )
+        if (
+            verdict == "REJECT"
+            and has_real_issues
+            and proof.strip() == self._best.proof.strip()
+        ):
+            record.stagnant_revisions = self._best.stagnant_revisions + 1
+            self._best = record
+            for hist_rec in self._history[:-1]:
+                if hist_rec.proof.strip() != proof.strip() and hist_rec.validity > self._best.validity:
+                    self._best = hist_rec
+            return True
+
+        # 2. Cleanly verified candidate (VALID with no issues) supersedes an incumbent
+        #    that is either REJECT or carries unresolved referee issues from a post-restore audit.
+        if (
+            verdict == "VALID"
+            and not has_real_issues
+            and (self._best.verdict != "VALID" or best_has_real_issues)
+        ):
+            self._best = record
+            return True
+
         # Noise-Band Occam's Razor (epsilon = 0.03) for strong candidates (>= 0.70):
         # Single-pass LLM auditor scores fluctuate by ~0.03. Within this noise band:
         # 1. A candidate that is >25% more concise than the incumbent wins even if its raw

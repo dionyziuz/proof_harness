@@ -268,10 +268,10 @@ class ProverAuditorMixin:
                 break
             self._log_write("[Proof Auditor] Inconclusive referee output; retrying once.\n")
 
-        # Stage 2.5: Adversarial Confirmation on VALID ([0.70, 0.92) or whenever prior defects existed)
-        # Single-pass auditors occasionally rubber-stamp polished prose that contains an inverted
-        # inequality direction, an unremoved prior defect, or an unproved complementary regime.
-        if result.verdict == "VALID" and (0.70 <= result.validity < 0.92 or bool(prior_defects)):
+        # Stage 2.5: Adversarial Confirmation on VALID (all >= 0.70 or whenever prior defects existed)
+        # Single-pass auditors occasionally rubber-stamp polished prose (even at >= 0.92) that contains an
+        # inverted inequality direction, an unremoved prior defect, or an unproved complementary regime.
+        if result.verdict == "VALID" and (result.validity >= 0.70 or bool(prior_defects)):
             try:
                 confirm_prompt = (
                     f"{audit_user}\n\n"

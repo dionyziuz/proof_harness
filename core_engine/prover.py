@@ -1266,7 +1266,10 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                                     f"(validity: {validity:.2f}, structural: {structural_val:.2f}) to guarantee progress on the best mathematical foundation.\n"
                                 )
                                 extracted_proof = pool.best.proof
-                                issues = pool.best.issues
+                                if pool.best.issues and pool.best.issues.strip().lower() != "none":
+                                    issues = pool.best.issues
+                                elif issues and issues.strip().lower() != "none":
+                                    pool.best.issues = issues
                                 validity = pool.best.validity
                                 # DO NOT decrement rejection_count: preserve accurate rejection tracking
 
@@ -1599,7 +1602,16 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                     )
 
         critique_block = ""
-        if best_candidate and best_candidate.issues:
+        best_has_issues = bool(
+            best_candidate and best_candidate.issues and best_candidate.issues.strip().lower() != "none"
+        )
+        last_has_real_issues = bool(
+            last_issues
+            and last_issues.strip().lower() != "none"
+            and not last_issues.strip().startswith("The referee scored this draft as VALID")
+            and not last_issues.strip().startswith("The referee audit for this draft was inconclusive")
+        )
+        if best_has_issues:
             critique_block = (
                 f"--- Critical Defects Flagged by Mathematical Referee (Must Resolve) ---\n"
                 f"{best_candidate.issues}\n"
@@ -1608,7 +1620,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 f"defect: replace or repair that step rather than defending it.\n"
                 f"-------------------------------------------------------------------------\n\n"
             )
-        elif last_issues:
+        elif last_has_real_issues:
             critique_block = (
                 f"--- Critical Defects Flagged by Mathematical Referee (Must Resolve) ---\n"
                 f"{last_issues}\n"
@@ -1686,9 +1698,14 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
             if best_candidate and is_valid_latex_proof(best_candidate.proof):
                 result.candidate_proof = best_candidate.proof
                 result.final_response = best_candidate.proof
-                if best_candidate.verdict == "VALID" and (
-                    not best_candidate.issues or best_candidate.issues.strip().lower() == "none"
+                if (
+                    not best_has_issues
+                    and last_has_real_issues
+                    and best_candidate.turn < getattr(result, "iterations", 0)
                 ):
+                    best_candidate.issues = last_issues
+                    best_has_issues = True
+                if best_candidate.verdict == "VALID" and not best_has_issues:
                     self._log_write(
                         f"\n[Synthesis Optimization] Best Candidate (Turn {best_candidate.turn}, "
                         f"validity: {best_candidate.validity:.2f}) already passed two-pass audit with no issues; "
@@ -1809,7 +1826,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                         f"(validity: {best_candidate.validity:.2f}, structural: {best_candidate.structural_validity:.2f}).\n"
                     )
                     current_proof = best_candidate.proof
-                    if best_candidate.issues:
+                    if best_candidate.issues and best_candidate.issues.strip().lower() != "none":
                         current_issues = best_candidate.issues
 
                 max_revision_iters = 2
@@ -1967,7 +1984,12 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                                     result.candidate_proof = best_candidate.proof
                                     result.final_response = best_candidate.proof
                                     current_proof = best_candidate.proof
-                                    current_issues = best_candidate.issues or r_issues
+                                    best_iss = (
+                                        best_candidate.issues
+                                        if (best_candidate.issues and best_candidate.issues.strip().lower() != "none")
+                                        else ""
+                                    )
+                                    current_issues = best_iss or r_issues
                                 else:
                                     current_issues = r_issues
                                     if is_valid_latex_proof(r_proof):
