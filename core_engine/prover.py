@@ -1096,11 +1096,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                             pool.best
                             and (
                                 pool.best.verdict == "VALID"
-                                or pool.best_validity >= THRESHOLDS.judge_pass_threshold
-                                or (
-                                    pool.best_validity >= THRESHOLDS.pivot_threshold
-                                    and best_stagnant_count < 2
-                                )
+                                or pool.best_validity >= THRESHOLDS.pivot_threshold
                                 or (
                                     pool.best.has_substantive_structure
                                     and pool.best.structural_validity >= 0.40
