@@ -1983,13 +1983,29 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                                 if best_candidate and is_valid_latex_proof(best_candidate.proof):
                                     result.candidate_proof = best_candidate.proof
                                     result.final_response = best_candidate.proof
+                                if is_valid_latex_proof(r_proof) and (
+                                    r_val >= THRESHOLDS.hard_pivot_floor or not best_candidate
+                                ):
+                                    # Advance working draft to r_proof + r_issues so the next revision pass
+                                    # surgically fixes the remaining defect in r_proof rather than re-running
+                                    # the exact same prompt on the unrevised pre-revision candidate.
+                                    current_proof = r_proof
+                                    current_issues = r_issues
+                                elif best_candidate and is_valid_latex_proof(best_candidate.proof):
                                     current_proof = best_candidate.proof
                                     best_iss = (
                                         best_candidate.issues
                                         if (best_candidate.issues and best_candidate.issues.strip().lower() != "none")
                                         else ""
                                     )
-                                    current_issues = best_iss or r_issues
+                                    if best_iss and r_issues and r_issues != best_iss:
+                                        current_issues = (
+                                            f"{best_iss}\n\n"
+                                            f"[Additional Defect Introduced in Revision Attempt {rev_iter} — Avoid Repeating]:\n"
+                                            f"{r_issues}"
+                                        )
+                                    else:
+                                        current_issues = best_iss or r_issues
                                 else:
                                     current_issues = r_issues
                                     if is_valid_latex_proof(r_proof):

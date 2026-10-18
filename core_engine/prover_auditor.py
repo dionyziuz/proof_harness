@@ -245,22 +245,42 @@ class ProverAuditorMixin:
         audit_user = f"Target Problem & Context:\n{task_prompt}\n\nCandidate Proof to Audit:\n{proof_text}\n{stage1_note}"
         cfg = getattr(self, "config", None)
 
-        # One retry on INCONCLUSIVE (unparseable output / transport failure): an infrastructure hiccup
-        # must never be mistaken for a mathematical rejection.
+        # One retry on INCONCLUSIVE (unparseable output / transport failure / length truncation):
+        # If Attempt 1 truncated mid-derivation after producing substantial reasoning notes, preserve
+        # those notes on Attempt 2 with thinking disabled (mirroring judge_b_once) so the discovered
+        # mathematical defects are synthesized directly into the required JSON verdict instead of discarded.
         result = AuditResult(verdict="INCONCLUSIVE", issues="", validity=0.0)
+        partial_notes = ""
         for attempt in range(2):
             try:
+                req_user = audit_user
+                req_thinking = True
+                req_max_tokens = getattr(cfg, "auditor_max_tokens", 16384)
+                req_thinking_budget = getattr(cfg, "auditor_thinking_budget", 12288)
+                if attempt == 1 and len(partial_notes) > 150:
+                    req_user = (
+                        f"{audit_user}\n\n"
+                        f"[PARTIAL REFEREE DERIVATION NOTES FROM ATTEMPT 1 (TRUNCATED BEFORE JSON EMISSION)]:\n"
+                        f"{partial_notes[-6000:]}\n\n"
+                        f"Based on the Target Problem, Candidate Proof, and your partial referee notes above, "
+                        f"immediately output ONLY the required JSON verdict object (no commentary, no markdown fences)."
+                    )
+                    req_thinking = False
+                    req_thinking_budget = None
                 resp = self.client.complete(
-                    [{"role": "system", "content": audit_system}, {"role": "user", "content": audit_user}],
+                    [{"role": "system", "content": audit_system}, {"role": "user", "content": req_user}],
                     temperature=0.1,
-                    max_tokens=getattr(cfg, "auditor_max_tokens", 8192),
-                    enable_thinking=True,
-                    thinking_budget_tokens=getattr(cfg, "auditor_thinking_budget", 4096),
-                    timeout_seconds=getattr(cfg, "auditor_timeout_seconds", 240.0),
+                    max_tokens=req_max_tokens,
+                    enable_thinking=req_thinking,
+                    thinking_budget_tokens=req_thinking_budget,
+                    timeout_seconds=getattr(cfg, "auditor_timeout_seconds", 360.0),
                 )
                 content = resp.content.strip() if resp.content else ""
+                reasoning_str = (getattr(resp, "reasoning", None) or "").strip()
                 self._log_write(f"\n[Academic Proof Auditor Output]:\n{content}\n")
                 result = self._classify_audit_output(content)
+                if result.verdict == "INCONCLUSIVE":
+                    partial_notes = f"{reasoning_str}\n{content}".strip()
             except Exception as e:
                 self._log_write(f"[Audit Error] Auditor call failed (attempt {attempt + 1}/2): {e}\n")
                 result = AuditResult(verdict="INCONCLUSIVE", issues="", validity=0.0)
@@ -287,14 +307,38 @@ class ProverAuditorMixin:
                 c_resp = self.client.complete(
                     [{"role": "system", "content": audit_system}, {"role": "user", "content": confirm_prompt}],
                     temperature=0.2,
-                    max_tokens=getattr(cfg, "auditor_max_tokens", 8192),
+                    max_tokens=getattr(cfg, "auditor_max_tokens", 16384),
                     enable_thinking=True,
-                    thinking_budget_tokens=getattr(cfg, "auditor_thinking_budget", 4096),
-                    timeout_seconds=getattr(cfg, "auditor_timeout_seconds", 240.0),
+                    thinking_budget_tokens=getattr(cfg, "auditor_thinking_budget", 12288),
+                    timeout_seconds=getattr(cfg, "auditor_timeout_seconds", 360.0),
                 )
                 c_content = c_resp.content.strip() if c_resp.content else ""
                 self._log_write(f"\n[Borderline Confirmation Auditor Output]:\n{c_content}\n")
                 c_result = self._classify_audit_output(c_content)
+                if c_result.verdict == "INCONCLUSIVE":
+                    c_notes = f"{(getattr(c_resp, 'reasoning', None) or '').strip()}\n{c_content}".strip()
+                    if len(c_notes) > 150:
+                        c_resp2 = self.client.complete(
+                            [
+                                {"role": "system", "content": audit_system},
+                                {
+                                    "role": "user",
+                                    "content": (
+                                        f"{confirm_prompt}\n\n"
+                                        f"[PARTIAL SECOND-OPINION NOTES (TRUNCATED BEFORE JSON EMISSION)]:\n"
+                                        f"{c_notes[-6000:]}\n\n"
+                                        f"Immediately output ONLY the required JSON verdict object."
+                                    ),
+                                },
+                            ],
+                            temperature=0.1,
+                            max_tokens=4096,
+                            enable_thinking=False,
+                            timeout_seconds=120.0,
+                        )
+                        c_content2 = c_resp2.content.strip() if c_resp2.content else ""
+                        self._log_write(f"\n[Borderline Confirmation Repair Output]:\n{c_content2}\n")
+                        c_result = self._classify_audit_output(c_content2)
                 if c_result.verdict != "INCONCLUSIVE" and c_result.validity < result.validity:
                     result = c_result
             except Exception as e:

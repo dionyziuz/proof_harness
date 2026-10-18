@@ -138,9 +138,9 @@ class TCSConfig:
     overtime_seconds_per_iter: float = 450.0
 
     # Subagents: Proof Auditor
-    auditor_max_tokens: int = 8192
-    auditor_thinking_budget: int = 4096
-    auditor_timeout_seconds: float = 240.0
+    auditor_max_tokens: int = 16384
+    auditor_thinking_budget: int = 12288
+    auditor_timeout_seconds: float = 360.0
     auditor_validity_threshold: float = 0.70
     proof_mode: str = "auto"  # "auto", "tcs", or "computational"
     auditor_kernel_timeout_seconds: float = 15.0
@@ -212,9 +212,9 @@ def load_tcs_config(env_path: Optional[Path] = None, reload: bool = False) -> TC
         overtime_validity_threshold=_float_env("TCS_OVERTIME_VALIDITY_THRESHOLD", 0.35),
         overtime_seconds_per_iter=_float_env("TCS_OVERTIME_SECONDS_PER_ITER", 450.0),
 
-        auditor_max_tokens=_int_env("TCS_AUDITOR_MAX_TOKENS", 8192),
-        auditor_thinking_budget=_int_env("TCS_AUDITOR_THINKING_BUDGET", 4096),
-        auditor_timeout_seconds=_float_env("TCS_AUDITOR_TIMEOUT_SECONDS", 240.0),
+        auditor_max_tokens=_int_env("TCS_AUDITOR_MAX_TOKENS", 16384),
+        auditor_thinking_budget=_int_env("TCS_AUDITOR_THINKING_BUDGET", 12288),
+        auditor_timeout_seconds=_float_env("TCS_AUDITOR_TIMEOUT_SECONDS", 360.0),
         auditor_validity_threshold=_float_env("TCS_AUDITOR_VALIDITY_THRESHOLD", 0.70),
         proof_mode=_str_env("TCS_PROOF_MODE", "auto"),
         auditor_kernel_timeout_seconds=_float_env("TCS_AUDITOR_KERNEL_TIMEOUT_SECONDS", 15.0),
