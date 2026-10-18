@@ -341,6 +341,10 @@ class TunnelThinkingClient:
         stream: bool = False,
     ) -> Dict[str, Any]:
         """Builds the chat-completions payload (single source of truth for all request paths)."""
+        # vLLM extensions (repetition_penalty, chat_template_kwargs, thinking budgets)
+        # are only sent when cfg.vllm_params is true; strict OpenAI-compatible
+        # endpoints reject them with 400 unknown-parameter errors.
+        use_vllm = bool(getattr(self.config, "vllm_params", True))
         payload: Dict[str, Any] = {
             "model": self.config.model,
             "messages": messages,
@@ -348,23 +352,29 @@ class TunnelThinkingClient:
             "temperature": temperature if temperature is not None else self.config.temperature,
             "top_p": getattr(self.config, "top_p", 0.95),
             "frequency_penalty": getattr(self.config, "frequency_penalty", 0.0),
-            "repetition_penalty": getattr(self.config, "repetition_penalty", 1.0),
         }
+        if use_vllm:
+            payload["repetition_penalty"] = getattr(self.config, "repetition_penalty", 1.0)
         if stream:
             payload["stream"] = True
             if _stream_usage_enabled():
                 # Ask the server to append a final usage chunk (OpenAI / vLLM stream_options).
                 payload["stream_options"] = {"include_usage": True}
-        if enable_thinking is not None:
+        if enable_thinking is not None and use_vllm:
             payload["chat_template_kwargs"] = {"enable_thinking": enable_thinking}
         budget = (
             thinking_budget_tokens
             if thinking_budget_tokens is not None
             else getattr(self.config, "thinking_token_budget", None)
         )
-        if budget is not None and (enable_thinking is True or enable_thinking is None):
+        if use_vllm and budget is not None and (enable_thinking is True or enable_thinking is None):
             payload["thinking_token_budget"] = budget
             payload["thinking_budget_tokens"] = budget
+        # Meta-native reasoning effort: explicit opt-in, sent whenever configured
+        # (independent of the vLLM-params flag).
+        effort = getattr(self.config, "reasoning_effort", None)
+        if effort:
+            payload["reasoning_effort"] = effort
         return payload
 
     def _timeout(self, timeout_seconds: Optional[float]) -> float:

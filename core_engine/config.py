@@ -49,6 +49,15 @@ class PrimeMathConfig:
     max_context_window: int = 131072
     jina_api_key: str = ""  # from JINA_API_KEY (.env)
     thinking_token_budget: Optional[int] = 16384
+    # vLLM-specific request params (repetition_penalty, chat_template_kwargs,
+    # thinking_token_budget). Strict OpenAI-compatible endpoints (e.g. Meta's
+    # Model API) reject them with 400 unknown-parameter errors; set
+    # PRIME_MATH_VLLM_PARAMS=false for those.
+    vllm_params: bool = True
+    # Meta-native reasoning effort (minimal/low/medium/high/xhigh, plus max on
+    # muse-spark-1.3). Sent as-is when set; omitted means the model picks its
+    # own depth. From PRIME_MATH_REASONING_EFFORT.
+    reasoning_effort: Optional[str] = None
     fast_composer: FastComposerConfig = field(default_factory=FastComposerConfig)
 
 
@@ -164,6 +173,15 @@ def load_config(
         cfg.fast_composer.base_url = os.environ["PRIME_MATH_FAST_BASE_URL"]
     if "PRIME_MATH_FAST_API_KEY" in os.environ:
         cfg.fast_composer.api_key = os.environ["PRIME_MATH_FAST_API_KEY"]
+
+    # vLLM-specific request params on/off (for strict OpenAI-compatible endpoints)
+    if "PRIME_MATH_VLLM_PARAMS" in os.environ:
+        val = os.environ["PRIME_MATH_VLLM_PARAMS"].lower()
+        cfg.vllm_params = val not in ("0", "false", "no", "off")
+
+    # Meta-native reasoning effort (passed through verbatim when set)
+    if "PRIME_MATH_REASONING_EFFORT" in os.environ:
+        cfg.reasoning_effort = os.environ["PRIME_MATH_REASONING_EFFORT"].strip() or None
     if "JINA_API_KEY" in os.environ:
         cfg.jina_api_key = os.environ["JINA_API_KEY"]
 
