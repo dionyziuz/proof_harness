@@ -990,40 +990,55 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                     exec_feedbacks.append(feedback)
 
                 # If Mandatory Proof Synthesis Directive was already active (repl_consecutive_turns >= 2),
-                # yet <think> consumed nearly its full budget (>= 12,000 chars) and only emitted REPL code
-                # without a \begin{proof}, immediately run a non-thinking continuation seeded with the
-                # <think> derivation + REPL execution output to synthesize the formal proof on this turn!
-                if (
+                # yet no formal proof was emitted (either because <think> exhausted its budget on reasoning,
+                # or the model API does not stream reasoning traces and remained in REPL exploration),
+                # immediately run a non-thinking continuation seeded with the derivation + REPL output
+                # to synthesize the formal proof on this turn!
+                has_verbose_thinking = bool(reasoning_text and len(reasoning_text) >= 12000)
+                has_unexposed_reasoning = not bool(reasoning_text)
+                should_synthesize_now = (
                     repl_consecutive_turns >= 2
                     and not extracted_proof
-                    and reasoning_text
-                    and len(reasoning_text) >= 12000
+                    and (has_verbose_thinking or has_unexposed_reasoning)
                     and turn < current_max_turns
-                ):
+                )
+                if should_synthesize_now:
+                    notice_detail = (
+                        f"exhausted <think> ({len(reasoning_text)} chars)"
+                        if reasoning_text
+                        else "completed 2+ consecutive REPL turns"
+                    )
                     self._log_write(
-                        f"\n[Mandatory Synthesis Continuation] Turn {turn} exhausted <think> ({len(reasoning_text)} chars) "
+                        f"\n[Mandatory Synthesis Continuation] Turn {turn} {notice_detail} "
                         "during consecutive REPL turns without emitting \\begin{proof}; invoking non-thinking proof synthesis continuation...\n"
                     )
+                    assistant_content = (
+                        f"<think>\n{reasoning_text[-24000:]}\n</think>\n\n{model_text}"
+                        if reasoning_text
+                        else model_text
+                    )
+                    derivation_ref = "in <think> above and the" if reasoning_text else "from your"
                     synth_cont_msgs = list(messages) + [
                         {
                             "role": "assistant",
-                            "content": f"<think>\n{reasoning_text[-24000:]}\n</think>\n\n{model_text}",
+                            "content": assistant_content,
                         },
                         {
                             "role": "user",
                             "content": (
                                 "\n\n".join(exec_feedbacks)
                                 + "\n\n[IMMEDIATE NON-THINKING PROOF EMISSION]\n"
-                                "Using your mathematical derivation in <think> above and the REPL verification output, "
+                                f"Using your mathematical derivation {derivation_ref} REPL verification output, "
                                 "immediately write the complete, self-contained formal LaTeX proof of the Target Problem "
                                 "enclosed strictly in \\begin{proof} ... \\end{proof}. Start directly with \\begin{proof}:"
                             ),
                         },
                     ]
                     try:
+                        sc_tokens = max(8192, getattr(self.config, "scribe_max_tokens", 8192))
                         sc_resp = self.client.complete(
                             synth_cont_msgs,
-                            max_tokens=8192,
+                            max_tokens=sc_tokens,
                             enable_thinking=False,
                             temperature=0.2,
                             timeout_seconds=180.0,
@@ -1136,6 +1151,10 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 san_p = sanitize_informal_proof(extracted_proof)
                 if san_p and is_valid_latex_proof(san_p):
                     extracted_proof = san_p
+                elif len(extracted_proof) >= 300:
+                    typeset_p = self._typeset_publication_proof(task_prompt, extracted_proof)
+                    if typeset_p and is_valid_latex_proof(typeset_p):
+                        extracted_proof = typeset_p
 
             if extracted_proof and is_valid_latex_proof(extracted_proof):
                 repl_consecutive_turns = 0
@@ -1552,6 +1571,12 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 if reasoning_text and len(reasoning_text.strip()) > 100:
                     think_tail = reasoning_text.strip()[-2000:]
                     think_summary = f"[Mathematical Derivation Summary (Turn {turn})]:\n{think_tail}\n\n"
+                elif model_text and len(model_text.strip()) > 100:
+                    # Provider API does not stream reasoning traces; preserve the model's textual analysis
+                    text_without_code = re.sub(r"```python\b.*?```", "", model_text, flags=re.DOTALL).strip()
+                    if len(text_without_code) > 100:
+                        model_tail = text_without_code[-2000:].strip()
+                        think_summary = f"[Mathematical Analysis Summary (Turn {turn})]:\n{model_tail}\n\n"
                 msg_content = f"{think_summary}{claim_and_red}{code_str}".strip()
                 messages.append({"role": "assistant", "content": msg_content})
                 next_prompt = "\n\n".join(exec_feedbacks)
@@ -1567,6 +1592,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                         "You have completed your exploratory REPL verification. You must now synthesize your reduction chain "
                         "into a complete formal LaTeX proof enclosed strictly in \\begin{proof} ... \\end{proof}.\n"
                         "Ensure your proof covers the ENTIRE universally quantified domain of the Target Problem (including any complementary regime where an intermediate bound does not apply) without introducing unauthorized restrictions.\n"
+                        "Write in authoritative, declarative mathematical prose starting directly with \\begin{proof} and ending with \\end{proof}. Do not output conversational remarks, stream-of-consciousness doubts (e.g. 'Wait', 'Actually'), or informal scratchpad text.\n"
                         "Do not linger in scratchpad exploration; commit to the reduction chain and write the complete proof draft now."
                     )
                 elif turn < current_max_turns - 1:
