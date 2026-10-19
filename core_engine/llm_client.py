@@ -23,6 +23,7 @@ import logging
 import os
 import random
 import re
+import socket
 import ssl
 import time
 from dataclasses import dataclass, field
@@ -36,6 +37,58 @@ logger = logging.getLogger("prime_math.llm")
 
 RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524}
 NON_RETRYABLE_STATUS_CODES = {400, 401, 403, 404, 422}
+
+RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524}
+NON_RETRYABLE_STATUS_CODES = {400, 401, 403, 404, 422}
+
+# --- TCP keepalive (PRIME_MATH_TCP_KEEPALIVE, default: enabled) ---
+# Long silent reasoning streams can be killed by idle-connection timeouts in
+# proxies / load balancers. httpx does not enable SO_KEEPALIVE on its sockets,
+# and its internally-built proxy transports accept no socket options, so the
+# reliable hook is socket.create_connection, which httpcore uses for every TCP
+# connection including proxy tunnels. Enabling SO_KEEPALIVE makes the kernel
+# send tiny probes during silence so the connection is never TCP-idle.
+# Standard POSIX socket option: no effect on active connections, no protocol
+# behavior change, safe to leave on everywhere. Only helps if the middlebox
+# timeout is TCP-level (not HTTP-level); harmless otherwise. Per-socket
+# idle/interval/count are set explicitly so behavior does not depend on OS
+# sysctl tuning. Set PRIME_MATH_TCP_KEEPALIVE=false to disable.
+_KEEPALIVE_SOCKET_OPTS = [(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)]
+if hasattr(socket, "TCP_KEEPIDLE"):  # Linux: idle seconds before probes start
+    _KEEPALIVE_SOCKET_OPTS.append((socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60))
+elif hasattr(socket, "TCP_KEEPALIVE"):  # macOS: same role, different name
+    _KEEPALIVE_SOCKET_OPTS.append((socket.IPPROTO_TCP, socket.TCP_KEEPALIVE, 60))
+if hasattr(socket, "TCP_KEEPINTVL"):  # seconds between probes
+    _KEEPALIVE_SOCKET_OPTS.append((socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 30))
+if hasattr(socket, "TCP_KEEPCNT"):  # failed probes before giving up
+    _KEEPALIVE_SOCKET_OPTS.append((socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3))
+
+_orig_create_connection = socket.create_connection
+
+
+def _keepalive_create_connection(address, *args, **kwargs):
+    sock = _orig_create_connection(address, *args, **kwargs)
+    for level, optname, value in _KEEPALIVE_SOCKET_OPTS:
+        try:
+            sock.setsockopt(level, optname, value)
+        except OSError:
+            pass
+    return sock
+
+
+def _tcp_keepalive_enabled() -> bool:
+    return os.environ.get("PRIME_MATH_TCP_KEEPALIVE", "true").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+if _tcp_keepalive_enabled():
+    socket.create_connection = _keepalive_create_connection
+    logger.info("TCP keepalive enabled on outbound sockets (SO_KEEPALIVE, idle 60s)")
+
 
 # Phrases vLLM / OpenAI-compatible servers use when the prompt + max_tokens exceed the window.
 _CONTEXT_OVERFLOW_RE = re.compile(
