@@ -77,6 +77,21 @@ class StateInvariantViolation(Exception):
     pass
 
 
+def _json_safe(val: Any) -> Any:
+    """Recursively converts sets, tuples, and arbitrary REPL objects into JSON-serializable primitives."""
+    if val is None or isinstance(val, (bool, int, float, str)):
+        return val
+    if isinstance(val, (set, frozenset)):
+        return sorted((_json_safe(x) for x in val), key=str)
+    if isinstance(val, dict):
+        return {str(k): _json_safe(v) for k, v in val.items()}
+    if isinstance(val, (list, tuple)):
+        return [_json_safe(x) for x in val]
+    if hasattr(val, "to_dict") and callable(val.to_dict):
+        return _json_safe(val.to_dict())
+    return str(val)
+
+
 @dataclass
 class MathObject:
     """Represents a registered mathematical entity in the proof state."""
@@ -98,13 +113,13 @@ class MathObject:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "name": self.name,
-            "domain": self.domain,
-            "properties": sorted(self.properties),
-            "revoked_properties": dict(self.revoked_properties),
-            "parent": self.parent,
-            "derivation_op": self.derivation_op,
-            "metadata": dict(self.metadata),
+            "name": str(self.name),
+            "domain": str(self.domain),
+            "properties": sorted((str(p) for p in self.properties), key=str),
+            "revoked_properties": _json_safe(dict(self.revoked_properties)),
+            "parent": str(self.parent) if self.parent is not None else None,
+            "derivation_op": str(self.derivation_op) if self.derivation_op is not None else None,
+            "metadata": _json_safe(dict(self.metadata)),
         }
 
     @classmethod
@@ -131,11 +146,11 @@ class StateSnapshot:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "name": self.name,
-            "objects": {k: v.to_dict() for k, v in self.objects.items()},
-            "subgoals": copy.deepcopy(self.subgoals),
-            "verified_lemmas": list(self.verified_lemmas),
-            "namespace_keys": sorted(self.namespace_keys),
+            "name": str(self.name),
+            "objects": {str(k): v.to_dict() if hasattr(v, "to_dict") else _json_safe(v) for k, v in self.objects.items()},
+            "subgoals": _json_safe(self.subgoals),
+            "verified_lemmas": [str(x) for x in self.verified_lemmas],
+            "namespace_keys": sorted((str(k) for k in self.namespace_keys), key=str),
         }
 
     @classmethod
@@ -434,10 +449,10 @@ class MathStateMachine:
     def to_dict(self) -> Dict[str, Any]:
         """Serializes the current mathematical state machine to a JSON-compatible dictionary."""
         return {
-            "objects": {k: v.to_dict() for k, v in self._objects.items()},
-            "subgoals": copy.deepcopy(self._subgoals),
-            "verified_lemmas": list(self._verified_lemmas),
-            "checkpoints": {k: v.to_dict() for k, v in self._checkpoints.items()},
+            "objects": {str(k): v.to_dict() if hasattr(v, "to_dict") else _json_safe(v) for k, v in self._objects.items()},
+            "subgoals": _json_safe(self._subgoals),
+            "verified_lemmas": [str(x) for x in self._verified_lemmas],
+            "checkpoints": {str(k): v.to_dict() if hasattr(v, "to_dict") else _json_safe(v) for k, v in self._checkpoints.items()},
         }
 
     def load_state_dict(self, data: Dict[str, Any]) -> None:

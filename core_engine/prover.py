@@ -189,9 +189,16 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 "exploration_state": exploration_state,
                 "synthesis_state": synthesis_state,
             }
+            def _json_default(o: Any) -> Any:
+                if isinstance(o, (set, frozenset)):
+                    return sorted(o, key=str)
+                if hasattr(o, "to_dict") and callable(o.to_dict):
+                    return o.to_dict()
+                return str(o)
+
             tmp_path = ckpt_path.with_suffix(ckpt_path.suffix + ".tmp")
             with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(payload, f, ensure_ascii=False)
+                json.dump(payload, f, ensure_ascii=False, default=_json_default)
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp_path, ckpt_path)
