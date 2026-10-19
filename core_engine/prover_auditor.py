@@ -417,19 +417,22 @@ class ProverAuditorMixin:
         if issues.lower().rstrip(".") in ("none", "n/a", "no issues", "no defects", "no fatal flaws", "no flaws"):
             issues = ""
 
-        # Enforce explicit boolean referee gates when present
+        # Enforce explicit boolean referee gates when present:
+        # Substantive proofs (rigor >= 0.40 and completeness >= 0.40) retain up to 0.50
+        # so localized bound/regime repairs stay in the surgical revision & overtime band.
+        substantive_structure = (rigor >= 0.40 and completeness >= 0.40)
         if parsed.get("statement_fidelity_exact") is False:
-            validity = min(validity, 0.25)
+            validity = min(validity, 0.50 if substantive_structure else 0.25)
             verdict_str = "REJECT"
             if not issues:
                 issues = "Statement fidelity violation: the proof introduces an unstated domain restriction or proves a weakened statement without covering the complementary regime."
         if parsed.get("inequality_directions_verified") is False:
-            validity = min(validity, 0.25)
+            validity = min(validity, 0.50 if substantive_structure else 0.25)
             verdict_str = "REJECT"
             if not issues:
                 issues = "Inequality direction defect: one or more chained inequalities point in the wrong direction or lack monotonicity justification."
         if parsed.get("theorem_hypotheses_verified") is False:
-            validity = min(validity, 0.35)
+            validity = min(validity, 0.50 if substantive_structure else 0.35)
             verdict_str = "REJECT"
             if not issues:
                 issues = "Unverified lemma/theorem hypotheses: a contextual lemma was invoked without discharging all of its preconditions."

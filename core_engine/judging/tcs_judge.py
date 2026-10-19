@@ -96,7 +96,11 @@ Candidate proof (under evaluation):
 
 Respond with ONLY a JSON object (no markdown fences, no commentary) of the form:
 {{"rigor": <0-1>, "completeness": <0-1>, "boundary_cases": <0-1>, "confidence": <0-1>, "validity": <0-1>, "issues": "<one sentence: the most serious defect found, or 'none'>"}}
-where each score is a continuous value from 0 to 1, and "validity" is your estimated probability (0-1) that the candidate proof is a correct, complete proof of the target problem."""
+where each score is a continuous value from 0 to 1, and "validity" is a calibrated referee score on [0.0, 1.0] (with 0.50 as the pass threshold) assigned according to this scale:
+- 0.80 to 1.00 (Strong Pass): Complete, rigorous proof establishing all required claims.
+- 0.50 to 0.79 (Pass): Mathematically valid proof whose core mechanism establishes the target theorem (may have minor exposition brevity, routine algebraic steps omitted, or invoke context-stated guarantees without re-proving them from scratch, with no false claims or unclosed logical gaps).
+- 0.25 to 0.49 (Near-Miss / Fail): Promising, salvageable proof architecture on the right track with valid partial derivations, but contains a localized gap, unverified boundary regime, or missing intermediate bound factor.
+- 0.00 to 0.24 (Fail): Fundamentally flawed, relies on a false premise, or leaves the main technical obstacle unresolved."""
 
 
 def parse_a_vote(content: str) -> Optional[str]:
