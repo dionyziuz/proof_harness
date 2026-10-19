@@ -38,9 +38,6 @@ logger = logging.getLogger("prime_math.llm")
 RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524}
 NON_RETRYABLE_STATUS_CODES = {400, 401, 403, 404, 422}
 
-RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524}
-NON_RETRYABLE_STATUS_CODES = {400, 401, 403, 404, 422}
-
 # --- TCP keepalive (PRIME_MATH_TCP_KEEPALIVE, default: enabled) ---
 # Long silent reasoning streams can be killed by idle-connection timeouts in
 # proxies / load balancers. httpx does not enable SO_KEEPALIVE on its sockets,
