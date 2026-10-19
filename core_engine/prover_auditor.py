@@ -103,13 +103,14 @@ class ProverAuditorMixin:
         falsifier_user = f"Target Problem:\n{task_prompt}\n\nCandidate Proof:\n{proof_text}\n"
 
         try:
+            cfg = getattr(self, "config", None)
             resp = self.client.complete(
                 [{"role": "system", "content": falsifier_system}, {"role": "user", "content": falsifier_user}],
                 temperature=0.1,
-                max_tokens=4096,
+                max_tokens=int(getattr(cfg, "falsifier_max_tokens", 4096) or 4096),
                 enable_thinking=True,
-                thinking_budget_tokens=2048,
-                timeout_seconds=90.0,
+                thinking_budget_tokens=int(getattr(cfg, "falsifier_thinking_budget", 2048) or 2048),
+                timeout_seconds=float(getattr(cfg, "falsifier_timeout_seconds", 120.0) or 120.0),
             )
             content = resp.content or ""
             code_blocks = self.extract_code_blocks(content)

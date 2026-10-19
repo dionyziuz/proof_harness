@@ -218,7 +218,10 @@ def call_judge(
 ) -> LLMResponse:
     """Helper executing an LLM completion call for judging."""
     if thinking and thinking_budget_tokens is None and max_tokens > 4096:
-        thinking_budget_tokens = min(12288, max_tokens - 4096)
+        from core_engine.tcs_config import load_tcs_config
+        tcs_cfg = load_tcs_config()
+        cfg_budget = int(getattr(tcs_cfg, "judge_thinking_budget", 12288) or 12288)
+        thinking_budget_tokens = min(cfg_budget, max_tokens - 4096)
     return client.complete(
         messages,
         max_tokens=max_tokens,
@@ -422,6 +425,12 @@ def judge_tcs_proof(
     threshold = _resolve_threshold(threshold)
     if client is None:
         client = TunnelThinkingClient()
+    from core_engine.tcs_config import load_tcs_config
+    tcs_cfg = load_tcs_config()
+    if max_tokens == 16384 and getattr(tcs_cfg, "judge_max_tokens", 16384) != 16384:
+        max_tokens = int(tcs_cfg.judge_max_tokens)
+    if timeout_seconds == 120.0 and getattr(tcs_cfg, "judge_timeout_seconds", 360.0) > 120.0:
+        timeout_seconds = float(tcs_cfg.judge_timeout_seconds)
 
     out: Dict[str, Any] = {
         "candidate_chars": len(candidate),

@@ -346,3 +346,55 @@ def test_build_payload_thinking_budget_semantics():
     p = client._build_payload(msgs, None, None, False, 512)
     assert p["chat_template_kwargs"] == {"enable_thinking": False}
     assert "thinking_token_budget" not in p and "thinking_budget_tokens" not in p
+
+
+def test_build_payload_reasoning_effort_and_disable_thinking():
+    cfg = _cfg(vllm_params=False, reasoning_effort="xhigh", reasoning_effort_disabled="minimal")
+    client = TunnelThinkingClient(config=cfg)
+    msgs = [{"role": "user", "content": "q"}]
+
+    # Default / enable_thinking=True -> xhigh
+    p_on = client._build_payload(msgs, 16384, 0.1, True, 12288)
+    assert p_on["reasoning_effort"] == "xhigh"
+    assert "thinking_budget_tokens" not in p_on
+    assert "chat_template_kwargs" not in p_on
+
+    # enable_thinking=False -> switches to minimal
+    p_off = client._build_payload(msgs, 4096, 0.1, False, None)
+    assert p_off["reasoning_effort"] == "minimal"
+
+
+@pytest.mark.parametrize("stream_collect", [True, False])
+def test_complete_retries_on_hidden_reasoning_length_truncation(monkeypatch, stream_collect):
+    cfg = _cfg(max_tokens=65536, vllm_params=False, reasoning_effort="xhigh")
+    client = TunnelThinkingClient(config=cfg)
+    calls = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content.decode())
+        calls.append(body)
+        if len(calls) == 1:
+            if stream_collect:
+                return _stream_response(_sse({"choices": [{"delta": {}, "finish_reason": "length"}]}))
+            return httpx.Response(200, json={
+                "choices": [{"finish_reason": "length", "message": {"role": "assistant", "content": None}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 16384, "total_tokens": 16394},
+            })
+        if stream_collect:
+            return _stream_response(_sse(
+                {"choices": [{"delta": {"content": '{"validity": 0.95}'}, "finish_reason": "stop"}]},
+            ))
+        return httpx.Response(200, json={
+            "choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": '{"validity": 0.95}'}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 100, "total_tokens": 110},
+        })
+
+    _Recorder(monkeypatch, handler)
+    resp = client.complete([{"role": "user", "content": "audit"}], max_tokens=16384, stream_collect=stream_collect)
+    assert resp.content == '{"validity": 0.95}'
+    assert len(calls) == 2
+    assert calls[0]["reasoning_effort"] == "xhigh"
+    assert calls[0]["max_tokens"] == 16384
+    assert calls[1]["reasoning_effort"] == "high"
+    assert calls[1]["max_tokens"] == 32768
+

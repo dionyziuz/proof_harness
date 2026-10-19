@@ -371,11 +371,23 @@ class TunnelThinkingClient:
             payload["thinking_token_budget"] = budget
             payload["thinking_budget_tokens"] = budget
         # Meta-native reasoning effort: explicit opt-in, sent whenever configured
-        # (independent of the vLLM-params flag).
+        # (independent of the vLLM-params flag). When enable_thinking is explicitly
+        # False, switch to reasoning_effort_disabled (default "minimal", ~14 tokens).
         effort = getattr(self.config, "reasoning_effort", None)
         if effort:
-            payload["reasoning_effort"] = effort
+            if enable_thinking is False:
+                payload["reasoning_effort"] = getattr(self.config, "reasoning_effort_disabled", None) or "minimal"
+            else:
+                payload["reasoning_effort"] = effort
         return payload
+
+    @staticmethod
+    def _step_down_effort(effort: Optional[str]) -> str:
+        order = ["max", "xhigh", "high", "medium", "low", "minimal"]
+        if not effort or effort not in order:
+            return "minimal"
+        idx = order.index(effort)
+        return order[min(idx + 1, len(order) - 1)]
 
     def _timeout(self, timeout_seconds: Optional[float]) -> float:
         return timeout_seconds or self.config.timeout_seconds
@@ -501,6 +513,7 @@ class TunnelThinkingClient:
         if stream_collect:
             payload = self._build_payload(messages, max_tokens, temperature, enable_thinking,
                                           thinking_budget_tokens, stream=True)
+            retried_empty_length = False
             for attempt in range(max_retries):
                 meta: Dict[str, Any] = {}
                 try:
@@ -511,7 +524,26 @@ class TunnelThinkingClient:
                             reasoning_chunks.append(delta)
                         elif typ == "content":
                             content_chunks.append(delta)
-                    return self._response_from_stream(reasoning_chunks, content_chunks, meta)
+                    resp = self._response_from_stream(reasoning_chunks, content_chunks, meta)
+                    if (
+                        not retried_empty_length
+                        and resp.finish_reason == "length"
+                        and not resp.content
+                        and not resp.reasoning
+                        and payload.get("reasoning_effort")
+                    ):
+                        retried_empty_length = True
+                        cur_max = int(payload.get("max_tokens") or 16384)
+                        new_max = min(int(getattr(self.config, "max_tokens", 65536) or 65536), max(cur_max * 2, 32768))
+                        new_effort = self._step_down_effort(payload.get("reasoning_effort"))
+                        logger.warning(
+                            f"Reasoning exhausted max_tokens={cur_max} with empty content; "
+                            f"retrying with max_tokens={new_max}, reasoning_effort={new_effort!r}."
+                        )
+                        payload["max_tokens"] = new_max
+                        payload["reasoning_effort"] = new_effort
+                        continue
+                    return resp
                 except Exception as exc:
                     if not is_retryable_error(exc):
                         raise
@@ -527,13 +559,33 @@ class TunnelThinkingClient:
             raise RuntimeError("Unexpected exit from retry loop in complete (stream_collect)")
 
         payload = self._build_payload(messages, max_tokens, temperature, enable_thinking, thinking_budget_tokens)
+        retried_empty_length = False
         for attempt in range(max_retries):
             try:
                 with httpx.Client(timeout=timeout, verify=get_tls_verify()) as client:
                     response = client.post(self.chat_url, headers=self.headers, json=payload)
                     _raise_http_error(response)
                     data = response.json()
-                    return self._parse_response(data)
+                    resp = self._parse_response(data)
+                    if (
+                        not retried_empty_length
+                        and resp.finish_reason == "length"
+                        and not resp.content
+                        and not resp.reasoning
+                        and payload.get("reasoning_effort")
+                    ):
+                        retried_empty_length = True
+                        cur_max = int(payload.get("max_tokens") or 16384)
+                        new_max = min(int(getattr(self.config, "max_tokens", 65536) or 65536), max(cur_max * 2, 32768))
+                        new_effort = self._step_down_effort(payload.get("reasoning_effort"))
+                        logger.warning(
+                            f"Reasoning exhausted max_tokens={cur_max} with empty content; "
+                            f"retrying with max_tokens={new_max}, reasoning_effort={new_effort!r}."
+                        )
+                        payload["max_tokens"] = new_max
+                        payload["reasoning_effort"] = new_effort
+                        continue
+                    return resp
             except Exception as exc:
                 if not is_retryable_error(exc):
                     raise

@@ -145,6 +145,11 @@ class TCSConfig:
     proof_mode: str = "auto"  # "auto", "tcs", or "computational"
     auditor_kernel_timeout_seconds: float = 15.0
 
+    # Official TCS Judge
+    judge_max_tokens: int = 16384
+    judge_thinking_budget: int = 12288
+    judge_timeout_seconds: float = 360.0
+
     # TurboVec Memory Retrieval
     turbovec_min_score: float = 0.68
     turbovec_limit: int = 5
@@ -218,6 +223,10 @@ def load_tcs_config(env_path: Optional[Path] = None, reload: bool = False) -> TC
         auditor_validity_threshold=_float_env("TCS_AUDITOR_VALIDITY_THRESHOLD", 0.70),
         proof_mode=_str_env("TCS_PROOF_MODE", "auto"),
         auditor_kernel_timeout_seconds=_float_env("TCS_AUDITOR_KERNEL_TIMEOUT_SECONDS", 15.0),
+
+        judge_max_tokens=_int_env("TCS_JUDGE_MAX_TOKENS", _int_env("TCS_AUDITOR_MAX_TOKENS", 16384)),
+        judge_thinking_budget=_int_env("TCS_JUDGE_THINKING_BUDGET", _int_env("TCS_AUDITOR_THINKING_BUDGET", 12288)),
+        judge_timeout_seconds=_float_env("TCS_JUDGE_TIMEOUT_SECONDS", _float_env("TCS_AUDITOR_TIMEOUT_SECONDS", 360.0)),
 
         turbovec_min_score=_float_env("TCS_TURBOVEC_MIN_SCORE", 0.68),
         turbovec_limit=_int_env("TCS_TURBOVEC_LIMIT", 5),

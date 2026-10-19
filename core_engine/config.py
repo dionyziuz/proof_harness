@@ -58,6 +58,9 @@ class PrimeMathConfig:
     # muse-spark-1.3). Sent as-is when set; omitted means the model picks its
     # own depth. From PRIME_MATH_REASONING_EFFORT.
     reasoning_effort: Optional[str] = None
+    # Effort level used when enable_thinking=False on reasoning_effort endpoints
+    # (Meta API rejects 'none'; 'minimal' uses ~14 reasoning tokens).
+    reasoning_effort_disabled: str = "minimal"
     fast_composer: FastComposerConfig = field(default_factory=FastComposerConfig)
 
 
@@ -182,6 +185,8 @@ def load_config(
     # Meta-native reasoning effort (passed through verbatim when set)
     if "PRIME_MATH_REASONING_EFFORT" in os.environ:
         cfg.reasoning_effort = os.environ["PRIME_MATH_REASONING_EFFORT"].strip() or None
+    if "PRIME_MATH_REASONING_EFFORT_DISABLED" in os.environ:
+        cfg.reasoning_effort_disabled = os.environ["PRIME_MATH_REASONING_EFFORT_DISABLED"].strip() or "minimal"
     if "JINA_API_KEY" in os.environ:
         cfg.jina_api_key = os.environ["JINA_API_KEY"]
 
