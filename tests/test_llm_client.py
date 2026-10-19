@@ -353,11 +353,19 @@ def test_build_payload_reasoning_effort_and_disable_thinking():
     client = TunnelThinkingClient(config=cfg)
     msgs = [{"role": "user", "content": "q"}]
 
-    # Default / enable_thinking=True -> xhigh
-    p_on = client._build_payload(msgs, 16384, 0.1, True, 12288)
+    # Large budget (Auditor/Judge/Scribe/Solver >= 12288) -> keeps xhigh
+    p_on = client._build_payload(msgs, 32768, 0.1, True, 12288)
     assert p_on["reasoning_effort"] == "xhigh"
     assert "thinking_budget_tokens" not in p_on
     assert "chat_template_kwargs" not in p_on
+
+    # Small helper budget (Skeptic=1024, Falsifier=1536, Architect=2048) -> scales to low
+    p_low = client._build_payload(msgs, 12288, 0.1, True, 2048)
+    assert p_low["reasoning_effort"] == "low"
+
+    # Medium budget (<= 6144) -> scales to medium
+    p_med = client._build_payload(msgs, 16384, 0.1, True, 4096)
+    assert p_med["reasoning_effort"] == "medium"
 
     # enable_thinking=False -> switches to minimal
     p_off = client._build_payload(msgs, 4096, 0.1, False, None)

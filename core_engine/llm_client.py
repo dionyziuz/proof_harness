@@ -371,12 +371,21 @@ class TunnelThinkingClient:
             payload["thinking_token_budget"] = budget
             payload["thinking_budget_tokens"] = budget
         # Meta-native reasoning effort: explicit opt-in, sent whenever configured
-        # (independent of the vLLM-params flag). When enable_thinking is explicitly
-        # False, switch to reasoning_effort_disabled (default "minimal", ~14 tokens).
+        # (independent of the vLLM-params flag).
+        # - When enable_thinking is False -> reasoning_effort_disabled ("minimal", ~14 tokens).
+        # - When use_vllm is False (endpoints like api.meta.ai that do not support
+        #   thinking_budget_tokens) and the caller specifies a lightweight subagent
+        #   thinking_budget_tokens (e.g. Skeptic=1024, Falsifier=1536, Architect=2048),
+        #   scale reasoning_effort down to "low" / "medium" so helper script subagents
+        #   don't burn 15,000 xhigh reasoning tokens (~3 min) per helper call.
         effort = getattr(self.config, "reasoning_effort", None)
         if effort:
             if enable_thinking is False:
                 payload["reasoning_effort"] = getattr(self.config, "reasoning_effort_disabled", None) or "minimal"
+            elif not use_vllm and thinking_budget_tokens is not None and thinking_budget_tokens <= 2048:
+                payload["reasoning_effort"] = "low"
+            elif not use_vllm and thinking_budget_tokens is not None and thinking_budget_tokens <= 6144:
+                payload["reasoning_effort"] = "medium"
             else:
                 payload["reasoning_effort"] = effort
         return payload
