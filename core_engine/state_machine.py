@@ -191,18 +191,20 @@ class MathStateMachine:
     def register(self, name: str, domain: str, properties: Optional[List[str]] = None,
                  description: str = "") -> MathObject:
         """Registers a base mathematical object with verified initial axioms/hypotheses."""
-        clean_props = {p.strip().lower() for p in (properties or [])}
+        if isinstance(properties, str):
+            properties = [properties]
+        clean_props = {str(p).strip().lower() for p in (properties or [])}
         obj = MathObject(
-            name=name,
-            domain=domain.strip().lower(),
+            name=str(name),
+            domain=str(domain).strip().lower(),
             properties=clean_props,
-            metadata={"description": description}
+            metadata={"description": str(description) if description is not None else ""}
         )
-        self._objects[name] = obj
+        self._objects[str(name)] = obj
         return obj
 
     def derive(self, name: str, parent: str, op: str,
-               details: str = "",
+               details: Any = "",
                explicitly_proven_properties: Optional[List[str]] = None) -> MathObject:
         """Derives a new mathematical object from a parent via a structural operation
 
@@ -212,6 +214,10 @@ class MathStateMachine:
         """
         if parent not in self._objects:
             raise KeyError(f"Parent object '{parent}' is not registered in the state machine.")
+
+        if isinstance(details, (list, set, frozenset, tuple)) and explicitly_proven_properties is None:
+            explicitly_proven_properties = list(details)
+            details = ""
 
         p_obj = self._objects[parent]
         inherited_props: Set[str] = set()
@@ -227,21 +233,23 @@ class MathStateMachine:
 
         # Add explicitly proven properties
         if explicitly_proven_properties:
+            if isinstance(explicitly_proven_properties, str):
+                explicitly_proven_properties = [explicitly_proven_properties]
             for p in explicitly_proven_properties:
-                p_clean = p.strip().lower()
+                p_clean = str(p).strip().lower()
                 inherited_props.add(p_clean)
                 revoked.pop(p_clean, None)
 
         child = MathObject(
-            name=name,
+            name=str(name),
             domain=p_obj.domain,
             properties=inherited_props,
             revoked_properties=revoked,
-            parent=parent,
-            derivation_op=op,
-            metadata={"details": details}
+            parent=str(parent),
+            derivation_op=str(op),
+            metadata={"details": str(details) if details is not None else ""}
         )
-        self._objects[name] = child
+        self._objects[str(name)] = child
         return child
 
     # --------------------------------------------------------------------------
