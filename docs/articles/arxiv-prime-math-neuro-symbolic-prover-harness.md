@@ -41,9 +41,9 @@ In standard inference, an LLM is a **stateless, frozen function**. Whether it sp
 
 For organizations deploying AI in specialized technical domains, this episodic amnesia creates a severe **Domain Adaptation Bottleneck**:
 1. **Why Weight Fine-Tuning Fails for Continual Domain Specialization:** Attempting to teach a model domain-specific proof patterns or proprietary system invariants via continual SFT/RLHF requires expensive multi-GPU training clusters, suffers from catastrophic forgetting of general reasoning capabilities, cannot be updated online between individual problem solves, and risks memorizing specific benchmark answers rather than transferable structural heuristics.
-2. **Why Naive RAG Transcript Dumping Fails:** Simply retrieving raw past problem transcripts floods the solver's attention window with instance-specific variable bindings, dead exploratory branches, and potentially contaminated ground-truth constants, inducing *context confusion* rather than strategic transfer.
+2. **Why Raw Problem Transcript Retrieval Fails:** Standard retrieval-augmented generation (RAG) pipelines often index unedited problem histories or raw interaction logs. In mathematical theorem proving, however, retrieving raw problem transcripts floods the solver's attention window with instance-specific variable names, dead exploratory branches, and benchmark constants—causing context clutter rather than reusable strategic insight.
 
-What is missing in standard LLM harnesses is a **governed, non-parametric continual learning engine** where the machine *learns by solving*—abstracting verified, universal domain heuristics and failure post-mortems into role-specific vector embeddings that continuously sharpen the system's domain intelligence over time.
+To make retrieval effective for mathematical discovery, the harness uses a **curated, role-partitioned heuristic retrieval architecture**: instead of indexing raw transcripts, the system distills verified proofs and failure post-mortems into clean, reusable mathematical heuristics (procedural strategies and verification traps), validates them to ensure universality, and retrieves them into role-specific prompts.
 
 ### 1.2 Summary of Contributions
 We present **Proof-Harness (`core_engine`)**, an open-source neuro-symbolic proving harness that directly solves both structural walls. Our contributions are:
