@@ -110,14 +110,16 @@ Every kernel instance boots with a pre-configured deterministic mathematical env
 - **Optional Formal Proof Assistant Hook (`lean_check`):** Direct invocation of the Lean 4 compiler (`core_engine/lean_runner.py`) when formal verification is enabled.
 
 ### 3.3 Domain-Agnostic Diagnostic Operators (`core_engine/math_tools.py`)
-In research-level TCS proofs, three classes of errors account for the vast majority of unsound deductions: (i) misjudging asymptotic growth rates ($o, \mathcal{O}, \Theta, \Omega, \omega$), (ii) assuming conditioned random events remain independent, and (iii) overlooking small structural graph counterexamples. Rather than relying on the LLM to write ad-hoc test scripts from scratch on every turn, `core_engine/math_tools.py` preloads three deterministic diagnostic operators directly into the kernel namespace:
+In research-level TCS proofs, three classes of errors account for the vast majority of unsound deductions: (i) misjudging asymptotic growth rates ($o, \mathcal{O}, \Theta, \Omega, \omega$), (ii) assuming conditioned random events remain independent, and (iii) overlooking small structural graph counterexamples. Rather than relying on the LLM to write ad-hoc test scripts from scratch on every turn, `core_engine/math_tools.py` preloads four deterministic diagnostic operators directly into the kernel namespace:
 
 1. **Symbolic Asymptotic Dominance Verifier (`check_asymptotic_dominance(f_expr, g_expr, var='n')`):**
    Computes the exact symbolic limit ratio $L = \lim_{n \to \infty} f(n)/g(n)$ in SymPy and deterministically classifies whether $f$ is strictly dominated ($f = o(g)$ when $L = 0$), strictly dominates ($f = \omega(g)$ when $|L| = \infty$), is asymptotically tight ($f = \Theta(g)$ when $0 < |L| < \infty$), or is oscillatory/incomparable.
 2. **Monte Carlo Event Covariance & Independence Auditor (`check_event_covariance(sampler_fn, n_trials=2000, seed=42)`):**
    Executes seeded empirical trials over a candidate event generator to compute empirical expectations, covariance, and Pearson correlation $\hat{\rho}_{A,B}$. If $|\hat{\rho}_{A,B}| > 0.05$, the tool raises an explicit dependence warning; otherwise, it confirms approximate independence, catching false independence assumptions before the solver applies a naive product measure or Chernoff bound.
 3. **Exhaustive & Random Graph Counterexample Finder (`find_graph_counterexample(predicate_fn, max_n=7, include_random=True)`):**
-   Systematically sweeps `predicate_fn(G)` across canonical graph families up to $n \le \text{max\_n}$ vertices—including paths $P_n$, cycles $C_n$, complete graphs $K_n$, star graphs $S_n$, complete bipartite graphs $K_{n_1, n_2}$, and seeded Erdős–Rényi random graphs $G(n, p)$ for $p \in \{0.3, 0.6\}$. Crucially, `find_graph_counterexample` implements **Fail-Closed Exception Semantics**: if `predicate_fn(G)` raises *any* runtime exception on $k > 0$ graphs while finding zero explicit `False` returns, the tool returns `{"verified": False, "inconclusive": True}`, preventing a buggy test predicate from masquerading as a verified graph invariant.
+   Systematically sweeps `predicate_fn(G)` across canonical graph families up to $n \le n_{\max}$ vertices (`max_n = 7`)—including paths $P_n$, cycles $C_n$, complete graphs $K_n$, star graphs $S_n$, complete bipartite graphs $K_{n_1, n_2}$, and seeded Erdős–Rényi random graphs $G(n, p)$ for $p \in \{0.3, 0.6\}$. Crucially, `find_graph_counterexample` implements **Fail-Closed Exception Semantics**: if `predicate_fn(G)` raises *any* runtime exception on $k > 0$ graphs while finding zero explicit `False` returns, the tool returns `{"verified": False, "inconclusive": True}`, preventing a buggy test predicate from masquerading as a verified graph invariant.
+4. **Honest Three-Valued Empirical Falsifier (`holds_on_samples(relation, max_points=2000)`):**
+   Evaluates symbolic inequalities against a three-valued epistemic logic (`False`, `True_emp`, `None`) that strictly separates empirical spot-checking from formal mathematical deduction. When exact symbolic decision (`sp.simplify`) is undecidable, it constructs a deterministic evaluation grid respecting declared domain assumptions (`integer`, `positive`, `prime`). If any sample point violates the relation, it returns `False` (certified counterexample refutation). If all sample points satisfy the relation, it returns `True_emp` (empirical survival on samples only—never conflated with universal mathematical truth). If evaluation fails due to singularities, it returns `None` (inconclusive).
 
 ### 3.4 Domain-Specific Verification Extensions: Topology, SMT Hierarchies, and Quantum Operators
 To support research-level deductions in specialized sub-disciplines without fine-tuning, `core_engine/math_tools.py` equips the deterministic kernel with four specialized operator libraries:
@@ -132,18 +134,7 @@ To support research-level deductions in specialized sub-disciplines without fine
 4. **NetworkX 3.x Compatibility Shims & Generator Safeguards:**
    Transparent aliases for renamed or deprecated graph primitives (`nx.random_tree`, `nx.vertex_connectivity`, `nx.Graph.is_connected`), alongside a strict generator ceiling (`MAX_COMBINATORIAL_STEPS = 200,000`) preventing combinatorial loop explosions and protecting unified APU memory architectures.
 
-### 3.5 Honest Three-Valued Epistemic Semantics (`holds_on_samples`)
-When a language model writes `if sp.Le(f(x), g(x)):` in standard SymPy, Python calls `Relational.__bool__`, which immediately raises `TypeError: cannot determine truth value of Relational` whenever $x$ is symbolic. A common failure in generic code-interpreter harnesses is attempting to coerce undecidable relations to a boolean based on random numerical evaluations. **That approach is mathematically unsound**: it causes `if expr1 <= expr2:` to silently evaluate to `True` on universally false statements whose counterexamples lie outside the sample grid, conflating *empirical survival* with *formal proof*.
-
-In `core_engine/kernel.py`, we leave `Relational.__bool__` untouched and instead provide an explicit, three-valued operator `holds_on_samples(relation, max_points=2000)`:
-1. **Exact Symbolic Decision First:** Calls `_evaluate_symbolic_relational`, which attempts `sp.simplify(lhs - rhs)` alongside assumption-aware symbolic bounds. If decidable symbolically, it returns the exact boolean truth value (`True` or `False`).
-2. **Assumption-Respecting Grid Sampling:** For undecidable symbolic expressions with $\le 4$ free variables, it builds a deterministic sample grid that strictly respects each symbol's declared domain assumptions (`integer`, `positive`, `nonnegative`, `prime`, `even`, `odd`).
-3. **Three-Valued Output Semantics:**
-   - **`False` (Certified Counterexample Refutation):** A concrete numerical point violated the relation, definitively disproving the conjecture.
-   - **`True_emp` (Empirical Survival Only):** The relation held across all evaluated valid points (at least 3 points tested). Crucially, this signals to the model that the conjecture survived sample testing, but has *not* been proven universally.
-   - **`None` (Inconclusive):** Domain restrictions or evaluation poles prevented evaluating at least 3 valid points.
-
-### 3.6 Rule 11 Anti-Brute-Force Analytical Ceilings & APU Memory Safeguards
+### 3.5 Rule 11 Anti-Brute-Force Analytical Ceilings & APU Memory Safeguards
 When given an unrestricted Python REPL, language models frequently succumb to **computational laziness**: instead of deriving an algebraic or structural proof, they attempt to brute-force $10^7$ loop iterations, run a massive prime sieve, or iterate over $10!$ permutations. This both starves unified CPU/GPU memory and produces zero mathematical insight for universally quantified theorems.
 
 `PersistentMathKernel` enforces **Rule 11 Analytical Ceilings** directly at the Python runtime and AST levels:
@@ -153,7 +144,7 @@ When given an unrestricted Python REPL, language models frequently succumb to **
 - **AST Combinatorial Explosion Gate (`_combinatorial_ceiling`):** Static AST inspection blocks `itertools.permutations(range(n))` for $n \ge 7$ before execution begins.
 - **Combinatorial Step Generator Ceilings:** Wraps combinatorial searches with `MAX_COMBINATORIAL_STEPS = 200,000` to prevent unconstrained exponential runaway (such as graph cycle searches spanning $>6 \times 10^9$ subsets) from freezing shared page cache on unified APU architectures (e.g., AMD Ryzen AI Max+ 395).
 
-### 3.7 Epistemic State Machine & Property Invariance Tracking (`MathStateMachine`)
+### 3.6 Epistemic State Machine & Property Invariance Tracking (`MathStateMachine`)
 The `MathStateMachine` (`core_engine/state_machine.py`) tracks active mathematical entities within the kernel, recording their domain, proven properties, structural lineage, and any property revocations.
 
 It partitions mathematical properties into two distinct behavioral classes:
@@ -164,7 +155,7 @@ When the solver derives a child object under a non-preserving transformation (su
 
 **Epistemic Scribe Gate:** If the solver attempts to invoke the Publication Scribe while any active mathematical object has unaddressed property revocations, the harness blocks the handoff for one turn and injects an alert requiring an explicit witness or re-proof before formal LaTeX synthesis can proceed.
 
-### 3.8 Three-Layer Airgapped Security & Anti-Forgery Shield
+### 3.7 Three-Layer Airgapped Security & Anti-Forgery Shield
 To guarantee zero benchmark contamination (preventing the solver or auditor from fetching source papers during closed evaluation) while protecting host unified memory, the kernel enforces three concentric isolation layers when `allow_internet = False` (configured via benchmark airgapping mixins in `core_engine/prover_kernel.py`):
 1. **Namespace Tool Stubbing:** Research functions (`search_math`, `read_paper`, `oeis_lookup`) in the kernel namespace are dynamically bound to offline protocol stubs returning `_TCS_PROTOCOL_MSG`.
 2. **Static AST Security & Escape-Hatch Denylist (`_scan_network_ast`):** Parses every code block into a Python AST prior to execution and rejects imports from 24 network modules (`http`, `httpx`, `requests`, `urllib`, `socket`, `ssl`, `websockets`, `aiohttp`, etc.) as well as dynamic import and process-spawning escape hatches (`importlib`, `subprocess`, `builtins`, `pty`, `ctypes`, `os.system`, `os.popen`, `os.fork`, `os.exec*`, `sys.modules`, `__import__`, and `exec`/`eval`/`compile` calls containing `"import"` string literals).
