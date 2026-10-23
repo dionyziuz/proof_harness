@@ -414,7 +414,8 @@ If you are designing agent harnesses for reasoning-heavy vertical domains—whet
 
 ## 10. Academic References
 
-- **[Cognitive Architectures for Language Agents (CoALA)](https://arxiv.org/abs/2309.02427)** *(Sumers et al., Princeton NLP, TMLR 2023)*: The tripartite cognitive memory taxonomy (Working, Procedural, and Episodic Memory) that Prime Math extends with 10 role-isolated vector embedding collections, a 3-Tier `RemediationEngine`, and a 6-gate Zero-Leakage Universality Validator (`PROVENANCE_VERSION = 2`).
+- **[Stellar Colosseum (`arXiv:2609.15983`)](https://arxiv.org/abs/2609.15983)** *(Lin, Woodruff, Deng, Mao, Zuo, & Mirrokni, Google Research & CMU, 2026)*: A many-agent inference harness for long-horizon research in TCS and mathematics, investigating multi-agent inference-time scaling on TCS-Bench with Gemini frontier models.
+- **[Cognitive Architectures for Language Agents (CoALA)](https://arxiv.org/abs/2309.02427)** *(Sumers et al., Princeton NLP, TMLR 2023)*: The tripartite cognitive memory taxonomy (Working, Procedural, and Episodic Memory) that Proof Harness extends with 10 role-isolated vector embedding collections, a 3-Tier `RemediationEngine`, and a 6-gate Zero-Leakage Universality Validator (`PROVENANCE_VERSION = 2`).
 - **[TCS-Bench (`arXiv:2608.09538`)](https://arxiv.org/abs/2608.09538)**: The 300-problem graduate-level Theoretical Computer Science benchmark suite used to evaluate single-shot versus multi-turn neuro-symbolic proof synthesis.
 
 *All benchmarks, CoALA memory modules, deterministic kernel engines, and evaluation scripts are open-sourced in the [Proof Harness repository](https://github.com/dionyziuz/proof_harness).*

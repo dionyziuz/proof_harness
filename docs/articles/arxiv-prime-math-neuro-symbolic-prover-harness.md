@@ -1,6 +1,6 @@
-# Prime-Math: Zero-Trust Deterministic Kernel Verification and Continuous Domain Learning via CoALA Vector Heuristics for Graduate-Level Theorem Proving in 4-Bit Language Models
+# Proof-Harness: Zero-Trust Deterministic Kernel Verification and Continuous Domain Learning via CoALA Vector Heuristics for Graduate-Level Theorem Proving in 4-Bit Language Models
 
-**Authors:** Prime-Math Research Team  
+**Authors:** Proof-Harness Research Team  
 **Categories:** `cs.AI`, `cs.LO`, `cs.CC`, `math.LO`, `cs.SC`  
 **Code & Benchmark Artifacts:** [https://github.com/dionyziuz/proof_harness](https://github.com/dionyziuz/proof_harness)
 
@@ -10,17 +10,17 @@
 
 While multi-turn agent scaffolding has become common practice for deploying large language models (LLMs) on complex tasks, existing reasoning harnesses typically rely on unguided prompting, generic multi-agent debates, or raw code execution without deterministic mathematical semantics or persistent domain memory. When evaluated on PhD-level research mathematics—such as the **TCS-Bench** suite of 300 research theorems drawn from recent arXiv Theoretical Computer Science literature—conventional first-pass reasoning and unguided scaffolds struggle severely: an unassisted 4-bit quantized 28B model achieves only a **3.33%** certified sound pass rate ($10/300$) and **4.00%** passing grades counting directional reductions ($12/300$). In this paper, we show that solving research-level formal deduction requires moving beyond generic scaffolding to a **specialized neuro-symbolic proving harness** that systematically addresses two foundational architectural deficits: **(1) Episodic Amnesia and Static Weights**, wherein a frozen model cannot accumulate verified domain heuristics across problems without expensive, catastrophic-forgetting-prone fine-tuning; and **(2) The Probabilistic Trust Fallacy**, wherein next-token log-probabilities are mistaken for mathematical truth, masking invalid algebraic leaps, inverted inequalities, and illegal property inheritance.
 
-We introduce and empirically validate **Prime-Math (`core_engine`)**, a specialized neuro-symbolic theorem-proving harness engineered around two tightly coupled architectural engines:
+We introduce and empirically validate **Proof-Harness (`core_engine`)**, a specialized neuro-symbolic theorem-proving harness engineered around two tightly coupled architectural engines:
 1. **The Zero-Trust Deterministic Mathematical Kernel Engine (`kernel.py`, `prover_kernel.py`, `math_tools.py`, `state_machine.py`):** Providing **immediate, day-one accuracy and soundness verification**, the kernel serves as a dual-isolated, 3-layer airgapped symbolic and numerical execution substrate (`PersistentMathKernel` and ephemeral `AuditorKernel`) that treats every LLM assertion as an untrusted conjecture. The kernel integrates exact computer algebra (`SymPy`), SMT constraint solving (`Z3`), 50-digit arbitrary-precision arithmetic (`mpmath`), specialized domain extensions (planar dual face tracing, cycle chords, SMT parameter hierarchies, quantum CPTP channels, and positive semi-definite operator inequality checkers), honest three-valued empirical semantics (`holds_on_samples`), anti-brute-force analytical ceilings (`guarded_range` $\le 200,000$, `MAX_COMBINATORIAL_STEPS = 200,000`), and a formal **Epistemic State Machine** (`MathStateMachine`) that automatically revokes fragile properties under conditioning or restriction.
 2. **The CoALA Heuristics & Continuous Domain Learning Engine (`memory.py`, `heuristic_validation.py`, `remediation.py`):** Providing **longitudinal intelligence growth as users solve theorems over time**, the CoALA engine implements a continual learning architecture (*Cognitive Architectures for Language Agents*) where the harness **learns by solving**. As tasks are attempted and verified passes accumulate, transferable mathematical strategies (Procedural Memory) and structured failure post-mortems (Episodic Memory) are distilled into five role-isolated vector embedding collections (`prime_math`, `tcs_architect`, `tcs_verifier`, `tcs_skeptic`, `tcs_scribe`). A 6-gate **Zero-Leakage Universality Validator** (`PROVENANCE_VERSION = 2`) strips instance-specific constants, ground-truth answers, and empirical extrapolation hacks before indexing—enabling practitioners to continuously specialize the harness into vertical research domains purely through vector embeddings without modifying LLM weights.
 
-Coupled with a seven-role cognitive partitioning architecture, a **Turn-1 Exploration Gate** (banning premature proof drafting on Turn 1 to enforce invariant discovery in code), a **4-Message Stateless Blackboard Revision** protocol, and **Candidate Protection against Destructive Pivots**, Prime-Math transforms a 4-bit 28B model (`unsloth/Qwen3.8-27B-NVFP4`) on a single 32GB consumer GPU into an effective research-level prover. 
+Coupled with a seven-role cognitive partitioning architecture, a **Turn-1 Exploration Gate** (banning premature proof drafting on Turn 1 to enforce invariant discovery in code), a **4-Message Stateless Blackboard Revision** protocol, and **Candidate Protection against Destructive Pivots**, Proof-Harness transforms a 4-bit 28B model (`unsloth/Qwen3.8-27B-NVFP4`) on a single 32GB consumer GPU into an effective research-level prover. 
 
 Across cumulative passing thresholds on 300 PhD-level research problems:
-- **Passing Grades ($\ge 0.40$, Grade C and Above — Sound & Directional):** Prime-Math achieves **23.67% ($71/300$)**, nearly **sextupling ($5.92\times$)** the unassisted single-shot baseline of $4.00\%$ ($12/300$).
-- **Certified Sound Passes ($\ge 0.50$, Grade B and Above):** Prime-Math achieves **21.00% ($63/300$)**, a **$6.30\times$ multiplier** over the single-shot baseline of $3.33\%$ ($10/300$).
-- **Publication-Grade Proofs ($\ge 0.70$, Grade A and Above):** Prime-Math achieves **18.00% ($54/300$)**, a **$7.71\times$ multiplier** over single-shot ($2.33\%$, $7/300$), with 31 proofs reaching near-flawless ($\ge 0.90$) journal quality.
-- **Exceptional Passing Quality:** On certified passing proofs, Prime-Math drives proof validity to a mean of **$0.853 \pm 0.129$** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**. Exactly **100% of all passing proofs** are discovered through governed multi-turn symbolic verification in Turns 2–12.
+- **Passing Grades ($\ge 0.40$, Grade C and Above — Sound & Directional):** Proof-Harness achieves **23.67% ($71/300$)**, nearly **sextupling ($5.92\times$)** the unassisted single-shot baseline of $4.00\%$ ($12/300$).
+- **Certified Sound Passes ($\ge 0.50$, Grade B and Above):** Proof-Harness achieves **21.00% ($63/300$)**, a **$6.30\times$ multiplier** over the single-shot baseline of $3.33\%$ ($10/300$).
+- **Publication-Grade Proofs ($\ge 0.70$, Grade A and Above):** Proof-Harness achieves **18.00% ($54/300$)**, a **$7.71\times$ multiplier** over single-shot ($2.33\%$, $7/300$), with 31 proofs reaching near-flawless ($\ge 0.90$) journal quality.
+- **Exceptional Passing Quality:** On certified passing proofs, Proof-Harness drives proof validity to a mean of **$0.853 \pm 0.129$** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**. Exactly **100% of all passing proofs** are discovered through governed multi-turn symbolic verification in Turns 2–12.
 
 ---
 
@@ -46,7 +46,7 @@ For organizations deploying AI in specialized technical domains, this episodic a
 What is missing in standard LLM harnesses is a **governed, non-parametric continual learning engine** where the machine *learns by solving*—abstracting verified, universal domain heuristics and failure post-mortems into role-specific vector embeddings that continuously sharpen the system's domain intelligence over time.
 
 ### 1.2 Summary of Contributions
-We present **Prime-Math (`core_engine`)**, an open-source neuro-symbolic proving harness that directly solves both structural walls. Our contributions are:
+We present **Proof-Harness (`core_engine`)**, an open-source neuro-symbolic proving harness that directly solves both structural walls. Our contributions are:
 
 1. **The Zero-Trust Deterministic Mathematical Kernel Engine (Section 3):** Delivering immediate accuracy gains and deterministic soundness verification, we introduce a dual-kernel execution substrate (`PersistentMathKernel` for exploratory synthesis and ephemeral `AuditorKernel` for Stage 1 proof auditing; `core_engine/kernel.py`, `core_engine/prover_kernel.py`, `core_engine/math_tools.py`, `core_engine/state_machine.py`) featuring:
    - **Preloaded Symbolic, SMT, and 50-Digit Arbitrary-Precision Stack:** Seamless integration of `SymPy`, `Z3`, `mpmath` (`mp.dps = 50`), `SciPy`, and `NetworkX` with thread-safe timeout isolation.
@@ -58,7 +58,7 @@ We present **Prime-Math (`core_engine`)**, an open-source neuro-symbolic proving
    - **The 3-Tier Autonomous `RemediationEngine` & 4-Gate `Tier2Rubric`:** A post-evaluation diagnostic pipeline that audits every failed task and routes domain-specific mathematical insights strictly into Tier 3 CoALA vector memory while reserving Tier 2 prompt edits for universal behavioral postures.
    - **The 6-Gate Zero-Leakage Universality Validator (`PROVENANCE_VERSION = 2`):** A deterministic security filter that blocks empirical extrapolation hacks, problem IDs, instance-specific equations, and $\ge 4$-digit ground-truth constants (`find_ground_truth_leak`), guaranteeing zero benchmark contamination and high out-of-distribution transfer.
 3. **Seven-Role Cognitive Partitioning & Non-Degrading Search Governance (Section 5):** We decompose theorem proving into seven decoupled roles governed by a **Turn-1 Exploration Gate**, **Blueprint Quarantine**, a **4-Message Stateless Blackboard**, **Candidate Protection against Destructive Pivots** (`[Hard Pivot Prevented — Substantive/Best Candidate Protected]`), **CandidatePool Noise-Band Occam's Razor** ($\epsilon = 0.03$), and **Clean-Slate Hard Pivots**.
-4. **Large-Scale Empirical Validation on PhD-Level TCS Theorems (Sections 6–8):** Across $N=300$ research theorem-proving problems from TCS-Bench using a 4-bit 28B model on a single consumer GPU, Prime-Math proves that agentic scaffolding massively multiplies passing performance over unassisted first-shot generation:
+4. **Large-Scale Empirical Validation on PhD-Level TCS Theorems (Sections 6–8):** Across $N=300$ research theorem-proving problems from TCS-Bench using a 4-bit 28B model on a single consumer GPU, Proof-Harness proves that agentic scaffolding massively multiplies passing performance over unassisted first-shot generation:
    - **Passing Grades ($\ge 0.40$, Grade C and Above):** **$23.67\%$ ($71/300$)** vs. $4.00\%$ ($12/300$) single-shot (**$5.92\times$ gain**).
    - **Certified Passes ($\ge 0.50$, Grade B and Above):** **$21.00\%$ ($63/300$)** vs. $3.33\%$ ($10/300$) single-shot (**$6.30\times$ gain**).
    - **Publication-Grade Proofs ($\ge 0.70$, Grade A and Above):** **$18.00\%$ ($54/300$)** vs. $2.33\%$ ($7/300$) single-shot (**$7.71\times$ gain**).
@@ -73,7 +73,7 @@ A theorem-proving task presented to the harness consists of three primary compon
 - **Target Theorem Statement:** The formal proposition to be proved or refuted across its full quantified parameter space.
 - **Domain Scope:** The structural assumptions, parameter regimes, and boundary constraints specified by the theorem statement (such as connected planar graphs, non-degenerate covariance matrices, or asymptotic parameter hierarchies).
 
-Unlike unassisted, single-turn inference where a model generates a proof purely via autoregressive token sampling without code execution or feedback, Prime-Math deploys a **Stateful Neuro-Symbolic Harness** that coordinates three complementary layers:
+Unlike unassisted, single-turn inference where a model generates a proof purely via autoregressive token sampling without code execution or feedback, Proof-Harness deploys a **Stateful Neuro-Symbolic Harness** that coordinates three complementary layers:
 1. **Frozen Backbone Model:** A 4-bit quantized autoregressive transformer (`unsloth/Qwen3.8-27B-NVFP4`) whose weights remain fixed throughout all runs.
 2. **Deterministic Mathematical Kernel:** A dual-isolated execution environment pairing symbolic algebra (`SymPy`), SMT constraint solving (`Z3`), 50-digit numerical analysis (`mpmath`), and an epistemic state machine (`MathStateMachine`). This kernel deterministically verifies intermediate claims, boundary values, and algebraic invariants from day one, refusing to trust probabilistic model output.
 3. **Evolving CoALA Vector Memory:** A persistent, role-indexed memory bank storing verified procedural strategies and episodic failure post-mortems across five cognitive roles (`prime_math`, `tcs_architect`, `tcs_verifier`, `tcs_skeptic`, `tcs_scribe`). As users solve theorems and accumulate verified proofs in a given domain, the harness distills new heuristics through a strict 6-gate Zero-Leakage Universality Validator (`PROVENANCE_VERSION = 2`), continuously growing domain expertise without modifying model weights.
@@ -90,12 +90,12 @@ To evaluate proof correctness without circularity or confirmation bias, each can
 
 ## 3. Core Pillar I: The Zero-Trust Deterministic Mathematical Kernel Engine
 
-To overcome **Problem Wall I (The Probabilistic Trust Fallacy)**, Prime-Math equips the language model with an immediate, day-one foundation of correctness: the **Zero-Trust Deterministic Mathematical Kernel** (`core_engine/kernel.py`, `core_engine/prover_kernel.py`, `core_engine/math_tools.py`, `core_engine/state_machine.py`). While learned heuristics become powerful over time as passes accumulate across specific domains, the deterministic kernel provides **immediate value from the very first solve**: ensuring that every algebraic deduction, inequality direction, topological boundary, and spectral claim is tested against exact mathematical software rather than probabilistic token likelihoods. The governing axiom of the kernel is strict: **the language model's prose is never trusted for symbolic calculation, inequality direction, independence preservation, or small-$n$ edge cases; every verifiable claim must be executed against deterministic mathematical software.**
+To overcome **Problem Wall I (The Probabilistic Trust Fallacy)**, Proof-Harness equips the language model with an immediate, day-one foundation of correctness: the **Zero-Trust Deterministic Mathematical Kernel** (`core_engine/kernel.py`, `core_engine/prover_kernel.py`, `core_engine/math_tools.py`, `core_engine/state_machine.py`). While learned heuristics become powerful over time as passes accumulate across specific domains, the deterministic kernel provides **immediate value from the very first solve**: ensuring that every algebraic deduction, inequality direction, topological boundary, and spectral claim is tested against exact mathematical software rather than probabilistic token likelihoods. The governing axiom of the kernel is strict: **the language model's prose is never trusted for symbolic calculation, inequality direction, independence preservation, or small-$n$ edge cases; every verifiable claim must be executed against deterministic mathematical software.**
 
 ### 3.1 Dual-Kernel Isolation Architecture (`PersistentMathKernel` vs. `AuditorKernel`)
 A subtle flaw in single-REPL agent architectures is **shared-state confirmation bias**: if an internal referee validates a proof inside the same Python namespace where the solver defined its helper functions or mutated global state, a bug in the solver's setup definitions silently corrupts the audit.
 
-Prime-Math enforces **Dual-Kernel Isolation**:
+Proof-Harness enforces **Dual-Kernel Isolation**:
 1. **Persistent Exploratory Kernel (`PersistentMathKernel`):** Dedicated to the Context Architect, Pre-Flight Falsifier, Deductive Logician, and Adversarial Skeptic across Turns $1 \dots T$. It preserves verified lemmas, custom symbolic expressions, and the `MathStateMachine` provenance DAG across turns, with snapshot rollback via `state.checkpoint('pre_claim')` and `state.rollback('pre_claim')`.
 2. **Ephemeral Verification Kernel (`AuditorKernel`):** Spawned fresh from scratch during Stage 1 of `_audit_proof_draft` (`timeout = 15s`) with a completely disjoint memory space. The Proof Auditor writes an independent Python falsification script directly from the LaTeX proof text $\pi_t$ and the theorem statement $(C, S)$, ensuring that the proof stands on its own mathematical definitions.
 
@@ -176,7 +176,7 @@ To guarantee zero benchmark contamination (preventing the solver or auditor from
 
 ## 4. Core Pillar II: The CoALA Heuristics & Continuous Domain Learning Engine
 
-To overcome **Problem Wall II (Frozen Weights & Episodic Amnesia)**, Prime-Math complements its immediate deterministic kernel with a continual domain learning engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`) based on the **Cognitive Architectures for Language Agents (CoALA)** framework (Sumers et al., 2023). While the kernel ensures immediate accuracy on any individual proof attempt, the CoALA heuristics engine provides **cumulative longitudinal intelligence**: as users apply the harness to solve and pass proofs in specific mathematical domains over time, the system automatically distills verified reduction tactics and failure post-mortems into role-isolated vector memory without requiring multi-GPU fine-tuning.
+To overcome **Problem Wall II (Frozen Weights & Episodic Amnesia)**, Proof-Harness complements its immediate deterministic kernel with a continual domain learning engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`) based on the **Cognitive Architectures for Language Agents (CoALA)** framework (Sumers et al., 2023). While the kernel ensures immediate accuracy on any individual proof attempt, the CoALA heuristics engine provides **cumulative longitudinal intelligence**: as users apply the harness to solve and pass proofs in specific mathematical domains over time, the system automatically distills verified reduction tactics and failure post-mortems into role-isolated vector memory without requiring multi-GPU fine-tuning.
 
 ```mermaid
 flowchart LR
@@ -202,7 +202,7 @@ For each specialized subagent role, `CoALAMemoryManager` (`core_engine/memory.py
 2. **Procedural Memory (`<agent_id>_procedural` in vector memory):** Abstract, universally transferable mathematical strategies, decomposition blueprints, and verification patterns (e.g., *"When bounding the expected size of prefix-restricted sumsets in $\mathbb{Z}^d$, decompose into $2^d$ dyadic boxes and apply Hölder's inequality with conjugate exponents $p = d/(d+1)$ and $q = 1/(d+1)$"*).
 3. **Episodic Memory (`<agent_id>_episodic` in vector memory):** Structured post-mortems of past failures, refuted reductions, and subtle domain pitfalls (e.g., *"WARNING: Conditioning on a sum threshold $\sum X_i \ge k$ destroys mutual independence of $\{X_i\}$; do not apply standard Chernoff bounds to the conditioned variables without negative association verification"*).
 
-Crucially, because each cognitive role requires fundamentally different operational heuristics, Prime-Math partitions its vector memory into **ten role-isolated collections** across five agent namespaces:
+Crucially, because each cognitive role requires fundamentally different operational heuristics, Proof-Harness partitions its vector memory into **ten role-isolated collections** across five agent namespaces:
 
 | Agent Namespace (`agent_id`) | Procedural Collection (`_procedural`) | Episodic Collection (`_episodic`) | Domain Specialization Role |
 | :--- | :--- | :--- | :--- |
@@ -222,7 +222,7 @@ At the conclusion of every problem trajectory (when memory updates are enabled),
 Before inserting a candidate heuristic into procedural memory, the system queries the collection for semantic similarity. If the candidate exhibits a cosine similarity greater than $0.90$ with an existing heuristic, it is discarded as a **near-duplicate**, preventing frequent problem archetypes from dominating top-$k$ retrieval slots.
 
 ### 4.3 The 3-Tier Autonomous `RemediationEngine` and the 4-Gate `Tier2Rubric`
-Beyond single-task reflection, Prime-Math includes a post-evaluation **Autonomous Remediation Engine** (`core_engine/remediation.py`) that diagnoses every failed benchmark task (`score < 0.50`) and classifies its root cause into one of three architectural remediation tiers:
+Beyond single-task reflection, Proof-Harness includes a post-evaluation **Autonomous Remediation Engine** (`core_engine/remediation.py`) that diagnoses every failed benchmark task (`score < 0.50`) and classifies its root cause into one of three architectural remediation tiers:
 
 1. **Tier 1 (Deterministic Harness Guardrails — Flagged for Human Review):** Structural harness or parser defects requiring Python code modifications.
 2. **Tier 2 (System Prompt Directives — Universality-Gated):** High-level behavioral adjustments to the agent's system prompt, strictly gated by a 4-criterion universality rubric (`Tier2Rubric`):
@@ -251,15 +251,15 @@ Furthermore, during online retrieval (`retrieve_context_for_problem`), `CoALAMem
 - **Provenance Version Quarantine:** Automatically drops any legacy record with `provenance_version < 2` unless it passes live re-verification against all six gates.
 
 ### 4.5 Why Embedding-Based Continual Learning Excels for Domain-Specific Vertical Solutions
-By decoupling **reasoning syntax** (held in the frozen 4-bit model weights) from **evolving domain heuristics** (stored in role-isolated vector embeddings), Prime-Math provides a general blueprint for vertical AI specialization:
-- **Zero-Weight-Update Domain Onboarding:** A research group in quantum information theory, algorithmic game theory, or formal hardware verification can point Prime-Math at a corpus of domain problems. As the harness solves and audits tasks, it automatically populates `prime_math_procedural`, `tcs_architect_procedural`, and `tcs_skeptic_procedural` with verified, domain-specific proof tactics and counterexample templates.
+By decoupling **reasoning syntax** (held in the frozen 4-bit model weights) from **evolving domain heuristics** (stored in role-isolated vector embeddings), Proof-Harness provides a general blueprint for vertical AI specialization:
+- **Zero-Weight-Update Domain Onboarding:** A research group in quantum information theory, algorithmic game theory, or formal hardware verification can point Proof-Harness at a corpus of domain problems. As the harness solves and audits tasks, it automatically populates `prime_math_procedural`, `tcs_architect_procedural`, and `tcs_skeptic_procedural` with verified, domain-specific proof tactics and counterexample templates.
 - **Transparent, Auditable, and Surgically Editable Knowledge:** Unlike opaque LoRA adapters, every learned heuristic in vector memory is a human-readable, provenance-tagged JSON record (`source_problem_id`, `provenance_version: 2`, `timestamp`) that engineers can inspect, audit, version-control, or transfer across model backbones.
 
 ---
 
 ## 5. Seven-Role Cognitive Partitioning & Closed-Loop Search Governance
 
-Built atop the **Zero-Trust Deterministic Kernel** (Section 3) and the **CoALA Continuous Domain Learning Engine** (Section 4), `MathProver` (`core_engine/prover.py` and `core_engine/prover_stages.py`) partitions mathematical cognition across seven specialized roles. A central hypothesis of Prime-Math is that **exploratory mathematical scratchwork, adversarial falsification, and formal academic typesetting require incompatible attention distributions**.
+Built atop the **Zero-Trust Deterministic Kernel** (Section 3) and the **CoALA Continuous Domain Learning Engine** (Section 4), `MathProver` (`core_engine/prover.py` and `core_engine/prover_stages.py`) partitions mathematical cognition across seven specialized roles. A central hypothesis of Proof-Harness is that **exploratory mathematical scratchwork, adversarial falsification, and formal academic typesetting require incompatible attention distributions**.
 
 ```mermaid
 flowchart TD
@@ -299,7 +299,7 @@ flowchart TD
 
 ```text
 ================================================================================
-Algorithm 1: Prime-Math Governed Neuro-Symbolic Proof Search (core_engine)
+Algorithm 1: Proof-Harness Governed Neuro-Symbolic Proof Search (core_engine)
 ================================================================================
 Input: Theorem Statement & Paper Context, Role-Isolated Vector Memory,
        Search Budget (Nominal: 8 turns, Overtime: 4 turns)
@@ -401,12 +401,12 @@ Every single problem in the benchmark has an unassisted first-shot attempt and a
 | **1. Single-Shot ($\text{Pass@}1$ Baseline)** | $T = 1$ | $12 / 300$ (**$4.00\%$**) | $10 / 300$ (**$3.33\%$**) | $7 / 300$ (**$2.33\%$**) | $1.00\times$ / $1.00\times$ / $1.00\times$ |
 | **2. Shallow Multi-Turn ($\text{Pass@}3$)** | $T \le 3$ | $25 / 300$ (**$8.33\%$**) | $21 / 300$ (**$7.00\%$**) | $17 / 300$ (**$5.67\%$**) | $2.08\times$ / $2.10\times$ / $2.43\times$ |
 | **3. Nominal 8-Turn Harness** | $T \le 8$ | $63 / 300$ (**$21.00\%$**) | $51 / 300$ (**$17.00\%$**) | $37 / 300$ (**$12.33\%$**) | $5.25\times$ / $5.10\times$ / $5.29\times$ |
-| **4. Full Prime-Math Harness ($T \le 12$)** | $T \le 12$ | **$71 / 300$** (**$23.67\%$**) | **$63 / 300$** (**$21.00\%$**) | **$54 / 300$** (**$18.00\%$**) | **$5.92\times$** / **$6.30\times$** / **$7.71\times$** |
+| **4. Full Proof-Harness Harness ($T \le 12$)** | $T \le 12$ | **$71 / 300$** (**$23.67\%$**) | **$63 / 300$** (**$21.00\%$**) | **$54 / 300$** (**$18.00\%$**) | **$5.92\times$** / **$6.30\times$** / **$7.71\times$** |
 
-Across all passing thresholds, Prime-Math obliterates the standard expectation of merely doubling or tripling single-shot performance:
-- Counting **all passing grades (Grade C and above, $\ge 0.40$)**, Prime-Math achieves **$23.67\%$ ($71/300$)** vs. **$4.00\%$ ($12/300$)** for single-shot — a **$5.92\times$ multiplier**.
-- Counting **certified sound passes (Grade B and above, $\ge 0.50$)**, Prime-Math achieves **$21.00\%$ ($63/300$)** vs. **$3.33\%$ ($10/300$)** for single-shot — a **$6.30\times$ multiplier**.
-- Counting **publication-grade proofs (Grade A and above, $\ge 0.70$)**, Prime-Math achieves **$18.00\%$ ($54/300$)** vs. **$2.33\%$ ($7/300$)** for single-shot — a **$7.71\times$ multiplier**.
+Across all passing thresholds, Proof-Harness obliterates the standard expectation of merely doubling or tripling single-shot performance:
+- Counting **all passing grades (Grade C and above, $\ge 0.40$)**, Proof-Harness achieves **$23.67\%$ ($71/300$)** vs. **$4.00\%$ ($12/300$)** for single-shot — a **$5.92\times$ multiplier**.
+- Counting **certified sound passes (Grade B and above, $\ge 0.50$)**, Proof-Harness achieves **$21.00\%$ ($63/300$)** vs. **$3.33\%$ ($10/300$)** for single-shot — a **$6.30\times$ multiplier**.
+- Counting **publication-grade proofs (Grade A and above, $\ge 0.70$)**, Proof-Harness achieves **$18.00\%$ ($54/300$)** vs. **$2.33\%$ ($7/300$)** for single-shot — a **$7.71\times$ multiplier**.
 
 ### 6.3 Multi-Dimensional Referee Sub-Score Distributions
 
@@ -414,7 +414,7 @@ Table 2 details the fine-grained referee sub-scores across all $N=300$ evaluated
 
 **Table 2: Multi-Dimensional Referee Sub-Score Statistics on TCS-Bench ($N=300$).**
 
-| Referee Dimension | Single-Shot ($\text{Pass@}1$ Baseline)<br>Mean $\pm$ SD (Median) | All Problems ($N=300$)<br>Mean $\pm$ SD (Median) | Prime-Math Passes ($N=63$)<br>Mean $\pm$ SD (Median) | First-Shot to Passing Gain ($\Delta$) |
+| Referee Dimension | Single-Shot ($\text{Pass@}1$ Baseline)<br>Mean $\pm$ SD (Median) | All Problems ($N=300$)<br>Mean $\pm$ SD (Median) | Proof-Harness Passes ($N=63$)<br>Mean $\pm$ SD (Median) | First-Shot to Passing Gain ($\Delta$) |
 | :--- | :---: | :---: | :---: | :---: |
 | **Overall Validity $v(\pi)$** | $0.142 \pm 0.185$ ($0.080$) | $0.289 \pm 0.312$ ($0.180$) | **$0.853 \pm 0.129$** (**$0.880$**) | **$+0.711$** (Mean) / **$+0.800$** (Med) |
 | **Logical Rigor** | $0.185 \pm 0.201$ ($0.120$) | $0.363 \pm 0.279$ ($0.250$) | **$0.857 \pm 0.121$** (**$0.900$**) | **$+0.672$** (Mean) / **$+0.780$** (Med) |
@@ -424,7 +424,7 @@ Table 2 details the fine-grained referee sub-scores across all $N=300$ evaluated
 | **Proof Length (chars)** | $3,842$ ($3,210$) | $9,766$ ($9,096$) | **$9,041$** (**$9,182$**) | $+5,199$ chars (Rigorously developed) |
 | **Solve Duration (s)** | $45.2\text{s}$ ($42.1\text{s}$) | $3,686.5\text{s}$ ($3,675.9\text{s}$) | **$2,592.8\text{s}$** (**$2,674.7\text{s}$**) | Multi-turn closed-loop verification |
 
-**Key Finding on Proof Quality:** When single-shot provers generate proofs, they frequently score near flat zero ($0.00–0.15$) due to missing edge cases and unverified leaps. Under Prime-Math, passing proofs reach an extraordinary **$0.853 \pm 0.129$ mean validity** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**. The harness forces the model to verify invariants in Python and SMT before writing formal text, transforming shallow approximations into airtight mathematical proofs.
+**Key Finding on Proof Quality:** When single-shot provers generate proofs, they frequently score near flat zero ($0.00–0.15$) due to missing edge cases and unverified leaps. Under Proof-Harness, passing proofs reach an extraordinary **$0.853 \pm 0.129$ mean validity** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**. The harness forces the model to verify invariants in Python and SMT before writing formal text, transforming shallow approximations into airtight mathematical proofs.
 
 ### 6.4 Cumulative Passing Thresholds and Quality Distribution
 
@@ -445,7 +445,7 @@ Notice that **$85.7\%$ of all certified passing proofs ($54/63$) achieve Grade A
 
 ### 6.5 Iteration Horizon Analysis: Where Proofs Are Won
 
-Table 4 dissects the exact turn $t \in \{1, \dots, 12\}$ on which each certified pass was discovered under Prime-Math.
+Table 4 dissects the exact turn $t \in \{1, \dots, 12\}$ on which each certified pass was discovered under Proof-Harness.
 
 **Table 4: Turn-by-Turn Discovery of Certified Passing Proofs ($N=300$).**
 
@@ -464,7 +464,7 @@ Table 4 dissects the exact turn $t \in \{1, \dots, 12\}$ on which each certified
 | **Total** | **Full Governed Trajectory ($T \le 12$)** | **$63$** | **$100.00\%$** | **$63$** | **$21.00\%$** |
 
 Three fundamental empirical laws emerge from Table 4:
-1. **The Turn-1 Exploration Gate Drives High Soundness:** In unassisted first-shot generation, models immediately generate premature drafts full of flaws. By banning formal proof drafting on Turn 1 and forcing invariant exploration in Python, Prime-Math records zero passes on Turn 1, but creates the rigorous foundation required for **54 publication-grade proofs** later in the trajectory.
+1. **The Turn-1 Exploration Gate Drives High Soundness:** In unassisted first-shot generation, models immediately generate premature drafts full of flaws. By banning formal proof drafting on Turn 1 and forcing invariant exploration in Python, Proof-Harness records zero passes on Turn 1, but creates the rigorous foundation required for **54 publication-grade proofs** later in the trajectory.
 2. **Deep Iteration Drives 84.13% of Success:** Passes discovered in Turn 4 or later account for **$53 / 63$ ($84.13\%$)** of all wins, proving that shallow 1-turn or 3-turn pipelines miss the vast majority of graduate-level research mathematics.
 3. **Overtime Extensions Deliver Crucial Conversions:** Turns 9–12 produce **$13$ certified passes ($20.63\%$ of all passes)**, with Turn 12 alone delivering $10$ decisive conversions under surgical candidate preservation.
 
@@ -476,7 +476,7 @@ When evaluating autonomous language models on research-level mathematics, forens
 
 **Table 5: Real-World Benchmark Case Studies: Diagnosing LLM Reasoning Pathologies and Harness Scaffolding Remediations.**
 
-| Task ID & PhD-Level Domain | Unassisted First-Shot Failure Mode | Prime-Math Governed Score | Harness Scaffolding Mechanism & Resolution |
+| Task ID & PhD-Level Domain | Unassisted First-Shot Failure Mode | Proof-Harness Governed Score | Harness Scaffolding Mechanism & Resolution |
 | :--- | :--- | :---: | :--- |
 | **`task_2012.02096_statement_928_1050`**<br>*(Graph Sparsification)* | First-shot generation asserts an unverified cut-preservation bound without checking edge-multiplicity invariance ($v=0.20$). | **$0.96$**<br>*(PASS)* | **Adversarial Skeptic + REPL Verification:** The Skeptic constructed small graph cuts in the kernel, verified the exact invariant, and the Publication Scribe synthesized a journal-grade proof ($v=0.96$). |
 | **`task_2202.08066_statement_67_239`**<br>*(Tree Edit Distance)* | Single-turn draft leaves node-level substring preconditions ($|Y_v| = |X_v| + 2K$) implicit, failing referee rigor ($v=0.50$, rejected). | **$0.82$**<br>*(PASS)* | **Turn-1 Exploration Gate & Invariant Discharge:** Turn-1 exploration formulated inductive alignment bounds, discharging all node invariants explicitly (Rigor $0.86$, Completeness $0.90$, Boundary $0.82$). |
@@ -507,14 +507,15 @@ $$\mathcal{O}\!\left(\left(n + m + (nm)^{\frac{d}{d+1}} c^{\frac{1}{d+1}}\right)
 
 ## 9. Related Work
 
-- **Continual Learning & Cognitive Architectures for Language Agents (CoALA):** Sumers et al. (2023) introduced the CoALA taxonomy separating working, episodic, and procedural memory. Subsequent agent memory systems (e.g., Voyager, Reflexion) store raw trajectories or code snippets in vector stores. Prime-Math advances this paradigm for formal mathematical deduction along three axes: (1) **role-partitioned procedural/episodic embedding spaces** across five cognitive roles in vector memory; (2) a **6-gate Zero-Leakage Universality Validator** (`PROVENANCE_VERSION = 2`) that prevents ground-truth constant memorization and blocks empirical extrapolation hacks (`Richardson`/`Aitken`); and (3) a **3-Tier Autonomous `RemediationEngine`** (`Tier2Rubric`) that automatically routes domain-specific mathematical lore to Tier 3 vector embeddings rather than polluting global system prompts. This enables continuous domain specialization without weight fine-tuning.
-- **Neuro-Symbolic Execution & Formal Theorem Proving:** Systems such as AlphaProof, DeepSeek-Prover, LeanDojo, and Draft-Sketch-Prove (DSP) couple language models to interactive theorem provers (Lean 4, Isabelle/HOL). While formal kernels guarantee soundness when a proof compiles, autoformalizing graduate-level arXiv TCS papers—which rely on algorithmic Word RAM models, asymptotic $\tilde{\mathcal{O}}(\cdot)$ notation, and complex paper-specific definitions—into Lean 4 remains a severe bottleneck. Conversely, standard Python tool-integrated reasoning (TIR) harnesses grant LLMs raw `exec()` access without epistemic guardrails, allowing models to conflate finite sampling with formal proof or brute-force large loops. Prime-Math bridges this gap via a **Zero-Trust Deterministic Mathematical Kernel** (`PersistentMathKernel` + ephemeral `AuditorKernel`) featuring honest three-valued empirical logic (`holds_on_samples`), preloaded diagnostic operators (`check_asymptotic_dominance`, `check_event_covariance`, `find_graph_counterexample`), Rule 11 analytical complexity ceilings (`guarded_range` $\le 200,000$), and an **Epistemic State Machine** (`MathStateMachine`) that tracks hereditary versus fragile invariants.
+- **Multi-Agent Prover Scaffolding in Theoretical Computer Science (Stellar Colosseum):** Lin et al. (Google Research & CMU, 2026) introduced *Stellar Colosseum*, a many-agent inference harness specifically engineered for long-horizon mathematical and theoretical computer science proofs. Evaluated on TCS-Bench using frontier proprietary models (Gemini 3.1 Pro and Gemini 3.7 Flash), Stellar Colosseum demonstrates the efficacy of inference-time scaling via high-level strategy exploration, readiness gates, dependency-aware section-level decomposition, and tree-structured candidate aggregation to achieve a 71.0% pass rate. While Stellar Colosseum investigates scaling vast frontier inference budgets across commercial closed-source APIs, Proof-Harness (`proof_harness`) tackles an orthogonal and essential systems problem: *how to achieve research-grade theorem proving on a single consumer GPU with a 4-bit local open-weight model*. Proof-Harness accomplishes this not through brute inference expansion, but through tight neuro-symbolic coupling: pairing an airgapped deterministic kernel (`SymPy`, `Z3`, `mpmath`) with continual CoALA vector memory that learns procedural heuristics over time.
+- **Continual Learning & Cognitive Architectures for Language Agents (CoALA):** Sumers et al. (2023) introduced the CoALA taxonomy separating working, episodic, and procedural memory. Subsequent agent memory systems (e.g., Voyager, Reflexion) store raw trajectories or code snippets in vector stores. Proof-Harness advances this paradigm for formal mathematical deduction along three axes: (1) **role-partitioned procedural/episodic embedding spaces** across five cognitive roles in vector memory; (2) a **6-gate Zero-Leakage Universality Validator** (`PROVENANCE_VERSION = 2`) that prevents ground-truth constant memorization and blocks empirical extrapolation hacks (`Richardson`/`Aitken`); and (3) a **3-Tier Autonomous `RemediationEngine`** (`Tier2Rubric`) that automatically routes domain-specific mathematical lore to Tier 3 vector embeddings rather than polluting global system prompts. This enables continuous domain specialization without weight fine-tuning.
+- **Neuro-Symbolic Execution & Formal Theorem Proving:** Systems such as AlphaProof, DeepSeek-Prover, LeanDojo, and Draft-Sketch-Prove (DSP) couple language models to interactive theorem provers (Lean 4, Isabelle/HOL). While formal kernels guarantee soundness when a proof compiles, autoformalizing graduate-level arXiv TCS papers—which rely on algorithmic Word RAM models, asymptotic $\tilde{\mathcal{O}}(\cdot)$ notation, and complex paper-specific definitions—into Lean 4 remains a severe bottleneck. Conversely, standard Python tool-integrated reasoning (TIR) harnesses grant LLMs raw `exec()` access without epistemic guardrails, allowing models to conflate finite sampling with formal proof or brute-force large loops. Proof-Harness bridges this gap via a **Zero-Trust Deterministic Mathematical Kernel** (`PersistentMathKernel` + ephemeral `AuditorKernel`) featuring honest three-valued empirical logic (`holds_on_samples`), preloaded diagnostic operators (`check_asymptotic_dominance`, `check_event_covariance`, `find_graph_counterexample`), Rule 11 analytical complexity ceilings (`guarded_range` $\le 200,000$), and an **Epistemic State Machine** (`MathStateMachine`) that tracks hereditary versus fragile invariants.
 
 ---
 
 ## 10. Conclusion
 
-We have demonstrated that a 4-bit quantized 28B language model running on a single consumer GPU—when governed by **Prime-Math (`core_engine`)**—improves from a **3.33% $\text{Pass@}1$ baseline to a 21.00% certified pass rate ($6.3\times$ multiplier)** across 300 graduate-level research problems from TCS-Bench. Our architecture and empirical findings establish two foundational design principles for deploying language models in rigorous mathematical and engineering domains:
+We have demonstrated that a 4-bit quantized 28B language model running on a single consumer GPU—when governed by **Proof-Harness (`core_engine`)**—improves from a **3.33% $\text{Pass@}1$ baseline to a 21.00% certified pass rate ($6.3\times$ multiplier)** across 300 graduate-level research problems from TCS-Bench. Our architecture and empirical findings establish two foundational design principles for deploying language models in rigorous mathematical and engineering domains:
 1. **Continual Domain Intelligence via Validated CoALA Embeddings:** Frozen LLM weights do not condemn a system to episodic amnesia. By distilling verified universal strategies (procedural memory) and failure post-mortems (episodic memory) into role-isolated vector collections guarded by a 6-gate zero-leakage validator and a 3-tier remediation rubric, the harness **learns by solving**—becoming progressively smarter in any target domain without weight fine-tuning.
 2. **Zero-Trust Deterministic Kernel Verification:** Probabilistic token generation must never be trusted alone for mathematical validity. Coupling the model to dual-isolated, airgapped symbolic/SMT/50-digit numerical kernels (`SymPy`, `Z3`, `mpmath`, `NetworkX`), preloaded diagnostic operators, honest three-valued empirical semantics (`holds_on_samples`), anti-brute-force ceilings, and formal epistemic property revocation (`MathStateMachine`) transforms fragile autoregressive guesswork into verifiable scientific deduction.
 
@@ -522,11 +523,12 @@ We have demonstrated that a 4-bit quantized 28B language model running on a sing
 
 ## References
 
-1. Sumers, T. R., Yao, S., Narasimhan, K., & Griffiths, T. L. (2023). *Cognitive Architectures for Language Agents (CoALA)*. Transactions on Machine Learning Research (TMLR), arXiv:2309.02427.
+1. Lin, H., Woodruff, D. P., Deng, Y., Mao, J., Zuo, S., & Mirrokni, V. (2026). *Stellar Colosseum: A Many-Agent Harness for Long-Horizon Research in Mathematics and Theoretical Computer Science*. Google Research & Carnegie Mellon University, arXiv:2609.15983.
 2. TCS-Bench Consortium (2026). *TCS-Bench: Evaluating Frontier Language Models on Research-Level Theoretical Computer Science Proofs*. arXiv:2608.09538.
-3. Moura, L. de, & Bjørner, N. (2008). *Z3: An Efficient SMT Solver*. Tools and Algorithms for the Construction and Analysis of Systems (TACAS).
-4. Meurer, A., et al. (2017). *SymPy: Symbolic Computing in Python*. PeerJ Computer Science.
-5. Johansson, F., et al. (2013). *mpmath: a Python library for arbitrary-precision floating-point arithmetic*.
-6. Proof Harness Repository & Benchmark Logs (2026). [https://github.com/dionyziuz/proof_harness](https://github.com/dionyziuz/proof_harness).
+3. Sumers, T. R., Yao, S., Narasimhan, K., & Griffiths, T. L. (2023). *Cognitive Architectures for Language Agents (CoALA)*. Transactions on Machine Learning Research (TMLR), arXiv:2309.02427.
+4. Moura, L. de, & Bjørner, N. (2008). *Z3: An Efficient SMT Solver*. Tools and Algorithms for the Construction and Analysis of Systems (TACAS).
+5. Meurer, A., et al. (2017). *SymPy: Symbolic Computing in Python*. PeerJ Computer Science.
+6. Johansson, F., et al. (2013). *mpmath: a Python library for arbitrary-precision floating-point arithmetic*.
+7. Dionyziuz (2026). *Proof Harness: A Neuro-Symbolic Theorem-Proving Harness for Frontier Mathematics*. GitHub repository: [https://github.com/dionyziuz/proof_harness](https://github.com/dionyziuz/proof_harness).
 
 
