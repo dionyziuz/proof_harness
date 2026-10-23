@@ -57,7 +57,7 @@ To address both structural walls, we introduce a neuro-symbolic framework for au
    - **Closed-Loop Heuristic Distillation:** Automated post-solve extraction of transferable mathematical strategies and verification pitfalls.
    - **A 3-Tier Autonomous Remediation Engine:** A post-evaluation diagnostic pipeline that audits failed tasks and routes domain-specific mathematical insights strictly into vector memory rather than global prompt bloat.
    - **A 6-Gate Zero-Leakage Universality Validator:** A deterministic security filter that blocks empirical extrapolation hacks, problem identifiers, instance-specific equations, and ground-truth constants, preventing benchmark contamination.
-3. **Seven-Role Cognitive Partitioning & Governed Search (Section 5):** We decompose theorem proving into seven specialized cognitive roles governed by a **Turn-1 Exploration Gate**, **Blueprint Quarantine**, a **4-Message Stateless Blackboard**, and **Candidate Protection against Destructive Pivots**.
+3. **Seven-Role Cognitive Partitioning & Governed Search (Section 5):** We decompose theorem proving into seven specialized cognitive roles governed by a **Turn-1 Exploration Gate**, **Blueprint Quarantine**, a **4-Message Stateless Blackboard**, **Candidate Protection against Destructive Pivots**, and the **High-Potential Overtime Extension Gate** (dynamically unlocking an extra 4 iterations for near-miss candidates demonstrating directional validity).
 4. **Large-Scale Empirical Validation on Research-Level TCS Theorems (Sections 6–8):** Across $N=300$ research theorem-proving problems from TCS-Bench using a quantized 27B model on a single consumer GPU, the proposed framework substantially improves passing performance over unassisted first-shot generation:
    - **Passing Grades ($\ge 0.40$, Grade C and Above):** **$23.67\%$ ($71/300$)** vs. $4.00\%$ ($12/300$) unassisted baseline (**$5.92\times$ gain**).
    - **Certified Passes ($\ge 0.50$, Grade B and Above):** **$21.00\%$ ($63/300$)** vs. $3.33\%$ ($10/300$) unassisted baseline (**$6.30\times$ gain**).
@@ -359,6 +359,17 @@ During consecutive exploratory REPL turns, the context compactor maintains a $32
 - **Identity-Pinned Anchors:** System prompt, task prompt, and pinned anchor messages are excluded from summarization.
 - **Deterministic Regex Ledger:** Verbatim extracts key `[CLAIM]` statements, REPL outputs, and prior referee defect blocks from older turns.
 - **5-Part Neural Summary:** Summarizes older turns into *Core Goal*, *Verified Milestones*, *Active REPL Variables*, *Disproven Hypotheses*, and *Current Frontier*, concatenating the deterministic ledger with the neural summary to preserve verified facts.
+
+### 5.6 The High-Potential Overtime Extension Gate (Adaptive Horizon Expansion)
+Fixed-horizon agent loops face an inherent tension: allocating a high turn budget across all problems wastes compute and context budget on hopeless, disproven formulations, while an overly conservative horizon prematurely truncates difficult proofs that are close to completion.
+
+To resolve this, the framework introduces the **High-Potential Overtime Extension Gate** (`enable_overtime = True`, `overtime_threshold = 0.35`):
+- **Dynamic Horizon Trigger:** When the solver completes the nominal search budget (Turn 8), the candidate pool assesses the best validity achieved so far:
+  $$\max_{t \le 8} v(\pi_t) \ge \tau_{\text{overtime}} = 0.35$$
+  If the best candidate has achieved directional mathematical validity ($\ge 0.35$), the system dynamically unlocks an **adaptive overtime extension of 4 additional iterations** (expanding the search horizon from Turn 8 to Turn 12) alongside $+1,800\text{s}$ wall-clock budget.
+- **Destructive Pivot Lockout:** During overtime iterations (Turns 9–12), clean-slate hard pivots are strictly locked out. Because the proof has already demonstrated viable structural foundations, the system prevents the model from abandoning its work in frustration, enforcing focused surgical repair on the stateless blackboard.
+- **Automatic Best-Candidate Restoration:** If an exploratory rewrite in Turn 9 or 10 scores lower than the pre-overtime best candidate, `CandidatePool` automatically restores the high-scoring draft to the blackboard, preventing degenerative drift.
+- **Empirical Impact:** As demonstrated in Table 4, this adaptive horizon expansion is responsible for **13 certified sound passes ($20.63\%$ of all passing proofs)**, lifting the benchmark pass rate from $16.67\%$ ($50/300$) to $21.00\%$ ($63/300$), with Turn 12 alone converting 10 near-miss candidates into certified passes.
 
 ---
 

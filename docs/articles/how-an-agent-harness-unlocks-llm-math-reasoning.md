@@ -1,6 +1,6 @@
 # How an Agent Harness Unlocks Mathematical Reasoning in a 27B Model
 
-### *Why raw LLMs struggle with research-level math, and how a zero-trust code kernel and vector memory boosted pass rates nearly 6x on consumer hardware.*
+### *Why raw LLMs struggle with research-level math, and how a zero-trust code kernel, vector memory, and adaptive horizons boosted pass rates nearly 6x on consumer hardware.*
 
 ---
 
@@ -34,7 +34,7 @@ The results were striking:
 
 Nearly **6x as many passing proofs**, with 18% reaching publication-grade quality—all running on consumer hardware without fine-tuning a single model weight. (While our empirical results were benchmarked on consumer hardware, the harness itself is model-agnostic and can wrap any LLM).
 
-Here is how the harness works and the three core architectural decisions that made it possible.
+Here is how the harness works, the engineering under the hood, and why it succeeded where one-shot generation failed.
 
 ---
 
@@ -49,8 +49,10 @@ Instead, Proof Harness pairs the LLM with a stateful, airgapped Python execution
 Whenever the model formulates an intermediate claim, it is forced to verify it in code:
 
 - **Instant Counterexample Search**: Before spending thousands of tokens drafting a 5-page proof around an unverified lemma, the kernel sweeps small canonical instances (cycles, stars, bipartite graphs, boundary values). If a counterexample exists, the conjecture is killed in milliseconds on Turn 1.
-- **Asymptotic & Covariance Checking**: Instead of letting the model guess whether $f(n) = \mathcal{O}(g(n))$ or assume two conditioned events remain independent, preloaded diagnostic tools compute exact symbolic limits and run covariance tests to catch subtle dependencies.
-- **Empirical Falsification**: If an inequality holds on 2,000 random numerical samples, the kernel reports that no counterexample was found—but explicitly reminds the model that empirical survival is *evidence*, not a formal proof.
+- **50-Digit Arbitrary Precision (`mpmath`)**: Standard 64-bit floating-point arithmetic suffers from catastrophic cancellation errors when evaluating delicate asymptotic constants or spectral gaps. Pre-configuring 50 decimal places of precision ensures the agent isn't misled by IEEE-754 rounding artifacts.
+- **Dual-Kernel Isolation**: If an internal referee validated a proof inside the same Python session where the solver wrote its messy scratchpad code, bugs in helper variables could quietly pollute the audit. Proof Harness isolates them: the solver gets a persistent scratchpad, but the Proof Auditor runs in a fresh, ephemeral kernel with a hard 15-second timeout.
+- **The Epistemic State Machine (Fragile vs. Hereditary Properties)**: One of the most common failure modes in AI reasoning is illegal property inheritance. If a graph is planar or bipartite, its subgraphs remain planar or bipartite (*hereditary properties*). But if two random variables are independent, conditioning on their sum completely destroys that independence (*fragile properties*). Our state machine tracks the mathematical lineage of every object and automatically revokes fragile properties under conditioning, projection, or restriction until the model provides an explicit witness.
+- **Anti-Brute-Force Guardrails**: When language models don't know how to prove something analytically, they often attempt brute-force loops (`for n in range(10**8):`). The kernel enforces a strict ceiling (`guarded_range` $\le 200,000$), forcing the model to stop looping and derive the exact analytical formula or generating function.
 
 By treating every mathematical statement as guilty until proven innocent, the agent catches flawed logic early rather than compounding errors.
 
@@ -65,30 +67,52 @@ Fine-tuning model weights after every problem isn't practical—it is slow, comp
 Proof Harness solves this by implementing **continuous domain learning through vector embeddings**:
 
 1. **Strategy Extraction**: When a problem is solved (or when a failure is analyzed), a low-temperature reflection pass distills verified mathematical strategies into concise heuristics (e.g., *"When bounding high-dimensional sumsets, dyadic decomposition prevents recursive dimension blowup"*).
-2. **The Anti-Cheating Gate**: A strict validator scrubs problem-specific variables, expected answers, and hardcoded numbers. Only generalizable, universal strategies are allowed through.
-3. **Role-Partitioned Retrieval**: Learned heuristics are stored in local vector memory. When the agent later faces a new problem in the same mathematical domain, it retrieves relevant strategies based on semantic similarity.
+2. **The 6-Gate Anti-Cheating Shield**: A strict validator ensures the system learns *generalizable mathematics*, not benchmark trivia. It rejects any heuristic containing problem identifiers, hardcoded equations (`2^k == 3^m`), $\ge 4$-digit constants, or empirical sequence extrapolation hacks (`Richardson` acceleration).
+3. **Role-Partitioned Retrieval**: Learned heuristics are stored in dedicated vector collections for each cognitive role (e.g., the Context Architect retrieves structural blueprints, while the Adversarial Skeptic retrieves known counterexample templates).
 
 The result is a system that **compounds expertise over time**. The base model's weights remain completely untouched, but the agent's effective mathematical knowledge grows with every problem it solves.
 
 ---
 
-## 3. Pillar III: Cognitive Roles & The Turn-1 Exploration Gate
+## 3. Pillar III: Cognitive Roles, Turn-1 Exploration, and Adaptive Overtime
 
 When humans tackle hard research math, we don't immediately start writing the final proof on page one. We sketch diagrams, test small cases on scratch paper, look for edge cases, and outline potential approaches.
 
 Naive AI agents do the exact opposite: they immediately start generating `\begin{proof}` on Turn 1. Once an LLM commits to an initial algebraic path, it falls into a confirmation bias trap—papering over mistakes with hand-waving arguments rather than backtracking.
 
-To prevent this, Proof Harness divides the proving process across specialized cognitive roles and enforces a strict **Turn-1 Exploration Gate**:
+To prevent this, Proof Harness orchestrates the search through specialized cognitive roles and explicit governance rules:
 
-- **Turn 1 is for Exploration Only**: The model is strictly banned from drafting the formal proof on Turn 1. Instead, it must inventory known facts, query vector memory for related strategies, formulate testable conjectures, and run code in the kernel.
+- **The Turn-1 Exploration Gate**: The model is strictly banned from drafting the formal proof on Turn 1. Instead, it must inventory known facts, query vector memory for related strategies, formulate testable conjectures, and run code in the kernel.
 - **Role Specialization**: 
   - The **Context Architect** sketches high-level reduction blueprints.
   - The **Logician** tests steps iteratively in the Python REPL.
   - The **Adversarial Skeptic** actively searches for edge-case counterexamples.
   - The **Publication Scribe** writes the formal, rigorous LaTeX only after the mathematical foundation is verified.
-- **Stateless Blackboard Revisions**: If an internal referee finds a flaw in a draft, the harness doesn't keep a massive, noisy chat history that confuses the model. It collapses the context into a clean, focused blackboard: the problem statement, the best draft so far, and the specific surgical repair directive.
+- **Stateless Blackboard Revisions**: If an internal referee finds a flaw in a draft, the harness doesn't keep a massive, noisy chat history that confuses the model. It collapses the context into a clean, 4-message blackboard: the problem statement, the best draft so far, and the specific surgical repair directive.
+- **The High-Potential Overtime Gate**: Fixed turn limits either waste tokens on lost causes or cut off promising proofs just before completion. At Turn 8 (the nominal horizon), the harness checks if the candidate proof achieved directional validity ($\text{score} \ge 0.35$). If so, it dynamically unlocks an **extra 4 iterations (Turns 9–12)** and $+1,800\text{s}$ wall-clock budget for surgical polishing.
 
-In our 300-problem benchmark, **100% of all passing proofs were discovered through this governed multi-turn process**. Over 84% of wins were achieved in Turn 4 or later, proving that deep iteration—guided by deterministic tools—is essential for hard reasoning.
+In our 300-problem benchmark, **100% of all passing proofs were discovered through this governed multi-turn process**. Over 84% of wins were achieved in Turn 4 or later, and the **Overtime Gate alone delivered 13 certified passing proofs (over 20% of all wins)** that would have been lost under a rigid 8-turn cutoff.
+
+---
+
+## Inside the Benchmark: Why the Harness Won Where One-Shot Failed
+
+To see the difference in practice, consider three real problems from TCS-Bench where unassisted generation failed, but the harness found a sound proof:
+
+### 1. The Blueprint Trap: Theta-Series Tail Bound
+- **The Problem**: Proving a universal tail bound on a theta-function series across all positive parameter values $\beta > 0$.
+- **Why One-Shot Failed**: In an unguided pass, the model used a standard loose intermediate bound. For small values ($\beta \le 1$), the intermediate bound failed. Instead of replacing the loose bound, the unguided model arbitrarily restricted the theorem statement (*"assuming $\beta \le 1$"*), immediately failing the referee's validity check for illegal domain narrowing.
+- **How the Harness Solved It**: When the Logician tested the planner's blueprint in the kernel, the code immediately flagged that the intermediate bound broke. The harness quarantined the blueprint, enforced full domain coverage, and compelled the model to find a tighter bound valid for all $\beta > 0$, scoring **0.68 (Certified Pass)**.
+
+### 2. The False Independence Trap: Graph Sparsification
+- **The Problem**: Proving cut-preservation under edge sampling in graph sparsification.
+- **Why One-Shot Failed**: The unassisted model casually applied Chernoff bounds by asserting that edge-inclusion events were mutually independent, completely ignoring that edges sharing vertices have subtle covariance under conditioned cuts ($v = 0.20$).
+- **How the Harness Solved It**: The Adversarial Skeptic ran the kernel's Monte Carlo covariance auditor on small seeded graphs, which triggered an immediate `DEPENDENCE DETECTED` alert. The model pivoted to a union bound over spanning forests that did not rely on false independence, scoring **0.96 (Journal-Grade Pass)**.
+
+### 3. The Exponential Blowup: High-Dimensional Sumsets
+- **The Problem**: Computing prefix-restricted sumsets $C = (A + B) \cap [0 \dots t]^d$ in output-sensitive time $\mathcal{O}\left((n + m + (nm)^{\frac{d}{d+1}} c^{\frac{1}{d+1}}) \log(nm)^{\mathcal{O}(d)}\right)$.
+- **Why One-Shot Failed**: The single-shot model attempted coordinate-wise divide-and-conquer, failing because unscaled recursive subproblem costs grow exponentially in dimension $d$.
+- **How the Harness Solved It**: Over 8 turns, the model used `SymPy` in the kernel to test coordinate partitions. It discovered that bounding the non-vacuous subproblems required a simultaneous $2^d$-ary dyadic box decomposition, and verified that **Hölder's inequality** with conjugate exponents $p = \frac{d}{d+1}$ and $q = \frac{1}{d+1}$ collapsed the recursive sum cleanly into the target bound, earning **0.94 (Publication-Grade Pass)**.
 
 ---
 
@@ -99,8 +123,9 @@ Whether you are building agents for mathematics, software engineering, quantitat
 1. **Don't trust language models to verify their own prose.** Connect your agent to deterministic ground truth—code interpreters, compilers, linters, or SMT solvers.
 2. **Enforce an exploration phase.** Never let an agent jump straight to the final output on Turn 1. Force it to inspect inputs, test assumptions, and explore the search space first.
 3. **Use vector memory for fast, weight-free learning.** Distilling lessons into curated, validated vector embeddings lets your agents get smarter over time without the cost and instability of continuous model fine-tuning.
-4. **Isolate generation from critique.** Have separate roles for drafting solutions and finding flaws. An agent asked to grade its own work will almost always be overly optimistic.
-5. **Keep multi-turn context clean.** Long conversation histories accumulate noise. Summarize or reset to a clean "blackboard" containing only the current best candidate and the exact failure to address.
+4. **Give promising runs adaptive overtime.** Rigid turn budgets cause near-misses. Triggering dynamic extra iterations on promising candidates can convert 20%+ of borderline attempts into clean successes.
+5. **Isolate generation from critique.** Have separate execution environments for drafting solutions and finding flaws. An agent asked to grade its own work will almost always be overly optimistic.
+6. **Keep multi-turn context clean.** Long conversation histories accumulate noise. Summarize or reset to a clean "blackboard" containing only the current best candidate and the exact failure to address.
 
 ---
 
@@ -108,6 +133,6 @@ Whether you are building agents for mathematics, software engineering, quantitat
 
 The frontier of AI reasoning isn't just about training larger foundation models. It is about building the cognitive scaffolding that enables models to think, verify, and learn effectively.
 
-By pairing an open-weight 27B model with a zero-trust execution kernel and continuous heuristic memory, Proof Harness demonstrates that consumer hardware can tackle problems that previously seemed out of reach.
+By pairing an open-weight 27B model with a zero-trust execution kernel, continuous heuristic memory, and adaptive search horizons, Proof Harness demonstrates that consumer hardware can tackle problems that previously seemed out of reach.
 
 *For implementation details, evaluation scripts, and the full benchmark harness, check out the [Proof Harness repository on GitHub](https://github.com/dionyziuz/proof_harness). For theoretical analysis and comprehensive ablation studies, our full technical paper is available in the repository documentation.*
