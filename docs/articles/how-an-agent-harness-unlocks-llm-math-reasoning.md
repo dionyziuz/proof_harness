@@ -1,4 +1,4 @@
-# How an Agent Harness Unlocks Mathematical Reasoning in a 4-Bit 28B Model
+# How an Agent Harness Unlocks Mathematical Reasoning in a 27B Model
 
 ### *Why raw LLMs struggle with research-level math, and how a zero-trust code kernel and vector memory boosted pass rates nearly 6x on consumer hardware.*
 
@@ -18,15 +18,15 @@ The conventional industry response to this challenge has been simple: **make the
 
 We wanted to explore a different question: **What if the bottleneck isn't raw parameter scale, but the harness around the model?**
 
-To test this, we took an open-weight, 4-bit quantized 28B model (`unsloth/Qwen3.8-27B-NVFP4`) running locally on a single consumer GPU (an NVIDIA RTX 5090 with 32GB VRAM), and evaluated it on **300 research-level problems from TCS-Bench**—spanning spectral graph theory, quantum computing, parameterized complexity, and combinatorial algorithms.
+To test this, we took an open-weight 27B model (`unsloth/Qwen3.8-27B-NVFP4`) running locally on a single consumer GPU (an NVIDIA RTX 5090 with 32GB VRAM), and evaluated it on **300 research-level problems from TCS-Bench**—spanning spectral graph theory, quantum computing, parameterized complexity, and combinatorial algorithms.
 
-When asked to draft proofs unassisted in a single pass, the 27B model struggled, passing only **4.0%** of problems. 
+When asked to draft proofs unassisted in a single pass, the model struggled, passing only **4.0%** of problems. 
 
-Then we wrapped that exact same 4-bit model inside **Proof Harness**—a specialized neuro-symbolic agent architecture. 
+Then we wrapped that exact same model inside **Proof Harness**—a specialized neuro-symbolic agent architecture. 
 
 The results were striking:
 
-| Evaluation Tier | Unassisted First Draft (27B) | Full Proof Harness (4-Bit 28B) | Multiplier |
+| Evaluation Tier | Unassisted First Draft | Full Proof Harness | Multiplier |
 | :--- | :---: | :---: | :---: |
 | **All Passing Proofs (Grade C & Up, $\ge 0.40$)** | 4.0% (12 / 300) | **23.7% (71 / 300)** | **5.92× Gain** |
 | **Certified Sound Proofs (Grade B & Up, $\ge 0.50$)** | 3.3% (10 / 300) | **21.0% (63 / 300)** | **6.30× Gain** |
@@ -108,6 +108,6 @@ Whether you are building agents for mathematics, software engineering, quantitat
 
 The frontier of AI reasoning isn't just about training larger foundation models. It is about building the cognitive scaffolding that enables models to think, verify, and learn effectively.
 
-By pairing a lightweight, 4-bit open-weight model with a zero-trust execution kernel and continuous heuristic memory, Proof Harness demonstrates that consumer hardware can tackle problems that previously seemed out of reach.
+By pairing an open-weight 27B model with a zero-trust execution kernel and continuous heuristic memory, Proof Harness demonstrates that consumer hardware can tackle problems that previously seemed out of reach.
 
 *For implementation details, evaluation scripts, and the full benchmark harness, check out the [Proof Harness repository on GitHub](https://github.com/dionyziuz/proof_harness). For theoretical analysis and comprehensive ablation studies, our full technical paper is available in the repository documentation.*
