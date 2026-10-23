@@ -124,7 +124,7 @@ To see the difference in practice, consider three real problems from TCS-Bench w
 ### 3. The Exponential Blowup: High-Dimensional Sumsets
 - **The Problem**: Computing prefix-restricted sumsets $C = (A + B) \cap [0 \dots t]^d$ in output-sensitive time $\mathcal{O}\left((n + m + (nm)^{\frac{d}{d+1}} c^{\frac{1}{d+1}}) \log(nm)^{\mathcal{O}(d)}\right)$.
 - **Why One-Shot Failed**: The single-shot model attempted coordinate-wise divide-and-conquer, failing because unscaled recursive subproblem costs grow exponentially in dimension $d$.
-- **How the Harness Solved It**: Over 8 turns, the model used `SymPy` in the kernel to test coordinate partitions. It discovered that bounding the non-vacuous subproblems required a simultaneous $2^d$-ary dyadic box decomposition, and verified that **Hölder's inequality** with conjugate exponents $p = \frac{d}{d+1}$ and $q = \frac{1}{d+1}$ collapsed the recursive sum cleanly into the target bound, earning **0.94 (Publication-Grade Pass)**.
+- **How the Harness Solved It**: Over 8 turns, the model used `SymPy` in the kernel to test coordinate partitions. It discovered that bounding the non-vacuous subproblems required a simultaneous dyadic box decomposition into $2^d$ sub-boxes, and verified that **Hölder's inequality** with conjugate exponents $p = \frac{d}{d+1}$ and $q = \frac{1}{d+1}$ collapsed the recursive sum cleanly into the target bound, earning **0.94 (Publication-Grade Pass)**.
 
 ---
 

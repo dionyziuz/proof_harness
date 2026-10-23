@@ -100,7 +100,7 @@ To evaluate proof correctness without circularity or confirmation bias, each can
 
 ## 3. Core Pillar I: The Zero-Trust Deterministic Mathematical Kernel Engine
 
-To address **Problem Wall I (The Probabilistic Trust Fallacy)**, the architecture equips the language model with an external computational substrate: the **Zero-Trust Deterministic Mathematical Kernel**. While learned heuristics provide compounding advantages over time, the deterministic kernel provides an immediate foundation of correctness: ensuring that every algebraic deduction, inequality direction, topological boundary, and spectral claim is tested against deterministic software rather than probabilistic token likelihoods. The governing axiom of the kernel is: **the language model's prose is never trusted for symbolic calculation, inequality direction, independence preservation, or small-$n$ edge cases; every verifiable claim must be executed against deterministic mathematical software.**
+To address **Problem Wall I (The Probabilistic Trust Fallacy)**, the architecture equips the language model with an external computational substrate: the **Zero-Trust Deterministic Mathematical Kernel**. While learned heuristics provide compounding advantages over time, the deterministic kernel provides an immediate foundation of correctness: ensuring that every algebraic deduction, inequality direction, topological boundary, and spectral claim is tested against deterministic software rather than probabilistic token likelihoods. The governing axiom of the kernel is: **the language model's prose is never trusted for symbolic calculation, inequality direction, independence preservation, or small-instance edge cases; every verifiable claim must be executed against deterministic mathematical software.**
 
 ### 3.1 Dual-Kernel Isolation Architecture
 A subtle flaw in single-REPL agent architectures is **shared-state confirmation bias**: if an internal referee validates a proof inside the same Python namespace where the solver defined its helper functions or mutated global state, an error in the solver's setup definitions can silently corrupt the audit.
@@ -149,7 +149,7 @@ When given an unrestricted Python environment, language models frequently attemp
 
 The kernel enforces **Analytical Ceilings** directly at runtime and AST levels:
 - **Guarded Iteration Ceiling (`guarded_range`):** Replaces built-in `range` with `guarded_range`, which computes the exact span $\lceil(\text{stop} - \text{start})/\text{step}\rceil$ and raises a `ValueError` whenever a loop exceeds `MAX_DIAGNOSTIC_SIEVE_LIMIT = 200,000` elements, instructing the model to stop brute-force search and deduce an analytical solution.
-- **Bounded Number-Theoretic Sieves (`fast_sieve`, `fast_totients`, `fast_spf`):** Preloaded sieves are capped at $N \le 200,000$ for small-$N$ pattern discovery.
+- **Bounded Number-Theoretic Sieves (`fast_sieve`, `fast_totients`, `fast_spf`):** Preloaded sieves are capped at $N \le 200,000$ for small-parameter pattern discovery.
 - **AST Combinatorial Explosion Gate:** Static AST inspection blocks `itertools.permutations(range(n))` for $n \ge 7$ before execution begins.
 - **Combinatorial Step Ceilings:** Wraps combinatorial searches with `MAX_COMBINATORIAL_STEPS = 200,000` to prevent unconstrained exponential runaway from exhausting memory.
 
@@ -201,7 +201,7 @@ Crucially, because each cognitive role requires fundamentally different operatio
 | :--- | :--- | :--- |
 | **`prime_math`** | `prime_math_procedural` | Core Deductive Logician: algebraic reductions, invariant formulation, concentration inequalities. |
 | **`tcs_architect`** | `tcs_architect_procedural` | Context Architect: decomposing paper contexts, seeding state objects, modular lemma chains. |
-| **`tcs_verifier`** | `tcs_verifier_procedural` | Pre-Flight Falsifier: fast small-$n$ boundary scripts and Monte Carlo sanity checks. |
+| **`tcs_verifier`** | `tcs_verifier_procedural` | Pre-Flight Falsifier: fast small-instance boundary scripts and Monte Carlo sanity checks. |
 | **`tcs_skeptic`** | `tcs_skeptic_procedural` | Adversarial Skeptic: counterexample construction and degenerate parameter attacks. |
 | **`tcs_scribe`** | `tcs_scribe_procedural` | Publication Scribe: critical-path pruning, quantifier discharge, and journal-grade LaTeX synthesis. |
 
@@ -359,7 +359,7 @@ The governance loop arbitrates between two revision regimes:
 2. **Clean-Slate Hard Pivot:** When validity drops to $0.05$ or below, or after two or more stagnant rejections below $0.25$, the low-validity draft and execution state are purged, compelling the solver to attempt a fresh architectural approach on the next turn.
 
 ### 5.5 Hybrid Deterministic + Neural Context Compaction
-During consecutive exploratory REPL turns, the context compactor maintains a $32,768$-token context envelope ($8,192$-token generation reserve):
+During consecutive exploratory REPL turns, the context compactor maintains a 32,768-token context envelope (8,192-token generation reserve):
 - **Identity-Pinned Anchors:** System prompt, task prompt, and pinned anchor messages are excluded from summarization.
 - **Deterministic Regex Ledger:** Verbatim extracts key `[CLAIM]` statements, REPL outputs, and prior referee defect blocks from older turns.
 - **5-Part Neural Summary:** Summarizes older turns into *Core Goal*, *Verified Milestones*, *Active REPL Variables*, *Disproven Hypotheses*, and *Current Frontier*, concatenating the deterministic ledger with the neural summary to preserve verified facts.
@@ -486,15 +486,15 @@ When evaluating autonomous language models on research-level mathematics, forens
 ## 8. Detailed Case Studies of Autonomous Theorem Proving
 
 ### 8.1 Case Study 1: High-Rigor Verification via 8-Turn Iterative Synthesis (`task_2407.13634_statement_17_37`)
-In **Task 222** (`task_2407.13634_statement_17_37`), the prover required 8 turns ($2,373.0\text{s}$) to establish a tight structural characterization, producing a compact **$3,369$-character** proof that achieved a perfect **$v(\pi) = 1.00$** from the external referee. Despite 8 turns of REPL exploration and hypothesis pruning, the Publication Scribe distilled only the active critical path, avoiding auxiliary surface-area penalties.
+In **Task 222** (`task_2407.13634_statement_17_37`), the prover required 8 turns ($2,373.0\text{s}$) to establish a tight structural characterization, producing a compact **3,369-character** proof that achieved a perfect **$v(\pi) = 1.00$** from the external referee. Despite 8 turns of REPL exploration and hypothesis pruning, the Publication Scribe distilled only the active critical path, avoiding auxiliary surface-area penalties.
 
 ### 8.2 Case Study 2: High-Dimensional Output-Sensitive Sumsets (`task_2410.21942_statement_30_71`, Validity 0.94)
 In **Task 242**, the target theorem requires proving that the prefix-restricted sumset $C = (A + B) \cap [0 \dots t]^d$ for $A, B \subseteq [0 \dots t]^d$ ($|A|=n, |B|=m, |C|=c$) can be computed by a Las Vegas algorithm in expected time:
 $$\mathcal{O}\!\left(\left(n + m + (nm)^{\frac{d}{d+1}} c^{\frac{1}{d+1}}\right) (\log(nm))^{\mathcal{O}(d)}\right)$$
 1. **Turn 1 (Exploration Gate):** The Logician tested naive coordinate-wise recursion and observed in the REPL that unscaled subproblem overhead grows linearly per coordinate.
-2. **Turns 2–4 (REPL & Skeptic Falsification):** Small numerical simulations ($d \in \{2, 3\}$) in the persistent kernel demonstrated that achieving the fractional exponent $\frac{d}{d+1}$ requires a simultaneous $2^d$-ary dyadic box decomposition on the threshold $T$.
+2. **Turns 2–4 (REPL & Skeptic Falsification):** Small numerical simulations ($d \in \{2, 3\}$) in the persistent kernel demonstrated that achieving the fractional exponent $\frac{d}{d+1}$ requires a simultaneous dyadic box decomposition into $2^d$ sub-boxes on the threshold $T$.
 3. **Turns 5–7 (Hölder Conjugacy Verification):** Using `SymPy`, the Logician verified that partitioning into $2^d$ shifted boxes $A_\alpha^*$ and applying Hölder's inequality with conjugate exponents $p = \frac{d}{d+1}$ and $q = \frac{1}{d+1}$ (where $p + q = 1$) collapses the sum of non-vacuous subproblem costs $\sum_{\alpha} (n_\alpha m_\alpha)^{\frac{d}{d+1}} c_\alpha^{\frac{1}{d+1}}$ directly into the target bound.
-4. **Turn 8 (Publication Scribe Synthesis):** The Scribe emitted a complete $7,275$-character inductive proof over $T$, earning **Validity $0.94$** (*Rigor $0.92$, Completeness $0.95$, Confidence $0.93$*).
+4. **Turn 8 (Publication Scribe Synthesis):** The Scribe emitted a complete 7,275-character inductive proof over $T$, earning **Validity $0.94$** (*Rigor $0.92$, Completeness $0.95$, Confidence $0.93$*).
 
 ---
 

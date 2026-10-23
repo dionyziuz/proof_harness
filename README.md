@@ -86,7 +86,7 @@ Rather than dumping everything into one noisy RAG index, `CoALAMemoryManager` ma
 | :--- | :--- | :--- |
 | **`prime_math`** | `prime_math_procedural` | Deductive Logician & Solver: algebraic reductions, invariant formulation, concentration bounds. |
 | **`tcs_architect`** | `tcs_architect_procedural` | Context Architect: decomposing paper contexts, seeding `state.register()`, modular lemma chains. |
-| **`tcs_verifier`** | `tcs_verifier_procedural` | Pre-Flight Falsifier: fast small-$n$ boundary scripts and Monte Carlo sanity checks. |
+| **`tcs_verifier`** | `tcs_verifier_procedural` | Pre-Flight Falsifier: fast small-instance boundary scripts and Monte Carlo sanity checks. |
 | **`tcs_skeptic`** | `tcs_skeptic_procedural` | Adversarial Skeptic: hostile `Z3`/`NetworkX` counterexample construction and degenerate parameter attacks. |
 | **`tcs_scribe`** | `tcs_scribe_procedural` | Publication Scribe: critical-path pruning, quantifier discharge, and journal-grade LaTeX synthesis. |
 
@@ -107,7 +107,7 @@ To ensure procedural memory contains only generalizable mathematical techniques,
 | **Gate 3: Benchmark Anonymization** | `_PROBLEM_ID_PATTERNS` | Any reference to `Problem #...`, `AIME`, `Project Euler`, `IMO`, `Putnam`, `FrontierMath`, `TCS-Bench`, or `task_...`. |
 | **Gate 4: Title Decoupling** | `strip_problem_title_Mentions` | Explicit mentions of the source problem's title. |
 | **Gate 5: Instance Variable Bindings** | `_PROBLEM_SPECIFIC_PATTERNS` | Instance-specific equations (`2^k == 3^m`, `for n = 1000`, `modulo 10^9 + 7`, `"in this specific problem"`). |
-| **Gate 6: Ground-Truth & Constant Shield** | `find_ground_truth_leak` / `redact_ground_truth` | Any heuristic containing the `expected_answer` or any $\ge 4$-digit integer constant appearing in the problem text. |
+| **Gate 6: Ground-Truth & Constant Shield** | `find_ground_truth_leak` / `redact_ground_truth` | Any heuristic containing the `expected_answer` or any 4-or-more-digit integer constant appearing in the problem text. |
 
 ---
 
