@@ -1,12 +1,14 @@
-# Prime Math (`core_engine`) 📐
+# Proof-Harness (`proof_harness`) 📐
 
-**Prime Math** is an open-source neuro-symbolic mathematical reasoning engine, autonomous theorem prover, and zero-trust deterministic Python/Lean execution harness.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+**Proof-Harness** is an open-source neuro-symbolic mathematical reasoning engine, autonomous theorem prover, and zero-trust deterministic Python/Lean execution harness.
 
 Standard large language models fail on research-level mathematics because of two foundational architectural bottlenecks: **(1) The Probabilistic Trust Fallacy** (relying on statistical next-token prediction to guess whether multi-step algebraic derivations, inequality directions, and boundary cases hold) and **(2) Frozen Weights & Episodic Amnesia** (an inability to learn continuously from solved problems or specialize into a technical domain without expensive weight fine-tuning).
 
-**Prime Math (`core_engine`)** solves both bottlenecks by combining **seven-role cognitive partitioning** with two foundational pillars:
+**Proof-Harness (`proof_harness`)** solves both bottlenecks by combining **seven-role cognitive partitioning** with two foundational pillars:
 1. **The Zero-Trust Deterministic Mathematical Kernel Engine (`core_engine/kernel.py`, `core_engine/prover_kernel.py`, `core_engine/math_tools.py`, `core_engine/state_machine.py`)**: Dual-isolated, 3-layer airgapped symbolic and numerical execution kernels (`PersistentMathKernel` and ephemeral `AuditorKernel`) that provide **immediate accuracy and soundness verification**. Every claim is tested deterministically using **`SymPy`**, **`Z3`**, **50-digit `mpmath`**, **`NetworkX`**, specialized domain extensions (topology, planar duals, quantum CPTP channels, PSD operator inequalities), honest three-valued empirical semantics (`holds_on_samples`), Rule 11 anti-brute-force analytical ceilings (`guarded_range` $\le 200,000$), and a formal **Epistemic State Machine** (`MathStateMachine`) that automatically revokes fragile invariants under conditioning or restriction.
-2. **The CoALA Heuristics & Continuous Domain Learning Engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`)**: A continual learning architecture grounded in *Cognitive Architectures for Language Agents* (CoALA) where the harness **learns by solving over time**—distilling verified universal strategies (Procedural Memory) and failure post-mortems (Episodic Memory) into role-isolated vector embeddings in **TurboVec** (`127.0.0.1:18792`), guarded by a **6-Gate Zero-Leakage Universality Validator (`PROVENANCE_VERSION = 2`)**. As practitioners and researchers use the harness to prove theorems across vertical domains, the system compounds domain intelligence through vector embeddings—with zero LLM weight fine-tuning.
+2. **The CoALA Heuristics & Continuous Domain Learning Engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`)**: A continual learning architecture grounded in *Cognitive Architectures for Language Agents* (CoALA) where the harness **learns by solving over time**—distilling verified universal strategies (Procedural Memory) and failure post-mortems (Episodic Memory) into role-isolated vector embeddings in vector memory, guarded by a **6-Gate Zero-Leakage Universality Validator (`PROVENANCE_VERSION = 2`)**. As practitioners and researchers use the harness to prove theorems across vertical domains, the system compounds domain intelligence through vector embeddings—with zero LLM weight fine-tuning.
 
 📄 **Technical Papers & Deep Dives:**
 - **arXiv Technical Report:** [`docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md`](docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md)
@@ -75,10 +77,10 @@ Evaluated across **300 graduate- and PhD-level research problems from TCS-Bench*
 
 ## 🧬 Pillar I: The CoALA Heuristics & Continuous Domain Learning Engine
 
-Prime Math implements the **Cognitive Architectures for Language Agents (CoALA)** memory taxonomy ([`core_engine/memory.py`](core_engine/memory.py)) so the harness **learns by solving** without modifying LLM weights.
+Prime-Harness implements the **Cognitive Architectures for Language Agents (CoALA)** memory taxonomy ([`core_engine/memory.py`](core_engine/memory.py)) so the harness **learns by solving** without modifying LLM weights.
 
-### 1. Role-Isolated Vector Embedding Collections in TurboVec
-Rather than dumping everything into one noisy RAG index, `CoALAMemoryManager` partitions **TurboVec** (`http://127.0.0.1:18792`, fail-closed via `TurboVecUnavailableError`) into **10 role-isolated collections** across five cognitive roles:
+### 1. Role-Isolated Vector Embedding Collections
+Rather than dumping everything into one noisy RAG index, `CoALAMemoryManager` partitions vector memory into **10 role-isolated collections** across five cognitive roles:
 
 | Agent Namespace (`agent_id`) | Procedural Collection (`_procedural`, $\cos \ge 0.65$) | Episodic Collection (`_episodic`, $\cos \ge 0.70$) | Specialized Cognitive Role |
 | :--- | :--- | :--- | :--- |
@@ -111,7 +113,7 @@ To guarantee zero benchmark contamination, [`core_engine/heuristic_validation.py
 
 ## 🔬 Pillar II: The Zero-Trust Deterministic Mathematical Kernel Engine
 
-Prime Math never trusts an LLM's token probabilities to verify algebra, inequalities, or invariant preservation. Instead, it couples the model to a **Zero-Trust Deterministic Mathematical Kernel** ([`core_engine/kernel.py`](core_engine/kernel.py), [`core_engine/prover_kernel.py`](core_engine/prover_kernel.py), [`core_engine/math_tools.py`](core_engine/math_tools.py), [`core_engine/state_machine.py`](core_engine/state_machine.py)).
+Proof-Harness never trusts an LLM's token probabilities to verify algebra, inequalities, or invariant preservation. Instead, it couples the model to a **Zero-Trust Deterministic Mathematical Kernel** ([`core_engine/kernel.py`](core_engine/kernel.py), [`core_engine/prover_kernel.py`](core_engine/prover_kernel.py), [`core_engine/math_tools.py`](core_engine/math_tools.py), [`core_engine/state_machine.py`](core_engine/state_machine.py)).
 
 ### 1. Dual-Kernel Isolation (`PersistentMathKernel` vs. `AuditorKernel`)
 - **`PersistentMathKernel` (Persistent Solver Kernel)**: Preserves verified symbolic expressions, helper functions, and the `MathStateMachine` across exploratory turns $1 \dots T$, with instant state rollback (`state.checkpoint('pre_claim')` / `state.rollback('pre_claim')`).
@@ -369,8 +371,8 @@ Exposes 7 tools ([`core_engine/mcp_server.py`](core_engine/mcp_server.py)):
 
 ## 🛡️ Domain-Agnostic Architectural Invariant
 
-While Prime Math's **CoALA Vector Memory** can be trained to specialize in any vertical domain via embeddings, the core Python codebase in `core_engine/` remains **100% domain-agnostic pure mathematics**:
-1. **Upstream / Downstream Separation**: Domain-specific data ingestion, telemetry, and backtesting belong in downstream skills or applications, which interact with `prime-math` by injecting abstract mathematical structures (matrices, graphs, stochastic kernels, polynomials) into `PersistentMathKernel` (`reset_kernel=False`) or posing formal conjectures.
+While Proof-Harness's **CoALA Vector Memory** can be trained to specialize in any vertical domain via embeddings, the core Python codebase in `core_engine/` remains **100% domain-agnostic pure mathematics**:
+1. **Upstream / Downstream Separation**: Domain-specific data ingestion, telemetry, and backtesting belong in downstream skills or applications, which interact with `proof_harness` by injecting abstract mathematical structures (matrices, graphs, stochastic kernels, polynomials) into `PersistentMathKernel` (`reset_kernel=False`) or posing formal conjectures.
 2. **Pure Procedural Hygiene**: The 6-gate validator in [`core_engine/heuristic_validation.py`](core_engine/heuristic_validation.py) guarantees that only reusable, universal mathematical strategies are committed to procedural memory.
 
 ---
@@ -379,5 +381,12 @@ While Prime Math's **CoALA Vector Memory** can be trained to specialize in any v
 
 - **[Cognitive Architectures for Language Agents (CoALA)](https://arxiv.org/abs/2309.02427)** *(Sumers et al., Princeton NLP, TMLR 2023)*: The tripartite cognitive memory taxonomy (Working, Procedural, and Episodic Memory) extended in [`core_engine/memory.py`](core_engine/memory.py).
 - **[TCS-Bench (`arXiv:2608.09538`)](https://arxiv.org/abs/2608.09538)**: The 300-problem graduate-level Theoretical Computer Science benchmark suite.
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
 
 
