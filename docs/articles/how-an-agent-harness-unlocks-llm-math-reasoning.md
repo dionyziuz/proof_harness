@@ -1,12 +1,12 @@
 # How an Agent Harness Unlocks Mathematical Superpowers in a 4-Bit 28B Model
 
-### *The story of how architectural scaffolding, symbolic execution, and cognitive partitioning turned a lightweight 4-bit open-weight LLM into a graduate-level theorem prover.*
+### *The story of how architectural scaffolding, symbolic execution, and cognitive partitioning turned a lightweight 4-bit open-weight LLM into a research-level theorem prover.*
 
 ---
 
 ## 1. Beyond Generic Agent Scaffolding: The Myth of the Monolithic Mathematician
 
-In the modern AI landscape, conventional wisdom dictates that solving frontier, graduate-level mathematics requires massive frontier models: multi-hundred-billion-parameter clusters consuming kilowatts of data center power. While multi-turn agent harnesses and execution loops have become standard practice across software engineering, most mathematical reasoning harnesses remain generic—relying on unguided iterative prompting, conversational multi-agent debates, or raw Python code interpreters that lack formal mathematical semantics and cross-problem learning. When researchers benchmark open-weight models on hard research domains—such as research-level Theoretical Computer Science (TCS)—unassisted first-pass attempts and unguided scaffolds yield predictably bleak results (under 4% passing grades).
+In the modern AI landscape, conventional wisdom dictates that solving frontier, research-level mathematics requires massive frontier models: multi-hundred-billion-parameter clusters consuming kilowatts of data center power. While multi-turn agent harnesses and execution loops have become standard practice across software engineering, most mathematical reasoning harnesses remain generic—relying on unguided iterative prompting, conversational multi-agent debates, or raw Python code interpreters that lack formal mathematical semantics and cross-problem learning. When researchers benchmark open-weight models on hard research domains—such as research-level Theoretical Computer Science (TCS)—unassisted first-pass attempts and unguided scaffolds yield predictably bleak results (under 4% passing grades).
 
 Even capable open-weight models routinely hallucinate algebraic leaps, assert false lemmas with supreme confidence, or fail completely when tracking complex invariant inheritance.
 
@@ -14,7 +14,7 @@ We set out to demonstrate that the true performance bottleneck is not raw parame
 
 > **Core Thesis:** *Mathematical reasoning is not purely a function of raw parameter scale. It is unlocked by a **specialized neuro-symbolic proving harness** equipped with **continuous domain learning via CoALA vector heuristics** and **zero-trust deterministic testing inside an airgapped mathematical kernel**.*
 
-To test this thesis, we evaluated **unsloth/Qwen3.8-27B-NVFP4**—a 27B/28B parameter model running in **4-bit quantization** on consumer hardware (a single **NVIDIA GeForce RTX 5090** with 32GB VRAM)—across **300 graduate-level research problems from TCS-Bench**, drawn directly from recent theoretical computer science literature on arXiv.
+To test this thesis, we evaluated **unsloth/Qwen3.8-27B-NVFP4**—a 27B/28B parameter model running in **4-bit quantization** on consumer hardware (a single **NVIDIA GeForce RTX 5090** with 32GB VRAM)—across **300 research-level problems from TCS-Bench**, drawn directly from recent theoretical computer science literature on arXiv.
 
 The results demonstrated the transformative power of an agent harness:
 
@@ -31,7 +31,7 @@ The results demonstrated the transformative power of an agent harness:
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-By wrapping a 4-bit 28B model in **Proof Harness** (`proof_harness`)—a dedicated, closed-loop agentic theorem proving harness—we shattered the original goal of merely doubling or tripling unassisted first-draft reasoning. Coupled with a seven-role cognitive partitioning architecture, a **Turn-1 Exploration Gate** (banning premature proof drafting on Turn 1 to enforce invariant discovery in code), a **4-Message Stateless Blackboard Revision** protocol, and **Candidate Protection against Destructive Pivots**, Proof-Harness transforms a 4-bit 28B model (`unsloth/Qwen3.8-27B-NVFP4`) on a single 32GB consumer GPU into an effective research-level prover (while the agentic harness is configurable to use any model, our data analysis is based on consumer hardware). Across **300 graduate- and PhD-level research problems from TCS-Bench** (drawn directly from recent arXiv theoretical computer science preprints in spectral graph theory, quantum computing, parameterized complexity, and combinatorial algorithms), Proof Harness achieves:
+By wrapping a 4-bit 28B model in **Proof Harness** (`proof_harness`)—a dedicated, closed-loop agentic theorem proving harness—we shattered the original goal of merely doubling or tripling unassisted first-draft reasoning. Coupled with a seven-role cognitive partitioning architecture, a **Turn-1 Exploration Gate** (banning premature proof drafting on Turn 1 to enforce invariant discovery in code), a **4-Message Stateless Blackboard Revision** protocol, and **Candidate Protection against Destructive Pivots**, Proof-Harness transforms a 4-bit 28B model (`unsloth/Qwen3.8-27B-NVFP4`) on a single 32GB consumer GPU into an effective research-level prover (while the agentic harness is configurable to use any model, our data analysis is based on consumer hardware). Across **300 research-level problems from TCS-Bench** (drawn directly from recent arXiv theoretical computer science preprints in spectral graph theory, quantum computing, parameterized complexity, and combinatorial algorithms), Proof Harness achieves:
 
 - **All Passing Grades (≥ 0.40, Grade C and Above — Sound & Directional):** **23.67% ($71/300$)** — nearly **sextupling ($5.92\times$)** the unassisted initial draft baseline of $4.00\%$ ($12/300$).
 - **Certified Sound Passes (≥ 0.50, Grade B and Above):** **21.00% ($63/300$)** — a **$6.30\times$ multiplier** over the unassisted initial draft baseline of $3.33\%$ ($10/300$).
@@ -48,7 +48,7 @@ Here is the story of the twin blind spots that break standalone LLMs, and how th
 
 ## 2. The Problem Statement: Why Standalone LLMs Fail on Frontier & Domain-Specific Math
 
-When you deploy an off-the-shelf LLM on graduate-level mathematics or specialized industrial domains (such as quantitative finance, cryptographic protocol verification, or algorithmic complexity), the system hits **two fundamental structural walls**, followed by four tactical failure modes:
+When you deploy an off-the-shelf LLM on research-level mathematics or specialized industrial domains (such as quantitative finance, cryptographic protocol verification, or algorithmic complexity), the system hits **two fundamental structural walls**, followed by four tactical failure modes:
 
 ### Structural Wall #1: Probabilistic Token Prediction $\neq$ Mathematical Truth (The Trust Fallacy)
 Autoregressive transformers generate tokens by maximizing conditional probability—not by verifying mathematical truth. When an LLM relies solely on its internal weights to do math:
@@ -321,7 +321,7 @@ Evaluating autonomous language models on research-level mathematics reveals six 
 
 ---
 
-## 7. Empirical Results: The 300-Problem PhD-Level TCS-Bench Evaluation
+## 7. Empirical Results: The 300-Problem Research-Level TCS-Bench Evaluation
 
 To evaluate the full system, we ran the continuous autonomous pipeline (`run_tcs_continuous_pipeline.py`) across all **300 research problems from TCS-Bench**, evaluating whether an agent harness can multiply the performance of passing grades counting C and up versus single-shot inference.
 
@@ -397,7 +397,7 @@ With `core_engine`'s **Turn-1 Exploration Gate**, **Critical-Path Scribe Pruning
 
 ## 9. Takeaways for AI Engineers Building Domain-Specific Reasoning Harnesses
 
-If you are designing agent harnesses for reasoning-heavy vertical domains—whether graduate-level mathematics, formal verification, quantitative finance, compiler synthesis, or physics—eight core principles emerge from `core_engine`:
+If you are designing agent harnesses for reasoning-heavy vertical domains—whether research-level mathematics, formal verification, quantitative finance, compiler synthesis, or physics—eight core principles emerge from `core_engine`:
 
 1. **Train the Harness via Embeddings, Not Weight Fine-Tuning (CoALA Continual Learning)**: Don't accept episodic amnesia from frozen LLM weights, and don't pay the catastrophic-forgetting cost of continual LoRA fine-tuning. Use a **CoALA Heuristics Engine** backed by role-isolated vector collections and a strict universality/anti-leakage gate (`heuristic_validation.py`) so your harness *learns by solving*—distilling every solved task and every falsified failure into reusable domain knowledge.
 2. **Never Trust Probabilistic Tokens Over Deterministic Execution**: Treat every mathematical assertion from an LLM as an *untrusted conjecture*. Pair the model with a **Zero-Trust Deterministic Kernel** (`SymPy`, `Z3`, 50-digit `mpmath`, `NetworkX`), preloaded diagnostic operators (`check_asymptotic_dominance`, `check_event_covariance`, `find_graph_counterexample`), and honest three-valued empirical semantics (`holds_on_samples`).
@@ -414,7 +414,7 @@ If you are designing agent harnesses for reasoning-heavy vertical domains—whet
 
 - **[Stellar Colosseum (`arXiv:2609.15983`)](https://arxiv.org/abs/2609.15983)** *(Lin, Woodruff, Deng, Mao, Zuo, & Mirrokni, Google Research & CMU, 2026)*: A many-agent inference harness for long-horizon research in TCS and mathematics, investigating multi-agent inference-time scaling on TCS-Bench with Gemini frontier models.
 - **[Cognitive Architectures for Language Agents (CoALA)](https://arxiv.org/abs/2309.02427)** *(Sumers et al., Princeton NLP, TMLR 2023)*: The tripartite cognitive memory taxonomy (Working, Procedural, and Episodic Memory) that Proof Harness extends with 10 role-isolated vector embedding collections, a 3-Tier `RemediationEngine`, and a 6-gate Zero-Leakage Universality Validator (`PROVENANCE_VERSION = 2`).
-- **[TCS-Bench (`arXiv:2608.09538`)](https://arxiv.org/abs/2608.09538)**: The 300-problem graduate-level Theoretical Computer Science benchmark suite used to evaluate single-shot versus multi-turn neuro-symbolic proof synthesis.
+- **[TCS-Bench (`arXiv:2608.09538`)](https://arxiv.org/abs/2608.09538)**: The 300-problem research-level Theoretical Computer Science benchmark suite used to evaluate single-shot versus multi-turn neuro-symbolic proof synthesis.
 
 *All benchmarks, CoALA memory modules, deterministic kernel engines, and evaluation scripts are open-sourced in the [Proof Harness repository](https://github.com/dionyziuz/proof_harness).*
 

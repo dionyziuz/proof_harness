@@ -18,14 +18,14 @@ Standard large language models fail on research-level mathematics because of two
 
 ## 🏆 Headline Benchmark Results: TCS-Bench ($N = 300$)
 
-Evaluated across **300 graduate- and PhD-level research problems from TCS-Bench** (arXiv Theoretical Computer Science preprints, [arXiv:2608.09538](https://arxiv.org/abs/2608.09538)) using a single 4-bit quantized 28B model (`unsloth/Qwen3.8-27B-NVFP4`) on a single 32GB consumer GPU. All baseline first-pass attempts have individual recorded validation scores on disk:
+Evaluated across **300 research-level problems from TCS-Bench** (arXiv Theoretical Computer Science preprints, [arXiv:2608.09538](https://arxiv.org/abs/2608.09538)) using a single 4-bit quantized 28B model (`unsloth/Qwen3.8-27B-NVFP4`) on a single 32GB consumer GPU. All baseline first-pass attempts have individual recorded validation scores on disk:
 
 | Evaluation Paradigm | Grade C & Above ($\ge 0.40$)<br>Sound & Directional | Grade B & Above ($\ge 0.50$)<br>Certified Sound Pass | Grade A & Above ($\ge 0.70$)<br>Publication-Grade | Pass Multiplier vs. Initial Draft<br>(Grade C & Up / B & Up / A & Up) |
 | :--- | :---: | :---: | :---: | :---: |
 | **1. Unassisted Initial Draft** | $12 / 300$ (**4.00%**) | $10 / 300$ (**3.33%**) | $7 / 300$ (**2.33%**) | $1.00\times$ / $1.00\times$ / $1.00\times$ |
 | **2. Full Proof Harness (`proof_harness`)** | **$71 / 300$** (**23.67%**) | **$63 / 300$** (**21.00%**) | **$54 / 300$** (**18.00%**) | **$5.92\times$** / **$6.30\times$** / **$7.71\times$** |
 
-**Cumulative Passing Thresholds Across 300 PhD-Level TCS Theorems:**
+**Cumulative Passing Thresholds Across 300 Research-Level TCS Theorems:**
 - **All Passing Grades ($\ge 0.40$, Grade C and Above — Sound & Directional):** **71 / 300 (23.67%)** — nearly **sextupling ($5.92\times$)** the unassisted initial draft baseline ($4.00\%$).
 - **Certified Sound Passes ($\ge 0.50$, Grade B and Above):** **63 / 300 (21.00%)** — a **$6.30\times$ multiplier** over the initial unassisted draft baseline ($3.33\%$).
 - **Publication-Grade Proofs ($\ge 0.70$, Grade A and Above):** **54 / 300 (18.00%)** — a **$7.71\times$ multiplier** over initial drafting ($2.33\%$, 7/300), with 31 proofs reaching near-flawless ($\ge 0.90$) journal quality.
@@ -380,7 +380,7 @@ While Proof-Harness's **CoALA Vector Memory** can be trained to specialize in an
 ## 📚 Academic References
 
 - **[Cognitive Architectures for Language Agents (CoALA)](https://arxiv.org/abs/2309.02427)** *(Sumers et al., Princeton NLP, TMLR 2023)*: The tripartite cognitive memory taxonomy (Working, Procedural, and Episodic Memory) extended in [`core_engine/memory.py`](core_engine/memory.py).
-- **[TCS-Bench (`arXiv:2608.09538`)](https://arxiv.org/abs/2608.09538)**: The 300-problem graduate-level Theoretical Computer Science benchmark suite.
+- **[TCS-Bench (`arXiv:2608.09538`)](https://arxiv.org/abs/2608.09538)**: The 300-problem research-level Theoretical Computer Science benchmark suite.
 
 ---
 
