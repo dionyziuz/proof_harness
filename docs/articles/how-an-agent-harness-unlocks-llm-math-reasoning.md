@@ -76,7 +76,7 @@ Fine-tuning model weights after every problem isn't practical—it is slow, comp
 Proof Harness solves this by implementing **continuous domain learning through vector embeddings**:
 
 1. **Strategy Extraction**: When a problem is solved (or when a failure is analyzed), a low-temperature reflection pass distills verified mathematical strategies into concise heuristics (e.g., *"When bounding high-dimensional sumsets, dyadic decomposition prevents recursive dimension blowup"*).
-2. **The 6-Gate Anti-Cheating Shield**: A strict validator ensures the system learns *generalizable mathematics*, not benchmark trivia. It rejects any heuristic containing problem identifiers, hardcoded equations (`2^k == 3^m`), $\ge 4$-digit constants, or empirical sequence extrapolation hacks (`Richardson` acceleration).
+2. **Generalization & Sanitization**: Candidate heuristics are sanitized to remove instance-specific numbers or equations, ensuring only reusable, generalizable mathematical strategies are committed to memory.
 3. **Role-Partitioned Retrieval**: Learned heuristics are stored in dedicated vector collections for each cognitive role (e.g., the Context Architect retrieves structural blueprints, while the Adversarial Skeptic retrieves known counterexample templates).
 
 The result is a system that **compounds expertise over time**. The base model's weights remain completely untouched, but the agent's effective mathematical knowledge grows with every problem it solves.

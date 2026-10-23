@@ -8,7 +8,7 @@ Standard large language models fail on research-level mathematics because of two
 
 **Proof-Harness (`proof_harness`)** solves both bottlenecks by combining **seven-role cognitive partitioning** with two foundational pillars:
 1. **The Zero-Trust Deterministic Mathematical Kernel Engine (`core_engine/kernel.py`, `core_engine/prover_kernel.py`, `core_engine/math_tools.py`, `core_engine/state_machine.py`)**: Dual-isolated, 3-layer airgapped symbolic and numerical execution kernels (`PersistentMathKernel` and ephemeral `AuditorKernel`) that provide **immediate accuracy and soundness verification**. Every claim is tested deterministically using **`SymPy`**, **`Z3`**, **50-digit `mpmath`**, **`NetworkX`**, specialized domain extensions (topology, planar duals, quantum CPTP channels, PSD operator inequalities), honest three-valued empirical semantics (`holds_on_samples`), Rule 11 anti-brute-force analytical ceilings (`guarded_range` $\le 200,000$), and a formal **Epistemic State Machine** (`MathStateMachine`) that automatically revokes fragile invariants under conditioning or restriction.
-2. **The CoALA Heuristics & Continuous Domain Learning Engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`)**: A continual learning architecture grounded in *Cognitive Architectures for Language Agents* (CoALA) where the harness **learns by solving over time**—distilling verified universal strategies (Procedural Memory) and failure post-mortems (Episodic Memory) into role-isolated vector embeddings in vector memory, guarded by a **6-Gate Zero-Leakage Universality Validator (`PROVENANCE_VERSION = 2`)**. As practitioners and researchers use the harness to prove theorems across vertical domains, the system compounds domain intelligence through vector embeddings—with zero LLM weight fine-tuning.
+2. **The CoALA Heuristics & Continuous Domain Learning Engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`)**: A continual learning architecture grounded in *Cognitive Architectures for Language Agents* (CoALA) where the harness **learns by solving over time**—distilling verified universal strategies (Procedural Memory) and failure post-mortems (Episodic Memory) into role-isolated vector embeddings in vector memory, governed by automated heuristic validation and sanitization. As practitioners and researchers use the harness to prove theorems across vertical domains, the system compounds domain intelligence through vector embeddings—with zero LLM weight fine-tuning.
 
 📄 **Technical Papers & Deep Dives:**
 - **arXiv Technical Report:** [`docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md`](docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md)
@@ -43,8 +43,8 @@ Evaluated across **300 research-level problems from TCS-Bench** (arXiv Theoretic
 |  Layer               | Module / Substrate              | Capabilities                    |
 +----------------------+---------------------------------+---------------------------------+
 | Pillar I: CoALA      | CoALAMemoryManager & Validator  | 10 role-isolated TurboVec       |
-| Continual Learning   | (`memory.py`, `remediation.py`, | collections, 6-gate zero-leak   |
-| Engine               |  `heuristic_validation.py`)     | shield, 3-Tier Remediation      |
+| Continual Learning   | (`memory.py`, `remediation.py`, | collections, automated heuristic|
+| Engine               |  `heuristic_validation.py`)     | validation, 3-Tier Remediation  |
 +----------------------+---------------------------------+---------------------------------+
 | Pillar II: Zero-Trust| Persistent & Auditor Kernels    | SymPy, Z3, 50-dps mpmath,       |
 | Deterministic Kernel | (`kernel.py`, `prover_kernel.py`| `holds_on_samples`, Rule 11     |
@@ -97,8 +97,8 @@ Rather than dumping everything into one noisy RAG index, `CoALAMemoryManager` ma
   - **Tier 2 (System Prompt Directives)**: Governed by the 4-boolean [`Tier2Rubric`](core_engine/remediation.py) (`is_universal`, `is_behavioral_posture`, `no_degradation_risk`, `procedural_insufficient`). Any domain-specific mathematical rule is **automatically downgraded from Tier 2 to Tier 3** so global prompts never bloat.
   - **Tier 3 (CoALA Vector Memory Injection)**: Validated universal domain strategies synced directly to TurboVec.
 
-### 3. The 6-Gate Zero-Leakage Universality Validator (`PROVENANCE_VERSION = 2`)
-To guarantee zero benchmark contamination, [`core_engine/heuristic_validation.py`](core_engine/heuristic_validation.py) enforces **6 strict deterministic gates** before any heuristic is embedded (and re-verifies records at retrieval time while excluding self-retrieval via `exclude_problem_id` / `exclude_task_id`):
+### 3. Automated Heuristic Validation & Sanitization
+To ensure procedural memory contains only generalizable mathematical techniques, [`core_engine/heuristic_validation.py`](core_engine/heuristic_validation.py) validates and sanitizes candidate entries before they are embedded (and re-verifies records at retrieval time while excluding self-retrieval via `exclude_problem_id` / `exclude_task_id`):
 
 | Gate | Enforced Invariant | What Gets Blocked |
 | :--- | :--- | :--- |
@@ -373,7 +373,7 @@ Exposes 7 tools ([`core_engine/mcp_server.py`](core_engine/mcp_server.py)):
 
 While Proof-Harness's **CoALA Vector Memory** can be trained to specialize in any vertical domain via embeddings, the core Python codebase in `core_engine/` remains **100% domain-agnostic pure mathematics**:
 1. **Upstream / Downstream Separation**: Domain-specific data ingestion, telemetry, and backtesting belong in downstream skills or applications, which interact with `proof_harness` by injecting abstract mathematical structures (matrices, graphs, stochastic kernels, polynomials) into `PersistentMathKernel` (`reset_kernel=False`) or posing formal conjectures.
-2. **Pure Procedural Hygiene**: The 6-gate validator in [`core_engine/heuristic_validation.py`](core_engine/heuristic_validation.py) guarantees that only reusable, universal mathematical strategies are committed to procedural memory.
+2. **Pure Procedural Hygiene**: Automated validation in [`core_engine/heuristic_validation.py`](core_engine/heuristic_validation.py) ensures that only reusable, universal mathematical strategies are committed to procedural memory.
 
 ---
 
