@@ -115,7 +115,7 @@ Before any learned strategy is saved to vector memory, [`core_engine/heuristic_v
 
 ## 🔬 Pillar II: The Zero-Trust Deterministic Mathematical Kernel Engine
 
-Proof-Harness never trusts an LLM's token probabilities to verify algebra, inequalities, or invariant preservation. Instead, it couples the model to a **Zero-Trust Deterministic Mathematical Kernel** ([`core_engine/kernel.py`](core_engine/kernel.py), [`core_engine/prover_kernel.py`](core_engine/prover_kernel.py), [`core_engine/math_tools.py`](core_engine/math_tools.py), [`core_engine/state_machine.py`](core_engine/state_machine.py)).
+A deterministic execution kernel is the foundation for agentic math solving. Proof-Harness never trusts an LLM's token probabilities to verify algebra, inequalities, or invariant preservation. Instead, it couples the model to a **Zero-Trust Deterministic Mathematical Kernel** ([`core_engine/kernel.py`](core_engine/kernel.py), [`core_engine/prover_kernel.py`](core_engine/prover_kernel.py), [`core_engine/math_tools.py`](core_engine/math_tools.py), [`core_engine/state_machine.py`](core_engine/state_machine.py)).
 
 ### 1. Dual-Kernel Isolation (`PersistentMathKernel` vs. `AuditorKernel`)
 - **`PersistentMathKernel` (Persistent Solver Kernel)**: Preserves verified symbolic expressions, helper functions, and the `MathStateMachine` across exploratory turns 1…T, with instant state rollback (`state.checkpoint('pre_claim')` / `state.rollback('pre_claim')`).
