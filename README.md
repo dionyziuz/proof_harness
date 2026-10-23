@@ -11,8 +11,8 @@ Standard large language models fail on research-level mathematics because of two
 2. **The CoALA Heuristics & Continuous Domain Learning Engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`)**: A continual learning architecture grounded in *Cognitive Architectures for Language Agents* (CoALA) where the harness **learns by solving over time**—distilling verified universal strategies (Procedural Memory) and failure post-mortems (Episodic Memory) into role-isolated vector embeddings in vector memory, governed by automated heuristic validation and sanitization. As practitioners and researchers use the harness to prove theorems across vertical domains, the system compounds domain intelligence through vector embeddings—with zero LLM weight fine-tuning.
 
 📄 **Technical Papers & Deep Dives:**
-- **arXiv Technical Report:** [`docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md`](docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md)
-- **Engineering Deep Dive (Medium):** [`docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md`](docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md)
+- **Technical Report:** [`docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md`](docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md)
+- **Engineering Deep Dive:** [`docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md`](docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md)
 
 ---
 
