@@ -85,13 +85,13 @@ The result is a system that **compounds expertise over time**. The base model's 
 
 ## 3. Pillar III: Cognitive Roles, Turn-1 Exploration, and Adaptive Overtime
 
-When humans tackle hard research math, we don't immediately start writing the final proof on page one. We sketch diagrams, test small cases on scratch paper, look for edge cases, and outline potential approaches.
+Modern reasoning models spend significant internal chain-of-thought thinking before generating an answer. But purely internal thinking has a major blind spot: it relies entirely on the model's own latent representations without external ground truth. An LLM can "think" through thousands of internal tokens while reinforcing a subtly false algebraic step or an invalid property inheritance.
 
-Naive AI agents do the exact opposite: they immediately start generating `\begin{proof}` on Turn 1. Once an LLM commits to an initial algebraic path, it falls into a confirmation bias trap—papering over mistakes with hand-waving arguments rather than backtracking.
+Furthermore, in unguided agent loops, models typically attempt to draft the complete final proof in their very first response turn. Once an initial proof draft is on the page, subsequent revision turns tend to anchor on that existing text—defending the initial path and patching superficial wording rather than rigorously checking whether the core mathematical invariants hold.
 
-To prevent this, Proof Harness orchestrates the search through specialized cognitive roles and explicit governance rules:
+To prevent premature commitment to flawed algebraic paths, Proof Harness orchestrates the search through specialized cognitive roles and an explicit **Turn-1 Exploration Gate**:
 
-- **The Turn-1 Exploration Gate**: The model is strictly banned from drafting the formal proof on Turn 1. Instead, it must inventory known facts, query vector memory for related strategies, formulate testable conjectures, and run code in the kernel.
+- **The Turn-1 Exploration Gate**: The model is strictly banned from generating a formal `\begin{proof}` on Turn 1. Instead, the entire first interaction turn must be dedicated to computational exploration: inventorying context lemmas, querying vector memory for proven strategies, formulating testable `[CLAIM]` invariants, and executing verification scripts in the deterministic kernel. Formal proof synthesis only begins on Turn 2 after invariants have been tested in code.
 - **Role Specialization**: 
   - The **Context Architect** sketches high-level reduction blueprints.
   - The **Logician** tests steps iteratively in the Python REPL.

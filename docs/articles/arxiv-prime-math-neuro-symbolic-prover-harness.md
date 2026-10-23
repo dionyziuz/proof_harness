@@ -452,7 +452,7 @@ Table 4 dissects the turn $t \in \{1, \dots, 12\}$ on which each certified pass 
 | **Total** | **Full Governed Trajectory ($T \le 12$)** | **$63$** | **$100.00\%$** | **$63$** | **$21.00\%$** |
 
 Three empirical patterns emerge from Table 4:
-1. **The Turn-1 Exploration Gate Enforces Soundness:** In unassisted first-shot generation, models immediately generate premature drafts full of flaws. By banning formal proof drafting on Turn 1 and forcing invariant exploration in code, zero passes occur on Turn 1 by design, establishing the rigorous foundation required for **54 publication-grade proofs** later in the trajectory.
+1. **The Turn-1 Exploration Gate Enforces Soundness:** In unassisted generation without external tools, models typically attempt to draft the complete proof in a single turn without code validation. By dedicating Turn 1 strictly to invariant discovery in code and delaying formal proof synthesis until invariants survive verification, zero passes occur on Turn 1 by design, establishing the rigorous foundation required for **54 publication-grade proofs** later in the trajectory.
 2. **Deep Iteration Accounts for 84.13% of Success:** Passes discovered in Turn 4 or later account for **$53 / 63$ ($84.13\%$)** of all wins, indicating that shallow 1-turn or 3-turn pipelines miss the vast majority of research-level deductions.
 3. **Overtime Extensions Deliver Crucial Conversions:** Turns 9–12 produce **$13$ certified passes ($20.63\%$ of all passes)**, with Turn 12 delivering $10$ decisive conversions under surgical candidate preservation.
 
