@@ -57,7 +57,7 @@ Autoregressive transformers generate tokens by maximizing conditional probabilit
 - **Trusting an LLM to self-verify mathematics purely through prose is a category error.** Without a deterministic computational kernel that forces conjectures through exact symbolic algebra, SMT solvers, and exhaustive small-instance counterexample sweeps, a single unverified leap cascades until the entire proof collapses.
 
 ### Structural Wall #2: Frozen Weights & Episodic Amnesia (No Continuous Domain Learning)
-Standard LLMs are **stateless at inference time**. An agent might spend 45 minutes and 50,000 tokens discovering a brilliant domain-specific reduction—such as how to bound hypergraph conductance across vertex separators or how to apply Hölder's inequality over shifted dyadic boxes—only to suffer **total amnesia** the moment the session ends.
+Standard LLMs are **stateless at inference time**. An agent might spend 45 minutes and 50,000 tokens discovering a breakthrough domain strategy or working through intricate edge cases, only to suffer **total amnesia** the moment the session ends.
 - On the very next problem in the same domain, the model starts from scratch and repeats the exact same mistakes.
 - For engineering teams working in specialized verticals, fine-tuning or running RLHF on a 28B–70B model after every batch of problems is prohibitively expensive, slow, and prone to catastrophic forgetting. **Without a mechanism to continuously extract, validate, and embed reusable mathematical heuristics from its own solving trajectories, an agent cannot compound its domain expertise over time.**
 
