@@ -18,6 +18,7 @@ None of this is a real OS sandbox; see kernel.py for limitations.
 from __future__ import annotations
 
 import ast
+import sys
 from typing import Any, List, Optional
 
 from .kernel import ExecutionResult, PersistentMathKernel
@@ -176,22 +177,8 @@ class _NetworkIsolationMixin:
             return None
         return _scan_network_ast(code)
 
-
-class TCSCompliantKernel(_NetworkIsolationMixin, PersistentMathKernel):
-    """Harness kernel with optional web research tools and safety ceilings.
-
-    When allow_internet is False (default for TCS-Bench), replaces search_math / read_paper
-    with protocol stubs and AST-scans code for network imports to prevent benchmark contamination.
-    When allow_internet is True (for open research theorems), allows live research queries.
-    """
-
-    def __init__(self, default_timeout: float = 30.0, allow_internet: bool = False):
-        self._prelude_ready = False
-        self.allow_internet = allow_internet
-        super().__init__(default_timeout)
-
     def _combinatorial_ceiling(self, code: str) -> Optional[str]:
-        """Guard against runaway factorial or combinatorial loops (e.g. permutations on n >= 7)."""
+        """Guard against runaway factorial, combinatorial, or huge-range loops."""
         try:
             tree = ast.parse(code)
             for node in ast.walk(tree):
@@ -206,9 +193,27 @@ class TCSCompliantKernel(_NetworkIsolationMixin, PersistentMathKernel):
                         if isinstance(arg0, ast.Call) and getattr(arg0.func, "id", "") == "range" and arg0.args:
                             if isinstance(arg0.args[0], ast.Constant) and isinstance(arg0.args[0].value, int) and arg0.args[0].value >= 7:
                                 return "[TCS-BENCH REPL CEILING] permutations on n >= 7 is prohibited (O(n!) complexity). Restrict instance size to n <= 6."
+                    if func_name == "range" and node.args:
+                        last_arg = node.args[1] if len(node.args) >= 2 else node.args[0]
+                        if isinstance(last_arg, ast.Constant) and isinstance(last_arg.value, int) and last_arg.value > 2_000_000:
+                            return f"[TCS-BENCH REPL CEILING] range({last_arg.value:,}) exceeds 2,000,000 iteration ceiling. Use smaller test bounds or symbolic/Z3 verification."
         except Exception:
             pass
         return None
+
+
+class TCSCompliantKernel(_NetworkIsolationMixin, PersistentMathKernel):
+    """Harness kernel with optional web research tools and safety ceilings.
+
+    When allow_internet is False (default for TCS-Bench), replaces search_math / read_paper
+    with protocol stubs and AST-scans code for network imports to prevent benchmark contamination.
+    When allow_internet is True (for open research theorems), allows live research queries.
+    """
+
+    def __init__(self, default_timeout: float = 30.0, allow_internet: bool = False):
+        self._prelude_ready = False
+        self.allow_internet = allow_internet
+        super().__init__(default_timeout)
 
     def execute(self, code: str, timeout_seconds: Optional[float] = None) -> ExecutionResult:
         blocked = self._forbidden_import(code.strip()) or self._combinatorial_ceiling(code.strip())
@@ -231,10 +236,38 @@ class TCSCompliantKernel(_NetworkIsolationMixin, PersistentMathKernel):
             pass
 
         try:
-            from .math_tools import check_asymptotic_dominance, check_event_covariance, find_graph_counterexample
+            from .math_tools import (
+                check_asymptotic_dominance,
+                check_cycle_chords_and_holes,
+                check_event_covariance,
+                check_psd_inequality,
+                check_quantum_channel_claim,
+                find_graph_counterexample,
+                partial_trace,
+                planar_dual_and_faces,
+                random_density_matrix,
+                random_unitary,
+                smt_check_parameter_hierarchy,
+                smt_disjoint_paths,
+                smt_slice_terminal_pairing,
+                uhlmann_fidelity,
+            )
             self.namespace["check_asymptotic_dominance"] = check_asymptotic_dominance
             self.namespace["check_event_covariance"] = check_event_covariance
             self.namespace["find_graph_counterexample"] = find_graph_counterexample
+            self.namespace["smt_disjoint_paths"] = smt_disjoint_paths
+            self.namespace["smt_slice_terminal_pairing"] = smt_slice_terminal_pairing
+            self.namespace["smt_check_parameter_hierarchy"] = smt_check_parameter_hierarchy
+            self.namespace["planar_dual_and_faces"] = planar_dual_and_faces
+            self.namespace["check_cycle_chords_and_holes"] = check_cycle_chords_and_holes
+            self.namespace["random_density_matrix"] = random_density_matrix
+            self.namespace["random_unitary"] = random_unitary
+            self.namespace["partial_trace"] = partial_trace
+            self.namespace["uhlmann_fidelity"] = uhlmann_fidelity
+            self.namespace["check_psd_inequality"] = check_psd_inequality
+            self.namespace["check_quantum_channel_claim"] = check_quantum_channel_claim
+            if "state" in self.namespace and "state" not in sys.modules:
+                sys.modules["state"] = self.namespace["state"]  # type: ignore[assignment]
         except Exception:
             pass
         # The base prelude already created self._state_machine / namespace["state"]
@@ -270,10 +303,45 @@ class AuditorKernel(_NetworkIsolationMixin, PersistentMathKernel):
     def _load_prelude(self) -> None:
         super()._load_prelude()
         self._apply_network_policy()
+        try:
+            from .math_tools import (
+                check_asymptotic_dominance,
+                check_cycle_chords_and_holes,
+                check_event_covariance,
+                check_psd_inequality,
+                check_quantum_channel_claim,
+                find_graph_counterexample,
+                partial_trace,
+                planar_dual_and_faces,
+                random_density_matrix,
+                random_unitary,
+                smt_check_parameter_hierarchy,
+                smt_disjoint_paths,
+                smt_slice_terminal_pairing,
+                uhlmann_fidelity,
+            )
+            self.namespace["check_asymptotic_dominance"] = check_asymptotic_dominance
+            self.namespace["check_event_covariance"] = check_event_covariance
+            self.namespace["find_graph_counterexample"] = find_graph_counterexample
+            self.namespace["smt_disjoint_paths"] = smt_disjoint_paths
+            self.namespace["smt_slice_terminal_pairing"] = smt_slice_terminal_pairing
+            self.namespace["smt_check_parameter_hierarchy"] = smt_check_parameter_hierarchy
+            self.namespace["planar_dual_and_faces"] = planar_dual_and_faces
+            self.namespace["check_cycle_chords_and_holes"] = check_cycle_chords_and_holes
+            self.namespace["random_density_matrix"] = random_density_matrix
+            self.namespace["random_unitary"] = random_unitary
+            self.namespace["partial_trace"] = partial_trace
+            self.namespace["uhlmann_fidelity"] = uhlmann_fidelity
+            self.namespace["check_psd_inequality"] = check_psd_inequality
+            self.namespace["check_quantum_channel_claim"] = check_quantum_channel_claim
+            if "state" in self.namespace and "state" not in sys.modules:
+                sys.modules["state"] = self.namespace["state"]  # type: ignore[assignment]
+        except Exception:
+            pass
         self._prelude_ready = True
 
     def execute(self, code: str, timeout_seconds: Optional[float] = None) -> ExecutionResult:
-        blocked = self._forbidden_import(code.strip())
+        blocked = self._forbidden_import(code.strip()) or self._combinatorial_ceiling(code.strip())
         if blocked:
             return ExecutionResult(
                 success=False, stdout="", stderr="", result_value=None,

@@ -1272,3 +1272,349 @@ def test_prover_synthesis_substage_checkpoint_and_resume(tmp_path):
     assert res.candidate_proof == repaired_proof
     assert not ckpt_path.exists()
 
+
+def test_slice_reasoning_preserve_setup_keeps_head_and_tail():
+    head_marker = "INITIAL_SETUP_DEFINITIONS_" + ("A" * 9900)
+    mid_marker = "MIDDLE_EXPLORATION_" + ("B" * 20000)
+    tail_marker = ("C" * 17900) + "_FINAL_REDUCTION_TAIL"
+    full_trace = head_marker + mid_marker + tail_marker
+    sliced = MathProver._slice_reasoning_preserve_setup(full_trace)
+    assert "INITIAL_SETUP_DEFINITIONS_" in sliced
+    assert "_FINAL_REDUCTION_TAIL" in sliced
+    assert "intermediate exploration condensed" in sliced
+    assert len(sliced) < len(full_trace)
+
+
+def test_boundary_only_defect_prevents_hard_pivot_and_pool_prune():
+    """Simulates Task 228 (p=1 boundary case on a high-rigor core proof):
+    Even after 3 rejections at validity 0.25/0.20, a boundary-only defect must NOT trigger
+    a Clean-Slate Hard Pivot or prune the candidate from CandidatePool, and must emit
+    TARGETED BOUNDARY & DEGENERATE REGIME RESOLUTION DIRECTIVE.
+    """
+    import json
+    from core_engine.prover_types import CandidatePool, is_boundary_or_local_defect
+
+    issue_228 = (
+        "The main pigeonhole/sunflower/heavy-core argument is sound for p>=2, "
+        "but the admissible boundary case p=1 (gamma=1, delta=1) is not proved."
+    )
+    assert is_boundary_or_local_defect(issue_228, rigor=0.70, completeness=0.40, boundary_cases=0.20) is True
+
+    pool = CandidatePool()
+    p_core = "\\begin{proof}\n" + ("Pigeonhole and sunflower heavy-core closure proof. " * 4) + "\n\\end{proof}"
+    pool.offer(
+        p_core,
+        validity=0.25,
+        verdict="REJECT",
+        issues=issue_228,
+        turn=2,
+        rigor=0.70,
+        completeness=0.40,
+        boundary_cases=0.20,
+    )
+    # Must NOT be pruned even if force=True is requested
+    assert pool.prune_abandoned(0.30, force=True) is None
+    assert pool.best is not None and pool.best.proof == p_core
+
+    # Also verify _classify_audit_output floors boundary-only defects on high-rigor drafts to >= 0.38
+    raw_audit = json.dumps({
+        "statement_fidelity_exact": False,
+        "inequality_directions_verified": True,
+        "theorem_hypotheses_verified": True,
+        "rigor": 0.70,
+        "completeness": 0.40,
+        "boundary_cases": 0.20,
+        "validity": 0.25,
+        "verdict": "REJECT",
+        "issues": issue_228,
+    })
+    classified = MathProver._classify_audit_output(raw_audit)
+    assert classified.validity >= 0.38
+    assert classified.is_boundary_defect is True
+
+
+def test_turn_1_fast_path_early_exit_semantics():
+    from core_engine.prover_types import THRESHOLDS
+
+    # Turn 1 with validity >= 0.85 and no issues qualifies for early exit
+    turn = 1
+    verdict = "VALID"
+    validity = 0.86
+    issues = "none"
+    no_referee_issues = not issues or issues.strip().lower() == "none"
+
+    is_turn_1_fast_exit = (
+        turn == 1
+        and verdict == "VALID"
+        and no_referee_issues
+        and validity >= getattr(THRESHOLDS, "turn_1_early_exit_validity", 0.85)
+    )
+    is_high_conf_exit_t1 = (
+        verdict == "VALID"
+        and (
+            validity >= THRESHOLDS.early_exit_validity
+            or is_turn_1_fast_exit
+        )
+    )
+    assert is_turn_1_fast_exit is True
+    assert is_high_conf_exit_t1 is True
+
+    # Turn 2 with validity 0.86 does NOT qualify (requires >= 0.90)
+    turn_2 = 2
+    is_turn_1_fast_exit_t2 = (
+        turn_2 == 1
+        and verdict == "VALID"
+        and no_referee_issues
+        and validity >= getattr(THRESHOLDS, "turn_1_early_exit_validity", 0.85)
+    )
+    is_high_conf_exit_t2 = (
+        verdict == "VALID"
+        and (
+            validity >= THRESHOLDS.early_exit_validity
+            or is_turn_1_fast_exit_t2
+        )
+    )
+    assert is_turn_1_fast_exit_t2 is False
+    assert is_high_conf_exit_t2 is False
+
+
+def test_smt_detector_strictly_scoped():
+    from core_engine.math_tools import detect_smt_routing_or_constraint_problem
+
+    # Non-routing / general math / coding / spectral prompts must return False
+    # even if the Context section mentions hypercubes or "(your Target Problem)" at the top
+    full_tcs_non_routing = (
+        "You are an expert mathematician. Your task is to provide a thorough and correct proof "
+        "for a mathematical problem (your Target Problem). This proof will be used to...\n"
+        "Context:\nIn a hypercube \\cQ^n, vertex-disjoint paths are often studied...\n"
+        "Target Problem (your task):\nLet A be a symmetric matrix with eigenvalues lambda_1 >= ... >= lambda_n."
+    )
+    assert detect_smt_routing_or_constraint_problem(full_tcs_non_routing) is False
+    assert detect_smt_routing_or_constraint_problem(
+        "Target Problem (your task):\nProve that for any Reed-Solomon code over F_q, the list decoding radius satisfies..."
+    ) is False
+
+    # Hypercube / disjoint paths / slice-cover / parameter hierarchy prompts must return True
+    # (including \cQ^n / \cQ^{n} macros used in arXiv:2007.02891 Tasks 9-14)
+    assert detect_smt_routing_or_constraint_problem(
+        "Target Problem (your task):\nLet 1/n \\ll \\gamma \\ll 1/r. Then \\cQ^{n} contains k Hamilton cycles."
+    ) is True
+    assert detect_smt_routing_or_constraint_problem(
+        "Target Problem (your task):\nGiven a bonded molecule \\mathcal{M}^* and terminal vertices, find vertex-disjoint paths."
+    ) is True
+
+
+def test_smt_disjoint_paths_hypercube_and_unsat():
+    import networkx as nx
+    from core_engine.math_tools import smt_disjoint_paths
+
+    Q3 = nx.hypercube_graph(3)
+    # Partition Q3 (8 vertices) into 2 vertex-disjoint spanning paths of length 4 each:
+    # Parity of (a,b,c) is (a+b+c)%2. Each path of 4 vertices must start and end at opposite parities.
+    res = smt_disjoint_paths(
+        Q3,
+        terminal_pairs=[((0, 0, 0), (1, 1, 1)), ((0, 0, 1), (1, 1, 0))],
+        required_edges=[((0, 0, 0), (0, 1, 0))],
+        require_spanning=True,
+    )
+    assert res["satisfiable"] is True
+    assert res["spanning"] is True
+    assert len(res["paths"]) == 2
+    v0, v1 = set(res["paths"][0]), set(res["paths"][1])
+    assert len(v0 & v1) == 0
+    assert len(v0 | v1) == 8
+
+    # Impossible parity: two terminals of the same parity cannot be spanned by a single Hamiltonian path on Q3
+    res_unsat = smt_disjoint_paths(
+        Q3,
+        terminal_pairs=[((0, 0, 0), (0, 1, 1))],
+        require_spanning=True,
+    )
+    assert res_unsat["satisfiable"] is False
+    assert res_unsat["status"] == "unsat"
+
+
+def test_smt_slice_terminal_pairing_and_parameter_hierarchy():
+    from core_engine.math_tools import (
+        smt_check_parameter_hierarchy,
+        smt_slice_terminal_pairing,
+    )
+
+    # Valid 3-atom molecule with balanced opposite-parity global terminals
+    res_slice = smt_slice_terminal_pairing(
+        num_atoms=3,
+        terminal_pairs=[((1, 0), (3, 1)), ((1, 1), (2, 0))],
+        r_edge_atoms=[2],
+    )
+    assert res_slice["satisfiable"] is True
+    assert len(res_slice["atoms"]) == 3
+    for atom_info in res_slice["atoms"]:
+        assert atom_info["parity_0_endpoints"] == atom_info["parity_1_endpoints"]
+    # Atom 2 has an R-edge so segments != 2
+    assert res_slice["atoms"][1]["segments"] != 2
+
+    # Invalid global parity (two parity-0 terminals, zero parity-1 terminals) -> UNSAT
+    res_slice_bad = smt_slice_terminal_pairing(
+        num_atoms=2,
+        terminal_pairs=[((1, 0), (2, 0))],
+    )
+    assert res_slice_bad["satisfiable"] is False
+
+    # Parameter hierarchy check: setting l == r when 1/l << 1/r is UNSAT
+    res_hier_bad = smt_check_parameter_hierarchy(
+        variables=["inv_l", "inv_r"],
+        constraints=["inv_l == inv_r"],
+        hierarchy_order=["inv_l", "inv_r"],
+    )
+    assert res_hier_bad["satisfiable"] is False
+
+    # Odd k degree budget: floor(k/2) Hamilton cycles + 1 matching uses degree <= k
+    res_deg_ok = smt_check_parameter_hierarchy(
+        variables={"k": "int", "hc": "int", "pm": "int"},
+        constraints=["k == 5", "hc == k / 2", "pm == 1", "2 * hc + pm <= k"],
+    )
+    assert res_deg_ok["satisfiable"] is True
+
+
+def test_kernel_preloads_smt_helpers():
+    from core_engine.prover_kernel import AuditorKernel, TCSCompliantKernel
+
+    for KernelCls in (TCSCompliantKernel, AuditorKernel):
+        k = KernelCls()
+        exec_res = k.execute(
+            "res = smt_check_parameter_hierarchy(['a', 'b'], ['a < b'], hierarchy_order=['a', 'b'])\n"
+            "print(res['satisfiable'], Distinct is not None, Sum is not None)"
+        )
+        assert exec_res.success is True
+        assert "True True True" in exec_res.stdout
+
+
+def test_topological_and_chord_helpers():
+    import networkx as nx
+    from core_engine.math_tools import (
+        check_cycle_chords_and_holes,
+        detect_topological_or_structural_graph_problem,
+        planar_dual_and_faces,
+    )
+
+    assert detect_topological_or_structural_graph_problem(
+        "Target Problem (your task):\nLet G be a planar graph with outer face F."
+    ) is True
+    assert detect_topological_or_structural_graph_problem(
+        "Target Problem (your task):\nLet C be a cycle and let chords of C have increasing endpoints."
+    ) is True
+    assert detect_topological_or_structural_graph_problem(
+        "Target Problem (your task):\nProve that for any polynomial p(x)..."
+    ) is False
+
+    # K4 is planar with 4 faces of length 3
+    res_k4 = planar_dual_and_faces(nx.complete_graph(4))
+    assert res_k4["is_planar"] is True
+    assert res_k4["num_faces"] == 4
+    assert len(res_k4["dual_graph"].nodes()) == 4
+
+    # K5 is non-planar
+    res_k5 = planar_dual_and_faces(nx.complete_graph(5))
+    assert res_k5["is_planar"] is False
+
+    # Crossing chords: L1 < L2 < R1 < R2 (both L and R strictly increasing -> crosses!)
+    res_chords = check_cycle_chords_and_holes(
+        cycle_vertices=list(range(8)),
+        chords=[(1, 5), (3, 7), (2, 4)],
+    )
+    assert ((1, 5), (3, 7)) in res_chords["crossing_pairs"]
+    assert ((1, 5), (2, 4)) in res_chords["nested_pairs"]
+
+
+def test_quantum_and_psd_operator_helpers():
+    import numpy as np
+    from core_engine.math_tools import (
+        check_psd_inequality,
+        check_quantum_channel_claim,
+        detect_quantum_or_spectral_operator_problem,
+        partial_trace,
+        uhlmann_fidelity,
+    )
+
+    assert detect_quantum_or_spectral_operator_problem(
+        "Target Problem (your task):\nFor any qubit quantum channel \\mathcal{E} and density matrix \\rho..."
+    ) is True
+    assert detect_quantum_or_spectral_operator_problem(
+        "Target Problem (your task):\nLet G be a bipartite graph..."
+    ) is False
+
+    # True PSD inequality: I - rho >= 0 for any density matrix rho
+    res_psd_ok = check_psd_inequality(lambda rho: np.eye(rho.shape[0]) - rho, dim=3, n_trials=30)
+    assert res_psd_ok["holds"] is True
+
+    # False PSD inequality: rho - sigma >= 0 for arbitrary density matrices
+    res_psd_bad = check_psd_inequality(lambda rho, sigma: rho - sigma, dim=3, n_trials=30)
+    assert res_psd_bad["holds"] is False
+    assert res_psd_bad["counterexample_found"] is True
+
+    # True quantum channel claim: trace preservation Tr(E(rho)) == 1
+    rho0 = np.array([[1, 0], [0, 0]], dtype=complex)
+    res_tp = check_quantum_channel_claim(lambda E: abs(np.trace(E(rho0)).real - 1.0) < 1e-6, dim=2, n_random=10)
+    assert res_tp["holds"] is True
+
+    # False quantum channel claim (Tasks 64-65 defect): claiming every channel has Kraus rank 1 or is constant
+    res_false_decomp = check_quantum_channel_claim(
+        lambda E, k_ops: len(k_ops) == 1 or np.allclose(E(np.array([[1, 0], [0, 0]])), E(np.array([[0, 0], [0, 1]]))),
+        dim=2,
+        n_random=5,
+    )
+    assert res_false_decomp["holds"] is False
+    assert "Dephasing" in res_false_decomp["channel_family"]
+
+    # Partial trace & Uhlmann fidelity sanity check
+    bell = np.array([1, 0, 0, 1], dtype=complex) / np.sqrt(2)
+    rho_bell = np.outer(bell, bell.conj())
+    red_A = partial_trace(rho_bell, dims=(2, 2), keep=0)
+    assert np.allclose(red_A, 0.5 * np.eye(2))
+    assert abs(uhlmann_fidelity(red_A, red_A) - 1.0) < 1e-7
+
+
+def test_kernel_backwards_compat_shims():
+    from core_engine.prover_kernel import TCSCompliantKernel
+
+    k = TCSCompliantKernel()
+    code = (
+        "import state\n"
+        "T = nx.random_tree(5)\n"
+        "vc = nx.vertex_connectivity(T)\n"
+        "conn = T.is_connected()\n"
+        "area = float(np.trapz([1.0, 2.0, 3.0], [0.0, 1.0, 2.0]))\n"
+        "s = Solver()\n"
+        "s.add(Int('x') > 0)\n"
+        "r = Rational(1, 3)\n"
+        "print(conn, vc, area, len(s.constraints), r == sp.Rational(1, 3))\n"
+    )
+    res = k.execute(code)
+    assert res.success is True, f"Kernel execution failed: {res.error}"
+    assert "True 1 4.0 1 True" in res.stdout
+
+
+def test_combinatorial_and_range_ceilings_prevent_hangs():
+    import time
+    from core_engine.prover_kernel import AuditorKernel, TCSCompliantKernel
+
+    for KernelCls in (TCSCompliantKernel, AuditorKernel):
+        k = KernelCls(default_timeout=10.0)
+        # 1. Huge range(10**8) is blocked immediately at AST pre-check in <10ms
+        t0 = time.perf_counter()
+        res_range = k.execute("for i in range(100000000): pass")
+        assert res_range.success is False
+        assert "REPL CEILING" in (res_range.error or "")
+        assert (time.perf_counter() - t0) < 0.2
+
+        # 2. Huge itertools.combinations(range(1000), 3) (= 166 million tuples) aborts in <1s without OOM
+        t1 = time.perf_counter()
+        res_comb = k.execute("import itertools\nfor c in itertools.combinations(range(1000), 3): pass")
+        assert res_comb.success is False
+        assert "REPL CEILING" in (res_comb.error or "")
+        assert (time.perf_counter() - t1) < 1.5
+
+
+
+
+

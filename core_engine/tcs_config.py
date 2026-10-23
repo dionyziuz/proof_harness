@@ -76,7 +76,7 @@ TCS_JUDGE_REPLICATES: int = 3
 @dataclass
 class TCSConfig:
     # Context Compactor
-    compactor_max_context_tokens: int = 48000
+    compactor_max_context_tokens: int = 60000
     compactor_reserve_tokens: int = 16000
     compactor_keep_recent_turns: int = 2
 
@@ -183,7 +183,7 @@ def load_tcs_config(env_path: Optional[Path] = None, reload: bool = False) -> TC
             load_dotenv(override=False)
 
     cfg = TCSConfig(
-        compactor_max_context_tokens=_int_env("TCS_COMPACTOR_MAX_CONTEXT_TOKENS", 48000),
+        compactor_max_context_tokens=_int_env("TCS_COMPACTOR_MAX_CONTEXT_TOKENS", 60000),
         compactor_reserve_tokens=_int_env("TCS_COMPACTOR_RESERVE_TOKENS", 16000),
         compactor_keep_recent_turns=_int_env("TCS_COMPACTOR_KEEP_RECENT_TURNS", 2),
 

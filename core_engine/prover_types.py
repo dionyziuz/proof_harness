@@ -38,13 +38,22 @@ class AuditResult:
     def has_substantive_structure(self) -> bool:
         """True when the referee's structural sub-scores indicate a substantive partial proof
         that should undergo surgical repair rather than a destructive clean-slate hard pivot.
-        Requires genuine mathematical validity (validity >= 0.30 or structural_validity >= 0.40)
-        in addition to structural components, preventing superficial formatting from blocking pivots
-        on fundamentally flawed reductions.
+        Requires genuine mathematical validity (validity >= 0.30 or structural_validity >= 0.40
+        or rigor >= 0.45) in addition to structural components, preventing superficial formatting
+        from blocking pivots on fundamentally flawed reductions.
         """
-        if self.validity < 0.30 and self.structural_validity < 0.40 - 1e-6:
+        if self.validity < 0.30 and self.structural_validity < 0.40 - 1e-6 and self.rigor < 0.45 - 1e-6:
             return False
         return self.completeness >= 0.35 or self.rigor >= 0.35
+
+    @property
+    def is_boundary_defect(self) -> bool:
+        """True when the defect is an isolated boundary/degenerate/small-n/constant-factor issue
+        while the main reduction has substantive rigor/completeness.
+        """
+        return is_boundary_or_local_defect(
+            self.issues, self.rigor, self.completeness, self.boundary_cases
+        )
 
     def __iter__(self):
         return iter((self.verdict, self.issues, self.validity))
@@ -74,9 +83,16 @@ class CandidateRecord:
     @property
     def has_substantive_structure(self) -> bool:
         """True when structural sub-scores indicate a substantive partial proof."""
-        if self.validity < 0.30 and self.structural_validity < 0.40 - 1e-6:
+        if self.validity < 0.30 and self.structural_validity < 0.40 - 1e-6 and self.rigor < 0.45 - 1e-6:
             return False
         return self.completeness >= 0.35 or self.rigor >= 0.35
+
+    @property
+    def is_boundary_defect(self) -> bool:
+        """True when the defect is an isolated boundary/degenerate/small-n/constant-factor issue."""
+        return is_boundary_or_local_defect(
+            self.issues, self.rigor, self.completeness, self.boundary_cases
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -110,6 +126,7 @@ class CandidateRecord:
 class ProverThresholds:
     """Single source of truth for proof-search policy thresholds (used by MathProver)."""
     early_exit_validity: float = 0.90       # Stop exploring only when the internal referee is near-certain
+    turn_1_early_exit_validity: float = 0.85 # Two-pass confirmed zero-shot draft on Turn 1 with no issues can early-exit at 0.85
     audit_valid_floor: float = 0.80         # Internal referee VALID requires validity >= this (unless verdict text VALID >= 0.75)
     audit_verdict_floor: float = 0.75       # Referee explicitly says VALID and scores at least this
     pivot_threshold: float = 0.30           # Below this after repeated stagnant rejections -> abandon reduction path
@@ -149,6 +166,41 @@ def has_fatal_issue(issues: str) -> bool:
         return False
     text = _NEGATED_FATAL_RE.sub(" ", issues.lower())
     return any(kw in text for kw in FATAL_ISSUE_KEYWORDS)
+
+
+_BOUNDARY_ISSUE_RE = re.compile(
+    r"\b(?:"
+    r"boundary\s+case|boundary\s+regime|base\s+case|degenerate\s+case|edge\s+case|"
+    r"equality\s+case|small[\s-]+n\b|for\s+small\s+[a-z]\b|"
+    r"when\s+[pkndrm]\s*=\s*[012]\b|for\s+[pkndrm]\s*=\s*[012]\b|"
+    r"\b[pkndrm]\s*=\s*1\s+boundary|sound\s+for\s+[a-z]\s*(?:>=|\\ge|\\geq|>)\s*[12]|"
+    r"main\s+[^.]{0,60}\bsound\b|directionally\s+correct"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def is_boundary_or_local_defect(
+    issues: str,
+    rigor: float = 0.0,
+    completeness: float = 0.0,
+    boundary_cases: float = 0.0,
+) -> bool:
+    """Classifies whether an audit rejection is a Tier-2 localized boundary/degenerate/small-n
+    hole on top of a viable main argument, rather than a Tier-1 fatal structural dead end.
+    """
+    has_boundary_kw = bool(issues and _BOUNDARY_ISSUE_RE.search(issues))
+    # Subscore signature: solid rigor/completeness on the main reduction but low boundary_cases score
+    subscore_boundary_gap = (
+        (rigor >= 0.45 or completeness >= 0.45)
+        and 0.0 < boundary_cases <= 0.25
+        and max(rigor, completeness) >= boundary_cases + 0.20
+    )
+    if subscore_boundary_gap:
+        return True
+    if has_boundary_kw and (rigor >= 0.30 or completeness >= 0.30 or (rigor == 0.0 and completeness == 0.0)):
+        return True
+    return False
 
 
 class CandidatePool:
@@ -329,13 +381,18 @@ class CandidatePool:
 
     def prune_abandoned(self, max_validity_floor: float = 0.25, force: bool = False) -> Optional[CandidateRecord]:
         """Prunes the current best candidate if it belongs to an abandoned/refuted reduction
-        (i.e. validity < max_validity_floor and either force=True on hard pivot or lacks substantive structure).
+        (i.e. validity < max_validity_floor and lacks substantive structure or boundary-only protection).
+        Never wipes out a candidate whose only defect is a Tier-2 boundary/degenerate case
+        unless validity <= hard_pivot_floor (0.05).
         Returns the pruned candidate if one was removed.
         """
-        if self._best and self._best.validity < max_validity_floor and (force or not self._best.has_substantive_structure):
-            pruned = self._best
-            self._best = None
-            return pruned
+        if self._best and self._best.validity < max_validity_floor:
+            if self._best.validity > THRESHOLDS.hard_pivot_floor and self._best.is_boundary_defect:
+                return None
+            if force or not self._best.has_substantive_structure:
+                pruned = self._best
+                self._best = None
+                return pruned
         return None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -476,4 +533,6 @@ __all__ = [
     "ProofResult",
     "TCSSolveResult",
     "DEFAULT_LOG_PATH",
+    "has_fatal_issue",
+    "is_boundary_or_local_defect",
 ]

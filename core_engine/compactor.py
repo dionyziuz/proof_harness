@@ -76,9 +76,9 @@ class MathContextCompactor:
     def __init__(
         self,
         client: Optional[TunnelThinkingClient] = None,
-        max_context_tokens: int = 32768,  # Safe 32k context envelope for vLLM under concurrent load
-        reserve_tokens: int = 8192,       # 8k reserve for generation / thinking tokens
-        keep_recent_turns: int = 1,
+        max_context_tokens: int = 48000,  # Generous context envelope before compaction engages
+        reserve_tokens: int = 12000,      # Reserve for generation / thinking tokens
+        keep_recent_turns: int = 2,
     ):
         self.client = client or TunnelThinkingClient()
         self.max_context_tokens = max_context_tokens
@@ -90,8 +90,8 @@ class MathContextCompactor:
         """Returns True if message tokens exceed threshold or any single intermediate message is giant."""
         tokens = estimate_messages_tokens(messages)
         # Check only intermediate scratchpad messages (index 2+), never system (0) or problem prompt (1)
-        has_giant_msg = any(estimate_tokens(m.get("content", "")) > 8000 for m in messages[2:])
-        return (tokens >= self.compaction_threshold or has_giant_msg) and len(messages) >= 3
+        has_giant_msg = any(estimate_tokens(m.get("content", "")) > 12000 for m in messages[2:])
+        return (tokens >= self.compaction_threshold or has_giant_msg) and len(messages) >= 5
 
     @staticmethod
     def _clamp_oversized(messages: List[Dict[str, str]], protected_ids: set) -> None:
@@ -127,10 +127,13 @@ class MathContextCompactor:
 
     @staticmethod
     def _extract_deterministic_ledger(older_messages: List[Dict[str, str]]) -> str:
-        """Deterministically extracts structured [CLAIM] statements, REPL verification outputs,
-        and referee defect critiques from older messages so zero structured state is lost.
+        """Deterministically extracts structured [CLAIM] and [REDUCTION] statements, derivation
+        summaries, REPL verification outputs, and referee defect critiques from older messages
+        so zero mathematical state or inequality directions are lost.
         """
         claims: List[str] = []
+        reductions: List[str] = []
+        derivations: List[str] = []
         auditor_critiques: List[str] = []
         repl_verified: List[str] = []
 
@@ -138,28 +141,44 @@ class MathContextCompactor:
             c = m.get("content", "")
             if m.get("role") == "assistant":
                 for cm in re.finditer(r"\[CLAIM\]:?\s*(.+?)(?=\n\[|\n```|\n\n|\Z)", c, re.DOTALL):
-                    cl_text = " ".join(cm.group(1).split())[:400]
+                    cl_text = " ".join(cm.group(1).split())[:1000]
                     if cl_text and cl_text not in claims:
                         claims.append(cl_text)
+                for rm in re.finditer(r"\[REDUCTION\]:?\s*(.+?)(?=\n\[|\n```|\n\n|\Z)", c, re.DOTALL):
+                    red_text = " ".join(rm.group(1).split())[:1000]
+                    if red_text and red_text not in reductions:
+                        reductions.append(red_text)
+                for dm in re.finditer(
+                    r"\[Mathematical (?:Derivation|Analysis) Summary[^\]]*\]:\s*(.+?)(?=\n\[|\n```|\Z)",
+                    c,
+                    re.DOTALL,
+                ):
+                    d_text = " ".join(dm.group(1).split())[:1200]
+                    if d_text and d_text not in derivations:
+                        derivations.append(d_text)
             if "ADVERSARIAL PROOF AUDIT" in c or "DEFECTS DETECTED" in c:
                 m_iss = re.search(r"identified the following defects:\s*(.+?)(?:\n\n|\Z)", c, re.DOTALL)
                 if m_iss:
-                    crit = m_iss.group(1).strip()[:1200]
+                    crit = m_iss.group(1).strip()[:1500]
                     if crit and crit not in auditor_critiques:
                         auditor_critiques.append(crit)
             if "[Execution Output]:" in c or "REPL Verified:" in c:
                 for vm in re.finditer(r"(?:\[Execution Output\]:|REPL Verified:)\s*(.+?)(?=\n\[|\n\n|\Z)", c, re.DOTALL):
-                    v_text = " ".join(vm.group(1).split())[:300]
+                    v_text = " ".join(vm.group(1).split())[:800]
                     if v_text and v_text not in repl_verified:
                         repl_verified.append(v_text)
 
         parts: List[str] = []
         if claims:
-            parts.append("### Deterministic Claim Ledger (Extracted Verbatim)\n" + "\n".join(f"- {cl}" for cl in claims[-6:]))
+            parts.append("### Deterministic Claim & Inequality Ledger (Extracted Verbatim)\n" + "\n".join(f"- {cl}" for cl in claims[-8:]))
+        if reductions:
+            parts.append("### Deterministic Reduction Steps\n" + "\n".join(f"- {rd}" for rd in reductions[-6:]))
+        if derivations:
+            parts.append("### Key Prior Mathematical Derivations\n" + "\n".join(f"- {dv}" for dv in derivations[-4:]))
         if repl_verified:
-            parts.append("### Deterministic REPL Outputs\n" + "\n".join(f"- {rv}" for rv in repl_verified[-4:]))
+            parts.append("### Deterministic REPL Outputs\n" + "\n".join(f"- {rv}" for rv in repl_verified[-6:]))
         if auditor_critiques:
-            parts.append("### Prior Referee Defects (Must Remain Resolved)\n" + "\n".join(f"- {cr}" for cr in auditor_critiques[-2:]))
+            parts.append("### Prior Referee Defects (Must Remain Resolved)\n" + "\n".join(f"- {cr}" for cr in auditor_critiques[-3:]))
         return "\n\n".join(parts)
 
     @staticmethod

@@ -25,6 +25,11 @@ from typing import Any, Dict, List, Optional, Tuple
 from .compactor import MathContextCompactor
 from .kernel import PersistentMathKernel
 from .llm_client import TunnelThinkingClient
+from .math_tools import (
+    detect_quantum_or_spectral_operator_problem,
+    detect_smt_routing_or_constraint_problem,
+    detect_topological_or_structural_graph_problem,
+)
 from .memory import CoALAMemoryManager
 from .prompt_loader import load_tcs_prompt
 from .prompts import MATH_PROVER_SYSTEM_PROMPT as MATH_PROVER_SYSTEM_PROMPT
@@ -40,6 +45,7 @@ from .prover_types import (
     ProofResult,
     THRESHOLDS,
     TCSSolveResult,
+    is_boundary_or_local_defect,
 )
 from .prover_kernel import TCSCompliantKernel
 from .prover_auditor import ProverAuditorMixin
@@ -516,65 +522,120 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
             except Exception as e:
                 logger.debug(f"Architect episodic memory record error: {e}")
 
+    @staticmethod
+    def _slice_reasoning_preserve_setup(
+        text: str,
+        max_chars: int = 28000,
+        head_chars: int = 10000,
+        tail_chars: int = 18000,
+    ) -> str:
+        """Preserves both the initial problem/notation setup (head) and the final verified
+        derivation (tail) when a long <think> trace must be bounded for continuation.
+        """
+        if not text or len(text) <= max_chars:
+            return text or ""
+        return (
+            text[:head_chars]
+            + "\n\n... [intermediate exploration condensed to preserve setup & final derivation] ...\n\n"
+            + text[-tail_chars:]
+        )
+
     def _compact_conversation_history(
         self,
         messages: List[Dict[str, str]],
         current_turn: int,
     ) -> List[Dict[str, str]]:
         """Compacts older conversational turns to maintain a clean, high-attention context
-        window while preserving problem prompt and recent feedback.
+        window while preserving problem prompt, registered state ledger, and recent turns.
         """
         if len(messages) <= 4:
             return messages
 
         system_msg = messages[0]
         task_msg = messages[1]
-        recent_messages = messages[-2:]
         anchor_ids = {id(m) for m in getattr(self, "_anchor_msgs", [])}
-        middle = messages[2:-2]
-        # The candidate proof under revision and its revision prompt are pinned: they are kept
-        # verbatim so later turns never lose the draft they are supposed to be repairing.
+        # Prefer keeping the last 2 full turns (4 messages) when enough intermediate non-anchor
+        # messages exist; fall back to keeping the last 1 turn (2 messages) on shorter histories.
+        recent_messages = messages[-4:] if len(messages) >= 10 else messages[-2:]
+        middle = messages[2 : len(messages) - len(recent_messages)]
         anchors = [m for m in middle if id(m) in anchor_ids]
         intermediate = [m for m in middle if id(m) not in anchor_ids]
+        if not intermediate and len(recent_messages) == 4 and len(messages) > 4:
+            recent_messages = messages[-2:]
+            middle = messages[2:-2]
+            anchors = [m for m in middle if id(m) in anchor_ids]
+            intermediate = [m for m in middle if id(m) not in anchor_ids]
         if not intermediate:
             return messages
 
         summary_lines = [
-            f"[CONCISE SUMMARY OF PRIOR EXPLORATION TURNS (TURNS 1 TO {max(1, current_turn - 1)})]",
+            f"[CONCISE SUMMARY OF PRIOR EXPLORATION TURNS (TURNS 1 TO {max(1, current_turn - 2)})]",
             f"• {len(intermediate)} earlier exploration messages were condensed to save context; "
             "Python variables defined in them remain available in the persistent kernel.",
         ]
 
         claims: List[str] = []
+        reductions: List[str] = []
+        derivations: List[str] = []
         auditor_critiques: List[str] = []
         repl_outputs: List[str] = []
         for m in intermediate:
             c = m.get("content", "")
             if m.get("role") == "assistant":
                 for cm in re.finditer(r"\[CLAIM\]:?\s*(.+?)(?=\n\[|\n```|\n\n|\Z)", c, re.DOTALL):
-                    claims.append(" ".join(cm.group(1).split())[:400])
+                    cl_s = " ".join(cm.group(1).split())[:1000]
+                    if cl_s and cl_s not in claims:
+                        claims.append(cl_s)
+                for rm_red in re.finditer(r"\[REDUCTION\]:?\s*(.+?)(?=\n\[|\n```|\n\n|\Z)", c, re.DOTALL):
+                    red_s = " ".join(rm_red.group(1).split())[:1000]
+                    if red_s and red_s not in reductions:
+                        reductions.append(red_s)
+                for dm in re.finditer(
+                    r"\[Mathematical (?:Derivation|Analysis) Summary[^\]]*\]:\s*(.+?)(?=\n\[|\n```|\Z)",
+                    c,
+                    re.DOTALL,
+                ):
+                    d_s = " ".join(dm.group(1).split())[:1200]
+                    if d_s and d_s not in derivations:
+                        derivations.append(d_s)
             if "ADVERSARIAL PROOF AUDIT" in c or "DEFECTS DETECTED" in c:
                 m_iss = re.search(r"identified the following defects:\s*(.+?)(?:\n\n|\Z)", c, re.DOTALL)
                 if m_iss:
                     auditor_critiques.append(m_iss.group(1).strip()[:1500])
             if "[Execution Output]:" in c:
                 for rm in re.finditer(r"\[Execution Output\]:\s*(.+?)(?=\n\[|\n\n|\Z)", c, re.DOTALL):
-                    out_s = " ".join(rm.group(1).split())[:300]
+                    out_s = " ".join(rm.group(1).split())[:800]
                     if out_s and out_s not in repl_outputs:
                         repl_outputs.append(out_s)
 
         if claims:
-            summary_lines.append("• Intermediate claims proposed earlier (not necessarily proved):")
-            for cl in claims[-4:]:
+            summary_lines.append("• Intermediate claims & inequalities proposed earlier:")
+            for cl in claims[-6:]:
                 summary_lines.append(f"  - {cl}")
+        if reductions:
+            summary_lines.append("• Earlier reduction steps:")
+            for rd in reductions[-4:]:
+                summary_lines.append(f"  - {rd}")
+        if derivations:
+            summary_lines.append("• Key prior mathematical derivations:")
+            for dv in derivations[-3:]:
+                summary_lines.append(f"  - {dv}")
         if repl_outputs:
             summary_lines.append("• Earlier REPL verification outputs:")
-            for ro in repl_outputs[-4:]:
+            for ro in repl_outputs[-6:]:
                 summary_lines.append(f"  - {ro}")
         if auditor_critiques:
             summary_lines.append("• Prior referee defects (must stay resolved):")
-            for crit in auditor_critiques[-2:]:
+            for crit in auditor_critiques[-3:]:
                 summary_lines.append(f"  - {crit}")
+
+        try:
+            st_res = self.kernel.execute("print(state.status())")
+            st_summary = (st_res.stdout or "").strip()
+            if st_summary and "Total Invariants: 0" not in st_summary and "Error" not in st_summary:
+                summary_lines.append(f"• Active Kernel State Machine Ledger:\n{st_summary[:1500]}")
+        except Exception:
+            pass
 
         summary_lines.append("• Directive: Build directly upon the latest messages below without repeating earlier flawed conjectures.")
 
@@ -655,6 +716,11 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 heuristics_block += f"- {h}\n"
             system_content += heuristics_block
 
+        # Scoped domain verification extensions (strictly gated to matching Target Problems)
+        self._smt_extension_active = detect_smt_routing_or_constraint_problem(task_prompt)
+        self._topo_extension_active = detect_topological_or_structural_graph_problem(task_prompt)
+        self._quantum_extension_active = detect_quantum_or_spectral_operator_problem(task_prompt)
+
         # Subagent Pre-Computation: Context Architect & Computational Falsifier
         blueprint = self._run_context_architect(task_id, task_prompt, on_step=on_step)
         verified_facts, falsified_alerts = self._run_computational_falsifier(task_id, blueprint, on_step=on_step)
@@ -695,6 +761,45 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
             prefix_blocks.append(subagent_context_block)
         if prefix_blocks:
             initial_user_prompt = "".join(prefix_blocks) + task_prompt
+        if getattr(self, "_smt_extension_active", False):
+            smt_extension_block = (
+                "\n\n[Z3 / SMT CONSTRAINT & ROUTING EXTENSION ACTIVE]\n"
+                "This problem involves discrete subgraph/path routing, parity terminal assignment, "
+                "degree/packing budgets, or multi-parameter hierarchies (`\\ll`). "
+                "In addition to native `z3` (`Solver`, `Int`, `Real`, `Bool`, `Sum`, `Distinct`, `If`, `Implies`), "
+                "the Python REPL has 3 preloaded Z3 verification helpers:\n"
+                "1. `smt_disjoint_paths(graph_or_edges, terminal_pairs, required_edges=None, forbidden_vertices=None, require_spanning=False)`\n"
+                "   - Solves exact vertex-disjoint path routing between `terminal_pairs = [(s_1, t_1), ...]` with optional `required_edges` and `require_spanning=True`.\n"
+                "2. `smt_slice_terminal_pairing(num_atoms, terminal_pairs, r_edge_atoms=None, max_segments_per_atom=25)`\n"
+                "   - Verifies and constructs explicit inter-atom bond transitions (`0 -> 1` and `1 -> 0`) and bipartite parity balance across bonded molecule atoms $\\mathcal{A}_1, \\dots, \\mathcal{A}_t$.\n"
+                "   - Whenever applying a slice-cover or atom-routing lemma, NEVER hand-wave 'choose parities consistently'; explicitly specify the terminal vertex pairs incident to inter-atom bond edges and required $R$-edges and verify bipartite parity balance with `smt_slice_terminal_pairing(...)`.\n"
+                "3. `smt_check_parameter_hierarchy(variables, constraints, hierarchy_order=None)`\n"
+                "   - Verifies parameter hierarchy ordering ($0 < p_1 \\ll p_2 \\ll \\dots \\ll 1$, i.e. never set a smaller hierarchy parameter equal to a larger one such as $\\ell = r$), degree budgets (e.g., for odd $k$, packing $\\lfloor k/2 \\rfloor$ Hamilton cycles + $1$ perfect matching uses degree $2\\lfloor k/2\\rfloor + 1 = k$, whereas $\\lceil k/2 \\rceil$ Hamilton cycles requires degree $k+1 > k$), and Chernoff/LLL union-bound exponents.\n"
+            )
+            initial_user_prompt += smt_extension_block
+        if getattr(self, "_topo_extension_active", False):
+            topo_extension_block = (
+                "\n\n[TOPOLOGICAL & STRUCTURAL GRAPH EXTENSION ACTIVE]\n"
+                "This problem involves planar/outerplanar embeddings, dual graphs, cut-vertices/biconnected blocks, "
+                "cycle chords, or induced holes ($C_{\\ge t}$). The Python REPL has preloaded generic topological helpers:\n"
+                "1. `planar_dual_and_faces(G)`\n"
+                "   - Computes `nx.check_planarity(G)`, extracts all cyclic face boundaries, builds the exact planar dual multigraph `dual_G`, and lists `articulation_points` (cut-vertices) and `biconnected_components` for both $G$ and $G^*$.\n"
+                "2. `check_cycle_chords_and_holes(G=None, cycle_vertices=None, chords=None, min_hole_length=4)`\n"
+                "   - Finds all induced chordless cycles (`holes`) of length $\\ge \\text{min\\_hole\\_length}$ and classifies pairs of cycle chords $(L_1, R_1), (L_2, R_2)$ into `'crossing'` ($L_1 < L_2 < R_1 < R_2$), `'nested'` ($L_1 < L_2 < R_2 < R_1$), or `'disjoint'` ($R_1 < L_2$). Always verify chord crossing/nesting claims in the REPL.\n"
+            )
+            initial_user_prompt += topo_extension_block
+        if getattr(self, "_quantum_extension_active", False):
+            quantum_extension_block = (
+                "\n\n[QUANTUM & PSD OPERATOR EXTENSION ACTIVE]\n"
+                "This problem involves quantum states/channels, density matrices, Uhlmann fidelity, partial trace, "
+                "or Positive Semidefinite (PSD / Loewner $\\succeq$) operator inequalities. The Python REPL has preloaded generic operator helpers:\n"
+                "1. `check_psd_inequality(matrix_diff_fn, dim=4, n_trials=200)`\n"
+                "   - Empirically tests whether an operator inequality $A \\succeq B$ holds ($\\lambda_{\\min}(A - B) \\ge 0$) across random density matrices (`random_density_matrix(dim)`) and Haar unitaries (`random_unitary(dim)`).\n"
+                "2. `check_quantum_channel_claim(predicate_fn, dim=2)`\n"
+                "   - Tests any structural decomposition or invariance claim about CPTP quantum channels $\\mathcal{E}(\\rho) = \\sum_k K_k \\rho K_k^\\dagger$ across canonical channels (unitary, dephasing/phase-damping, depolarizing, amplitude-damping, replacement, and random Stinespring/Kraus channels).\n"
+                "3. `partial_trace(rho, dims=(dA, dB), keep=0)` and `uhlmann_fidelity(rho, sigma)`.\n"
+            )
+            initial_user_prompt += quantum_extension_block
         task_only_prompt = initial_user_prompt
 
         if max_turns > 1:
@@ -714,6 +819,9 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 "4. State Machine & Python REPL Verification: Write executable Python code in ```python ... ``` blocks using `state.register(...)`, `state.derive(...)`, and `state.checkpoint(...)` (or NetworkX/SymPy simulations) to test boundary configurations and verify whether your candidate invariant holds.\n"
                 "5. Complete formal LaTeX proof synthesis (\\begin{proof} ... \\end{proof}) will be unlocked starting on Turn 2 once intermediate claims and invariants have been audited in the REPL."
             )
+            ext_hint = self._active_extension_hint() if hasattr(self, "_active_extension_hint") else ""
+            if ext_hint:
+                turn1_discipline += "\n" + ext_hint.strip()
             initial_user_prompt += turn1_discipline
 
         messages: List[Dict[str, str]] = [
@@ -850,19 +958,29 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
 
             # Rescue empty content turns if thinking budget exhausted max_tokens
             if not model_text.strip() and reasoning_text:
-                self._log_write("\n[Warning] Reasoning engine exhausted token budget inside <think>; requesting non-thinking continuation...\n")
+                self._log_write("\n[Warning] Reasoning engine exhausted token budget inside <think>; requesting bounded-thinking continuation...\n")
+                sliced_reasoning = self._slice_reasoning_preserve_setup(reasoning_text)
                 cont_messages = list(messages) + [
-                    {"role": "assistant", "content": f"<think>\n{reasoning_text}\n</think>\n"},
+                    {"role": "assistant", "content": f"<think>\n{sliced_reasoning}\n</think>\n"},
                     {"role": "user", "content": "Based on your thinking above, state your concrete mathematical reduction, any verification Python code, and current proof draft now without repeating internal thoughts:"}
                 ]
                 try:
                     cont_resp = self.client.complete(
                         cont_messages,
-                        max_tokens=4096,
-                        enable_thinking=False,
+                        max_tokens=12288,
+                        enable_thinking=self.enable_thinking,
+                        thinking_budget_tokens=4096,
                         temperature=0.2,
-                        timeout_seconds=120.0,
+                        timeout_seconds=180.0,
                     )
+                    if (not cont_resp or not (cont_resp.content or "").strip()) and self.enable_thinking:
+                        cont_resp = self.client.complete(
+                            cont_messages,
+                            max_tokens=8192,
+                            enable_thinking=False,
+                            temperature=0.2,
+                            timeout_seconds=120.0,
+                        )
                     if cont_resp and cont_resp.content:
                         model_text = cont_resp.content.strip()
                         self._log_write(f"[Continuation Extracted {len(model_text)} chars of content]\n")
@@ -935,6 +1053,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
             # 1. Unlock the pivot prompt in messages so the next turn can synthesize \begin{proof} ... \end{proof}.
             # 2. Clear pinned pivot anchor messages so "FRESH REPL VERIFICATION" does not stay pinned forever.
             # 3. Suppress premature proof auditing on the REPL exploration gate turn.
+            was_pivot_repl_gate_turn = pivot_repl_gate_active
             if pivot_repl_gate_active:
                 pivot_repl_gate_active = False
                 if pivot_gate_msg_ref is not None and pivot_unlocked_revision_prompt:
@@ -990,14 +1109,17 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                     exec_feedbacks.append(feedback)
 
                 # If Mandatory Proof Synthesis Directive was already active (repl_consecutive_turns >= 2),
-                # yet no formal proof was emitted (either because <think> exhausted its budget on reasoning,
-                # or the model API does not stream reasoning traces and remained in REPL exploration),
-                # immediately run a non-thinking continuation seeded with the derivation + REPL output
-                # to synthesize the formal proof on this turn!
+                # and we have reached the second half of the turn budget (turn >= max(4, current_max_turns // 2))
+                # and are NOT on a 1-turn post-pivot REPL exploration gate turn, yet no formal proof was emitted,
+                # run a bounded-thinking continuation seeded with the head+tail derivation + REPL output
+                # to synthesize the formal proof without losing setup or micro-reasoning!
                 has_verbose_thinking = bool(reasoning_text and len(reasoning_text) >= 12000)
                 has_unexposed_reasoning = not bool(reasoning_text)
+                min_synthesis_turn = max(4, current_max_turns // 2) if current_max_turns >= 4 else 2
                 should_synthesize_now = (
                     repl_consecutive_turns >= 2
+                    and turn >= min_synthesis_turn
+                    and not was_pivot_repl_gate_turn
                     and not extracted_proof
                     and (has_verbose_thinking or has_unexposed_reasoning)
                     and turn < current_max_turns
@@ -1010,11 +1132,12 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                     )
                     self._log_write(
                         f"\n[Mandatory Synthesis Continuation] Turn {turn} {notice_detail} "
-                        "during consecutive REPL turns without emitting \\begin{proof}; invoking non-thinking proof synthesis continuation...\n"
+                        "during consecutive REPL turns without emitting \\begin{proof}; invoking bounded-thinking proof synthesis continuation...\n"
                     )
+                    sliced_reasoning = self._slice_reasoning_preserve_setup(reasoning_text) if reasoning_text else ""
                     assistant_content = (
-                        f"<think>\n{reasoning_text[-24000:]}\n</think>\n\n{model_text}"
-                        if reasoning_text
+                        f"<think>\n{sliced_reasoning}\n</think>\n\n{model_text}"
+                        if sliced_reasoning
                         else model_text
                     )
                     derivation_ref = "in <think> above and the" if reasoning_text else "from your"
@@ -1027,33 +1150,48 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                             "role": "user",
                             "content": (
                                 "\n\n".join(exec_feedbacks)
-                                + "\n\n[IMMEDIATE NON-THINKING PROOF EMISSION]\n"
+                                + "\n\n[IMMEDIATE FORMAL PROOF SYNTHESIS]\n"
                                 f"Using your mathematical derivation {derivation_ref} REPL verification output, "
-                                "immediately write the complete, self-contained formal LaTeX proof of the Target Problem "
+                                "carefully verify all algebraic constants, matrix/vector dimensions, inequality directions, and boundary cases, "
+                                "and write the complete, self-contained formal LaTeX proof of the Target Problem "
                                 "enclosed strictly in \\begin{proof} ... \\end{proof}. Start directly with \\begin{proof}:"
                             ),
                         },
                     ]
                     try:
-                        sc_tokens = max(8192, getattr(self.config, "scribe_max_tokens", 8192))
+                        sc_tokens = max(16384, getattr(self.config, "scribe_max_tokens", 16384))
+                        sc_think_budget = min(
+                            6144,
+                            int(getattr(self.config, "scribe_thinking_budget", 6144) or 6144),
+                        )
                         sc_resp = self.client.complete(
                             synth_cont_msgs,
                             max_tokens=sc_tokens,
-                            enable_thinking=False,
+                            enable_thinking=self.enable_thinking,
+                            thinking_budget_tokens=sc_think_budget if self.enable_thinking else None,
                             temperature=0.2,
-                            timeout_seconds=180.0,
+                            timeout_seconds=240.0,
                         )
-                        if sc_resp and sc_resp.content:
-                            sc_proof = extract_latex_proof(sc_resp.content)
-                            if sc_proof and not is_valid_latex_proof(sc_proof):
-                                sc_proof = sanitize_informal_proof(sc_proof)
-                            if sc_proof and is_valid_latex_proof(sc_proof):
-                                extracted_proof = sc_proof
-                                model_text = model_text + "\n\n" + sc_proof
-                                result.final_response = model_text
-                                self._log_write(
-                                    f"[Mandatory Synthesis Continuation Succeeded]: {len(extracted_proof)} chars.\n"
-                                )
+                        sc_proof = extract_latex_proof(sc_resp.content) if (sc_resp and sc_resp.content) else None
+                        # Fallback to non-thinking continuation only if bounded-thinking did not emit a proof
+                        if not sc_proof and self.enable_thinking:
+                            sc_resp = self.client.complete(
+                                synth_cont_msgs,
+                                max_tokens=max(8192, sc_tokens // 2),
+                                enable_thinking=False,
+                                temperature=0.2,
+                                timeout_seconds=180.0,
+                            )
+                            sc_proof = extract_latex_proof(sc_resp.content) if (sc_resp and sc_resp.content) else None
+                        if sc_proof and not is_valid_latex_proof(sc_proof):
+                            sc_proof = sanitize_informal_proof(sc_proof)
+                        if sc_proof and is_valid_latex_proof(sc_proof):
+                            extracted_proof = sc_proof
+                            model_text = model_text + "\n\n" + sc_proof
+                            result.final_response = model_text
+                            self._log_write(
+                                f"[Mandatory Synthesis Continuation Succeeded]: {len(extracted_proof)} chars.\n"
+                            )
                     except Exception as sc_err:
                         self._log_write(f"[Mandatory Synthesis Continuation Failed]: {sc_err}\n")
 
@@ -1179,19 +1317,33 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                     else:
                         best_candidate = pool.best
 
-                # High-Confidence Early Exit (requires validity >= 0.90)
-                # Borderline drafts (e.g. validity 0.80 - 0.89) are saved in best_candidate,
+                # High-Confidence Early Exit:
+                # - On Turn 1: A two-pass confirmed zero-shot draft with no referee issues can early-terminate at >= 0.85.
+                # - On Turns 2+: Requires validity >= 0.90 to ensure multi-turn repairs are near-certain.
+                # Borderline drafts (e.g. validity 0.80 - 0.89 on later turns) are saved in best_candidate,
                 # but the loop continues across the full turn budget to resolve subtle defects.
                 no_referee_issues = not issues or issues.strip().lower() == "none"
+                is_turn_1_fast_exit = (
+                    turn == 1
+                    and verdict == "VALID"
+                    and no_referee_issues
+                    and validity >= getattr(THRESHOLDS, "turn_1_early_exit_validity", 0.85)
+                )
                 is_high_confidence_exit = (
                     verdict == "VALID"
                     and (
                         validity >= THRESHOLDS.early_exit_validity
+                        or is_turn_1_fast_exit
                         or (turn >= current_max_turns and no_referee_issues)
                     )
                 )
                 if is_high_confidence_exit:
-                    self._log_write(f"[Audit Passed] Proof verified on Turn {turn} (validity: {validity:.2f}). Early-terminating to prevent multi-turn degradation.\n")
+                    exit_reason = (
+                        f"[Audit Passed] [NATIVE ZERO-SHOT TURN-1 FAST-PATH ACCEPT] Proof verified on Turn 1 (validity: {validity:.2f}). Early-terminating to prevent multi-turn degradation.\n"
+                        if is_turn_1_fast_exit and validity < THRESHOLDS.early_exit_validity
+                        else f"[Audit Passed] Proof verified on Turn {turn} (validity: {validity:.2f}). Early-terminating to prevent multi-turn degradation.\n"
+                    )
+                    self._log_write(exit_reason)
                     if on_step:
                         on_step("proof_accepted", extracted_proof)
                     result.candidate_proof = extracted_proof
@@ -1269,9 +1421,13 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                         #    Note: low-validity structural protection (validity < pivot_threshold with structural_validity >= 0.40)
                         #    grants one surgical revision window (rejection_count <= 2); if revision still fails at rejection_count >= 3,
                         #    unlock Clean-Slate Hard Pivot so dead reductions (e.g. dimensionally invalid formulas) are not locked forever.
+                        boundary_defect = (
+                            getattr(audit_res, "is_boundary_defect", False)
+                            or bool(pool.best and getattr(pool.best, "is_boundary_defect", False))
+                        )
                         has_substantive_structure = (
-                            getattr(audit_res, "has_substantive_structure", False)
-                            and rejection_count <= 2
+                            (getattr(audit_res, "has_substantive_structure", False) and rejection_count <= 2)
+                            or boundary_defect
                         )
                         structural_val = getattr(audit_res, "structural_validity", validity)
                         best_stagnant_count = getattr(pool.best, "stagnant_revisions", 0) if pool.best else 0
@@ -1280,6 +1436,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                             and (
                                 pool.best.verdict == "VALID"
                                 or pool.best_validity >= THRESHOLDS.pivot_threshold
+                                or getattr(pool.best, "is_boundary_defect", False)
                                 or (
                                     pool.best.has_substantive_structure
                                     and pool.best.structural_validity >= 0.40
@@ -1480,7 +1637,20 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                             if evidence_parts:
                                 repl_evidence = "\n".join(evidence_parts) + "\n----------------------------------------------------\n\n"
 
-                            if stagnant_rejected_loop or rejection_count >= 3:
+                            if boundary_defect:
+                                strategic_pivot_directive = (
+                                    "\n[TARGETED BOUNDARY & DEGENERATE REGIME RESOLUTION DIRECTIVE]\n"
+                                    f"Your core mathematical reduction is sound on the primary parameter regime (validity: {validity:.2f}), "
+                                    "and the referee flagged ONLY a localized boundary, base-case, small-n, or degenerate parameter condition.\n"
+                                    "CRITICAL BOUNDARY REPAIR RULES:\n"
+                                    "- DO NOT ABANDON OR REWRITE YOUR CORE PROOF: Keep your verified main reduction and steps verbatim!\n"
+                                    "- RESOLVE THE BOUNDARY CLEANLY VIA ONE OF THREE RIGOROUS CONVENTIONS:\n"
+                                    "  1. Direct Base/Boundary Proof: Supply a concise 2-to-4 sentence direct verification of the boundary case (e.g., p=1, k=1, n=1,2, or equality case) from the explicit definitions.\n"
+                                    "  2. Asymptotic O(.) / High-Probability Absorption: If the target claim is stated in asymptotic O(.)/Omega(.) notation or as a high-probability bound in n, explicitly state that finitely many small values n < n_0 (e.g., ln n < 2) are absorbed into the implicit asymptotic constant of the O(.) bound.\n"
+                                    "  3. Canonical Non-Degeneracy / Precondition Check: Verify from the Context definitions whether the degenerate parameter value is trivially discharged or excluded by the statement's hypotheses. NEVER append multi-paragraph speculative or self-contradictory hand-waving that asserts a counterexample exists inside your own proof.\n\n"
+                                )
+                                rule2_text = "2. Core Proof Immutability: Preserve all steps of your main reduction verbatim and add only the concise, mathematically rigorous resolution of the flagged boundary/base regime."
+                            elif stagnant_rejected_loop or rejection_count >= 3:
                                 strategic_pivot_directive = (
                                     "\n[AUXILIARY BRIDGING LEMMA & SUB-CLAIM ISOLATION DIRECTIVE]\n"
                                     f"Repeated local revisions of your draft (validity: {validity:.2f}) have failed to resolve the referee's core mathematical objection.\n"
@@ -1615,7 +1785,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                         "The Publication Scribe Subagent will typeset the verified lemmas into the final publication LaTeX proof if needed."
                     )
                 messages.append({"role": "user", "content": next_prompt})
-                if len(messages) >= 8 or self.compactor.should_compact(messages):
+                if len(messages) >= 14 or self.compactor.should_compact(messages):
                     messages = self._compact_conversation_history(messages, turn + 1)
                 self._last_messages = messages
 

@@ -333,11 +333,13 @@ def process_single_task(
     task_log = run_dir / "logs" / f"{task_id}.log"
     ckpt_path = run_dir / "checkpoints" / f"{task_id}.ckpt.json"
 
-    if args.force and ckpt_path.exists():
-        try:
-            ckpt_path.unlink()
-        except Exception:
-            pass
+    if args.force:
+        for stale_file in (ckpt_path, task_log):
+            if stale_file.exists():
+                try:
+                    stale_file.unlink()
+                except Exception:
+                    pass
 
     # Step 1: Check if already judged and valid
     if judge_out.exists() and solve_out.exists() and not args.force:

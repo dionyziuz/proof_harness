@@ -21,7 +21,7 @@ from .proof_extractor import (
     sanitize_informal_proof,
 )
 from .prover_kernel import AuditorKernel
-from .prover_types import THRESHOLDS, AuditResult, has_fatal_issue
+from .prover_types import THRESHOLDS, AuditResult, has_fatal_issue, is_boundary_or_local_defect
 
 logger = logging.getLogger("prime_math.prover_auditor")
 
@@ -418,9 +418,9 @@ class ProverAuditorMixin:
             issues = ""
 
         # Enforce explicit boolean referee gates when present:
-        # Substantive proofs (rigor >= 0.40 and completeness >= 0.40) retain up to 0.50
+        # Substantive proofs (rigor >= 0.45 or (rigor >= 0.35 and completeness >= 0.35)) retain up to 0.50
         # so localized bound/regime repairs stay in the surgical revision & overtime band.
-        substantive_structure = (rigor >= 0.40 and completeness >= 0.40)
+        substantive_structure = (rigor >= 0.45) or (rigor >= 0.35 and completeness >= 0.35)
         if parsed.get("statement_fidelity_exact") is False:
             validity = min(validity, 0.50 if substantive_structure else 0.25)
             verdict_str = "REJECT"
@@ -436,6 +436,17 @@ class ProverAuditorMixin:
             verdict_str = "REJECT"
             if not issues:
                 issues = "Unverified lemma/theorem hypotheses: a contextual lemma was invoked without discharging all of its preconditions."
+
+        # Calibrate localized boundary-only rejections on high-rigor drafts:
+        # When the main reduction is rigorous (rigor >= 0.45 or completeness >= 0.45) and the referee
+        # critique is an isolated boundary/degenerate/small-n/equality case, keep validity >= 0.38 so
+        # the draft remains in the surgical revision & overtime band rather than triggering a hard pivot.
+        if (
+            verdict_str == "REJECT"
+            and (rigor >= 0.45 or completeness >= 0.45)
+            and is_boundary_or_local_defect(issues, rigor, completeness, boundary_cases)
+        ):
+            validity = max(validity, 0.38)
 
         t = THRESHOLDS
         if verdict_str == "REJECT" or has_fatal_issue(issues):
@@ -486,9 +497,17 @@ class ProverAuditorMixin:
             "8. Strict Definition Fidelity: Strictly adhere to all explicit definitions, conventions, and notation in the problem statement. Never introduce alternative 'degenerate conventions' or redefine stated variables.\n"
             "9. Statement Property Labels: When the Target Problem defines numbered, lettered, or labeled properties or conditions, explicitly reference and verify each property using its exact statement label to ensure direct correspondence with the theorem statement."
         )
+        if len(raw_draft) > 28000:
+            draft_excerpt = (
+                raw_draft[:10000]
+                + "\n\n% [... intermediate exploration condensed to preserve setup & final derivation ...]\n\n"
+                + raw_draft[-18000:]
+            )
+        else:
+            draft_excerpt = raw_draft
         user_msg = (
             f"Target Problem & Context:\n{task_prompt}\n\n"
-            f"Draft & Exploration Traces:\n{raw_draft[-24000:]}\n\n"
+            f"Draft & Exploration Traces:\n{draft_excerpt}\n\n"
             "Write the clean publication LaTeX proof now:"
         )
         try:

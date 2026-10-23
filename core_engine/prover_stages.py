@@ -41,6 +41,31 @@ SCRIBE_DRAFT_MAX_CHARS = 20000
 class ProverStagesMixin:
     """Mixin implementing specialized subagent execution routines for MathProver."""
 
+    def _active_extension_hint(self) -> str:
+        """Returns a concise summary of preloaded domain kernel helpers when one of the
+        scoped extensions (Z3/SMT, Topological/Chord, Quantum/PSD) is active; else empty string.
+        """
+        hints: List[str] = []
+        if getattr(self, "_smt_extension_active", False):
+            hints.append(
+                "[Z3 / SMT Kernel Helpers Preloaded]: Call `smt_disjoint_paths(...)`, "
+                "`smt_slice_terminal_pairing(...)`, or `smt_check_parameter_hierarchy(...)` (and native `z3`) "
+                "in Python REPL blocks to verify bipartite terminal parities, parameter hierarchies (`0 < p_1 << p_2 << ...`), and degree budgets."
+            )
+        if getattr(self, "_topo_extension_active", False):
+            hints.append(
+                "[Topological & Chord Kernel Helpers Preloaded]: Call `planar_dual_and_faces(G)` "
+                "or `check_cycle_chords_and_holes(G=None, cycle_vertices=None, chords=None)` in Python REPL blocks "
+                "(keep test instances small, N <= 20; never brute-force large itertools.combinations)."
+            )
+        if getattr(self, "_quantum_extension_active", False):
+            hints.append(
+                "[Quantum & PSD Kernel Helpers Preloaded]: Call `check_psd_inequality(matrix_diff_fn, dim=4)`, "
+                "`check_quantum_channel_claim(predicate_fn, dim=2)`, `partial_trace(rho, dims, keep)`, "
+                "or `uhlmann_fidelity(rho, sigma)` in Python REPL blocks."
+            )
+        return ("\n" + "\n".join(hints) + "\n") if hints else ""
+
     def _run_context_architect(self, task_id: str, task_prompt: str, on_step: Optional[Any] = None) -> str:
         """Context Architect Subagent:
         Operates with its own isolated CoALA memory collection 'tcs_architect'.
@@ -66,7 +91,8 @@ class ProverStagesMixin:
             )
 
         arch_system = load_tcs_prompt("context_architect")
-        arch_user = f"{heuristics_text}Target Problem & Context:\n{task_prompt}\n\nProduce the Reduction Blueprint:"
+        ext_hint = self._active_extension_hint()
+        arch_user = f"{heuristics_text}Target Problem & Context:\n{task_prompt}\n{ext_hint}\nProduce the Reduction Blueprint:"
 
         try:
             resp = self.client.complete(
@@ -194,7 +220,32 @@ class ProverStagesMixin:
             )
 
         verifier_system = load_tcs_prompt("computational_falsifier")
-        verifier_user = f"{heuristics_text}Reduction Blueprint:\n{blueprint}\n\nWrite Python code in ```python ... ``` blocks to verify or falsify these claims:"
+        smt_falsifier_hint = ""
+        if getattr(self, "_smt_extension_active", False):
+            smt_falsifier_hint += (
+                "\n[Z3 / SMT Falsification Tools Available]:\n"
+                "Preloaded in REPL: `z3`, `smt_disjoint_paths(...)`, `smt_slice_terminal_pairing(...)`, "
+                "and `smt_check_parameter_hierarchy(...)`. Use them to verify parameter hierarchy ordering "
+                "(`0 < p_1 << p_2 << ...`), degree budgets (for both even and odd k), exponent arithmetic, "
+                "and bipartite terminal parity balance.\n"
+            )
+        if getattr(self, "_topo_extension_active", False):
+            smt_falsifier_hint += (
+                "\n[Topological & Structural Graph Tools Available]:\n"
+                "Preloaded in REPL: `planar_dual_and_faces(G)` and `check_cycle_chords_and_holes(G=None, cycle_vertices=None, chords=None)`. "
+                "Use them to test planar dual cut-vertex/face claims, induced holes, and crossing vs nested cycle chords ($L_1 < L_2 < R_1 < R_2$ crosses!).\n"
+            )
+        if getattr(self, "_quantum_extension_active", False):
+            smt_falsifier_hint += (
+                "\n[Quantum & PSD Operator Tools Available]:\n"
+                "Preloaded in REPL: `check_psd_inequality(matrix_diff_fn, dim=4)`, `check_quantum_channel_claim(predicate_fn, dim=2)`, "
+                "`random_density_matrix(dim)`, `random_unitary(dim)`, `partial_trace(rho, dims, keep)`, and `uhlmann_fidelity(rho, sigma)`. "
+                "Use them to falsify invalid channel decompositions (e.g. on dephasing/amplitude-damping channels) or false PSD inequalities.\n"
+            )
+        verifier_user = (
+            f"{heuristics_text}Reduction Blueprint:\n{blueprint}\n{smt_falsifier_hint}\n"
+            "Write Python code in ```python ... ``` blocks to verify or falsify these claims:"
+        )
 
         verified_facts: List[str] = []
         falsified_alerts: List[str] = []
@@ -351,12 +402,14 @@ class ProverStagesMixin:
             heuristics_text = "\n".join(f"- {h}" for h in retrieved) + "\n\n"
 
         skeptic_system = load_tcs_prompt("adversarial_skeptic")
+        ext_hint = self._active_extension_hint()
 
         skeptic_user = (
             f"{heuristics_text}"
             f"Target Problem & Context Definitions:\n{task_prompt}\n\n"
             f"Active Mathematical State & Invariants:\n{state_summary[:4000]}\n\n"
-            f"Proposed Mathematical Claim to Attack:\n{claim}\n\n"
+            f"Proposed Mathematical Claim to Attack:\n{claim}\n"
+            f"{ext_hint}\n"
             "Aggressively attack this claim with Python in ```python ... ``` now:"
         )
 

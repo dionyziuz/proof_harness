@@ -98,6 +98,54 @@ def _install_socket_guard() -> None:
 
 _install_socket_guard()
 
+MAX_COMBINATORIAL_STEPS = 200_000
+
+
+def _in_repl_exec() -> bool:
+    """True iff the current thread is executing model code inside PersistentMathKernel.execute."""
+    return bool(getattr(_sandbox_state, "in_repl_exec", False))
+
+
+def _install_itertools_guard() -> None:
+    """Wrap itertools.combinations, permutations, combinations_with_replacement, and product
+    so runaway combinatorial loops or list(combinations(range(3000), 3)) calls inside REPL
+    exec fail fast in <20ms instead of spinning CPU or exhausting unified memory.
+    """
+    if getattr(itertools, "_prime_math_guard_installed", False):
+        return
+
+    for _fn_name in ("combinations", "permutations", "combinations_with_replacement", "product"):
+        _orig_fn = getattr(itertools, _fn_name, None)
+        if _orig_fn is None:
+            continue
+
+        def _make_guarded(orig_f: Any, name: str):
+            @functools.wraps(orig_f)
+            def _guarded(*args, **kwargs):
+                it = orig_f(*args, **kwargs)
+                if not _in_repl_exec():
+                    return it
+
+                def _bounded_gen():
+                    for idx, item in enumerate(it, 1):
+                        if idx > MAX_COMBINATORIAL_STEPS:
+                            raise RuntimeError(
+                                f"[TCS-BENCH REPL CEILING] itertools.{name} exceeded {MAX_COMBINATORIAL_STEPS:,} iterations. "
+                                "Restrict test instance size (e.g. N <= 20, k <= 4) or use Z3 / preloaded kernel helpers instead of brute-force enumeration."
+                            )
+                        yield item
+
+                return _bounded_gen()
+
+            return _guarded
+
+        setattr(itertools, _fn_name, _make_guarded(_orig_fn, _fn_name))
+
+    itertools._prime_math_guard_installed = True
+
+
+_install_itertools_guard()
+
 
 # ==============================================================================
 # Trace-tampering pre-check (the timeout watchdog depends on sys.settrace)
@@ -406,6 +454,7 @@ import collections
 import functools
 import operator
 import heapq
+import random
 from fractions import Fraction
 from decimal import Decimal
 from math import isqrt, comb, perm, factorial, prod
@@ -425,7 +474,8 @@ from sympy import (
     npartitions, partition,
     continued_fraction, continued_fraction_periodic, continued_fraction_convergents,
     continued_fraction_iterator, continued_fraction_reduce,
-    Matrix, Point, Line, Circle, Polygon
+    Matrix, Point, Line, Circle, Polygon,
+    Rational, Integer, Float, oo, I, pi, E, exp, log, sin, cos, sqrt,
 )
 
 # Common symbolic variables
@@ -444,7 +494,13 @@ except Exception:
 # SMT & Constraint Solving
 try:
     import z3
-    from z3 import Int, Ints, Real, Reals, Bool, Bools, Solver, sat, unsat, And, Or, Not, Implies
+    from z3 import (
+        Int, Ints, Real, Reals, Bool, Bools,
+        Solver, Optimize, sat, unsat, unknown,
+        And, Or, Not, Implies, If, Distinct, Sum,
+    )
+    if not hasattr(z3.Solver, "constraints"):
+        z3.Solver.constraints = property(lambda self: self.assertions())
 except ImportError:
     pass
 
@@ -466,12 +522,20 @@ if not hasattr(np, "erf"):
     np.erf = sp_special.erf
 if not hasattr(np, "beta"):
     np.beta = sp_special.beta
+if not hasattr(np, "trapz") and hasattr(np, "trapezoid"):
+    np.trapz = np.trapezoid
 
 # Graph Theory and Combinatorics
 try:
     import networkx as nx
     if not hasattr(nx, "Tree"):
         nx.Tree = nx.Graph
+    if not hasattr(nx, "random_tree") and hasattr(nx, "random_labeled_tree"):
+        nx.random_tree = nx.random_labeled_tree
+    if not hasattr(nx, "vertex_connectivity") and hasattr(nx, "node_connectivity"):
+        nx.vertex_connectivity = nx.node_connectivity
+    if not hasattr(nx.Graph, "is_connected"):
+        nx.Graph.is_connected = lambda self: nx.is_connected(self)
 except ImportError:
     pass
 
@@ -723,6 +787,7 @@ def is_square(n: int) -> bool:
 
             old_trace = sys.gettrace()
             prev_net_flag = _in_sandboxed_exec()
+            prev_repl_flag = _in_repl_exec()
             self._set_z3_timeout(timeout)
 
             out_proxy, err_proxy = ensure_stream_proxies()
@@ -732,6 +797,7 @@ def is_square(n: int) -> bool:
                 try:
                     timer.start()
                     _sandbox_state.in_sandboxed_exec = block_network
+                    _sandbox_state.in_repl_exec = True
                     sys.settrace(trace_dispatch)
 
                     # If the final AST node is an expression (e.g. `solve(eq, x)`),
@@ -758,6 +824,7 @@ def is_square(n: int) -> bool:
                     # timeout firing during error formatting cannot escape execute().
                     sys.settrace(old_trace)
                     _sandbox_state.in_sandboxed_exec = prev_net_flag
+                    _sandbox_state.in_repl_exec = prev_repl_flag
                     timer.cancel()
             except TimeoutException as exc:
                 success = False
