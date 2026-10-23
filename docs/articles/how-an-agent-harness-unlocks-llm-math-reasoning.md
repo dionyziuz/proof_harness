@@ -67,19 +67,22 @@ By treating every mathematical statement as guilty until proven innocent, the ag
 
 ---
 
-## 2. Pillar II: Learning by Solving (Vector Memory Without Fine-Tuning)
+## 2. Pillar II: Continuous Domain Learning (A System that Gets Better Over Time)
 
-Standard LLMs suffer from **episodic amnesia**. An agent might spend 15 minutes and 10 iterations figuring out a clever reduction or uncovering a tricky boundary condition, only to forget everything the second the session ends. On the very next problem, it starts from scratch and repeats the exact same mistakes.
+The primary vision behind Proof Harness is to create a **continuous learning system that gets progressively smarter over time for practitioners using it—especially when focused on a specific domain** (such as spectral graph theory, quantum computing, algorithmic game theory, or cryptographic verification).
+
+Standard LLMs suffer from **episodic amnesia**. An agent might spend 15 minutes and 10 iterations figuring out a clever reduction or uncovering a tricky boundary condition, only to forget everything the second the session ends. On the very next problem in that same field, it starts from scratch and repeats the exact same mistakes.
 
 Fine-tuning model weights after every problem isn't practical—it is slow, computationally expensive, and frequently causes catastrophic forgetting.
 
-Proof Harness solves this by implementing **continuous domain learning through vector embeddings**:
+Proof Harness solves this by implementing **continuous domain learning through curated vector memory**:
 
 1. **Strategy Extraction**: When a problem is solved (or when a failure is analyzed), a low-temperature reflection pass distills verified mathematical strategies into concise heuristics (e.g., *"When bounding high-dimensional sumsets, dyadic decomposition prevents recursive dimension blowup"*).
 2. **Generalization & Sanitization**: Candidate heuristics are sanitized to remove instance-specific numbers or equations, ensuring only reusable, generalizable mathematical strategies are committed to memory.
 3. **Role-Partitioned Retrieval**: Learned heuristics are stored in dedicated vector collections for each cognitive role (e.g., the Context Architect retrieves structural blueprints, while the Adversarial Skeptic retrieves known counterexample templates).
 
-The result is a system that **compounds expertise over time**. The base model's weights remain completely untouched, but the agent's effective mathematical knowledge grows with every problem it solves.
+**The Result: Compounding Domain Expertise Without Fine-Tuning**  
+As a research team or practitioner uses the harness on a specific domain of problems, the system steadily builds up a curated repository of proven reduction patterns, boundary warnings, and verification templates. The base model's weights remain completely untouched, but the harness compounds domain expertise over time—becoming progressively faster, sharper, and more capable with every theorem it proves.
 
 ---
 
