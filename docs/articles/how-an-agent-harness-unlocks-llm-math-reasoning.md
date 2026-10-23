@@ -115,7 +115,7 @@ class PersistentMathKernel:
 ### Seven Structural Advantages of Deterministic Kernel Grounding
 
 #### 1. Instantaneous Counterexample Falsification (`Z3`, `SymPy`, `NetworkX`)
-To prove a universal theorem $\forall x \in D, \Phi(x) \implies \Psi(x)$, finding **one** concrete counterexample $x_0 \in D$ where $\Phi(x_0) \land \neg \Psi(x_0)$ holds is 100% definitive. When the LLM proposes an intermediate inequality or graph reduction, the kernel tests it in milliseconds—killing false conjectures on Turn 1 or Turn 2 before the model wastes 6 turns writing a 15,000-character proof around a lie.
+To prove a universal theorem, finding even **one** concrete counterexample where the premise holds but the conclusion fails is 100% definitive. When the LLM proposes an intermediate inequality or graph reduction, the kernel tests it in milliseconds—killing false conjectures on Turn 1 or Turn 2 before the model wastes 6 turns writing a 15,000-character proof around a lie.
 
 #### 2. Built-In Domain Diagnostic Primitives (`core_engine/math_tools.py`)
 Rather than hoping the LLM writes bug-free test scripts from scratch every time, `PersistentMathKernel` preloads domain-agnostic verification primitives directly into the global namespace:
