@@ -196,7 +196,7 @@ flowchart TD
 ## 📁 Repository Structure
 
 ```text
-prime-math/
+proof_harness/
 ├── core_engine/                     # Core neuro-symbolic reasoning & proving package
 │   ├── prover.py                    # Central MathProver orchestrator & multi-turn search loop
 │   ├── prover_stages.py             # 7-role cognitive stage prompts & subagent runners
@@ -240,8 +240,8 @@ prime-math/
 
 ### 1. Install Dependencies
 ```bash
-git clone https://github.com/dionyziuz/prime-math.git
-cd prime-math
+git clone https://github.com/dionyziuz/proof_harness.git
+cd proof_harness
 uv sync
 uv pip install -e .
 ```
