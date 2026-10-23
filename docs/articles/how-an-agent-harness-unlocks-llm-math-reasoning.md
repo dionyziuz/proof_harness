@@ -107,24 +107,24 @@ In our 300-problem benchmark, **100% of all passing proofs were discovered throu
 
 ---
 
-## Inside the Benchmark: Why the Harness Won Where One-Shot Failed
+## Inside the Benchmark: Why the Harness Won Where Initial Drafts Failed
 
-To see the difference in practice, consider three real problems from TCS-Bench where unassisted generation failed, but the harness found a sound proof:
+To see the difference in practice, consider three real problems from our TCS-Bench V4 evaluation logs where initial drafts failed, but the governed harness converged to a rigorous proof:
 
-### 1. The Blueprint Trap: Theta-Series Tail Bound
-- **The Problem**: Proving a universal tail bound on a theta-function series across all positive parameter values $\beta > 0$.
-- **Why One-Shot Failed**: In an unguided pass, the model used a standard loose intermediate bound. For small values ($\beta \le 1$), the intermediate bound failed. Instead of replacing the loose bound, the unguided model arbitrarily restricted the theorem statement (*"assuming $\beta \le 1$"*), immediately failing the referee's validity check for illegal domain narrowing.
-- **How the Harness Solved It**: When the Logician tested the planner's blueprint in the kernel, the code immediately flagged that the intermediate bound broke. The harness quarantined the blueprint, enforced full domain coverage, and compelled the model to find a tighter bound valid for all $\beta > 0$, scoring **0.68 (Certified Pass)**.
+### 1. The Blueprint Trap: Theta-Series Lattice Tail Bound (`task_2108.01161_statement_14_242`)
+- **The Problem**: Proving a Fourier-series conversion and Gaussian tail bound across a lattice $\mathcal{L} = \alpha + \beta\mathbb{Z}$ for all lattice spacings $\beta > 0$.
+- **Why the Initial Draft Failed**: In its early Turn-3 draft, the model relied on a loose intermediate estimate that only held when $a = \pi/\beta \ge 1$ ($\beta \le \pi$), restricting the theorem domain rather than replacing the loose bound ($v = 0.05$).
+- **How the Harness Solved It**: The internal auditor rejected the restricted draft and triggered a **Clean-Slate Hard Pivot** with a mandatory 1-turn REPL exploration gate on Turn 4. Forced back into the kernel, the model re-evaluated the tail integral across the full parameter regime and synthesized a verified derivation via the Publication Scribe, scoring **0.68 (Certified Pass)**.
 
-### 2. The False Independence Trap: Graph Sparsification
-- **The Problem**: Proving cut-preservation under edge sampling in graph sparsification.
-- **Why One-Shot Failed**: The unassisted model casually applied Chernoff bounds by asserting that edge-inclusion events were mutually independent, completely ignoring that edges sharing vertices have subtle covariance under conditioned cuts ($v = 0.20$).
-- **How the Harness Solved It**: The Adversarial Skeptic ran the kernel's Monte Carlo covariance auditor on small seeded graphs, which triggered an immediate `DEPENDENCE DETECTED` alert. The model pivoted to a union bound over spanning forests that did not rely on false independence, scoring **0.96 (Journal-Grade Pass)**.
+### 2. The Concentration Regime Trap: Capped Balls-into-Bins (`task_2104.05093_statement_18_258`)
+- **The Problem**: Proving high-probability concentration bounds for the stopping time $T$ in a capped balls-into-bins process across both large-capacity ($C > \frac{3(1+\varepsilon)(1+\gamma)\log n}{\varepsilon^2}$) and complementary regimes.
+- **Why the Initial Draft Failed**: The initial Turn-4 proof draft failed ($v = 0.10$) due to flawed Chernoff/union-bound arithmetic and an unverified variance proxy in the complementary parameter regime.
+- **How the Harness Solved It**: Across 5,000 seeded Monte Carlo trials and symbolic threshold checks in the Python kernel, the solver verified the exact event equivalence $\{T = n\} \iff \{\max_j X_j^{(n)} \le C\}$ and confirmed that the target width $\frac{\sqrt{m}\log n}{\varepsilon^2}$ strictly dominates the geometric-sum standard deviation in the complementary regime, converging on Turn 8 to **0.96 (Publication-Grade Pass)**.
 
-### 3. The Exponential Blowup: High-Dimensional Sumsets
+### 3. The Exponential Blowup: High-Dimensional Sumsets (`task_2410.21942_statement_30_71`)
 - **The Problem**: Computing prefix-restricted sumsets $C = (A + B) \cap [0 \dots t]^d$ in output-sensitive time $\mathcal{O}\left((n + m + (nm)^{\frac{d}{d+1}} c^{\frac{1}{d+1}}) \log(nm)^{\mathcal{O}(d)}\right)$.
-- **Why One-Shot Failed**: The single-shot model attempted coordinate-wise divide-and-conquer, failing because unscaled recursive subproblem costs grow exponentially in dimension $d$.
-- **How the Harness Solved It**: Over 8 turns, the model used `SymPy` in the kernel to test coordinate partitions. It discovered that bounding the non-vacuous subproblems required a simultaneous dyadic box decomposition into $2^d$ sub-boxes, and verified that **Hölder's inequality** with conjugate exponents $p = \frac{d}{d+1}$ and $q = \frac{1}{d+1}$ collapsed the recursive sum cleanly into the target bound, earning **0.94 (Publication-Grade Pass)**.
+- **Why the Initial Draft Failed**: Naive coordinate-wise recursion fails because unscaled subproblem costs blow up in dimension $d$, and the initial Turn-3 draft was rejected ($v = 0.10$) for incomplete accounting of non-vacuous subproblems.
+- **How the Harness Solved It**: Using `SymPy` in the kernel, the model verified that bounding the non-vacuous subproblems requires a simultaneous dyadic box decomposition into $2^d$ sub-boxes, and proved that **Hölder's inequality** with conjugate exponents $p = \frac{d}{d+1}$ and $q = \frac{1}{d+1}$ collapses the recursive sum cleanly into the target bound—converging in 5 turns to **0.88 (Publication-Grade Pass in V4; 0.94 in V3)**.
 
 ---
 

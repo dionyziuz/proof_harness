@@ -174,8 +174,8 @@ To address **Problem Wall II (Frozen Weights & Episodic Amnesia)**, the framewor
 flowchart LR
     subgraph SolveLoop["1. Online Solving & Retrieval"]
         TaskIn["Incoming Theorem\n(Context & Statement)"] --> EmbedQ["Embed Theorem Query\n(Excluding problem/task IDs)"]
-        EmbedQ --> TV["Vector Memory Engine\n(Dense Embeddings)"]
-        TV -->|"Cosine >= 0.65"| Inject["Role-Specific Prompt Injection\n(Top-3 Procedural Heuristics)"]
+        EmbedQ --> TV["In-Process Vector Memory\n(Dense Embeddings)"]
+        TV -->|"Cosine >= 0.68"| Inject["Role-Specific Prompt Injection\n(Top-k Procedural Heuristics)"]
     end
 
     subgraph LearningLoop["2. Post-Solve Consolidation & 3-Tier Remediation"]
@@ -195,7 +195,7 @@ For each specialized subagent role, the memory subsystem maintains two active me
 
 *(Note on diagnostic logging: At the conclusion of a run, raw execution trajectories and post-mortems may be written to `<agent_id>_episodic` as an offline diagnostic log, but active prompt injections during solving draw strictly from verified procedural heuristics).*
 
-Crucially, because each cognitive role requires fundamentally different operational heuristics, vector memory is partitioned into **five role-isolated procedural collections**:
+Crucially, because each cognitive role requires fundamentally different operational heuristics, vector memory is partitioned into **five role-isolated procedural collections** persisted directly in-process via `turbovec.IdMapIndex` and `FastEmbed` (`BAAI/bge-small-en-v1.5`) with zero external daemon dependencies:
 
 | Agent Namespace (`agent_id`) | Active Procedural Collection (`_procedural`) | Domain Specialization Role |
 | :--- | :--- | :--- |
@@ -205,7 +205,7 @@ Crucially, because each cognitive role requires fundamentally different operatio
 | **`tcs_skeptic`** | `tcs_skeptic_procedural` | Adversarial Skeptic: counterexample construction and degenerate parameter attacks. |
 | **`tcs_scribe`** | `tcs_scribe_procedural` | Publication Scribe: critical-path pruning, quantifier discharge, and journal-grade LaTeX synthesis. |
 
-To guarantee evaluation reproducibility, memory operations follow a **Fail-Closed Contract**: if the local vector memory service is unreachable, an error is raised immediately rather than silently proceeding unindexed.
+To guarantee evaluation reproducibility, memory operations follow a **Fail-Closed Contract**: if the local vector index or embedding engine is unavailable, an exception (`TurboVecUnavailableError`) is raised immediately rather than silently proceeding unindexed.
 
 ### 4.2 Closed-Loop "Learning by Solving"
 At the conclusion of every problem trajectory (when memory updates are enabled), the framework performs a low-temperature reflection pass over the outcome:
@@ -275,11 +275,12 @@ flowchart TD
 3. **Stage 3 — Deductive Logician & Turn-1 Exploration Gate:** Queries core procedural memory for relevant mathematical heuristics. Governed by the **Turn-1 Exploration Gate**, any `\begin{proof}` block on Turn 1 is strictly prohibited; the solver must first explore invariants in the kernel and emit structured `[CLAIM]` and `[REDUCTION]` blocks.
 4. **Stage 4 — Isolated Adversarial Skeptic:** When a `[CLAIM]` invariant is emitted, the prover checkpoints kernel state and invokes the Skeptic in an isolated context window to probe the claim for counterexamples. If an invariant violation occurs, the state rolls back to the pre-claim checkpoint; if verified error-free, the claim is committed to the verified lemma ledger.
 5. **Stage 5 — Publication Scribe & Critical-Path Pruning:** Operating in an isolated context with dedicated scribe procedural memory, the Scribe synthesizes the formal LaTeX proof from the verified lemma ledger, enforcing complete deduction, backward critical-path pruning (omitting dead exploratory side-tracks), and full parameter domain coverage.
-6. **Stage 6 — Multi-Stage Internal Proof Auditor:** Evaluates every candidate proof draft across four layers:
-   - *Layer 1 (Ephemeral AuditorKernel Falsification):* Runs an independent Python verification script in an isolated kernel.
+6. **Stage 6 — Multi-Stage Internal Proof Auditor:** Evaluates every candidate proof draft across five verification layers:
+   - *Layer 1 (Ephemeral AuditorKernel Falsification):* Runs an independent Python verification script in an isolated kernel (`timeout = 15s`).
    - *Layer 1.5 (Domain-Restriction Pre-Check):* Scans for unauthorized mid-proof domain narrowing lacking a complementary case split.
-   - *Layer 2 (6-Gate Structured Academic Referee):* Enforces hard soundness score caps: capping the validity score at 0.25 if the proof misquotes the target statement, at 0.30 if inequality directions are unverified or inverted, and at 0.35 if essential theorem hypotheses are omitted or unverified.
-   - *Layer 2.5 (Borderline Second-Opinion Confirmation):* Triggers a second adversarial referee pass on borderline valid drafts in $[0.75, 0.88)$, setting the internal validity to the minimum of the two evaluations.
+   - *Layer 1.75 (Stateful Prior-Defect Verification):* Checks whether defects flagged by the referee on earlier drafts were genuinely repaired or bypassed, capping validity at $\le 0.40$ if an earlier defect remains unaddressed.
+   - *Layer 2 (Structured Academic Referee):* Enforces boolean soundness gates: capping validity at $0.25$ if the proof misquotes the target statement or contains unverified/inverted inequality directions, and at $0.35$ if essential theorem hypotheses are omitted (retaining up to $0.50$ when the draft exhibits substantive structural rigor $\ge 0.45$ so localized repairs remain in the surgical revision band).
+   - *Layer 2.5 (Adversarial Second-Opinion Confirmation):* Triggers a second adversarial referee pass whenever a draft is marked `VALID` with validity $\ge 0.70$ (or when prior defects existed), setting the internal validity to the minimum of the two evaluations.
 7. **Stage 7 — Dynamic Critique Falsifier:** Translates the auditor's rejection critique into a Python stress-test in the kernel to empirically confirm or refute the referee's objection before the next revision turn.
 
 ### 5.2 Governed Proof Search Lifecycle (Algorithm 1)
@@ -320,10 +321,10 @@ Output: Best Verified LaTeX Proof Candidate, Updated Vector Memory
 23:         (verdict, issues, validity) <- InternalProofAuditor(statement, proof_draft, AuditorKernel)
 24:         CandidatePool.offer(proof_draft, validity, verdict, issues, turn)
 25:         if verdict == VALID and validity >= 0.90 then break  // Certified Early Exit
-26:         if turn == 8 and CandidatePool.best_validity >= 0.30 then extend turns to 12
-27:         if validity <= 0.05 or (stagnant_turns >= 2 and validity < 0.25) then
-28:             // Clean-Slate Hard Pivot
-29:             CandidatePool.prune_abandoned(threshold=0.25)
+26:         if turn == 8 and CandidatePool.best_validity >= 0.35 then extend turns to 12
+27:         if validity <= 0.05 or (stagnant_turns >= 2 and validity < 0.30) then
+28:             // Clean-Slate Hard Pivot (unless protected by substantive structure or overtime)
+29:             CandidatePool.prune_abandoned(threshold=0.30)
 30:             kernel.reset();  dead_routes.append(issues);  stagnant_turns <- 0
 31:             messages <- StatelessBlackboard(System, Task, dead_routes, PivotDirective)
 32:         else
@@ -355,8 +356,8 @@ Following any non-terminal audit on Turn $t$, the prover discards intermediate c
 4. The surgical repair directive.
 
 The governance loop arbitrates between two revision regimes:
-1. **Surgical Repair with Modular Lemma Immutability:** When current validity is at least $0.25$ (or improving), the draft is preserved and repaired in-place under the directive to keep sound derivations intact and focus repair strictly on the flagged step.
-2. **Clean-Slate Hard Pivot:** When validity drops to $0.05$ or below, or after two or more stagnant rejections below $0.25$, the low-validity draft and execution state are purged, compelling the solver to attempt a fresh architectural approach on the next turn.
+1. **Surgical Repair with Modular Lemma Immutability:** When current validity is at least $0.30$ (or improving, or protected by substantive structural sub-scores), the draft is preserved and repaired in-place under the directive to keep sound derivations intact and focus repair strictly on the flagged step.
+2. **Clean-Slate Hard Pivot:** When validity drops to $0.05$ or below, or after two or more stagnant rejections below $0.30$ without substantive structure, the low-validity draft and execution state are purged, compelling the solver to attempt a fresh architectural approach on the next turn (preceded by a 1-turn mandatory REPL exploration gate).
 
 ### 5.5 Hybrid Deterministic + Neural Context Compaction
 During consecutive exploratory REPL turns, the context compactor maintains a 32,768-token context envelope (8,192-token generation reserve):
@@ -370,7 +371,7 @@ Fixed-horizon agent loops face an inherent tension: allocating a high turn budge
 To resolve this, the framework introduces the **High-Potential Overtime Extension Gate** (`enable_overtime = True`, `overtime_threshold = 0.35`):
 - **Dynamic Horizon Trigger:** When the solver completes the nominal search budget (Turn 8), the candidate pool assesses the best validity achieved so far:
   $$\max_{t \le 8} v(\pi_t) \ge \tau_{\text{overtime}} = 0.35$$
-  If the best candidate has achieved directional mathematical validity ($\ge 0.35$), the system dynamically unlocks an **adaptive overtime extension of 4 additional iterations** (expanding the search horizon from Turn 8 to Turn 12) alongside $+1,800\text{s}$ wall-clock budget.
+  If the best candidate has achieved directional mathematical validity ($\ge 0.35$), the system dynamically unlocks an **adaptive overtime extension of 4 additional iterations** (expanding the search horizon from Turn 8 to Turn 12) alongside $+1,800\text{s}$ wall-clock budget. Across the 300-problem V4 benchmark, exactly 84 high-potential tasks triggered this overtime extension.
 - **Destructive Pivot Lockout:** During overtime iterations (Turns 9–12), clean-slate hard pivots are strictly locked out. Because the proof has already demonstrated viable structural foundations, the system prevents the model from abandoning its work in frustration, enforcing focused surgical repair on the stateless blackboard.
 - **Automatic Best-Candidate Restoration:** If an exploratory rewrite in Turn 9 or 10 scores lower than the pre-overtime best candidate, `CandidatePool` automatically restores the high-scoring draft to the blackboard, preventing degenerative drift.
 - **Empirical Impact:** As demonstrated in Table 4, this adaptive horizon expansion is responsible for **13 certified sound passes ($20.63\%$ of all passing proofs)**, lifting the benchmark pass rate from $16.67\%$ ($50/300$) to $21.00\%$ ($63/300$), with Turn 12 alone converting 10 near-miss candidates into certified passes.
@@ -381,7 +382,7 @@ To resolve this, the framework introduces the **High-Potential Overtime Extensio
 
 ### 6.1 Experimental Setup
 - **Benchmark Dataset:** **TCS-Bench**, comprising $N = 300$ research-level theorem-proving tasks extracted from recent arXiv Theoretical Computer Science preprints (2019–2024) across graph algorithms, parameterized complexity, quantum computing, coding theory, sublinear algorithms, and stochastic processes. Ground-truth proofs and post-statement text are strictly stripped.
-- **Backbone Model & Hardware:** `unsloth/Qwen3.8-27B-NVFP4` (4-bit NVFP4 weight quantization) served locally via vLLM on a single **NVIDIA GeForce RTX 5090 (32GB VRAM)**, paired with an AMD Ryzen AI Max+ 395 host running the airgapped kernel and local vector memory service.
+- **Backbone Model & Hardware:** `unsloth/Qwen3.8-27B-NVFP4` (4-bit NVFP4 weight quantization) served locally via vLLM on a single **NVIDIA GeForce RTX 5090 (32GB VRAM)**, paired with an AMD Ryzen AI Max+ 395 host running the airgapped kernel and in-process `turbovec` vector memory engine.
 - **Evaluation Protocol:** Every candidate proof is graded by the external **Calibrated TCS Judge** using adaptive multi-replicate median aggregation ($R=3$ replicates inside the $[0.30, 0.70]$ borderline band; single decisive replicate for decisive calls $>0.70$ or $<0.30$) with explicit parse-error exclusion.
 
 ### 6.2 Main Quantitative Results
@@ -390,36 +391,38 @@ Table 1 reports the primary progression across evaluation paradigms on the 300-p
 - **Grade B & Above ($\ge 0.50$):** Certified sound passes meeting formal research-level correctness standards without substantive deductive flaws.
 - **Grade A & Above ($\ge 0.70$):** Publication-grade proofs characterized by exhaustive boundary discharge and rigorous deductive execution.
 
-In unassisted initial drafting (generating a proof draft without multi-turn symbolic execution, adversarial counterexample checks, or referee revision loops), the 27B base model rarely succeeds: only 12 problems (4.00%) reach $\ge 0.40$, 10 problems (3.33%) reach $\ge 0.50$, and 7 problems (2.33%) reach $\ge 0.70$, with an overall mean validity of $0.142 \pm 0.185$ (median $0.080$).
+In initial drafting without multi-turn symbolic revision loops, the 27B base model rarely succeeds: across all 300 tasks in the V4 execution logs, the first proof draft evaluated by the internal referee achieves a mean validity of only $0.253 \pm 0.227$ (median $0.200$), with only 5 problems ($1.67\%$) exiting with a certified pass on the first proof synthesis turn (Turn 2) and 10 problems ($3.33\%$) passing within the early 3-turn horizon (matching the $10/300 = 3.33\%$ single-turn exit baseline in V3 prior to the Turn-1 Exploration Gate).
 
-**Table 1: TCS-Bench ($N=300$) Performance: Unassisted Initial Draft vs. Proposed Neuro-Symbolic Framework.**
+**Table 1: TCS-Bench ($N=300$) Performance: Initial Draft Baseline vs. Proposed Neuro-Symbolic Framework.**
 
-| Evaluation Paradigm | Grade C & Above ($\ge 0.40$)<br>Sound & Directional | Grade B & Above ($\ge 0.50$)<br>Certified Sound Pass | Grade A & Above ($\ge 0.70$)<br>Publication-Grade | Pass Multiplier vs. Initial Draft<br>(Grade C & Up / B & Up / A & Up) |
+| Evaluation Paradigm | Grade C & Above ($\ge 0.40$)<br>Sound & Directional | Grade B & Above ($\ge 0.50$)<br>Certified Sound Pass | Grade A & Above ($\ge 0.70$)<br>Publication-Grade | Pass Multiplier vs. Initial Baseline<br>(Grade C & Up / B & Up / A & Up) |
 | :--- | :---: | :---: | :---: | :---: |
-| **1. Unassisted Initial Draft (27B)** | $12 / 300$ (**$4.00\%$**) | $10 / 300$ (**$3.33\%$**) | $7 / 300$ (**$2.33\%$**) | $1.00\times$ / $1.00\times$ / $1.00\times$ |
-| **2. Proposed Neuro-Symbolic Framework** | **$71 / 300$** (**$23.67\%$**) | **$63 / 300$** (**$21.00\%$**) | **$54 / 300$** (**$18.00\%$**) | **$5.92\times$** / **$6.30\times$** / **$7.71\times$** |
+| **1. Initial Draft Baseline (27B)** | $12 / 300$ (**$4.00\%$**) | $10 / 300$ (**$3.33\%$**) | $7 / 300$ (**$2.33\%$**) | $1.00\times$ / $1.00\times$ / $1.00\times$ |
+| **2. First Synthesis Turn ($T = 2$, V4)** | $5 / 300$ (**$1.67\%$**) | $5 / 300$ (**$1.67\%$**) | $5 / 300$ (**$1.67\%$**) | — |
+| **3. Nominal 8-Turn Horizon ($T \le 8$, V4)** | $50 / 300$ (**$16.67\%$**) | $50 / 300$ (**$16.67\%$**) | $46 / 300$ (**$15.33\%$**) | $4.17\times$ / $5.00\times$ / $6.57\times$ |
+| **4. Proposed Neuro-Symbolic Framework ($T \le 12$, V4)** | **$71 / 300$** (**$23.67\%$**) | **$63 / 300$** (**$21.00\%$**) | **$54 / 300$** (**$18.00\%$**) | **$5.92\times$** / **$6.30\times$** / **$7.71\times$** |
 
 Across all evaluated thresholds, the proposed architecture significantly amplifies passing performance:
-- Counting **all passing grades (Grade C and above, $\ge 0.40$)**, the framework achieves **$23.67\%$ ($71/300$)** vs. **$4.00\%$ ($12/300$)** for the initial unassisted draft — a **$5.92\times$ multiplier**.
-- Counting **certified sound passes (Grade B and above, $\ge 0.50$)**, the framework achieves **$21.00\%$ ($63/300$)** vs. **$3.33\%$ ($10/300$)** for the initial unassisted draft — a **$6.30\times$ multiplier**.
-- Counting **publication-grade proofs (Grade A and above, $\ge 0.70$)**, the framework achieves **$18.00\%$ ($54/300$)** vs. **$2.33\%$ ($7/300$)** for the initial unassisted draft — a **$7.71\times$ multiplier**.
+- Counting **all passing grades (Grade C and above, $\ge 0.40$)**, the framework achieves **$23.67\%$ ($71/300$)** vs. **$4.00\%$ ($12/300$)** for the initial baseline — a **$5.92\times$ multiplier**.
+- Counting **certified sound passes (Grade B and above, $\ge 0.50$)**, the framework achieves **$21.00\%$ ($63/300$)** vs. **$3.33\%$ ($10/300$)** for the initial baseline — a **$6.30\times$ multiplier** (and a **$12.60\times$ multiplier** over the $5/300$ first synthesis turn).
+- Counting **publication-grade proofs (Grade A and above, $\ge 0.70$)**, the framework achieves **$18.00\%$ ($54/300$)** vs. **$2.33\%$ ($7/300$)** for the initial baseline — a **$7.71\times$ multiplier**.
 
 ### 6.3 Multi-Dimensional Referee Sub-Score Distributions
-Table 2 details the fine-grained referee sub-scores across all $N=300$ evaluated problems and within the subset of certified passing proofs ($N=63$, $v(\pi) \ge 0.50$) compared against the unassisted baseline.
+Table 2 details the fine-grained external referee sub-scores across all $N=300$ evaluated problems in V4, contrasting the subset of unsolved/refuted attempts ($N=237$, $v(\pi) < 0.50$) against the certified passing proofs ($N=63$, $v(\pi) \ge 0.50$).
 
-**Table 2: Multi-Dimensional Referee Sub-Score Statistics on TCS-Bench ($N=300$).**
+**Table 2: Multi-Dimensional External Referee Sub-Score Statistics on TCS-Bench ($N=300$, V4 Evaluation).**
 
-| Referee Dimension | Single-Shot Baseline<br>Mean $\pm$ SD (Median) | All Problems ($N=300$)<br>Mean $\pm$ SD (Median) | Certified Passes ($N=63$)<br>Mean $\pm$ SD (Median) | Baseline to Passing Gain ($\Delta$) |
+| Referee Dimension | Refuted / Unsolved ($N=237$)<br>Mean $\pm$ SD (Median) | All Problems ($N=300$)<br>Mean $\pm$ SD (Median) | Certified Passes ($N=63$)<br>Mean $\pm$ SD (Median) | Refuted to Passing Gain ($\Delta$) |
 | :--- | :---: | :---: | :---: | :---: |
-| **Overall Validity $v(\pi)$** | $0.142 \pm 0.185$ ($0.080$) | $0.289 \pm 0.312$ ($0.180$) | **$0.853 \pm 0.129$** (**$0.880$**) | **$+0.711$** (Mean) / **$+0.800$** (Med) |
-| **Logical Rigor** | $0.185 \pm 0.201$ ($0.120$) | $0.363 \pm 0.279$ ($0.250$) | **$0.857 \pm 0.121$** (**$0.900$**) | **$+0.672$** (Mean) / **$+0.780$** (Med) |
-| **Structural Completeness** | $0.220 \pm 0.215$ ($0.150$) | $0.446 \pm 0.273$ ($0.350$) | **$0.907 \pm 0.089$** (**$0.940$**) | **$+0.687$** (Mean) / **$+0.790$** (Med) |
-| **Boundary & Edge Cases** | $0.210 \pm 0.218$ ($0.150$) | $0.434 \pm 0.282$ ($0.350$) | **$0.878 \pm 0.127$** (**$0.900$**) | **$+0.668$** (Mean) / **$+0.750$** (Med) |
-| **Referee Confidence** | $0.905 \pm 0.065$ ($0.920$) | $0.913 \pm 0.053$ ($0.925$) | **$0.894 \pm 0.068$** (**$0.900$**) | $-0.011$ (High referee scrutiny) |
-| **Proof Length (chars)** | $3,842$ ($3,210$) | $9,766$ ($9,096$) | **$9,041$** (**$9,182$**) | $+5,199$ chars (Rigorously developed) |
-| **Solve Duration (s)** | $45.2\text{s}$ ($42.1\text{s}$) | $3,686.5\text{s}$ ($3,675.9\text{s}$) | **$2,592.8\text{s}$** (**$2,674.7\text{s}$**) | Multi-turn closed-loop verification |
+| **Overall Validity $v(\pi)$** | $0.139 \pm 0.107$ ($0.100$) | $0.289 \pm 0.312$ ($0.180$) | **$0.853 \pm 0.129$** (**$0.880$**) | **$+0.714$** (Mean) / **$+0.780$** (Med) |
+| **Logical Rigor** | $0.231 \pm 0.111$ ($0.200$) | $0.363 \pm 0.279$ ($0.250$) | **$0.857 \pm 0.121$** (**$0.900$**) | **$+0.626$** (Mean) / **$+0.700$** (Med) |
+| **Structural Completeness** | $0.324 \pm 0.143$ ($0.300$) | $0.446 \pm 0.273$ ($0.350$) | **$0.907 \pm 0.089$** (**$0.940$**) | **$+0.583$** (Mean) / **$+0.640$** (Med) |
+| **Boundary & Edge Cases** | $0.316 \pm 0.173$ ($0.300$) | $0.434 \pm 0.282$ ($0.350$) | **$0.878 \pm 0.127$** (**$0.900$**) | **$+0.562$** (Mean) / **$+0.600$** (Med) |
+| **Referee Confidence** | $0.918 \pm 0.046$ ($0.930$) | $0.913 \pm 0.053$ ($0.925$) | **$0.894 \pm 0.068$** (**$0.900$**) | $-0.024$ (High referee scrutiny) |
+| **Proof Length (chars)** | $9,958$ ($9,063$) | $9,766$ ($9,096$) | **$9,041$** (**$9,182$**) | $-917$ chars (Occam-pruned rigor) |
+| **Solve Duration (s)** | $3,977.3\text{s}$ ($3,823.0\text{s}$) | $3,686.5\text{s}$ ($3,675.9\text{s}$) | **$2,592.8\text{s}$** (**$2,674.7\text{s}$**) | $-1,384.5\text{s}$ (Verified convergence) |
 
-**Finding on Proof Quality:** When single-shot provers generate proofs, they frequently score near flat zero ($0.00–0.15$) due to missing edge cases and unverified leaps. Under the governed neuro-symbolic framework, passing proofs reach an average **$0.853 \pm 0.129$ mean validity** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**. The harness compels the model to verify invariants in Python and SMT before committing to formal text, converting approximations into rigorous mathematical proofs.
+**Finding on Proof Quality:** Unverified or refuted attempts average $0.139 \pm 0.107$ validity (median $0.100$) due to missing edge cases and unverified leaps. Under the governed neuro-symbolic framework, certified passing proofs reach **$0.853 \pm 0.129$ mean validity** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**—improving substantially even over the earlier V3 harness baseline ($0.796 \pm 0.165$ mean passing validity, $44/300$ Grade A passes). Notably, passing proofs are shorter on average ($9,041$ chars) than refuted attempts ($9,958$ chars), reflecting the effect of `CandidatePool` Occam's razor arbitration and Publication Scribe critical-path pruning.
 
 ### 6.4 Cumulative Passing Thresholds and Quality Distribution
 Table 3 shows the full distribution of the $300$ benchmark tasks across cumulative passing thresholds and quality intervals.
@@ -465,36 +468,42 @@ Three empirical patterns emerge from Table 4:
 
 ## 7. Cognitive Pathologies of Autonomous LLM Provers and Harness Remediations
 
-When evaluating autonomous language models on research-level mathematics, forensic trace analysis reveals five fundamental cognitive failure modes that break unassisted LLMs. Table 5 details these failure modes alongside real-world benchmark tasks and the corresponding architectural solutions.
+When evaluating autonomous language models on research-level mathematics, forensic trace analysis across our V4 logs reveals key cognitive failure modes that break unassisted drafts. Table 5 details these failure modes alongside real benchmark tasks from TCS-Bench and the corresponding architectural solutions verified in the V4 execution traces.
 
-**Table 5: Real-World Benchmark Case Studies: Diagnosing LLM Reasoning Pathologies and Scaffolding Remediations.**
+**Table 5: Real-World Benchmark Case Studies: Diagnosing LLM Reasoning Pathologies and Scaffolding Remediations (V4 Logs).**
 
-| Task ID & Research Domain | Unassisted First-Shot Failure Mode | Governed Framework Score | Scaffolding Mechanism & Resolution |
+| Task ID & Research Domain | Initial / Unguided Failure Mode | Governed V4 Score | Scaffolding Mechanism & Resolution Verified in V4 Logs |
 | :--- | :--- | :---: | :--- |
-| **`task_2012.02096_statement_928_1050`**<br>*(Graph Sparsification)* | First-shot generation asserts an unverified cut-preservation bound without checking edge-multiplicity invariance ($v=0.20$). | **$0.96$**<br>*(PASS)* | **Adversarial Skeptic + REPL Verification:** The Skeptic constructed small graph cuts in the kernel, verified the exact invariant, and the Publication Scribe synthesized a journal-grade proof ($v=0.96$). |
-| **`task_2202.08066_statement_67_239`**<br>*(Tree Edit Distance)* | Single-turn draft leaves node-level substring preconditions ($|Y_v| = |X_v| + 2K$) implicit, failing referee rigor ($v=0.50$, rejected). | **$0.82$**<br>*(PASS)* | **Turn-1 Exploration Gate & Invariant Discharge:** Turn-1 exploration formulated inductive alignment bounds, discharging all node invariants explicitly (Rigor $0.86$, Completeness $0.90$, Boundary $0.82$). |
-| **`task_2102.00806_statement_976_1078`**<br>*(Spectral Bounds)* | Unassisted draft introduces minor boundary hand-waving on extreme eigenvalues ($v=0.72$). | **$0.96$**<br>*(PASS)* | **AuditorKernel Stage 1 Verification:** Ephemeral auditor kernel tested extremal eigenvalue boundary cases, enabling the Scribe to eliminate all hand-waving. |
-| **`task_2108.01161_statement_14_242`**<br>*(Theta-Series Tail Bound)* | **Blueprint Authority Trap:** Solver blindly accepted a planner's loose intermediate bound and restricted the theorem domain to $\beta \le 1$. | **$0.68$**<br>*(PASS)* | **Blueprint Quarantine & Restriction Guard:** Implemented Blueprint Quarantine (`UNVERIFIED SKETCH`) and domain-restriction detection, recovering the full-domain theorem to a certified sound pass. |
-| **`task_2104.10620_statement_48_191`**<br>*(Combinatorial Bound)* | **Multi-Turn Proof Bloat:** Revisions accumulated redundant helper lemmas, ballooning proof length to $>16\text{k}$ chars and triggering referee penalties. | **$0.96$**<br>*(PASS)* | **Noise-Band Occam's Razor & Scribe Pruning:** Applied Noise-Band Occam's Razor ($\epsilon=0.03$) and Scribe Critical-Path Pruning, condensing the derivation into a tight, publication-grade proof ($v=0.96$). |
-| **`task_2204.10465_statement_37_234`**<br>*(Planar Graph Connectivity)* | Unassisted model fails to verify combinatorial facial embeddings and boundary Jordan curves ($v=0.10$). | **$0.42$**<br>*(Directional)* | **Planar Dual Verification Extension:** Preloaded planar dual tracing in the kernel, enabling the solver to verify facial cycles and establish a sound directional pass. |
-| **`task_2410.18878_statement_11_63`**<br>*(Cycle Chords & Holes)* | **Combinatorial Runaway:** An unconstrained graph search attempted to exhaustively iterate over $6.87 \times 10^9$ cycle subsets, hanging the thread. | **$0.25$**<br>*(Clean Run)* | **Combinatorial Safety Ceilings:** Enforced `MAX_COMBINATORIAL_STEPS = 200,000` generator wrap and analytical ceilings, compelling deductive reasoning over brute force. |
-| **`task_2410.21635_statement_152_20`**<br>*(SMT Terminal Routing)* | **Destructive Pivot Trap:** An unguided solver wiped viable foundations ($v=0.27$) when an isolated flaw was flagged, collapsing into flat zero. | **$0.30$**<br>*(Viable)* | **Candidate Protection Gate:** Preserved candidate foundation, enabling surgical repair and lifting validity by $10\times$ from $0.03$ to $0.30$. |
-| **`task_2601.20718_statement_99_83`**<br>*(Graph Sparsification)* | First-shot inference fails on high-girth sparsifier routing constraints ($v=0.25$). | **$0.84$**<br>*(PASS)* | **Multi-Turn SMT & Scribe Synthesis:** Resolved through Z3 SMT constraints and multi-turn pruning into an $0.84$ publication-grade pass (reps `[0.45, 0.84, 0.88]`). |
+| **`task_2011.10446_statement_56_229`**<br>*(Task 18: Subflow Routing & Sparsification)* | Early draft fails to verify subdistribution congestion bounds and hits a $\log(0)$ boundary failure when $h\log n = 1$ ($v=0.20$ in V3; $v=0.10$ Stage 1 counterexample on Turn 5). | **$0.96$**<br>*(PASS)* | **SymPy Kernel Verification + Overtime Scribe Synthesis:** The solver verified exact parameter choices ($\varepsilon = \frac{1}{4h\log^4 n}$) and subdistribution expectations in `SymPy`, unlocked the 4-turn Overtime Extension at Turn 8 ($v=0.78$), and synthesized a 7,180-char proof ($v=0.96$). |
+| **`task_2202.08066_statement_67_239`**<br>*(Task 69: Tree Edit Distance)* | Initial Turn-3 draft ($v=0.10$) and V3 draft ($v=0.50$, rejected) leave node-level padded substring preconditions ($|Y_v| = |X_v| + 2K$) unverified. | **$0.82$**<br>*(PASS)* | **Turn-1 Exploration Gate & Candidate Pool Protection:** Multi-turn blackboard repair discharged the inductive alignment bounds on Turn 5 ($v=0.88$ internal) and `CandidatePool` protected the verified 16,275-char proof against later degraded rewrites ($v=0.82$ external, Rigor $0.86$, Completeness $0.90$). |
+| **`task_2101.05549_statement_39_136`**<br>*(Task 21: Spectral Clustering Eigenvector Bound)* | Turn-2 initial draft fails ($v=0.10$) and V3 draft ($v=0.72$) exhibits boundary imprecision on the decay exponent $\alpha = -\ln(1-8\varepsilon/\varphi)/\ln(1+\varphi/2)$. | **$0.96$**<br>*(PASS)* | **REPL Numerical Audit + Overtime Surgical Repair:** The solver registered structural invariants in `state.register()`, verified the exact decay inequality $\alpha \le 20\varepsilon/\varphi^2$ across parameter grids in the REPL, and refined the proof during Overtime Turn 10 to $v=0.96$ (8,161 chars). |
+| **`task_2108.01161_statement_14_242`**<br>*(Task 42: Theta-Series Tail Bound)* | **Blueprint Authority Trap:** Turn-3 draft ($v=0.05$) blindly followed a loose intermediate bound and restricted the lattice parameter domain. | **$0.68$**<br>*(PASS)* | **Clean-Slate Hard Pivot + Blueprint Quarantine:** Turn 3 triggered `[Clean-Slate Hard Pivot]` and the 1-turn mandatory REPL Pivot Gate on Turn 4, enabling the Publication Scribe to recover a certified pass ($v=0.68$, Rigor $0.72$, Completeness $0.82$). |
+| **`task_2104.05093_statement_18_258`**<br>*(Task 27: Balls-into-Bins Concentration)* | Turn-4 initial draft fails ($v=0.10$) due to flawed Chernoff/union-bound arithmetic and unverified variance proxy in the complementary regime. | **$0.96$**<br>*(PASS)* | **Monte Carlo Equivalence & Threshold Verification:** Across 5,000 seeded trials in the kernel, the solver verified $\{T=n\} \iff \{\max_j X_j^{(n)} \le C\}$ and the complementary width domination $\sqrt{m}\log n/\varepsilon^2$, converging on Turn 8 to a 9,638-char proof ($v=0.96$). |
+| **`task_2204.10465_statement_37_234`**<br>*(Task 73: Distance Oracle & Graph Gadgets)* | V3 draft ($v=0.05$) and Turn-3 draft ($v=0.18$, Stage 1 counterexample) collapse on sparse-case cycle and distance-gadget boundaries. | **$0.42$**<br>*(Directional)* | **Candidate Protection + Overtime Extension:** `[Hard Pivot Prevented]` protected the viable Turn-7 foundation ($v=0.78$ internal) across Overtime Turns 8–12, lifting external validity from $0.05$ to a directionally sound $0.42$. |
+| **`task_2410.18878_statement_11_63`**<br>*(Task 238: Cycle Chords & Disjoint Cycles)* | **Combinatorial Runaway & Crossing Chords:** Unconstrained subset enumeration risks combinatorial explosion; V3 scored $v=0.05$. | **$0.25$**<br>*(Clean Run)* | **Combinatorial Safety Ceilings + Stage 1 Falsifier:** Enforced `MAX_COMBINATORIAL_STEPS = 200,000` and Stage 1 empirical counterexample checks on crossing chord configurations, completing cleanly in 8 turns ($v=0.25$). |
+| **`task_2410.21635_statement_152_20`**<br>*(Task 241: Hamiltonian Residual Learning)* | **Destructive Pivot Trap:** Late-turn rewrite on Turn 11 collapsed to a 926-char stub ($v=0.08$), which in an unguarded loop would wipe out the proof. | **$0.30$**<br>*(Viable)* | **Candidate Protection & Overtime Restoration:** `[Hard Pivot Prevented — Substantive/Best Candidate Protected]` blocked destructive pivots on Turns 6–11 and restored the best candidate on Turn 12 ($v=0.45$ internal, $0.30$ external). |
+| **`task_2601.20718_statement_99_83`**<br>*(Task 300: High-Girth Sparsifier Routing)* | V3 draft fails on high-girth sparsifier congestion routing constraints ($v=0.25$); Turn-3/5/6 drafts hit Stage 1 counterexamples. | **$0.84$**<br>*(PASS)* | **Stage 1 Counterexample Elimination:** Iterative Stage 1 falsification in `AuditorKernel` eliminated flawed superedge flow assumptions across Turns 3–6, converging on Turn 7 to an 11,729-char publication-grade pass ($v=0.84$, reps `[0.45, 0.84, 0.88]`). |
 
 ---
 
-## 8. Detailed Case Studies of Autonomous Theorem Proving
+## 8. Detailed Case Studies of Autonomous Theorem Proving (V4 Logs)
 
-### 8.1 Case Study 1: High-Rigor Verification via 8-Turn Iterative Synthesis (`task_2407.13634_statement_17_37`)
-In **Task 222** (`task_2407.13634_statement_17_37`), the prover required 8 turns ($2,373.0\text{s}$) to establish a tight structural characterization, producing a compact **3,369-character** proof that achieved a perfect **$v(\pi) = 1.00$** from the external referee. Despite 8 turns of REPL exploration and hypothesis pruning, the Publication Scribe distilled only the active critical path, avoiding auxiliary surface-area penalties.
+### 8.1 Case Study 1: Perfect 1.00 Validity via Multi-Turn REPL Verification (`task_2405.14765_statement_156_87` & `task_2407.13634_statement_17_37`)
+Across the V4 evaluation, three tasks achieved a flawless **$v(\pi) = 1.00$** across all referee dimensions (*Rigor 1.00, Completeness 1.00, Boundary 1.00, Confidence 1.00*):
+- **Task 185 (`task_2402.10059_statement_137_90` — Byzantine External Validity):** Solved in 2 turns ($343.3\text{s}$), producing a concise **2,561-character** proof after verifying threshold intersection invariants on Turn 1 via `holds_on_samples`.
+- **Task 204 (`task_2405.14575_statement_64_16` — Weighted Entitlement Sylvester Bound):** Solved in 3 turns ($1,196.7\text{s}$), producing a **3,319-character** proof after Turn-1 REPL verification of the recurrence sequence $s_n$.
+- **Task 206 (`task_2405.14765_statement_156_87` — Quantum Query Complexity Lower Bound $\Omega(d^{1.5}/\sqrt{\log d})$):** Solved in 4 turns ($1,143.3\text{s}$). After Turn-1 exploration of the spiked matrix $A_{ij} = \frac{1}{d}u_i u_j + e_{ij}$, the initial Turn-3 draft (5,406 chars) was rejected by the internal auditor ($v = 0.25$) for leaving the Hamming-distance reduction step implicit. Following a single stateless blackboard revision, Turn 4 produced a **5,430-character** proof that passed internal audit ($v = 0.93$) and earned a perfect **$v(\pi) = 1.00$** from the external referee.
 
-### 8.2 Case Study 2: High-Dimensional Output-Sensitive Sumsets (`task_2410.21942_statement_30_71`, Validity 0.94)
-In **Task 242**, the target theorem requires proving that the prefix-restricted sumset $C = (A + B) \cap [0 \dots t]^d$ for $A, B \subseteq [0 \dots t]^d$ ($|A|=n, |B|=m, |C|=c$) can be computed by a Las Vegas algorithm in expected time:
+Similarly, in **Task 222 (`task_2407.13634_statement_17_37` — Non-Realizability of Fractional EF1 Allocations)**, the solver's initial Turn-4 attempt ballooned into an unpruned 66,532-character draft that was rejected at $v = 0.05$. Over Turns 5–8 ($2,928.0\text{s}$), the Logician verified a concrete 3-agent valuation witness in the Python kernel and the Publication Scribe distilled only the active critical path into a clean **11,452-character** proof (`internal validity = 0.98`), earning **$v(\pi) = 0.99$** (*Rigor 0.98, Completeness 1.00, Boundary 1.00, Confidence 0.99*; V3 also achieved $1.00$ in 8 turns / 3,369 chars).
+
+### 8.2 Case Study 2: High-Dimensional Output-Sensitive Sumsets (`task_2410.21942_statement_30_71`, Validity 0.88 in V4 / 0.94 in V3)
+In **Task 242**, the target theorem requires proving that the prefix-restricted sumset $C = (A + B) \cap [0 \dots t]^d$ for $A, B \subseteq [0 \dots t]^d$ ($|A|=n, |B|=m, |C|=c$) can be computed by deterministic and Las Vegas algorithms in output-sensitive time:
 $$\mathcal{O}\!\left(\left(n + m + (nm)^{\frac{d}{d+1}} c^{\frac{1}{d+1}}\right) (\log(nm))^{\mathcal{O}(d)}\right)$$
-1. **Turn 1 (Exploration Gate):** The Logician tested naive coordinate-wise recursion and observed in the REPL that unscaled subproblem overhead grows linearly per coordinate.
-2. **Turns 2–4 (REPL & Skeptic Falsification):** Small numerical simulations ($d \in \{2, 3\}$) in the persistent kernel demonstrated that achieving the fractional exponent $\frac{d}{d+1}$ requires a simultaneous dyadic box decomposition into $2^d$ sub-boxes on the threshold $T$.
-3. **Turns 5–7 (Hölder Conjugacy Verification):** Using `SymPy`, the Logician verified that partitioning into $2^d$ shifted boxes $A_\alpha^*$ and applying Hölder's inequality with conjugate exponents $p = \frac{d}{d+1}$ and $q = \frac{1}{d+1}$ (where $p + q = 1$) collapses the sum of non-vacuous subproblem costs $\sum_{\alpha} (n_\alpha m_\alpha)^{\frac{d}{d+1}} c_\alpha^{\frac{1}{d+1}}$ directly into the target bound.
-4. **Turn 8 (Publication Scribe Synthesis):** The Scribe emitted a complete 7,275-character inductive proof over $T$, earning **Validity $0.94$** (*Rigor $0.92$, Completeness $0.95$, Confidence $0.93$*).
+Tracing the V4 execution log (`1,928.5s`, 5 turns):
+1. **Turns 1–2 (Exploration Gate & Dyadic Decomposition):** The Logician tested coordinate-wise recursion in the persistent kernel and verified that achieving the fractional exponent $\frac{d}{d+1}$ requires a simultaneous dyadic box decomposition into $2^d$ sub-boxes on the threshold $T$.
+2. **Turn 3 (First Draft Rejection):** The initial 7,731-character proof draft was rejected by the internal auditor ($v = 0.10$) for an incomplete accounting of non-vacuous subproblems.
+3. **Turn 4 (Hölder Conjugacy Repair):** Using `SymPy`, the Logician verified that partitioning into $2^d$ shifted boxes $A_\alpha^*$ and applying Hölder's inequality with conjugate exponents $p = \frac{d}{d+1}$ and $q = \frac{1}{d+1}$ (where $p + q = 1$) collapses the sum of non-vacuous subproblem costs $\sum_{\alpha} (n_\alpha m_\alpha)^{\frac{d}{d+1}} c_\alpha^{\frac{1}{d+1}}$ directly into the target bound, lifting internal validity to $v = 0.86$ (8,342 chars).
+4. **Turn 5 (Final Synthesis & Early Exit):** The solver refined the inductive proof over $T$ into an **11,468-character** derivation that triggered certified early exit at $v = 0.93$ internal validity and achieved **Validity $0.88$** from the external referee (*Rigor $0.86$, Completeness $0.90$, Boundary $0.82$, Confidence $0.88$*; complementing V3's 8-turn, 7,275-character proof at $v = 0.94$).
 
 ---
 
