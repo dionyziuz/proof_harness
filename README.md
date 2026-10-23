@@ -18,18 +18,16 @@ Standard large language models fail on research-level mathematics because of two
 
 Evaluated across **300 graduate- and PhD-level research problems from TCS-Bench** (arXiv Theoretical Computer Science preprints, [arXiv:2608.09538](https://arxiv.org/abs/2608.09538)) using a single 4-bit quantized 28B model (`unsloth/Qwen3.8-27B-NVFP4`) on a single 32GB consumer GPU. All baseline first-pass attempts have individual recorded validation scores on disk:
 
-| Evaluation Paradigm | Turn Horizon | Grade C & Above ($\ge 0.40$)<br>Sound & Directional | Grade B & Above ($\ge 0.50$)<br>Certified Sound Pass | Grade A & Above ($\ge 0.70$)<br>Publication-Grade | Pass Multiplier vs. Single-Shot<br>(Grade C & Up / B & Up / A & Up) |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **1. Single-Shot ($\text{Pass@}1$ Baseline)** | $T = 1$ | $12 / 300$ (**4.00%**) | $10 / 300$ (**3.33%**) | $7 / 300$ (**2.33%**) | $1.00\times$ / $1.00\times$ / $1.00\times$ |
-| **2. Shallow Multi-Turn ($\text{Pass@}3$)** | $T \le 3$ | $25 / 300$ (**8.33%**) | $21 / 300$ (**7.00%**) | $17 / 300$ (**5.67%**) | $2.08\times$ / $2.10\times$ / $2.43\times$ |
-| **3. Nominal 8-Turn Harness** | $T \le 8$ | $63 / 300$ (**21.00%**) | $51 / 300$ (**17.00%**) | $37 / 300$ (**12.33%**) | $5.25\times$ / $5.10\times$ / $5.29\times$ |
-| **4. Full Prime-Math Harness** | $T \le 12$ | **$71 / 300$** (**23.67%**) | **$63 / 300$** (**21.00%**) | **$54 / 300$** (**18.00%**) | **$5.92\times$** / **$6.30\times$** / **$7.71\times$** |
+| Evaluation Paradigm | Grade C & Above ($\ge 0.40$)<br>Sound & Directional | Grade B & Above ($\ge 0.50$)<br>Certified Sound Pass | Grade A & Above ($\ge 0.70$)<br>Publication-Grade | Pass Multiplier vs. Initial Draft<br>(Grade C & Up / B & Up / A & Up) |
+| :--- | :---: | :---: | :---: | :---: |
+| **1. Unassisted Initial Draft** | $12 / 300$ (**4.00%**) | $10 / 300$ (**3.33%**) | $7 / 300$ (**2.33%**) | $1.00\times$ / $1.00\times$ / $1.00\times$ |
+| **2. Full Proof Harness (`proof_harness`)** | **$71 / 300$** (**23.67%**) | **$63 / 300$** (**21.00%**) | **$54 / 300$** (**18.00%**) | **$5.92\times$** / **$6.30\times$** / **$7.71\times$** |
 
 **Cumulative Passing Thresholds Across 300 PhD-Level TCS Theorems:**
-- **All Passing Grades ($\ge 0.40$, Grade C and Above — Sound & Directional):** **71 / 300 (23.67%)** — nearly **sextupling ($5.92\times$)** the unassisted single-shot baseline ($4.00\%$).
-- **Certified Sound Passes ($\ge 0.50$, Grade B and Above):** **63 / 300 (21.00%)** — a **$6.30\times$ multiplier** over single-shot ($3.33\%$).
-- **Publication-Grade Proofs ($\ge 0.70$, Grade A and Above):** **54 / 300 (18.00%)** — a **$7.71\times$ multiplier** over single-shot ($2.33\%$, 7/300), with 31 proofs reaching near-flawless ($\ge 0.90$) journal quality.
-- **Passing Proof Validity:** Drives the mean referee validity of certified passing proofs from low-rigor first-shot guesses (mean 0.142 across all 300 single-shot judgments) to an extraordinary **$0.853 \pm 0.129$** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**.
+- **All Passing Grades ($\ge 0.40$, Grade C and Above — Sound & Directional):** **71 / 300 (23.67%)** — nearly **sextupling ($5.92\times$)** the unassisted initial draft baseline ($4.00\%$).
+- **Certified Sound Passes ($\ge 0.50$, Grade B and Above):** **63 / 300 (21.00%)** — a **$6.30\times$ multiplier** over the initial unassisted draft baseline ($3.33\%$).
+- **Publication-Grade Proofs ($\ge 0.70$, Grade A and Above):** **54 / 300 (18.00%)** — a **$7.71\times$ multiplier** over initial drafting ($2.33\%$, 7/300), with 31 proofs reaching near-flawless ($\ge 0.90$) journal quality.
+- **Passing Proof Validity:** Drives the mean referee validity of certified passing proofs from low-rigor initial guesses (mean 0.142 across all 300 unassisted first-draft judgments) to an extraordinary **$0.853 \pm 0.129$** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**.
 - **100% of Passing Proofs** are discovered through governed multi-turn exploration in Turns 2–12 (with **84.1%** won in Turn 4 or later, and **20.6%** won in overtime).
 
 ---

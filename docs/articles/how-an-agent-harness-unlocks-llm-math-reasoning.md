@@ -20,27 +20,25 @@ The results demonstrated the transformative power of an agent harness:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│           TCS-Bench 300 Empirical Progression Across Cumulative Passing Thresholds     │
+│        TCS-Bench 300 Performance: Unassisted Initial Draft vs. Full Proof Harness      │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
 │  Evaluation Paradigm          │ Grade C & Up (≥0.40)│ Grade B & Up (≥0.50)│ Grade A & Up (≥0.70)│
 ├───────────────────────────────┼─────────────────────┼─────────────────────┼─────────────────────┤
-│  1. Single-Shot (Pass@1)      │    12 / 300 (4.0%)  │    10 / 300 (3.3%)  │     7 / 300 (2.3%)  │
-│  2. Shallow (Pass@3)          │    25 / 300 (8.3%)  │    21 / 300 (7.0%)  │    17 / 300 (5.7%)  │
-│  3. Nominal 8-Turn Harness    │    63 / 300 (21.0%) │    51 / 300 (17.0%) │    37 / 300 (12.3%) │
-│  4. Full Prime-Math Harness   │    71 / 300 (23.7%) │    63 / 300 (21.0%) │    54 / 300 (18.0%) │
+│  1. Unassisted Initial Draft  │    12 / 300 (4.0%)  │    10 / 300 (3.3%)  │     7 / 300 (2.3%)  │
+│  2. Full Proof Harness        │    71 / 300 (23.7%) │    63 / 300 (21.0%) │    54 / 300 (18.0%) │
 ├───────────────────────────────┼─────────────────────┼─────────────────────┼─────────────────────┤
-│  Multiplier vs. First-Shot    │      5.92× Gain!    │      6.30× Gain!    │      7.71× Gain!    │
+│  Multiplier vs. Initial Draft │      5.92× Gain!    │      6.30× Gain!    │      7.71× Gain!    │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-By wrapping a 4-bit 28B model in **Prime Math**—a dedicated, closed-loop agentic theorem proving harness—we shattered the original goal of merely doubling or tripling single-shot reasoning. Across **300 graduate- and PhD-level research problems from TCS-Bench** (drawn directly from recent arXiv theoretical computer science preprints in spectral graph theory, quantum computing, parameterized complexity, and combinatorial algorithms), Prime Math achieves:
+By wrapping a 4-bit 28B model in **Proof Harness** (`proof_harness`)—a dedicated, closed-loop agentic theorem proving harness—we shattered the original goal of merely doubling or tripling unassisted first-draft reasoning. Across **300 graduate- and PhD-level research problems from TCS-Bench** (drawn directly from recent arXiv theoretical computer science preprints in spectral graph theory, quantum computing, parameterized complexity, and combinatorial algorithms), Proof Harness achieves:
 
-- **All Passing Grades (≥ 0.40, Grade C and Above — Sound & Directional):** **23.67% ($71/300$)** — nearly **sextupling ($5.92\times$)** the unassisted single-shot baseline of $4.00\%$ ($12/300$).
-- **Certified Sound Passes (≥ 0.50, Grade B and Above):** **21.00% ($63/300$)** — a **$6.30\times$ multiplier** over the single-shot baseline of $3.33\%$ ($10/300$).
-- **Publication-Grade Proofs (≥ 0.70, Grade A and Above):** **18.00% ($54/300$)** — a **$7.71\times$ multiplier** over single-shot ($2.33\%$, $7/300$), with 31 proofs reaching near-flawless ($\ge 0.90$) journal quality.
-- **Exceptional Proof Validity:** On certified passing proofs, Prime Math lifts the mean referee validity from flat zero/low-rigor first-shot guesses to an extraordinary **$0.853 \pm 0.129$** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**. Exactly **100% of all passing proofs** are discovered through governed multi-turn exploration in Turns 2–12.
+- **All Passing Grades (≥ 0.40, Grade C and Above — Sound & Directional):** **23.67% ($71/300$)** — nearly **sextupling ($5.92\times$)** the unassisted initial draft baseline of $4.00\%$ ($12/300$).
+- **Certified Sound Passes (≥ 0.50, Grade B and Above):** **21.00% ($63/300$)** — a **$6.30\times$ multiplier** over the unassisted initial draft baseline of $3.33\%$ ($10/300$).
+- **Publication-Grade Proofs (≥ 0.70, Grade A and Above):** **18.00% ($54/300$)** — a **$7.71\times$ multiplier** over unassisted initial generation ($2.33\%$, $7/300$), with 31 proofs reaching near-flawless ($\ge 0.90$) journal quality.
+- **Exceptional Proof Validity:** On certified passing proofs, Proof Harness lifts the mean referee validity from flat zero/low-rigor initial guesses to an extraordinary **$0.853 \pm 0.129$** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**. Exactly **100% of all passing proofs** are discovered through governed multi-turn exploration in Turns 2–12.
 
-At the heart of this leap are **two foundational differentiators** that set Prime Math apart from standard LLM wrappers:
+At the heart of this leap are **two foundational differentiators** that set Proof Harness apart from standard LLM wrappers:
 1. **The Zero-Trust Deterministic Mathematical Kernel**: Providing **immediate, day-one accuracy**, this dual-runtime symbolic, SMT, and arbitrary-precision execution engine refuses to trust the LLM's probabilistic intuition—testing every bound, graph invariant, covariance assumption, and asymptotic claim deterministically in code from the very first solve.
 2. **The CoALA Heuristics & Continuous Domain Learning Engine**: Providing **cumulative intelligence over time**, this self-improving procedural and episodic vector memory system (backed by dense vector embeddings) allows the machine to *learn by solving*—enabling practitioners and researchers to train the harness in specialized mathematical or engineering domains purely through embeddings as passed proofs accumulate, without ever touching model weights.
 
@@ -76,7 +74,7 @@ Compounding those two structural walls are four tactical breakdowns in naive pro
 
 If the CoALA Heuristics Engine is the harness's **long-term memory**, the **Deterministic Mathematical Kernel** is its **scientific laboratory**.
 
-Instead of trusting the 28B LLM to evaluate an integral, check an asymptotic limit, or verify whether two events are independent in its head, Prime Math forces mathematical claims through a stateful, airgapped Python execution engine (`PersistentMathKernel` and ephemeral `AuditorKernel`).
+Instead of trusting the 28B LLM to evaluate an integral, check an asymptotic limit, or verify whether two events are independent in its head, Proof Harness forces mathematical claims through a stateful, airgapped Python execution engine (`PersistentMathKernel` and ephemeral `AuditorKernel`).
 
 ```python
 class PersistentMathKernel:
@@ -132,7 +130,7 @@ When proving advanced theorems in graph theory, topological connectivity, or qua
 
 #### 4. Honest Empirical Semantics (`holds_on_samples` vs. Unsound Symbolic Truthiness)
 In standard Python/SymPy, calling `bool(x**2 + 1 > 0)` on symbolic expressions raises a `TypeError` for undecidable relations. Some agent frameworks monkeypatch `Relational.__bool__` to return `True` if a few sample points pass—a catastrophic soundness hole that tricks the LLM into believing a finite spot-check is a formal proof.
-Prime Math refuses to patch `Relational.__bool__`. Instead, it provides **`holds_on_samples(rel, max_points=2000)`**, which respects declared SymPy symbol assumptions (`positive=True`, `integer=True`) and enforces strict three-valued epistemic logic:
+Proof Harness refuses to patch `Relational.__bool__`. Instead, it provides **`holds_on_samples(rel, max_points=2000)`**, which respects declared SymPy symbol assumptions (`positive=True`, `integer=True`) and enforces strict three-valued epistemic logic:
 - **`False`**: A concrete counterexample was found (definitive refutation).
 - **`True`**: No counterexample found among the sample grid—reported to the LLM strictly as `holds_on_samples: True` (*empirical survival evidence only, NOT a formal proof*).
 - **`None`**: Inconclusive (division by zero, non-real values, or incompatible assumptions).
@@ -142,7 +140,7 @@ When left unchecked in a REPL, LLMs often try to approximate asymptotic number-t
 `PersistentMathKernel` installs **`guarded_range`** and diagnostic ceilings (`MAX_DIAGNOSTIC_SIEVE_LIMIT = 200,000` on `fast_sieve`, `fast_totients`, `fast_spf`, and $n < 7$ on `permutations`): any attempt to allocate a range exceeding $200,000$ elements immediately raises `ExecutionBlockedByRule11`, instructing the model to stop brute-force simulation and derive the exact analytical formula, generating function, or Euler product.
 
 #### 6. Dual-Kernel Isolation (`PersistentMathKernel` vs. Ephemeral `AuditorKernel`)
-If the Proof Auditor ran its verification scripts inside the solver's own Python kernel, buggy helper functions or overwritten variables defined by the solver could corrupt the audit. Prime Math therefore pairs the persistent **`PersistentMathKernel`** (used by the solver across turns) with a completely separate, ephemeral **`AuditorKernel`** (`prover_kernel.py`) that boots a fresh namespace for every audit pass with a hard 15-second timeout (`TimeoutException` subclassing `BaseException` so LLM `try ... except Exception:` blocks cannot swallow timeouts) and thread-local `ThreadAwareStream` proxies that prevent stdout cross-contamination across concurrent workers.
+If the Proof Auditor ran its verification scripts inside the solver's own Python kernel, buggy helper functions or overwritten variables defined by the solver could corrupt the audit. Proof Harness therefore pairs the persistent **`PersistentMathKernel`** (used by the solver across turns) with a completely separate, ephemeral **`AuditorKernel`** (`prover_kernel.py`) that boots a fresh namespace for every audit pass with a hard 15-second timeout (`TimeoutException` subclassing `BaseException` so LLM `try ... except Exception:` blocks cannot swallow timeouts) and thread-local `ThreadAwareStream` proxies that prevent stdout cross-contamination across concurrent workers.
 
 #### 7. Epistemic State Tracking of Hereditary vs. Fragile Properties (`MathStateMachine`)
 Embedded directly inside the kernel as `state` (`core_engine/state_machine.py`), the **Epistemic State Machine** tracks the lineage DAG of mathematical objects (`state.register`, `state.derive`, `state.checkpoint`, `state.rollback`):
@@ -157,7 +155,7 @@ Embedded directly inside the kernel as `state` (`core_engine/state_machine.py`),
 
 How do you make a frozen 4-bit 28B model become progressively smarter in a specialized mathematical domain—without gradient updates or weight fine-tuning?
 
-Prime Math solves this by implementing a **Tripartite CoALA (Cognitive Architectures for Language Agents) Memory & Remediation Engine** backed by a high-speed local vector database.
+Proof Harness solves this by implementing a **Tripartite CoALA (Cognitive Architectures for Language Agents) Memory & Remediation Engine** backed by a high-speed local vector database.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -200,7 +198,7 @@ Prime Math solves this by implementing a **Tripartite CoALA (Cognitive Architect
 ```
 
 ### 1. Learning by Solving: How Experience Becomes Embeddings
-Every time Prime Math finishes a problem—whether it achieves a `0.96` victory or suffers a `0.15` rejection—the trajectory does not disappear:
+Every time Proof Harness finishes a problem—whether it achieves a `0.96` victory or suffers a `0.15` rejection—the trajectory does not disappear:
 - **Episodic Memory Consolidation (`record_episode`)**: `CoALAMemoryManager` records the problem structure, executed verification code blocks, verification status, and post-mortem critique into `<agent_id>_episodic`, while successful architectural blueprints are persisted directly to `tcs_architect_episodic`.
 - **3-Tier Post-Evaluation Remediation (`RemediationEngine` in `remediation.py`)**: Our automated diagnostic engine inspects failed and borderline runs across three tiers:
   - **Tier 1 (Harness & Kernel Code)**: Fixes parser, timeout, or sandbox mechanics.
@@ -208,7 +206,7 @@ Every time Prime Math finishes a problem—whether it achieves a `0.96` victory 
   - **Tier 3 (Domain-Specific Procedural Heuristics $\to$ Vector Memory)**: Any rule that is specific to a mathematical domain (e.g., spectral graph theory, reversible resolution, martingale concentration, or sublinear edit distance) is automatically routed to **Tier 3 Procedural Memory** (`add_procedural_heuristic`), embedded as a dense vector, and indexed for future retrieval.
 
 ### 2. Role-Specific Memory Partitioning
-Unlike naive RAG systems that dump retrieved text into a single prompt, Prime Math maintains **separate procedural vector collections for each cognitive role**:
+Unlike naive RAG systems that dump retrieved text into a single prompt, Proof Harness maintains **separate procedural vector collections for each cognitive role**:
 - When the **Context Architect** faces a new tree-decomposition theorem, it queries `tcs_architect_procedural` (`min_score = 0.68`) for structural reduction patterns.
 - When the **Adversarial Skeptic** attacks a graph claim, it queries `tcs_skeptic_procedural` for known boundary counterexample templates (e.g., star graphs, disconnected components, or parity traps).
 - When the **Publication Scribe** typesets the proof, it queries `tcs_scribe_procedural` for domain-appropriate formal exposition patterns.
@@ -224,9 +222,9 @@ Before *any* heuristic can be committed to vector memory, `is_valid_universal_he
 5. **Ground-Truth & Constant Scrubbing**: Automatically scans against the problem statement and reference answer, rejecting any heuristic that contains the expected answer or any distinctive $\ge 4$-digit constant from the problem statement.
 6. **Near-Duplicate Suppression & Retrieval Self-Exclusion**: Blocks rules with $>0.90$ cosine similarity to existing heuristics (preventing vector clutter) and enforces `exclude_problem_id` / `exclude_task_id` at query time so a task can never retrieve a heuristic derived from itself.
 
-### 4. Why This Makes Prime Math Ideal for Domain-Specific Industrial & Scientific Solutions
+### 4. Why This Makes Proof Harness Ideal for Domain-Specific Industrial & Scientific Solutions
 Because domain intelligence lives in **curated, role-partitioned vector embeddings** rather than fine-tuned weights:
-- **Zero-Weight-Update Domain Training**: A quantitative trading desk, formal verification team, or cryptography lab can point Prime Math at 200 domain-specific problems. Over the course of solving and remediating those problems, the harness populates its procedural vector memory with validated, domain-specific mathematical lemmas, counterexample templates, and reduction strategies.
+- **Zero-Weight-Update Domain Training**: A quantitative trading desk, formal verification team, or cryptography lab can point Proof Harness at 200 domain-specific problems. Over the course of solving and remediating those problems, the harness populates its procedural vector memory with validated, domain-specific mathematical lemmas, counterexample templates, and reduction strategies.
 - **Inspectable, Auditable, and Transferable Expertise**: Every learned heuristic in vector memory is human-readable, provenance-tagged, and can be audited, shared across teams, or transferred to a newer base LLM overnight without retraining.
 
 ---
@@ -369,10 +367,10 @@ When we dissect *which* iteration produced each of the **63 certified passing pr
 
 ### The Insights Behind the Numbers
 
-1. **Shattering the 2×–3× Bar (Nearly 6×–8× Gains)**: Our target was to evaluate whether an agent harness could double or triple performance over single-shot generation. In reality, Prime Math achieved a **$5.92\times$ multiplier on Grade C and above passing grades ($23.67\%$ vs. $4.00\%$)**, a **$6.30\times$ multiplier on Grade B and above certified sound passes ($21.00\%$ vs. $3.33\%$)**, and a staggering **$7.71\times$ multiplier on Grade A and above publication-grade proofs ($18.00\%$ vs. $2.33\%$)**.
-2. **First-Shot Guesses vs. 0.853 Passing Validity**: Unassisted single-shot prompting yields superficial proofs that fail boundary cases and invert inequalities (mean validity 0.142 across all 300 individual first-pass judgments). Prime Math drives passing proofs to a stellar **0.853 mean validity (0.880 median)**, with **0.907 structural completeness** and **0.857 logical rigor**.
-3. **The Turn-1 Exploration Gate Pays Off**: Unlike naive prompting where models immediately rush into flawed Turn-1 drafts, Prime-Math enforces invariant discovery and counterexample sweeps before drafting. Zero passes occur on Turn 1 by design—yet by Turn 3, **10 sound proofs (3.33%)** are already secured.
-4. **Deep Multi-Turn Iteration Drives 100% of Wins**: Every single passing proof in Prime Math required multi-turn refinement, with **$84.1\%$ of passing proofs (53 of 63)** won in Turn 4 or later.
+1. **Shattering the 2×–3× Bar (Nearly 6×–8× Gains)**: Our target was to evaluate whether an agent harness could double or triple performance over initial unassisted generation. In reality, Proof Harness achieved a **$5.92\times$ multiplier on Grade C and above passing grades ($23.67\%$ vs. $4.00\%$)**, a **$6.30\times$ multiplier on Grade B and above certified sound passes ($21.00\%$ vs. $3.33\%$)**, and a staggering **$7.71\times$ multiplier on Grade A and above publication-grade proofs ($18.00\%$ vs. $2.33\%$)**.
+2. **Initial Draft Guesses vs. 0.853 Passing Validity**: Unassisted initial drafting yields superficial proofs that fail boundary cases and invert inequalities (mean validity 0.142 across all 300 individual first-pass judgments). Proof Harness drives passing proofs to a stellar **0.853 mean validity (0.880 median)**, with **0.907 structural completeness** and **0.857 logical rigor**.
+3. **The Turn-1 Exploration Gate Pays Off**: Unlike naive prompting where models immediately rush into flawed Turn-1 drafts, Proof-Harness enforces invariant discovery and counterexample sweeps before drafting. Zero passes occur on Turn 1 by design—yet by Turn 3, **10 sound proofs (3.33%)** are already secured.
+4. **Deep Multi-Turn Iteration Drives 100% of Wins**: Every single passing proof in Proof Harness required multi-turn refinement, with **$84.1\%$ of passing proofs (53 of 63)** won in Turn 4 or later.
 5. **Overtime Extensions Deliver 20.6% of Passes**: When Turn-8 drafts exhibited strong structural viability, granting 4 overtime turns (Turns 9–12) captured **13 additional certified passes**, lifting the benchmark from $16.67\%$ to $21.00\%$.
 
 ---

@@ -392,19 +392,19 @@ Table 1 reports the primary progression across evaluation paradigms on the 300-p
 - **Grade B & Above ($\ge 0.50$):** Certified sound passes meeting formal research-level correctness standards without substantive deductive flaws.
 - **Grade A & Above ($\ge 0.70$):** Publication-grade proofs characterized by exhaustive boundary discharge and rigorous deductive execution.
 
-Every single problem in the benchmark has an unassisted first-shot attempt and an evaluated referee score on disk. In unassisted single-shot reasoning ($\text{Pass@}1$), the base language model rarely succeeds: only 12 problems (4.00%) reach $\ge 0.40$, 10 problems (3.33%) reach $\ge 0.50$, and 7 problems (2.33%) reach $\ge 0.70$, with an overall mean validity of just $0.142 \pm 0.185$ (median $0.080$).
+Every single problem in the benchmark has an unassisted first-draft attempt and an evaluated referee score on disk. In unassisted initial drafting (the model generating a proof draft without multi-turn symbolic execution, adversarial counterexample attacks, or referee revision loops), the base language model rarely succeeds: only 12 problems (4.00%) reach $\ge 0.40$, 10 problems (3.33%) reach $\ge 0.50$, and 7 problems (2.33%) reach $\ge 0.70$, with an overall mean validity of just $0.142 \pm 0.185$ (median $0.080$).
 
-**Table 1: TCS-Bench ($N=300$) Performance Across Inference Paradigms (Cumulative Passing Thresholds).**
+**Table 1: TCS-Bench ($N=300$) Performance: Unassisted Initial Draft vs. Full Proof Harness.**
 
-| Evaluation Paradigm | Turn Horizon | Grade C & Above ($\ge 0.40$)<br>Sound & Directional | Grade B & Above ($\ge 0.50$)<br>Certified Sound Pass | Grade A & Above ($\ge 0.70$)<br>Publication-Grade | Pass Multiplier vs. Single-Shot<br>(Grade C & Up / B & Up / A & Up) |
+| Evaluation Paradigm | Grade C & Above ($\ge 0.40$)<br>Sound & Directional | Grade B & Above ($\ge 0.50$)<br>Certified Sound Pass | Grade A & Above ($\ge 0.70$)<br>Publication-Grade | Pass Multiplier vs. Initial Draft<br>(Grade C & Up / B & Up / A & Up) |
 | :--- | :---: | :---: | :---: | :---: |
-| **1. Single-Shot ($\text{Pass@}1$ Baseline)** | $T = 1$ | $12 / 300$ (**$4.00\%$**) | $10 / 300$ (**$3.33\%$**) | $7 / 300$ (**$2.33\%$**) | $1.00\times$ / $1.00\times$ / $1.00\times$ |
-| **2. Shallow Multi-Turn ($\text{Pass@}3$)** | $T \le 3$ | $25 / 300$ (**$8.33\%$**) | $21 / 300$ (**$7.00\%$**) | $17 / 300$ (**$5.67\%$**) | $2.08\times$ / $2.10\times$ / $2.43\times$ |
-| **3. Nominal 8-Turn Harness** | $T \le 8$ | $63 / 300$ (**$21.00\%$**) | $51 / 300$ (**$17.00\%$**) | $37 / 300$ (**$12.33\%$**) | $5.25\times$ / $5.10\times$ / $5.29\times$ |
-| **4. Full Proof-Harness Harness ($T \le 12$)** | $T \le 12$ | **$71 / 300$** (**$23.67\%$**) | **$63 / 300$** (**$21.00\%$**) | **$54 / 300$** (**$18.00\%$**) | **$5.92\times$** / **$6.30\times$** / **$7.71\times$** |
+| **1. Unassisted Initial Draft** | $12 / 300$ (**$4.00\%$**) | $10 / 300$ (**$3.33\%$**) | $7 / 300$ (**$2.33\%$**) | $1.00\times$ / $1.00\times$ / $1.00\times$ |
+| **2. Full Proof Harness (`proof_harness`)** | **$71 / 300$** (**$23.67\%$**) | **$63 / 300$** (**$21.00\%$**) | **$54 / 300$** (**$18.00\%$**) | **$5.92\times$** / **$6.30\times$** / **$7.71\times$** |
 
-Across all passing thresholds, Proof-Harness obliterates the standard expectation of merely doubling or tripling single-shot performance:
-- Counting **all passing grades (Grade C and above, $\ge 0.40$)**, Proof-Harness achieves **$23.67\%$ ($71/300$)** vs. **$4.00\%$ ($12/300$)** for single-shot — a **$5.92\times$ multiplier**.
+Across all passing thresholds, Proof Harness shatters the expectation of merely doubling or tripling initial unassisted performance:
+- Counting **all passing grades (Grade C and above, $\ge 0.40$)**, Proof Harness achieves **$23.67\%$ ($71/300$)** vs. **$4.00\%$ ($12/300$)** for the initial unassisted draft — a **$5.92\times$ multiplier**.
+- Counting **certified sound passes (Grade B and above, $\ge 0.50$)**, Proof Harness achieves **$21.00\%$ ($63/300$)** vs. **$3.33\%$ ($10/300$)** for the initial unassisted draft — a **$6.30\times$ multiplier**.
+- Counting **publication-grade proofs (Grade A and above, $\ge 0.70$)**, Proof Harness achieves **$18.00\%$ ($54/300$)** vs. **$2.33\%$ ($7/300$)** for the initial unassisted draft — a **$7.71\times$ multiplier**.
 - Counting **certified sound passes (Grade B and above, $\ge 0.50$)**, Proof-Harness achieves **$21.00\%$ ($63/300$)** vs. **$3.33\%$ ($10/300$)** for single-shot — a **$6.30\times$ multiplier**.
 - Counting **publication-grade proofs (Grade A and above, $\ge 0.70$)**, Proof-Harness achieves **$18.00\%$ ($54/300$)** vs. **$2.33\%$ ($7/300$)** for single-shot — a **$7.71\times$ multiplier**.
 
