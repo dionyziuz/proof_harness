@@ -14,9 +14,9 @@ Somewhere in the middle of the derivation, an inequality quietly flipped directi
 
 Because autoregressive language models predict the next most likely token rather than verifying truth, they excel at sounding like mathematicians while routinely hallucinating algebraic leaps.
 
-The conventional industry response to this challenge has been simple: **make the model bigger**. Throw a multi-hundred-billion-parameter frontier model on a cloud cluster at the problem and hope sheer scale solves the reasoning gap.
+Parameter scale certainly matters: massive frontier models with hundreds of billions of parameters perform significantly better out of the box. But model scale is only part of the story—even the largest models struggle with subtle invariant shifts and false algebraic confidence when left unguided, while requiring expensive cloud compute clusters.
 
-We wanted to explore a different question: **What if the bottleneck isn't raw parameter scale, but the harness around the model?**
+This raised a practical question: **How much reasoning performance can a well-engineered agent harness unlock from an accessible, local model?**
 
 To test this, we took an open-weight 27B model (`unsloth/Qwen3.8-27B-NVFP4`) running locally on a single consumer GPU (an NVIDIA RTX 5090 with 32GB VRAM), and evaluated it on **300 research-level problems from TCS-Bench**—spanning spectral graph theory, quantum computing, parameterized complexity, and combinatorial algorithms.
 
@@ -131,7 +131,7 @@ Whether you are building agents for mathematics, software engineering, quantitat
 
 ## Looking Forward
 
-The frontier of AI reasoning isn't just about training larger foundation models. It is about building the cognitive scaffolding that enables models to think, verify, and learn effectively.
+Larger foundation models will continue to push the frontier of raw capability. But as our benchmark shows, how you scaffold and govern a model's reasoning process—coupling it with deterministic code verification, structured vector memory, and adaptive search horizons—has a sizeable, transformative impact on what language models can actually solve.
 
 By pairing an open-weight 27B model with a zero-trust execution kernel, continuous heuristic memory, and adaptive search horizons, Proof Harness demonstrates that consumer hardware can tackle problems that previously seemed out of reach.
 
