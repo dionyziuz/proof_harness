@@ -40,7 +40,7 @@ By wrapping a 4-bit 28B model in **Proof Harness** (`proof_harness`)—a dedicat
 
 At the heart of this leap are **two foundational differentiators** that set Proof Harness apart from standard LLM wrappers:
 1. **The Zero-Trust Deterministic Mathematical Kernel**: Providing **immediate, day-one accuracy**, this dual-runtime symbolic, SMT, and arbitrary-precision execution engine refuses to trust the LLM's probabilistic intuition—testing every bound, graph invariant, covariance assumption, and asymptotic claim deterministically in code from the very first solve.
-2. **The CoALA Heuristics & Continuous Domain Learning Engine**: Providing **cumulative intelligence over time**, this self-improving procedural and episodic vector memory system (backed by dense vector embeddings) allows the machine to *learn by solving*—enabling practitioners and researchers to train the harness in specialized mathematical or engineering domains purely through embeddings as passed proofs accumulate, without ever touching model weights.
+2. **The CoALA Heuristics & Continuous Domain Learning Engine**: Providing **cumulative intelligence over time**, this self-improving procedural vector memory system (backed by dense vector embeddings) allows the machine to *learn by solving*—enabling practitioners and researchers to train the harness in specialized mathematical or engineering domains purely through embeddings as passed proofs accumulate, without ever touching model weights.
 
 Here is the story of the twin blind spots that break standalone LLMs, and how these two engines—combined with multi-agent cognitive partitioning—turn a compact quantized model into a self-improving mathematician.
 
@@ -182,8 +182,8 @@ Proof Harness solves this by implementing a **Tripartite CoALA (Cognitive Archit
 │                                                         ▼                    │
 │   ┌──────────────────────────────────────────────────────────────────────┐   │
 │   │ 4. Role-Isolated Vector Embedding Collections                        │   │
-│   │  • prime_math_procedural / episodic    (Core Deductive Logician)     │   │
-│   │  • tcs_architect_procedural / episodic (Reduction Blueprints)        │   │
+│   │  • prime_math_procedural               (Core Deductive Logician)     │   │
+│   │  • tcs_architect_procedural            (Reduction Blueprints)        │   │
 │   │  • tcs_verifier_procedural             (Pre-Flight Falsification)    │   │
 │   │  • tcs_skeptic_procedural              (Counterexample Attack Rules) │   │
 │   │  • tcs_scribe_procedural               (Academic LaTeX Patterns)     │   │
@@ -199,7 +199,7 @@ Proof Harness solves this by implementing a **Tripartite CoALA (Cognitive Archit
 
 ### 1. Learning by Solving: How Experience Becomes Embeddings
 Every time Proof Harness finishes a problem—whether it achieves a `0.96` victory or suffers a `0.15` rejection—the trajectory does not disappear:
-- **Episodic Memory Consolidation (`record_episode`)**: `CoALAMemoryManager` records the problem structure, executed verification code blocks, verification status, and post-mortem critique into `<agent_id>_episodic`, while successful architectural blueprints are persisted directly to `tcs_architect_episodic`.
+- **Procedural Heuristic Extraction (`_consolidate_learning`)**: A low-temperature reflection pass distills verified strategies into compact mathematical heuristics (`LEARNED_HEURISTIC`), while raw execution trajectories and post-mortems are preserved in `<agent_id>_episodic` as an offline diagnostic log.
 - **3-Tier Post-Evaluation Remediation (`RemediationEngine` in `remediation.py`)**: Our automated diagnostic engine inspects failed and borderline runs across three tiers:
   - **Tier 1 (Harness & Kernel Code)**: Fixes parser, timeout, or sandbox mechanics.
   - **Tier 2 (Universal Orchestration Invariants)**: Governed by a strict **4-Gate Universality Rubric (`Tier2Rubric`)**—requiring a rule to be 100% domain-agnostic, behavioral, zero-degradation, and impossible to handle via retrieval.

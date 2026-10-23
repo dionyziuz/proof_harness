@@ -79,19 +79,19 @@ Evaluated across **300 research-level problems from TCS-Bench** (arXiv Theoretic
 
 Prime-Harness implements the **Cognitive Architectures for Language Agents (CoALA)** memory taxonomy ([`core_engine/memory.py`](core_engine/memory.py)) so the harness **learns by solving** without modifying LLM weights.
 
-### 1. Role-Isolated Vector Embedding Collections
-Rather than dumping everything into one noisy RAG index, `CoALAMemoryManager` partitions vector memory into **10 role-isolated collections** across five cognitive roles:
+### 1. Role-Isolated Procedural Vector Collections
+Rather than dumping everything into one noisy RAG index, `CoALAMemoryManager` maintains **five role-isolated procedural collections** across specialized cognitive roles (with raw run trajectories preserved to diagnostic episodic logs via `record_episode`):
 
-| Agent Namespace (`agent_id`) | Procedural Collection (`_procedural`, $\cos \ge 0.65$) | Episodic Collection (`_episodic`, $\cos \ge 0.70$) | Specialized Cognitive Role |
-| :--- | :--- | :--- | :--- |
-| **`prime_math`** | `prime_math_procedural` | `prime_math_episodic` | Deductive Logician & Solver: algebraic reductions, invariant formulation, concentration bounds. |
-| **`tcs_architect`** | `tcs_architect_procedural` | `tcs_architect_episodic` | Context Architect: decomposing paper contexts, seeding `state.register()`, modular lemma chains. |
-| **`tcs_verifier`** | `tcs_verifier_procedural` | `tcs_verifier_episodic` | Pre-Flight Falsifier: fast small-$n$ boundary scripts and Monte Carlo sanity checks. |
-| **`tcs_skeptic`** | `tcs_skeptic_procedural` | `tcs_skeptic_episodic` | Adversarial Skeptic: hostile `Z3`/`NetworkX` counterexample construction and degenerate parameter attacks. |
-| **`tcs_scribe`** | `tcs_scribe_procedural` | `tcs_scribe_episodic` | Publication Scribe: critical-path pruning, quantifier discharge, and journal-grade LaTeX synthesis. |
+| Agent Namespace (`agent_id`) | Active Procedural Collection (`_procedural`, $\cos \ge 0.65$) | Specialized Cognitive Role |
+| :--- | :--- | :--- |
+| **`prime_math`** | `prime_math_procedural` | Deductive Logician & Solver: algebraic reductions, invariant formulation, concentration bounds. |
+| **`tcs_architect`** | `tcs_architect_procedural` | Context Architect: decomposing paper contexts, seeding `state.register()`, modular lemma chains. |
+| **`tcs_verifier`** | `tcs_verifier_procedural` | Pre-Flight Falsifier: fast small-$n$ boundary scripts and Monte Carlo sanity checks. |
+| **`tcs_skeptic`** | `tcs_skeptic_procedural` | Adversarial Skeptic: hostile `Z3`/`NetworkX` counterexample construction and degenerate parameter attacks. |
+| **`tcs_scribe`** | `tcs_scribe_procedural` | Publication Scribe: critical-path pruning, quantifier discharge, and journal-grade LaTeX synthesis. |
 
 ### 2. Closed-Loop Consolidation & The 3-Tier `RemediationEngine`
-- **Online Post-Solve Learning (`_consolidate_learning`)**: After every solve attempt, a low-temperature reflection pass ($T=0.2$) extracts transferable mathematical strategies (`LEARNED_HEURISTIC` $\to$ Procedural Memory) and failure post-mortems (`EPISODIC_SUMMARY` $\to$ Episodic Memory). Near-duplicates ($>0.90$ cosine similarity) are automatically skipped.
+- **Online Post-Solve Learning (`_consolidate_learning`)**: After every solve attempt, a low-temperature reflection pass ($T=0.2$) extracts transferable mathematical strategies (`LEARNED_HEURISTIC` $\to$ Procedural Memory) and archives diagnostic run post-mortems (`record_episode`). Near-duplicates ($>0.90$ cosine similarity) are automatically skipped.
 - **Post-Evaluation 3-Tier `RemediationEngine` ([`core_engine/remediation.py`](core_engine/remediation.py))**: Diagnoses failed benchmark tasks and routes fixes across:
   - **Tier 1 (Harness Guardrails)**: Flagged for human engineering review.
   - **Tier 2 (System Prompt Directives)**: Governed by the 4-boolean [`Tier2Rubric`](core_engine/remediation.py) (`is_universal`, `is_behavioral_posture`, `no_degradation_risk`, `procedural_insufficient`). Any domain-specific mathematical rule is **automatically downgraded from Tier 2 to Tier 3** so global prompts never bloat.
