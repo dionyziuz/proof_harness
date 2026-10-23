@@ -41,8 +41,8 @@ By wrapping a 4-bit 28B model in **Prime Math**—a dedicated, closed-loop agent
 - **Exceptional Proof Validity:** On certified passing proofs, Prime Math lifts the mean referee validity from flat zero/low-rigor first-shot guesses to an extraordinary **$0.853 \pm 0.129$** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**. Exactly **100% of all passing proofs** are discovered through governed multi-turn exploration in Turns 2–12.
 
 At the heart of this leap are **two foundational differentiators** that set Prime Math apart from standard LLM wrappers:
-1. **The CoALA Heuristics & Continuous Domain Learning Engine**: A self-improving procedural and episodic vector memory system (backed by **TurboVec**) where the machine *learns by solving*—allowing practitioners to train the harness in specialized mathematical or engineering domains purely through embeddings, without ever touching model weights.
-2. **The Zero-Trust Deterministic Mathematical Kernel**: A dual-runtime symbolic, SMT, and arbitrary-precision execution engine that refuses to trust the LLM's probabilistic intuition—testing every bound, graph invariant, covariance assumption, and asymptotic claim deterministically in code.
+1. **The Zero-Trust Deterministic Mathematical Kernel**: Providing **immediate, day-one accuracy**, this dual-runtime symbolic, SMT, and arbitrary-precision execution engine refuses to trust the LLM's probabilistic intuition—testing every bound, graph invariant, covariance assumption, and asymptotic claim deterministically in code from the very first solve.
+2. **The CoALA Heuristics & Continuous Domain Learning Engine**: Providing **cumulative intelligence over time**, this self-improving procedural and episodic vector memory system (backed by **TurboVec**) allows the machine to *learn by solving*—enabling practitioners and researchers to train the harness in specialized mathematical or engineering domains purely through embeddings as passed proofs accumulate, without ever touching model weights.
 
 Here is the story of the twin blind spots that break standalone LLMs, and how these two engines—combined with multi-agent cognitive partitioning—turn a compact quantized model into a self-improving mathematician.
 
@@ -52,16 +52,16 @@ Here is the story of the twin blind spots that break standalone LLMs, and how th
 
 When you deploy an off-the-shelf LLM on graduate-level mathematics or specialized industrial domains (such as quantitative finance, cryptographic protocol verification, or algorithmic complexity), the system hits **two fundamental structural walls**, followed by four tactical failure modes:
 
-### Structural Wall #1: Frozen Weights & Episodic Amnesia (No Continuous Domain Learning)
-Standard LLMs are **stateless at inference time**. An agent might spend 45 minutes and 50,000 tokens discovering a brilliant domain-specific reduction—such as how to bound hypergraph conductance across vertex separators or how to apply Hölder's inequality over shifted dyadic boxes—only to suffer **total amnesia** the moment the session ends.
-- On the very next problem in the same domain, the model starts from scratch and repeats the exact same mistakes.
-- For engineering teams working in specialized verticals, fine-tuning or running RLHF on a 28B–70B model after every batch of problems is prohibitively expensive, slow, and prone to catastrophic forgetting. **Without a mechanism to continuously extract, validate, and embed reusable mathematical heuristics from its own solving trajectories, an agent cannot compound its domain expertise over time.**
-
-### Structural Wall #2: Probabilistic Token Prediction $\neq$ Mathematical Truth (The Trust Fallacy)
+### Structural Wall #1: Probabilistic Token Prediction $\neq$ Mathematical Truth (The Trust Fallacy)
 Autoregressive transformers generate tokens by maximizing conditional probability—not by verifying mathematical truth. When an LLM relies solely on its internal weights to do math:
 - It cannot reliably distinguish a true algebraic identity from a fluent hallucination.
 - It cannot deterministically check whether an inequality $f(n) \le g(n)$ flips direction at boundary values $n=1, 2$, whether conditioning on a sum event $E$ destroys pairwise independence (`Cov(A, B) != 0`), or whether a graph lemma fails on $K_{3,3}$.
 - **Trusting an LLM to self-verify mathematics purely through prose is a category error.** Without a deterministic computational kernel that forces conjectures through exact symbolic algebra, SMT solvers, and exhaustive small-instance counterexample sweeps, a single unverified leap cascades until the entire proof collapses.
+
+### Structural Wall #2: Frozen Weights & Episodic Amnesia (No Continuous Domain Learning)
+Standard LLMs are **stateless at inference time**. An agent might spend 45 minutes and 50,000 tokens discovering a brilliant domain-specific reduction—such as how to bound hypergraph conductance across vertex separators or how to apply Hölder's inequality over shifted dyadic boxes—only to suffer **total amnesia** the moment the session ends.
+- On the very next problem in the same domain, the model starts from scratch and repeats the exact same mistakes.
+- For engineering teams working in specialized verticals, fine-tuning or running RLHF on a 28B–70B model after every batch of problems is prohibitively expensive, slow, and prone to catastrophic forgetting. **Without a mechanism to continuously extract, validate, and embed reusable mathematical heuristics from its own solving trajectories, an agent cannot compound its domain expertise over time.**
 
 ### Four Tactical Failure Modes of Ungoverned Inference
 Compounding those two structural walls are four tactical breakdowns in naive prompting:
@@ -72,85 +72,7 @@ Compounding those two structural walls are four tactical breakdowns in naive pro
 
 ---
 
-## 3. Core Pillar I: The CoALA Continuous Domain Learning Engine (`memory.py` & `remediation.py`)
-
-How do you make a frozen 4-bit 28B model become progressively smarter in a specialized mathematical domain—without gradient updates or weight fine-tuning?
-
-Prime Math solves this by implementing a **Tripartite CoALA (Cognitive Architectures for Language Agents) Memory & Remediation Engine** backed by **TurboVec**, a high-speed local vector database (`127.0.0.1:18792`).
-
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│          Closed-Loop CoALA Domain Learning Lifecycle (TurboVec)              │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│   ┌─────────────────────────┐          ┌─────────────────────────────────┐   │
-│   │ 1. Solve Episode        │          │ 2. Post-Solve Remediation Engine│   │
-│   │ (Pass or Fail Trace)    │─────────►│ (3-Tier Root-Cause Diagnosis)   │   │
-│   └─────────────────────────┘          └────────────────┬────────────────┘   │
-│                                                         │                    │
-│                                        Extracts Candidate Domain Heuristic   │
-│                                                         │                    │
-│                                                         ▼                    │
-│   ┌──────────────────────────────────────────────────────────────────────┐   │
-│   │ 3. Six-Gate Universality & Zero-Leakage Validator                    │   │
-│   │    (heuristic_validation.py — PROVENANCE_VERSION = 2)                │   │
-│   │  ✓ Blocks empirical cheats (Richardson/Aitken/brute-force sieves)    │   │
-│   │  ✓ Scrubs & rejects ground-truth answers & ≥4-digit constants        │   │
-│   │  ✓ Strips problem IDs, titles & instance-specific variable bindings  │   │
-│   │  ✓ Deduplicates against existing rules (cosine similarity > 0.90)    │   │
-│   └─────────────────────────────────────────────────────┬────────────────┘   │
-│                                                         │ Validated Rule     │
-│                                                         ▼                    │
-│   ┌──────────────────────────────────────────────────────────────────────┐   │
-│   │ 4. Role-Isolated TurboVec Embedding Collections                      │   │
-│   │  • prime_math_procedural / episodic    (Core Deductive Logician)     │   │
-│   │  • tcs_architect_procedural / episodic (Reduction Blueprints)        │   │
-│   │  • tcs_verifier_procedural             (Pre-Flight Falsification)    │   │
-│   │  • tcs_skeptic_procedural              (Counterexample Attack Rules) │   │
-│   │  • tcs_scribe_procedural               (Academic LaTeX Patterns)     │   │
-│   └─────────────────────────────────────────────────────┬────────────────┘   │
-│                                                         │                    │
-│                                 Just-in-Time Cosine Retrieval (score ≥ 0.68) │
-│                                                         ▼                    │
-│   ┌──────────────────────────────────────────────────────────────────────┐   │
-│   │ 5. Next Problem in Domain: Subagents Equipped with Learned Wisdom    │   │
-│   └──────────────────────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 1. Learning by Solving: How Experience Becomes Embeddings
-Every time Prime Math finishes a problem—whether it achieves a `0.96` victory or suffers a `0.15` rejection—the trajectory does not disappear:
-- **Episodic Memory Consolidation (`record_episode`)**: `CoALAMemoryManager` records the problem structure, executed verification code blocks, verification status, and post-mortem critique into `<agent_id>_episodic`, while successful architectural blueprints are persisted directly to `tcs_architect_episodic`.
-- **3-Tier Post-Evaluation Remediation (`RemediationEngine` in `remediation.py`)**: Our automated diagnostic engine inspects failed and borderline runs across three tiers:
-  - **Tier 1 (Harness & Kernel Code)**: Fixes parser, timeout, or sandbox mechanics.
-  - **Tier 2 (Universal Orchestration Invariants)**: Governed by a strict **4-Gate Universality Rubric (`Tier2Rubric`)**—requiring a rule to be 100% domain-agnostic, behavioral, zero-degradation, and impossible to handle via retrieval.
-  - **Tier 3 (Domain-Specific Procedural Heuristics $\to$ TurboVec)**: Any rule that is specific to a mathematical domain (e.g., spectral graph theory, reversible resolution, martingale concentration, or sublinear edit distance) is automatically routed to **Tier 3 Procedural Memory** (`add_procedural_heuristic`), embedded as a dense vector in TurboVec, and indexed for future retrieval.
-
-### 2. Role-Specific Memory Partitioning
-Unlike naive RAG systems that dump retrieved text into a single prompt, Prime Math maintains **separate procedural vector collections for each cognitive role**:
-- When the **Context Architect** faces a new tree-decomposition theorem, it queries `tcs_architect_procedural` (`min_score = 0.68`) for structural reduction patterns.
-- When the **Adversarial Skeptic** attacks a graph claim, it queries `tcs_skeptic_procedural` for known boundary counterexample templates (e.g., star graphs, disconnected components, or parity traps).
-- When the **Publication Scribe** typesets the proof, it queries `tcs_scribe_procedural` for domain-appropriate formal exposition patterns.
-
-### 3. The 6-Gate Anti-Cheating & Zero-Leakage Shield (`heuristic_validation.py`)
-A well-known failure mode of self-improving agents is **memory poisoning**: an agent accidentally memorizes a benchmark's expected answer, stores a problem-specific constant, or learns an unsound numerical shortcut (like guessing an infinite limit via finite extrapolation).
-
-Before *any* heuristic can be committed to TurboVec, `is_valid_universal_heuristic()` and `find_ground_truth_leak()` enforce six deterministic gates (`PROVENANCE_VERSION = 2`):
-1. **Substantive Strategy Gate**: Rejects trivial platitudes (`"review constraints"`, `"check algebra"`) or strings under 25 characters.
-2. **Anti-Extrapolation Hack Gate**: Explicitly blocks empirical curve-fitting or sieving shortcuts (`Richardson extrapolation`, `Aitken's delta`, `Shanks transformation`, `brute-force sieve`, `fast_spf`) that masquerade as proofs.
-3. **Zero Benchmark Binding**: Rejects any mention of problem numbers (`Problem #850`, `task_2202`), benchmark names, or problem titles.
-4. **Zero Instance-Variable Binding**: Blocks hard-coded instance equations (`2^k == 3^m`, `"in this specific problem"`).
-5. **Ground-Truth & Constant Scrubbing**: Automatically scans against the problem statement and reference answer, rejecting any heuristic that contains the expected answer or any distinctive $\ge 4$-digit constant from the problem statement.
-6. **Near-Duplicate Suppression & Retrieval Self-Exclusion**: Blocks rules with $>0.90$ cosine similarity to existing heuristics (preventing vector clutter) and enforces `exclude_problem_id` / `exclude_task_id` at query time so a task can never retrieve a heuristic derived from itself.
-
-### 4. Why This Makes Prime Math Ideal for Domain-Specific Industrial & Scientific Solutions
-Because domain intelligence lives in **curated, role-partitioned vector embeddings** rather than fine-tuned weights:
-- **Zero-Weight-Update Domain Training**: A quantitative trading desk, formal verification team, or cryptography lab can point Prime Math at 200 domain-specific problems. Over the course of solving and remediating those problems, the harness populates its TurboVec procedural indices with validated, domain-specific mathematical lemmas, counterexample templates, and reduction strategies.
-- **Inspectable, Auditable, and Transferable Expertise**: Every learned heuristic in TurboVec is human-readable, provenance-tagged, and can be audited, shared across teams, or transferred to a newer base LLM overnight without retraining.
-
----
-
-## 4. Core Pillar II: The Zero-Trust Deterministic Mathematical Kernel (`kernel.py`, `prover_kernel.py` & `math_tools.py`)
+## 3. Core Pillar I: The Zero-Trust Deterministic Mathematical Kernel (`kernel.py`, `prover_kernel.py` & `math_tools.py`)
 
 If the CoALA Heuristics Engine is the harness's **long-term memory**, the **Deterministic Mathematical Kernel** is its **scientific laboratory**.
 
@@ -230,9 +152,87 @@ Embedded directly inside the kernel as `state` (`core_engine/state_machine.py`),
 
 ---
 
+## 4. Core Pillar II: The CoALA Continuous Domain Learning Engine (`memory.py` & `remediation.py`)
+
+How do you make a frozen 4-bit 28B model become progressively smarter in a specialized mathematical domain—without gradient updates or weight fine-tuning?
+
+Prime Math solves this by implementing a **Tripartite CoALA (Cognitive Architectures for Language Agents) Memory & Remediation Engine** backed by **TurboVec**, a high-speed local vector database (`127.0.0.1:18792`).
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│          Closed-Loop CoALA Domain Learning Lifecycle (TurboVec)              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌─────────────────────────┐          ┌─────────────────────────────────┐   │
+│   │ 1. Solve Episode        │          │ 2. Post-Solve Remediation Engine│   │
+│   │ (Pass or Fail Trace)    │─────────►│ (3-Tier Root-Cause Diagnosis)   │   │
+│   └─────────────────────────┘          └────────────────┬────────────────┘   │
+│                                                         │                    │
+│                                        Extracts Candidate Domain Heuristic   │
+│                                                         │                    │
+│                                                         ▼                    │
+│   ┌──────────────────────────────────────────────────────────────────────┐   │
+│   │ 3. Six-Gate Universality & Zero-Leakage Validator                    │   │
+│   │    (heuristic_validation.py — PROVENANCE_VERSION = 2)                │   │
+│   │  ✓ Blocks empirical cheats (Richardson/Aitken/brute-force sieves)    │   │
+│   │  ✓ Scrubs & rejects ground-truth answers & ≥4-digit constants        │   │
+│   │  ✓ Strips problem IDs, titles & instance-specific variable bindings  │   │
+│   │  ✓ Deduplicates against existing rules (cosine similarity > 0.90)    │   │
+│   └─────────────────────────────────────────────────────┬────────────────┘   │
+│                                                         │ Validated Rule     │
+│                                                         ▼                    │
+│   ┌──────────────────────────────────────────────────────────────────────┐   │
+│   │ 4. Role-Isolated TurboVec Embedding Collections                      │   │
+│   │  • prime_math_procedural / episodic    (Core Deductive Logician)     │   │
+│   │  • tcs_architect_procedural / episodic (Reduction Blueprints)        │   │
+│   │  • tcs_verifier_procedural             (Pre-Flight Falsification)    │   │
+│   │  • tcs_skeptic_procedural              (Counterexample Attack Rules) │   │
+│   │  • tcs_scribe_procedural               (Academic LaTeX Patterns)     │   │
+│   └─────────────────────────────────────────────────────┬────────────────┘   │
+│                                                         │                    │
+│                                 Just-in-Time Cosine Retrieval (score ≥ 0.68) │
+│                                                         ▼                    │
+│   ┌──────────────────────────────────────────────────────────────────────┐   │
+│   │ 5. Next Problem in Domain: Subagents Equipped with Learned Wisdom    │   │
+│   └──────────────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1. Learning by Solving: How Experience Becomes Embeddings
+Every time Prime Math finishes a problem—whether it achieves a `0.96` victory or suffers a `0.15` rejection—the trajectory does not disappear:
+- **Episodic Memory Consolidation (`record_episode`)**: `CoALAMemoryManager` records the problem structure, executed verification code blocks, verification status, and post-mortem critique into `<agent_id>_episodic`, while successful architectural blueprints are persisted directly to `tcs_architect_episodic`.
+- **3-Tier Post-Evaluation Remediation (`RemediationEngine` in `remediation.py`)**: Our automated diagnostic engine inspects failed and borderline runs across three tiers:
+  - **Tier 1 (Harness & Kernel Code)**: Fixes parser, timeout, or sandbox mechanics.
+  - **Tier 2 (Universal Orchestration Invariants)**: Governed by a strict **4-Gate Universality Rubric (`Tier2Rubric`)**—requiring a rule to be 100% domain-agnostic, behavioral, zero-degradation, and impossible to handle via retrieval.
+  - **Tier 3 (Domain-Specific Procedural Heuristics $\to$ TurboVec)**: Any rule that is specific to a mathematical domain (e.g., spectral graph theory, reversible resolution, martingale concentration, or sublinear edit distance) is automatically routed to **Tier 3 Procedural Memory** (`add_procedural_heuristic`), embedded as a dense vector in TurboVec, and indexed for future retrieval.
+
+### 2. Role-Specific Memory Partitioning
+Unlike naive RAG systems that dump retrieved text into a single prompt, Prime Math maintains **separate procedural vector collections for each cognitive role**:
+- When the **Context Architect** faces a new tree-decomposition theorem, it queries `tcs_architect_procedural` (`min_score = 0.68`) for structural reduction patterns.
+- When the **Adversarial Skeptic** attacks a graph claim, it queries `tcs_skeptic_procedural` for known boundary counterexample templates (e.g., star graphs, disconnected components, or parity traps).
+- When the **Publication Scribe** typesets the proof, it queries `tcs_scribe_procedural` for domain-appropriate formal exposition patterns.
+
+### 3. The 6-Gate Anti-Cheating & Zero-Leakage Shield (`heuristic_validation.py`)
+A well-known failure mode of self-improving agents is **memory poisoning**: an agent accidentally memorizes a benchmark's expected answer, stores a problem-specific constant, or learns an unsound numerical shortcut (like guessing an infinite limit via finite extrapolation).
+
+Before *any* heuristic can be committed to TurboVec, `is_valid_universal_heuristic()` and `find_ground_truth_leak()` enforce six deterministic gates (`PROVENANCE_VERSION = 2`):
+1. **Substantive Strategy Gate**: Rejects trivial platitudes (`"review constraints"`, `"check algebra"`) or strings under 25 characters.
+2. **Anti-Extrapolation Hack Gate**: Explicitly blocks empirical curve-fitting or sieving shortcuts (`Richardson extrapolation`, `Aitken's delta`, `Shanks transformation`, `brute-force sieve`, `fast_spf`) that masquerade as proofs.
+3. **Zero Benchmark Binding**: Rejects any mention of problem numbers (`Problem #850`, `task_2202`), benchmark names, or problem titles.
+4. **Zero Instance-Variable Binding**: Blocks hard-coded instance equations (`2^k == 3^m`, `"in this specific problem"`).
+5. **Ground-Truth & Constant Scrubbing**: Automatically scans against the problem statement and reference answer, rejecting any heuristic that contains the expected answer or any distinctive $\ge 4$-digit constant from the problem statement.
+6. **Near-Duplicate Suppression & Retrieval Self-Exclusion**: Blocks rules with $>0.90$ cosine similarity to existing heuristics (preventing vector clutter) and enforces `exclude_problem_id` / `exclude_task_id` at query time so a task can never retrieve a heuristic derived from itself.
+
+### 4. Why This Makes Prime Math Ideal for Domain-Specific Industrial & Scientific Solutions
+Because domain intelligence lives in **curated, role-partitioned vector embeddings** rather than fine-tuned weights:
+- **Zero-Weight-Update Domain Training**: A quantitative trading desk, formal verification team, or cryptography lab can point Prime Math at 200 domain-specific problems. Over the course of solving and remediating those problems, the harness populates its TurboVec procedural indices with validated, domain-specific mathematical lemmas, counterexample templates, and reduction strategies.
+- **Inspectable, Auditable, and Transferable Expertise**: Every learned heuristic in TurboVec is human-readable, provenance-tagged, and can be audited, shared across teams, or transferred to a newer base LLM overnight without retraining.
+
+---
+
 ## 5. The 7-Role Multi-Agent Orchestration & Closed-Loop Search Governance
 
-Around the **CoALA Continuous Learning Engine** and the **Deterministic Math Kernel**, `MathProver` (`core_engine/prover.py` & `prover_stages.py`) orchestrates **seven specialized cognitive roles**:
+Around the **Deterministic Math Kernel** and the **CoALA Continuous Learning Engine**, `MathProver` (`core_engine/prover.py` & `prover_stages.py`) orchestrates **seven specialized cognitive roles**:
 
 ```
                                ┌───────────────────────────────────────────┐
