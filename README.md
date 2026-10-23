@@ -5,7 +5,7 @@
 Standard large language models fail on research-level mathematics because of two foundational architectural bottlenecks: **(1) The Probabilistic Trust Fallacy** (relying on statistical next-token prediction to guess whether multi-step algebraic derivations, inequality directions, and boundary cases hold) and **(2) Frozen Weights & Episodic Amnesia** (an inability to learn continuously from solved problems or specialize into a technical domain without expensive weight fine-tuning).
 
 **Prime Math (`core_engine`)** solves both bottlenecks by combining **seven-role cognitive partitioning** with two foundational pillars:
-1. **The Zero-Trust Deterministic Mathematical Kernel Engine (`core_engine/kernel.py`, `core_engine/prover_kernel.py`, `core_engine/math_tools.py`, `core_engine/state_machine.py`)**: Dual-isolated, 3-layer airgapped symbolic and numerical execution kernels (`TCSCompliantKernel` and ephemeral `AuditorKernel`) that provide **immediate accuracy and soundness verification**. Every claim is tested deterministically using **`SymPy`**, **`Z3`**, **50-digit `mpmath`**, **`NetworkX`**, specialized domain extensions (topology, planar duals, quantum CPTP channels, PSD operator inequalities), honest three-valued empirical semantics (`holds_on_samples`), Rule 11 anti-brute-force analytical ceilings (`guarded_range` $\le 200,000$), and a formal **Epistemic State Machine** (`MathStateMachine`) that automatically revokes fragile invariants under conditioning or restriction.
+1. **The Zero-Trust Deterministic Mathematical Kernel Engine (`core_engine/kernel.py`, `core_engine/prover_kernel.py`, `core_engine/math_tools.py`, `core_engine/state_machine.py`)**: Dual-isolated, 3-layer airgapped symbolic and numerical execution kernels (`PersistentMathKernel` and ephemeral `AuditorKernel`) that provide **immediate accuracy and soundness verification**. Every claim is tested deterministically using **`SymPy`**, **`Z3`**, **50-digit `mpmath`**, **`NetworkX`**, specialized domain extensions (topology, planar duals, quantum CPTP channels, PSD operator inequalities), honest three-valued empirical semantics (`holds_on_samples`), Rule 11 anti-brute-force analytical ceilings (`guarded_range` $\le 200,000$), and a formal **Epistemic State Machine** (`MathStateMachine`) that automatically revokes fragile invariants under conditioning or restriction.
 2. **The CoALA Heuristics & Continuous Domain Learning Engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`)**: A continual learning architecture grounded in *Cognitive Architectures for Language Agents* (CoALA) where the harness **learns by solving over time**—distilling verified universal strategies (Procedural Memory) and failure post-mortems (Episodic Memory) into role-isolated vector embeddings in **TurboVec** (`127.0.0.1:18792`), guarded by a **6-Gate Zero-Leakage Universality Validator (`PROVENANCE_VERSION = 2`)**. As practitioners and researchers use the harness to prove theorems across vertical domains, the system compounds domain intelligence through vector embeddings—with zero LLM weight fine-tuning.
 
 📄 **Technical Papers & Deep Dives:**
@@ -115,8 +115,8 @@ To guarantee zero benchmark contamination, [`core_engine/heuristic_validation.py
 
 Prime Math never trusts an LLM's token probabilities to verify algebra, inequalities, or invariant preservation. Instead, it couples the model to a **Zero-Trust Deterministic Mathematical Kernel** ([`core_engine/kernel.py`](core_engine/kernel.py), [`core_engine/prover_kernel.py`](core_engine/prover_kernel.py), [`core_engine/math_tools.py`](core_engine/math_tools.py), [`core_engine/state_machine.py`](core_engine/state_machine.py)).
 
-### 1. Dual-Kernel Isolation (`TCSCompliantKernel` vs. `AuditorKernel`)
-- **`TCSCompliantKernel` (Persistent Solver Kernel)**: Preserves verified symbolic expressions, helper functions, and the `MathStateMachine` across exploratory turns $1 \dots T$, with instant state rollback (`state.checkpoint('pre_claim')` / `state.rollback('pre_claim')`).
+### 1. Dual-Kernel Isolation (`PersistentMathKernel` vs. `AuditorKernel`)
+- **`PersistentMathKernel` (Persistent Solver Kernel)**: Preserves verified symbolic expressions, helper functions, and the `MathStateMachine` across exploratory turns $1 \dots T$, with instant state rollback (`state.checkpoint('pre_claim')` / `state.rollback('pre_claim')`).
 - **`AuditorKernel` (Ephemeral Referee Kernel)**: Spawned fresh from scratch (`timeout = 15s`) during Stage 1 of `_audit_proof_draft` with a completely disjoint namespace so buggy solver definitions can never contaminate proof auditing.
 
 ### 2. Preloaded Symbolic, SMT, Arbitrary-Precision & Diagnostic Toolkit
@@ -147,7 +147,7 @@ Prime Math never trusts an LLM's token probabilities to verify algebra, inequali
   - `None`: Inconclusive or domain singularity.
 - **Rule 11 Anti-Brute-Force Analytical Ceilings & APU Safeguards**: `guarded_range` blocks loops exceeding `MAX_DIAGNOSTIC_SIEVE_LIMIT = 200,000` elements, generator wraps enforce `MAX_COMBINATORIAL_STEPS = 200,000` to prevent memory thrashing on unified memory architectures (AMD Ryzen AI Max+ 395 UMA APU), and static AST inspection (`_combinatorial_ceiling`) blocks $O(n!)$ `permutations(range(n))` for $n \ge 7$—forcing analytical deduction over brute force.
 - **Candidate Protection against Destructive Pivots**: `[Hard Pivot Prevented — Substantive/Best Candidate Protected]` prevents catastrophic loss of viable mathematical foundations ($v \ge 0.25$), enforcing surgical revision instead of unconstrained backtracking.
-- **3-Layer Benchmark Airgapping**: When `allow_internet=False`, `TCSCompliantKernel` enforces (1) offline research tool stubs, (2) static AST blocking of 24 network modules and dynamic import/process escape hatches (`importlib`, `subprocess`, `ctypes`, `os.system`, `__import__`), and (3) a thread-local runtime `_socket_guard()` plus `_detect_trace_tampering()` stdout anti-forgery checks.
+- **3-Layer Benchmark Airgapping**: When `allow_internet=False`, `PersistentMathKernel` (via benchmark airgapping mixins) enforces (1) offline research tool stubs, (2) static AST blocking of 24 network modules and dynamic import/process escape hatches (`importlib`, `subprocess`, `ctypes`, `os.system`, `__import__`), and (3) a thread-local runtime `_socket_guard()` plus `_detect_trace_tampering()` stdout anti-forgery checks.
 
 ### 3. Epistemic State Machine (`MathStateMachine`)
 [`core_engine/state_machine.py`](core_engine/state_machine.py) lives in the kernel namespace as `state` and tracks mathematical object provenance DAGs:
@@ -181,7 +181,7 @@ flowchart TD
 ```
 
 ### Closed-Loop Search Governance Highlights
-- **Turn-1 Exploration Gate (`TURN-1 PROOF BAN`)**: Prohibits emitting `\begin{proof}` on Turn 1; the Logician must first explore invariants in `TCSCompliantKernel` and propose structured `[CLAIM]` / `[REDUCTION]` steps.
+- **Turn-1 Exploration Gate (`TURN-1 PROOF BAN`)**: Prohibits emitting `\begin{proof}` on Turn 1; the Logician must first explore invariants in `PersistentMathKernel` and propose structured `[CLAIM]` / `[REDUCTION]` steps.
 - **Blueprint Quarantine**: Treats the Context Architect's blueprint as an `UNVERIFIED CONJECTURAL SKETCH`. If a Python check falsifies an intermediate inequality, the solver discards the intermediate bound rather than restricting the theorem's domain.
 - **4-Layer Internal Proof Auditor ([`core_engine/prover_auditor.py`](core_engine/prover_auditor.py))**:
   1. *Stage 1*: Ephemeral `AuditorKernel` Python falsification.
@@ -201,7 +201,7 @@ prime-math/
 │   ├── prover.py                    # Central MathProver orchestrator & multi-turn search loop
 │   ├── prover_stages.py             # 7-role cognitive stage prompts & subagent runners
 │   ├── prover_auditor.py            # 4-layer internal proof auditor & domain pre-checks
-│   ├── prover_kernel.py             # Airgapped TCSCompliantKernel & ephemeral AuditorKernel
+│   ├── prover_kernel.py             # Benchmark airgapped mixins & ephemeral AuditorKernel
 │   ├── prover_types.py              # CandidatePool (Occam's Razor), AuditResult, ProofResult
 │   ├── kernel.py                    # PersistentMathKernel, holds_on_samples, Rule 11 guards
 │   ├── math_tools.py                # Preloaded asymptotic, covariance & graph diagnostics

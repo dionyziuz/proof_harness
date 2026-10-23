@@ -76,11 +76,12 @@ Compounding those two structural walls are four tactical breakdowns in naive pro
 
 If the CoALA Heuristics Engine is the harness's **long-term memory**, the **Deterministic Mathematical Kernel** is its **scientific laboratory**.
 
-Instead of trusting the 28B LLM to evaluate an integral, check an asymptotic limit, or verify whether two events are independent in its head, Prime Math forces mathematical claims through a stateful, airgapped Python execution engine (`TCSCompliantKernel` and `AuditorKernel`).
+Instead of trusting the 28B LLM to evaluate an integral, check an asymptotic limit, or verify whether two events are independent in its head, Prime Math forces mathematical claims through a stateful, airgapped Python execution engine (`PersistentMathKernel` and ephemeral `AuditorKernel`).
 
 ```python
-class TCSCompliantKernel(_NetworkIsolationMixin, PersistentMathKernel):
-    """3-layer airgapped symbolic/numerical REPL with deterministic math verification tools."""
+class PersistentMathKernel:
+    """Zero-trust symbolic/numerical execution engine with deterministic math verification tools.
+    When evaluated on isolated benchmarks (such as TCS-Bench), _NetworkIsolationMixin is added for airgapping."""
 
     # 1. Preloaded Symbolic & SMT Arsenal:
     #    - SymPy (exact rational algebra, symbolic limits, series, closed-form sums)
@@ -117,7 +118,7 @@ class TCSCompliantKernel(_NetworkIsolationMixin, PersistentMathKernel):
 To prove a universal theorem $\forall x \in D, \Phi(x) \implies \Psi(x)$, finding **one** concrete counterexample $x_0 \in D$ where $\Phi(x_0) \land \neg \Psi(x_0)$ holds is 100% definitive. When the LLM proposes an intermediate inequality or graph reduction, the kernel tests it in milliseconds—killing false conjectures on Turn 1 or Turn 2 before the model wastes 6 turns writing a 15,000-character proof around a lie.
 
 #### 2. Built-In Domain Diagnostic Primitives (`core_engine/math_tools.py`)
-Rather than hoping the LLM writes bug-free test scripts from scratch every time, `TCSCompliantKernel` preloads domain-agnostic verification primitives directly into the global namespace:
+Rather than hoping the LLM writes bug-free test scripts from scratch every time, `PersistentMathKernel` preloads domain-agnostic verification primitives directly into the global namespace:
 - **`check_asymptotic_dominance(f, g, var="n")`**: Uses `SymPy` to symbolically compute $\lim_{n \to \infty} f(n)/g(n)$ and deterministically classify whether $f = o(g)$, $f = \mathcal{O}(g)$, $f = \Theta(g)$, or $f = \omega(g)$—eliminating sign errors and log-factor hallucinations in complexity proofs.
 - **`check_event_covariance(sampler_fn, n_trials=2000)`**: In probabilistic proofs, LLMs frequently apply $\mathbb{P}(A \cap B) = \mathbb{P}(A)\mathbb{P}(B)$ to events that are subtly correlated after conditioning. This tool runs Monte Carlo trials, computes $\text{Cov}(A, B)$ and Pearson correlation $\rho$, and raises an explicit `DEPENDENCE DETECTED` alert whenever $|\rho| > 0.05$.
 - **`find_graph_counterexample(predicate_fn, max_n=7)`**: Exhaustively sweeps a proposed graph invariant across Paths $P_n$, Cycles $C_n$, Complete graphs $K_n$, Stars $S_n$, Complete Bipartite graphs $K_{n_1, n_2}$, and seeded Erdős–Rényi random graphs $G(n, p)$. Crucially, it is **fail-closed**: if `predicate_fn` raises an exception on any graph family, the tool returns `inconclusive: True, verified: False` rather than silently counting a crashed test as passing.
@@ -140,8 +141,8 @@ Prime Math refuses to patch `Relational.__bool__`. Instead, it provides **`holds
 When left unchecked in a REPL, LLMs often try to approximate asymptotic number-theory or combinatorics problems by running massive brute-force loops (`for n in range(10**8)`), which either times out or produces low-precision statistical noise ($\mathcal{O}(1/\sqrt{N})$).
 `PersistentMathKernel` installs **`guarded_range`** and diagnostic ceilings (`MAX_DIAGNOSTIC_SIEVE_LIMIT = 200,000` on `fast_sieve`, `fast_totients`, `fast_spf`, and $n < 7$ on `permutations`): any attempt to allocate a range exceeding $200,000$ elements immediately raises `ExecutionBlockedByRule11`, instructing the model to stop brute-force simulation and derive the exact analytical formula, generating function, or Euler product.
 
-#### 6. Dual-Kernel Isolation (`TCSCompliantKernel` vs. Ephemeral `AuditorKernel`)
-If the Proof Auditor ran its verification scripts inside the solver's own Python kernel, buggy helper functions or overwritten variables defined by the solver could corrupt the audit. Prime Math therefore pairs the persistent **`TCSCompliantKernel`** (used by the solver across turns) with a completely separate, ephemeral **`AuditorKernel`** (`prover_kernel.py`) that boots a fresh namespace for every audit pass with a hard 15-second timeout (`TimeoutException` subclassing `BaseException` so LLM `try ... except Exception:` blocks cannot swallow timeouts) and thread-local `ThreadAwareStream` proxies that prevent stdout cross-contamination across concurrent workers.
+#### 6. Dual-Kernel Isolation (`PersistentMathKernel` vs. Ephemeral `AuditorKernel`)
+If the Proof Auditor ran its verification scripts inside the solver's own Python kernel, buggy helper functions or overwritten variables defined by the solver could corrupt the audit. Prime Math therefore pairs the persistent **`PersistentMathKernel`** (used by the solver across turns) with a completely separate, ephemeral **`AuditorKernel`** (`prover_kernel.py`) that boots a fresh namespace for every audit pass with a hard 15-second timeout (`TimeoutException` subclassing `BaseException` so LLM `try ... except Exception:` blocks cannot swallow timeouts) and thread-local `ThreadAwareStream` proxies that prevent stdout cross-contamination across concurrent workers.
 
 #### 7. Epistemic State Tracking of Hereditary vs. Fragile Properties (`MathStateMachine`)
 Embedded directly inside the kernel as `state` (`core_engine/state_machine.py`), the **Epistemic State Machine** tracks the lineage DAG of mathematical objects (`state.register`, `state.derive`, `state.checkpoint`, `state.rollback`):
@@ -293,7 +294,7 @@ Around the **Deterministic Math Kernel** and the **CoALA Continuous Learning Eng
 
 ### How the 7 Roles Interact with CoALA Memory and the Kernel
 1. **Context Architect (`_run_context_architect`)**: Queries `tcs_architect_procedural` memory, catalogs context lemmas, seeds `state.register()` in the kernel, and emits a **Quarantined Reduction Blueprint** (`UNVERIFIED CONJECTURAL SKETCH`).
-2. **Pre-Flight Computational Falsifier (`_run_computational_falsifier`)**: Queries `tcs_verifier_procedural` memory and tests the Architect's conjectured bounds in `TCSCompliantKernel` before Turn 1 starts.
+2. **Pre-Flight Computational Falsifier (`_run_computational_falsifier`)**: Queries `tcs_verifier_procedural` memory and tests the Architect's conjectured bounds in `PersistentMathKernel` before Turn 1 starts.
 3. **Deductive Logician (`_run_exploratory_turns`)**: Governed by the **Turn-1 Exploration Gate** (banning `\begin{proof}` on Turn 1), it uses `prime_math_procedural` heuristics and the persistent REPL to test invariants and propose `[CLAIM]` / `[REDUCTION]` steps.
 4. **Adversarial Skeptic (`_run_adversarial_skeptic`)**: Runs in a zero-leakage context with `tcs_skeptic_procedural` memory, attacking each `[CLAIM]` in the kernel via `Z3`/`NetworkX`/`SymPy`. On `REFUTED`, the kernel executes `state.rollback('pre_claim')`; on `VERIFIED`, it records the claim to `state.record_lemma`.
 5. **Publication Scribe (`_run_publication_scribe`)**: Runs in an isolated 65k-token context with `tcs_scribe_procedural` memory, executing **Backward Critical-Path Pruning** and **Full Domain Coverage** to typeset clean declarative LaTeX.
@@ -385,7 +386,7 @@ Consider **Task 242** (`task_2410.21942_statement_30_71`), a research theorem on
 > $$\mathcal{O}\left(\left(n + m + (nm)^{\frac{d}{d+1}} c^{\frac{1}{d+1}}\right) (\log(nm))^{\mathcal{O}(d)}\right)$$
 
 1. **Turn 1 (Exploration Gate)**: Blocked from rushing a proof, the Logician explored coordinate-wise divide-and-conquer and identified linear-term blowup across recursive subproblems.
-2. **Turns 2–4 (REPL & Skeptic Intervention)**: In the `TCSCompliantKernel`, small coordinate partitions ($d=2, 3$) revealed that coordinate-wise bounding fails unless dyadic scaling is applied to the bounding box $T$.
+2. **Turns 2–4 (REPL & Skeptic Intervention)**: In `PersistentMathKernel`, small coordinate partitions ($d=2, 3$) revealed that coordinate-wise bounding fails unless dyadic scaling is applied to the bounding box $T$.
 3. **Turns 5–7 (Structural Realization)**: The model pivoted to a $d$-dimensional dyadic box decomposition on $T$, defining shifted boxes $A_\alpha^*$ and bounding the non-vacuous subproblems using **Hölder's inequality** with conjugate exponents $p = \frac{d}{d+1}$ and $q = \frac{1}{d+1}$.
 4. **Turn 8 (Publication Scribe Synthesis)**: The Scribe assembled a crisp, 7,275-character inductive proof over $T$, bounding the sum of recursive terms via Hölder's inequality over the $2^d$ sub-boxes.
 5. **External Referee Verdict**: **Validity: 0.94** (*Rigor: 0.92, Completeness: 0.95, Confidence: 0.93*).
