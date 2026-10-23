@@ -80,11 +80,16 @@ Unlike unassisted, single-turn inference where a model generates a proof purely 
 
 Over a guided multi-turn search trajectory (nominally up to 8 turns, with an automatic extension to 12 turns for promising drafts), the architecture develops and refines a complete LaTeX proof enclosed in `\begin{proof} ... \end{proof}`. 
 
-To evaluate proof correctness without circularity or confirmation bias, each candidate proof is assessed by an independent, external referee (the **Calibrated TCS Judge**). The judge grades the draft across multiple independent evaluation replicates on five dimensions: mathematical rigor, structural completeness, handling of boundary cases, referee confidence, and overall validity. The median validity score determines benchmark certification:
-- **Grade C & Above (≥ 0.40 — Directionally Sound):** The core mathematical reduction is sound and directionally correct, with minor technical gaps.
-- **Grade B & Above (≥ 0.50 — Certified Sound Pass):** Headline threshold indicating a complete, mathematically sound deduction with no unverified leaps.
-- **Grade A & Above (≥ 0.70 — Publication Grade):** Highly rigorous, journal-level exposition with all edge cases discharged.
-- **Flawless Proofs (≥ 0.90):** Formal proofs satisfying all referee requirements.
+To evaluate proof correctness without circularity or confirmation bias, each candidate proof is assessed by an independent, external referee (the **Calibrated TCS Judge**). The judge grades the draft across multiple independent evaluation replicates on five dimensions: *Logical Deductive Rigor*, *Structural Completeness*, *Handling of Boundary & Edge Cases*, *Verification of Theorem Hypotheses*, and *Overall Validity* $v(\pi) \in [0.0, 1.0]$. The median validity score determines benchmark certification across distinct quality tiers:
+
+- **Grade A & Above ($v(\pi) \ge 0.70$ — Publication Grade / Journal-Ready):** 
+  The proof provides an exhaustive, airtight deductive derivation from stated hypotheses to the final theorem conclusion. All quantifier scopes ($\forall, \exists$), degenerate parameter regimes (e.g., $n=1, 2$, empty cuts, isolated vertices), and asymptotic transition bounds are explicitly analyzed and discharged. Preconditions for external mathematical machinery (e.g., Chernoff bounds, Cauchy-Schwarz, spectral interlacing) are verified in full. Proofs in this tier are typeset in formal declarative LaTeX suitable for immediate academic submission; proofs with $v(\pi) \ge 0.90$ represent near-flawless journal quality.
+- **Grade B & Above ($v(\pi) \ge 0.50$ — Certified Sound Pass):** 
+  The primary benchmark headline threshold indicating a complete, mathematically sound deduction with no substantive deductive flaws. The central reduction, lemma dependencies, and algebraic transformations are correct, with zero unverified leaps on non-trivial steps. Unlike Grade A, proofs in this tier may treat routine, standard edge cases briefly or leave standard algebraic identities implicit where they follow directly from context, but contain no unsound steps or false lemmas.
+- **Grade C & Above ($v(\pi) \ge 0.40$ — Directionally Sound Reduction):** 
+  The high-level reduction architecture, problem decomposition, and invariant strategy are genuinely valid (e.g., correctly establishing an inductive reduction, constructing the correct potential function in amortized analysis, or establishing a valid probabilistic coupling). However, the derivation may contain minor technical gaps, an unverified constant factor, or a loose intermediate inequality that requires subsequent patching. This tier captures all proofs with substantive mathematical foundations, separating directionally sound progress from complete failures.
+- **Incomplete / Refuted Proofs ($v(\pi) < 0.40$):** 
+  Proofs exhibiting fatal logical flaws, inverted inequality directions, unaddressed counterexamples, illegal property inheritance across transformations (e.g., assuming independence after conditioning), circular reasoning, or superficial hand-waving prose (*"it obviously follows by standard arguments"*).
 
 ---
 

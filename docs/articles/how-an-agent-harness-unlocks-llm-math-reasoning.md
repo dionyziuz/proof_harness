@@ -32,6 +32,15 @@ The results were striking:
 | **Certified Sound Proofs (Grade B & Up, $\ge 0.50$)** | 3.3% (10 / 300) | **21.0% (63 / 300)** | **6.30× Gain** |
 | **Publication-Grade Proofs (Grade A & Up, $\ge 0.70$)** | 2.3% (7 / 300) | **18.0% (54 / 300)** | **7.71× Gain** |
 
+### What Do the Grades Actually Mean?
+
+Because mathematical deduction is not a multiple-choice benchmark, every proof is evaluated by an external calibrated referee across logical rigor, edge-case discharge, and structural completeness:
+
+- **Grade A ($\ge 0.70$ — Publication Grade):** An airtight, journal-quality proof. Every step is rigorously justified, all quantifier regimes and boundary cases ($n=1, 2$, empty graphs, degenerate matrices) are explicitly proved, and preconditions for cited theorems (like Chernoff or Hölder bounds) are verified in full. Over $85\%$ of the harness's certified passes reached this publication-ready tier.
+- **Grade B ($\ge 0.50$ — Certified Sound Pass):** The benchmark's headline pass threshold. The central mathematical reduction and derivations are completely sound, with no logical leaps, false claims, or hallucinated lemmas. Minor routine edge cases may be handled concisely, but the mathematical argument is fundamentally correct.
+- **Grade C ($\ge 0.40$ — Directionally Sound Reduction):** The core proof architecture is correct (e.g., the right inductive invariant, reduction, or probabilistic technique was found), but contains minor technical gaps, an unverified constant, or a loose intermediate inequality that needs patching. This tier captures all proofs with substantive, viable mathematical foundations.
+- **Below Grade C ($< 0.40$ — Refuted / Incomplete):** Fatal logical flaws, inverted inequalities, circular reasoning, illegal property inheritance (e.g., assuming independence after conditioning), or hand-waving prose like *"it obviously follows"*.
+
 Nearly **6x as many passing proofs**, with 18% reaching publication-grade quality—all running on consumer hardware without fine-tuning a single model weight. (While our empirical results were benchmarked on consumer hardware, the harness itself is model-agnostic and can wrap any LLM).
 
 Here is how the harness works, the engineering under the hood, and why it succeeded where one-shot generation failed.
