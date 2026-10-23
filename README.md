@@ -29,7 +29,7 @@ Evaluated across **300 research-level problems from TCS-Bench** (arXiv Theoretic
 - **All Passing Grades ($\ge 0.40$, Grade C and Above — Sound & Directional):** **71 / 300 (23.67%)** — nearly **sextupling ($5.92\times$)** the unassisted initial draft baseline ($4.00\%$).
 - **Certified Sound Passes ($\ge 0.50$, Grade B and Above):** **63 / 300 (21.00%)** — a **$6.30\times$ multiplier** over the initial unassisted draft baseline ($3.33\%$).
 - **Publication-Grade Proofs ($\ge 0.70$, Grade A and Above):** **54 / 300 (18.00%)** — a **$7.71\times$ multiplier** over initial drafting ($2.33\%$, 7/300), with 31 proofs reaching near-flawless ($\ge 0.90$) journal quality.
-- **Passing Proof Validity:** Drives the mean referee validity of certified passing proofs from low-rigor initial guesses (mean 0.142 across all 300 unassisted first-draft judgments) to an extraordinary **$0.853 \pm 0.129$** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**.
+- **Passing Proof Validity:** Drives the mean referee validity of certified passing proofs from low-rigor initial drafts (mean internal audit score $0.253 \pm 0.227$; mean external score on unsolved tasks $0.139 \pm 0.107$) to **$0.853 \pm 0.129$** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**.
 - **100% of Passing Proofs** are discovered through governed multi-turn exploration in Turns 2–12 (with **84.1%** won in Turn 4 or later, and **20.6%** won in overtime).
 
 ---
@@ -42,7 +42,7 @@ Evaluated across **300 research-level problems from TCS-Bench** (arXiv Theoretic
 +==========================================================================================+
 |  Layer               | Module / Substrate              | Capabilities                    |
 +----------------------+---------------------------------+---------------------------------+
-| Pillar I: CoALA      | CoALAMemoryManager & Validator  | 10 role-isolated TurboVec       |
+| Pillar I: CoALA      | CoALAMemoryManager & Validator  | 5 role-isolated TurboVec        |
 | Continual Learning   | (`memory.py`, `remediation.py`, | collections, automated heuristic|
 | Engine               |  `heuristic_validation.py`)     | validation, 3-Tier Remediation  |
 +----------------------+---------------------------------+---------------------------------+
@@ -68,8 +68,8 @@ Evaluated across **300 research-level problems from TCS-Bench** (arXiv Theoretic
 | Formal Verification  | (`core_engine/judging/`,        | referee + zero-sorry Lean 4     |
 |                      |  `core_engine/lean_runner.py`)  | compiler verification           |
 +----------------------+---------------------------------+---------------------------------+
-| AGY / MCP Server     | Model Context Protocol (stdio)  | 7 live tools for AI coding      |
-|                      | (`core_engine/mcp_server.py`)   | assistants & downstream skills  |
+| MCP Server           | Model Context Protocol (stdio)  | 7 live tools for AI agents      |
+|                      | (`core_engine/mcp_server.py`)   | & downstream applications       |
 +==========================================================================================+
 ```
 
@@ -172,7 +172,7 @@ flowchart TD
     Roll --> S3
 
     S3 -->|"[ALL CLAIMS ESTABLISHED]\n+ Epistemic State Gate"| S5["5. Publication Scribe\n(Critical-Path Pruning, CoALA: tcs_scribe)"]
-    S5 -->|"Candidate LaTeX \pi_t"| S6["6. Multi-Stage Proof Auditor\n(AuditorKernel + Domain Check + 6-Gate Referee)"]
+    S5 -->|"Candidate LaTeX \pi_t"| S6["6. Multi-Stage Proof Auditor\n(AuditorKernel + Domain Check + Academic Referee)"]
     
     S6 -->|"v_int >= 0.90 or Max Turns"| PoolOut["CandidatePool Best Proof \pi*"]
     S6 -->|"REJECT / v_int < 0.90"| S7["7. Dynamic Critique Falsifier\n+ Stateless 4-Msg Blackboard\n+ Hard Pivot / Overtime Controller"]
@@ -183,13 +183,13 @@ flowchart TD
 ### Closed-Loop Search Governance Highlights
 - **Turn-1 Exploration Gate (`TURN-1 PROOF BAN`)**: Prohibits emitting `\begin{proof}` on Turn 1; the Logician must first explore invariants in `PersistentMathKernel` and propose structured `[CLAIM]` / `[REDUCTION]` steps.
 - **Blueprint Quarantine**: Treats the Context Architect's blueprint as an `UNVERIFIED CONJECTURAL SKETCH`. If a Python check falsifies an intermediate inequality, the solver discards the intermediate bound rather than restricting the theorem's domain.
-- **4-Layer Internal Proof Auditor ([`core_engine/prover_auditor.py`](core_engine/prover_auditor.py))**:
+- **Multi-Stage Internal Proof Auditor ([`core_engine/prover_auditor.py`](core_engine/prover_auditor.py))**:
   1. *Stage 1*: Ephemeral `AuditorKernel` Python falsification.
   2. *Stage 1.5*: Deterministic regex pre-check (`_detect_unauthorized_restrictions`) catching mid-proof domain narrowing lacking a complementary case split.
-  3. *Stage 2*: 6-Gate Academic Referee enforcing hard boolean validity caps (`statement_fidelity_exact` $\le 0.25$, `inequality_directions_verified` $\le 0.30$, `theorem_hypotheses_verified` $\le 0.35$).
+  3. *Stage 2*: Academic Referee enforcing hard boolean validity caps (`statement_fidelity_exact` $\le 0.25$, `inequality_directions_verified` $\le 0.30$, `theorem_hypotheses_verified` $\le 0.35$).
   4. *Stage 2.5*: Adversarial second-opinion confirmation on borderline `[0.75, 0.88)` drafts.
-- **Stateless 4-Message Blackboard & `CandidatePool` Noise-Band Occam's Razor ($\epsilon = 0.03$)**: Collapses revision context to `[System, Clean Task Prompt, Pinned Candidate Proof, Surgical Repair Directive]`, penalizes revisions that bloat proof length by $>50\%$ for a $\le 0.03$ score bump, and triggers a **Clean-Slate Hard Pivot** (`kernel.reset()` + `BANNED PREMISES` ledger) when a reduction stagnates below `0.25`.
-- **High-Potential Overtime Gate (Turns 9–12)**: Grants $+4$ overtime turns when a Turn-8 draft achieves directional validity ($\ge 0.30$), converting $26.1\%$ of overtime tasks into certified passes.
+- **Stateless 4-Message Blackboard & `CandidatePool` Noise-Band Occam's Razor ($\epsilon = 0.03$)**: Collapses revision context to `[System, Clean Task Prompt, Pinned Candidate Proof, Surgical Repair Directive]`, penalizes revisions that bloat proof length by $>50\%$ for a $\le 0.03$ score bump, and triggers a **Clean-Slate Hard Pivot** (`kernel.reset()` + `BANNED PREMISES` ledger) when a reduction stagnates below `0.30` (unless protected by Candidate Protection).
+- **High-Potential Overtime Gate (Turns 9–12)**: Grants $+4$ overtime turns when a Turn-8 draft achieves directional validity ($\ge 0.35$), converting $26.1\%$ of overtime tasks into certified passes.
 
 ---
 
@@ -200,14 +200,14 @@ proof_harness/
 ├── core_engine/                     # Core neuro-symbolic reasoning & proving package
 │   ├── prover.py                    # Central MathProver orchestrator & multi-turn search loop
 │   ├── prover_stages.py             # 7-role cognitive stage prompts & subagent runners
-│   ├── prover_auditor.py            # 4-layer internal proof auditor & domain pre-checks
+│   ├── prover_auditor.py            # Multi-stage internal proof auditor & domain pre-checks
 │   ├── prover_kernel.py             # Benchmark airgapped mixins & ephemeral AuditorKernel
 │   ├── prover_types.py              # CandidatePool (Occam's Razor), AuditResult, ProofResult
 │   ├── kernel.py                    # PersistentMathKernel, holds_on_samples, Rule 11 guards
 │   ├── math_tools.py                # Preloaded asymptotic, covariance & graph diagnostics
 │   ├── state_machine.py             # MathStateMachine (hereditary vs. fragile invariants)
-│   ├── memory.py                    # CoALAMemoryManager (10 role-isolated TurboVec collections)
-│   ├── heuristic_validation.py      # 6-Gate Zero-Leakage Validator (PROVENANCE_VERSION = 2)
+│   ├── memory.py                    # CoALAMemoryManager (5 role-isolated TurboVec collections)
+│   ├── heuristic_validation.py      # Automated Heuristic Validator & Sanitizer (PROVENANCE_VERSION = 2)
 │   ├── remediation.py               # 3-Tier Autonomous RemediationEngine & Tier2Rubric
 │   ├── compactor.py                 # Hybrid deterministic regex + neural context compactor
 │   ├── solver.py                    # MathSolver for autonomous numerical/closed-form solving
@@ -311,7 +311,7 @@ uv run prime-math step next
 # Search existing procedural rules in TurboVec by semantic similarity
 uv run prime-math heuristic search "graph neighborhood BFS" --limit 5
 
-# Validate against the 6-gate zero-leakage rubric and commit to TurboVec
+# Validate and commit a universal heuristic to TurboVec
 uv run prime-math heuristic add "When upper-bounding the neighborhood |N(S)| of a connected vertex set S, express S as a shortest-path tree or BFS layering from a root r and charge each boundary vertex in N(S) to its unique earliest ancestor in S."
 
 # Run automated 3-tier post-evaluation failure remediation
@@ -354,7 +354,7 @@ uv run prime-math bench --start 1 --end 10 --workers 2
 
 ## 🔌 Model Context Protocol (MCP) Server Mode
 
-`prime-math` runs natively as an MCP server over `stdio` for AI coding assistants (such as Antigravity / Claude Code / Gemini CLI):
+`prime-math` runs natively as an MCP server over `stdio` for MCP-compatible AI clients and coding assistants:
 ```bash
 uv run prime-math mcp
 ```
