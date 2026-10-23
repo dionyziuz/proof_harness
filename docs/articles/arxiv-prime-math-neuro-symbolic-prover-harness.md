@@ -395,69 +395,69 @@ In initial drafting without multi-turn symbolic revision loops, the 27B base mod
 
 **Table 1: TCS-Bench ($N=300$) Performance: Initial Draft Baseline vs. Proposed Neuro-Symbolic Framework.**
 
-| Evaluation Paradigm | Grade C & Above ($\ge 0.40$)<br>Sound & Directional | Grade B & Above ($\ge 0.50$)<br>Certified Sound Pass | Grade A & Above ($\ge 0.70$)<br>Publication-Grade | Pass Multiplier vs. Initial Baseline<br>(Grade C & Up / B & Up / A & Up) |
+| Evaluation Paradigm | Grade C & Above (≥ 0.40)<br>Sound & Directional | Grade B & Above (≥ 0.50)<br>Certified Sound Pass | Grade A & Above (≥ 0.70)<br>Publication-Grade | Pass Multiplier vs. Initial Baseline<br>(Grade C & Up / B & Up / A & Up) |
 | :--- | :---: | :---: | :---: | :---: |
-| **1. Initial Draft Baseline (27B)** | $12 / 300$ (**$4.00\%$**) | $10 / 300$ (**$3.33\%$**) | $7 / 300$ (**$2.33\%$**) | $1.00\times$ / $1.00\times$ / $1.00\times$ |
-| **2. First Synthesis Turn ($T = 2$, V4)** | $5 / 300$ (**$1.67\%$**) | $5 / 300$ (**$1.67\%$**) | $5 / 300$ (**$1.67\%$**) | — |
-| **3. Nominal 8-Turn Horizon ($T \le 8$, V4)** | $50 / 300$ (**$16.67\%$**) | $50 / 300$ (**$16.67\%$**) | $46 / 300$ (**$15.33\%$**) | $4.17\times$ / $5.00\times$ / $6.57\times$ |
-| **4. Proposed Neuro-Symbolic Framework ($T \le 12$, V4)** | **$71 / 300$** (**$23.67\%$**) | **$63 / 300$** (**$21.00\%$**) | **$54 / 300$** (**$18.00\%$**) | **$5.92\times$** / **$6.30\times$** / **$7.71\times$** |
+| **1. Initial Draft Baseline (27B)** | 12 / 300 (**4.00%**) | 10 / 300 (**3.33%**) | 7 / 300 (**2.33%**) | 1.00× / 1.00× / 1.00× |
+| **2. First Synthesis Turn (T = 2, V4)** | 5 / 300 (**1.67%**) | 5 / 300 (**1.67%**) | 5 / 300 (**1.67%**) | — |
+| **3. Nominal 8-Turn Horizon (T ≤ 8, V4)** | 50 / 300 (**16.67%**) | 50 / 300 (**16.67%**) | 46 / 300 (**15.33%**) | 4.17× / 5.00× / 6.57× |
+| **4. Proposed Neuro-Symbolic Framework (T ≤ 12, V4)** | **71 / 300** (**23.67%**) | **63 / 300** (**21.00%**) | **54 / 300** (**18.00%**) | **5.92×** / **6.30×** / **7.71×** |
 
 Across all evaluated thresholds, the proposed architecture significantly amplifies passing performance:
-- Counting **all passing grades (Grade C and above, $\ge 0.40$)**, the framework achieves **$23.67\%$ ($71/300$)** vs. **$4.00\%$ ($12/300$)** for the initial baseline — a **$5.92\times$ multiplier**.
-- Counting **certified sound passes (Grade B and above, $\ge 0.50$)**, the framework achieves **$21.00\%$ ($63/300$)** vs. **$3.33\%$ ($10/300$)** for the initial baseline — a **$6.30\times$ multiplier** (and a **$12.60\times$ multiplier** over the $5/300$ first synthesis turn).
-- Counting **publication-grade proofs (Grade A and above, $\ge 0.70$)**, the framework achieves **$18.00\%$ ($54/300$)** vs. **$2.33\%$ ($7/300$)** for the initial baseline — a **$7.71\times$ multiplier**.
+- Counting **all passing grades (Grade C and above, ≥ 0.40)**, the framework achieves **23.67% (71/300)** vs. **4.00% (12/300)** for the initial baseline — a **5.92× multiplier**.
+- Counting **certified sound passes (Grade B and above, ≥ 0.50)**, the framework achieves **21.00% (63/300)** vs. **3.33% (10/300)** for the initial baseline — a **6.30× multiplier** (and a **12.60× multiplier** over the 5/300 first synthesis turn).
+- Counting **publication-grade proofs (Grade A and above, ≥ 0.70)**, the framework achieves **18.00% (54/300)** vs. **2.33% (7/300)** for the initial baseline — a **7.71× multiplier**.
 
 ### 6.3 Multi-Dimensional Referee Sub-Score Distributions
-Table 2 details the fine-grained external referee sub-scores across all $N=300$ evaluated problems in V4, contrasting the subset of unsolved/refuted attempts ($N=237$, $v(\pi) < 0.50$) against the certified passing proofs ($N=63$, $v(\pi) \ge 0.50$).
+Table 2 details the fine-grained external referee sub-scores across all N = 300 evaluated problems in V4, contrasting the subset of unsolved/refuted attempts (N = 237, v(π) < 0.50) against the certified passing proofs (N = 63, v(π) ≥ 0.50).
 
-**Table 2: Multi-Dimensional External Referee Sub-Score Statistics on TCS-Bench ($N=300$, V4 Evaluation).**
+**Table 2: Multi-Dimensional External Referee Sub-Score Statistics on TCS-Bench (N = 300, V4 Evaluation).**
 
-| Referee Dimension | Refuted / Unsolved ($N=237$)<br>Mean $\pm$ SD (Median) | All Problems ($N=300$)<br>Mean $\pm$ SD (Median) | Certified Passes ($N=63$)<br>Mean $\pm$ SD (Median) | Refuted to Passing Gain ($\Delta$) |
+| Referee Dimension | Refuted / Unsolved (N = 237)<br>Mean ± SD (Median) | All Problems (N = 300)<br>Mean ± SD (Median) | Certified Passes (N = 63)<br>Mean ± SD (Median) | Refuted to Passing Gain (Δ) |
 | :--- | :---: | :---: | :---: | :---: |
-| **Overall Validity $v(\pi)$** | $0.139 \pm 0.107$ ($0.100$) | $0.289 \pm 0.312$ ($0.180$) | **$0.853 \pm 0.129$** (**$0.880$**) | **$+0.714$** (Mean) / **$+0.780$** (Med) |
-| **Logical Rigor** | $0.231 \pm 0.111$ ($0.200$) | $0.363 \pm 0.279$ ($0.250$) | **$0.857 \pm 0.121$** (**$0.900$**) | **$+0.626$** (Mean) / **$+0.700$** (Med) |
-| **Structural Completeness** | $0.324 \pm 0.143$ ($0.300$) | $0.446 \pm 0.273$ ($0.350$) | **$0.907 \pm 0.089$** (**$0.940$**) | **$+0.583$** (Mean) / **$+0.640$** (Med) |
-| **Boundary & Edge Cases** | $0.316 \pm 0.173$ ($0.300$) | $0.434 \pm 0.282$ ($0.350$) | **$0.878 \pm 0.127$** (**$0.900$**) | **$+0.562$** (Mean) / **$+0.600$** (Med) |
-| **Referee Confidence** | $0.918 \pm 0.046$ ($0.930$) | $0.913 \pm 0.053$ ($0.925$) | **$0.894 \pm 0.068$** (**$0.900$**) | $-0.024$ (High referee scrutiny) |
-| **Proof Length (chars)** | $9,958$ ($9,063$) | $9,766$ ($9,096$) | **$9,041$** (**$9,182$**) | $-917$ chars (Occam-pruned rigor) |
-| **Solve Duration (s)** | $3,977.3\text{s}$ ($3,823.0\text{s}$) | $3,686.5\text{s}$ ($3,675.9\text{s}$) | **$2,592.8\text{s}$** (**$2,674.7\text{s}$**) | $-1,384.5\text{s}$ (Verified convergence) |
+| **Overall Validity v(π)** | 0.139 ± 0.107 (0.100) | 0.289 ± 0.312 (0.180) | **0.853 ± 0.129** (**0.880**) | **+0.714** (Mean) / **+0.780** (Med) |
+| **Logical Rigor** | 0.231 ± 0.111 (0.200) | 0.363 ± 0.279 (0.250) | **0.857 ± 0.121** (**0.900**) | **+0.626** (Mean) / **+0.700** (Med) |
+| **Structural Completeness** | 0.324 ± 0.143 (0.300) | 0.446 ± 0.273 (0.350) | **0.907 ± 0.089** (**0.940**) | **+0.583** (Mean) / **+0.640** (Med) |
+| **Boundary & Edge Cases** | 0.316 ± 0.173 (0.300) | 0.434 ± 0.282 (0.350) | **0.878 ± 0.127** (**0.900**) | **+0.562** (Mean) / **+0.600** (Med) |
+| **Referee Confidence** | 0.918 ± 0.046 (0.930) | 0.913 ± 0.053 (0.925) | **0.894 ± 0.068** (**0.900**) | -0.024 (High referee scrutiny) |
+| **Proof Length (chars)** | 9,958 (9,063) | 9,766 (9,096) | **9,041** (**9,182**) | -917 chars (Occam-pruned rigor) |
+| **Solve Duration (min)** | 66.3 min (63.7 min) | 61.4 min (61.3 min) | **43.2 min** (**44.6 min**) | -23.1 min (Verified convergence) |
 
-**Finding on Proof Quality:** Unverified or refuted attempts average $0.139 \pm 0.107$ validity (median $0.100$) due to missing edge cases and unverified leaps. Under the governed neuro-symbolic framework, certified passing proofs reach **$0.853 \pm 0.129$ mean validity** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**—improving substantially even over the earlier V3 harness baseline ($0.796 \pm 0.165$ mean passing validity, $44/300$ Grade A passes). Notably, passing proofs are shorter on average ($9,041$ chars) than refuted attempts ($9,958$ chars), reflecting the effect of `CandidatePool` Occam's razor arbitration and Publication Scribe critical-path pruning.
+**Finding on Proof Quality:** Unverified or refuted attempts average 0.139 ± 0.107 validity (median 0.100) due to missing edge cases and unverified leaps. Under the governed neuro-symbolic framework, certified passing proofs reach **0.853 ± 0.129 mean validity** (median **0.880**), with structural completeness reaching **0.907** and logical rigor reaching **0.857**—improving substantially even over the earlier V3 harness baseline (0.796 ± 0.165 mean passing validity, 44/300 Grade A passes). Notably, passing proofs are shorter on average (9,041 chars) than refuted attempts (9,958 chars) and converge faster (43.2 min vs. 66.3 min), reflecting the effect of `CandidatePool` Occam's razor arbitration and Publication Scribe critical-path pruning.
 
 ### 6.4 Cumulative Passing Thresholds and Quality Distribution
-Table 3 shows the full distribution of the $300$ benchmark tasks across cumulative passing thresholds and quality intervals.
+Table 3 shows the full distribution of the 300 benchmark tasks across cumulative passing thresholds and quality intervals.
 
-**Table 3: Cumulative Passing Thresholds and Score Distribution on TCS-Bench ($N=300$).**
+**Table 3: Cumulative Passing Thresholds and Score Distribution on TCS-Bench (N = 300).**
 
-| Validity Interval | Passing Quality Classification | Description | Cumulative Count ($N=300$) | Cumulative Share (%) |
+| Validity Interval | Passing Quality Classification | Description | Cumulative Count (N = 300) | Cumulative Share (%) |
 | :---: | :---: | :--- | :---: | :---: |
-| $[0.40, 1.00]$ | **All Passing Grades (Grade C & Above)** | All valid reduction architectures and certified passes | **$71 / 300$** | **$23.67\%$** |
-| $[0.50, 1.00]$ | **Certified Sound Passes (Grade B & Above)** | Fully verified, research-grade sound proofs | **$63 / 300$** | **$21.00\%$** |
-| $[0.70, 1.00]$ | **Publication-Grade Proofs (Grade A & Above)** | Exhaustive, publication-ready derivations | **$54 / 300$** | **$18.00\%$** |
-| $[0.80, 1.00]$ | **High-Rigor Certified Proofs** | Near-zero referee critiques, tight boundary handling | **$50 / 300$** | **$16.67\%$** |
-| $[0.90, 1.00]$ | **Journal-Ready Flawless Proofs** | Flawless derivations (includes 3 perfect 1.00 proofs) | **$31 / 300$** | **$10.33\%$** |
-| $[0.00, 0.40)$ | **Incomplete / Refuted Proofs** | Deductive gaps, falsified lemmas, or circularity | $229 / 300$ | $76.33\%$ |
+| `[0.40, 1.00]` | **All Passing Grades (Grade C & Above)** | All valid reduction architectures and certified passes | **71 / 300** | **23.67%** |
+| `[0.50, 1.00]` | **Certified Sound Passes (Grade B & Above)** | Fully verified, research-grade sound proofs | **63 / 300** | **21.00%** |
+| `[0.70, 1.00]` | **Publication-Grade Proofs (Grade A & Above)** | Exhaustive, publication-ready derivations | **54 / 300** | **18.00%** |
+| `[0.80, 1.00]` | **High-Rigor Certified Proofs** | Near-zero referee critiques, tight boundary handling | **50 / 300** | **16.67%** |
+| `[0.90, 1.00]` | **Journal-Ready Flawless Proofs** | Flawless derivations (includes 3 perfect 1.00 proofs) | **31 / 300** | **10.33%** |
+| `[0.00, 0.40)` | **Incomplete / Refuted Proofs** | Deductive gaps, falsified lemmas, or circularity | 229 / 300 | 76.33% |
 
-Notably, **$85.7\%$ of all certified passing proofs ($54/63$) achieve Grade A publication grade ($\ge 0.70$)**, and **$79.4\%$ ($50/63$) achieve $\ge 0.80$**. Once a proof satisfies the closed-loop verification gates, its quality is overwhelmingly publication-grade.
+Notably, **85.7% of all certified passing proofs (54/63) achieve Grade A publication grade (≥ 0.70)**, and **79.4% (50/63) achieve ≥ 0.80**. Once a proof satisfies the closed-loop verification gates, its quality is overwhelmingly publication-grade.
 
 ### 6.5 Iteration Horizon Analysis: Where Proofs Are Won
-Table 4 dissects the turn $t \in \{1, \dots, 12\}$ on which each certified pass was discovered.
+Table 4 dissects the turn t ∈ {1, …, 12} on which each certified pass was discovered.
 
-**Table 4: Turn-by-Turn Discovery of Certified Passing Proofs ($N=300$).**
+**Table 4: Turn-by-Turn Discovery of Certified Passing Proofs (N = 300).**
 
-| Turn $t$ | Operational Harness Phase | Certified Passes ($\ge 0.50$) | Share of Passes ($N=63$) | Cumulative Passes | Cumulative Pass Rate (%) |
+| Turn t | Operational Harness Phase | Certified Passes (≥ 0.50) | Share of Passes (N = 63) | Cumulative Passes | Cumulative Pass Rate (%) |
 | :---: | :--- | :---: | :---: | :---: | :---: |
-| **Turn 1** | Exploration Gate (Drafting Prohibited) | **$0$** | **$0.00\%$** | $0$ | $0.00\%$ |
-| **Turn 2** | Post-Exploration First Synthesis | **$5$** | **$7.94\%$** | $5$ | $1.67\%$ |
-| **Turn 3** | First Blackboard Surgical Repair | **$5$** | **$7.94\%$** | $10$ | $3.33\%$ |
-| **Turns 4–5** | Mid-Horizon Invariant & SMT Pruning | **$9$** | **$14.29\%$** | $19$ | $6.33\%$ |
-| **Turns 6–7** | Deep Counterexample Elimination | **$9$** | **$14.29\%$** | $28$ | $9.33\%$ |
-| **Turn 8** | **Primary Publication Scribe Horizon** | **$22$** | **$34.92\%$** | $50$ | $16.67\%$ |
-| **Turn 9** | Overtime Repair Pass 1 ($+1$) | **$1$** | **$1.59\%$** | $51$ | $17.00\%$ |
-| **Turn 10** | Overtime Repair Pass 2 ($+2$) | **$1$** | **$1.59\%$** | $52$ | $17.33\%$ |
-| **Turn 11** | Overtime Repair Pass 3 ($+3$) | **$1$** | **$1.59\%$** | $53$ | $17.67\%$ |
-| **Turn 12** | **Overtime Final Synthesis ($+4$)** | **$10$** | **$15.87\%$** | **$63$** | **$21.00\%$** |
-| **Total** | **Full Governed Trajectory ($T \le 12$)** | **$63$** | **$100.00\%$** | **$63$** | **$21.00\%$** |
+| **Turn 1** | Exploration Gate (Drafting Prohibited) | **0** | **0.00%** | 0 | 0.00% |
+| **Turn 2** | Post-Exploration First Synthesis | **5** | **7.94%** | 5 | 1.67% |
+| **Turn 3** | First Blackboard Surgical Repair | **5** | **7.94%** | 10 | 3.33% |
+| **Turns 4–5** | Mid-Horizon Invariant & SMT Pruning | **9** | **14.29%** | 19 | 6.33% |
+| **Turns 6–7** | Deep Counterexample Elimination | **9** | **14.29%** | 28 | 9.33% |
+| **Turn 8** | **Primary Publication Scribe Horizon** | **22** | **34.92%** | 50 | 16.67% |
+| **Turn 9** | Overtime Repair Pass 1 (+1) | **1** | **1.59%** | 51 | 17.00% |
+| **Turn 10** | Overtime Repair Pass 2 (+2) | **1** | **1.59%** | 52 | 17.33% |
+| **Turn 11** | Overtime Repair Pass 3 (+3) | **1** | **1.59%** | 53 | 17.67% |
+| **Turn 12** | **Overtime Final Synthesis (+4)** | **10** | **15.87%** | **63** | **21.00%** |
+| **Total** | **Full Governed Trajectory (T ≤ 12)** | **63** | **100.00%** | **63** | **21.00%** |
 
 Three empirical patterns emerge from Table 4:
 1. **The Turn-1 Exploration Gate Enforces Soundness:** In unassisted generation without external tools, models typically attempt to draft the complete proof in a single turn without code validation. By dedicating Turn 1 strictly to invariant discovery in code and delaying formal proof synthesis until invariants survive verification, zero passes occur on Turn 1 by design, establishing the rigorous foundation required for **54 publication-grade proofs** later in the trajectory.
@@ -489,21 +489,21 @@ When evaluating autonomous language models on research-level mathematics, forens
 ## 8. Detailed Case Studies of Autonomous Theorem Proving (V4 Logs)
 
 ### 8.1 Case Study 1: Perfect 1.00 Validity via Multi-Turn REPL Verification (`task_2405.14765_statement_156_87` & `task_2407.13634_statement_17_37`)
-Across the V4 evaluation, three tasks achieved a flawless **$v(\pi) = 1.00$** across all referee dimensions (*Rigor 1.00, Completeness 1.00, Boundary 1.00, Confidence 1.00*):
-- **Task 185 (`task_2402.10059_statement_137_90` — Byzantine External Validity):** Solved in 2 turns ($343.3\text{s}$), producing a concise **2,561-character** proof after verifying threshold intersection invariants on Turn 1 via `holds_on_samples`.
-- **Task 204 (`task_2405.14575_statement_64_16` — Weighted Entitlement Sylvester Bound):** Solved in 3 turns ($1,196.7\text{s}$), producing a **3,319-character** proof after Turn-1 REPL verification of the recurrence sequence $s_n$.
-- **Task 206 (`task_2405.14765_statement_156_87` — Quantum Query Complexity Lower Bound $\Omega(d^{1.5}/\sqrt{\log d})$):** Solved in 4 turns ($1,143.3\text{s}$). After Turn-1 exploration of the spiked matrix $A_{ij} = \frac{1}{d}u_i u_j + e_{ij}$, the initial Turn-3 draft (5,406 chars) was rejected by the internal auditor ($v = 0.25$) for leaving the Hamming-distance reduction step implicit. Following a single stateless blackboard revision, Turn 4 produced a **5,430-character** proof that passed internal audit ($v = 0.93$) and earned a perfect **$v(\pi) = 1.00$** from the external referee.
+Across the V4 evaluation, three tasks achieved a flawless **v(π) = 1.00** across all referee dimensions (*Rigor 1.00, Completeness 1.00, Boundary 1.00, Confidence 1.00*):
+- **Task 185 (`task_2402.10059_statement_137_90` — Byzantine External Validity):** Solved in 2 turns (5.7 min), producing a concise **2,561-character** proof after verifying threshold intersection invariants on Turn 1 via `holds_on_samples`.
+- **Task 204 (`task_2405.14575_statement_64_16` — Weighted Entitlement Sylvester Bound):** Solved in 3 turns (19.9 min), producing a **3,319-character** proof after Turn-1 REPL verification of the recurrence sequence.
+- **Task 206 (`task_2405.14765_statement_156_87` — Quantum Query Complexity Lower Bound):** Solved in 4 turns (19.1 min). After Turn-1 exploration of the spiked matrix in Python, the initial Turn-3 draft (5,406 chars) was rejected by the internal auditor (v = 0.25) for leaving the Hamming-distance reduction step implicit. Following a single stateless blackboard revision, Turn 4 produced a **5,430-character** proof that passed internal audit (v = 0.93) and earned a perfect **v(π) = 1.00** from the external referee.
 
-Similarly, in **Task 222 (`task_2407.13634_statement_17_37` — Non-Realizability of Fractional EF1 Allocations)**, the solver's initial Turn-4 attempt ballooned into an unpruned 66,532-character draft that was rejected at $v = 0.05$. Over Turns 5–8 ($2,928.0\text{s}$), the Logician verified a concrete 3-agent valuation witness in the Python kernel and the Publication Scribe distilled only the active critical path into a clean **11,452-character** proof (`internal validity = 0.98`), earning **$v(\pi) = 0.99$** (*Rigor 0.98, Completeness 1.00, Boundary 1.00, Confidence 0.99*; V3 also achieved $1.00$ in 8 turns / 3,369 chars).
+Similarly, in **Task 222 (`task_2407.13634_statement_17_37` — Non-Realizability of Fractional EF1 Allocations)**, the solver's initial Turn-4 attempt ballooned into an unpruned 66,532-character draft that was rejected at v = 0.05. Over Turns 5–8 (48.8 min), the Logician verified a concrete 3-agent valuation witness in the Python kernel and the Publication Scribe distilled only the active critical path into a clean **11,452-character** proof (`internal validity = 0.98`), earning **v(π) = 0.99** (*Rigor 0.98, Completeness 1.00, Boundary 1.00, Confidence 0.99*; V3 also achieved 1.00 in 8 turns / 3,369 chars).
 
 ### 8.2 Case Study 2: High-Dimensional Output-Sensitive Sumsets (`task_2410.21942_statement_30_71`, Validity 0.88 in V4 / 0.94 in V3)
 In **Task 242**, the target theorem requires proving that the prefix-restricted sumset $C = (A + B) \cap [0 \dots t]^d$ for $A, B \subseteq [0 \dots t]^d$ ($|A|=n, |B|=m, |C|=c$) can be computed by deterministic and Las Vegas algorithms in output-sensitive time:
 $$\mathcal{O}\!\left(\left(n + m + (nm)^{\frac{d}{d+1}} c^{\frac{1}{d+1}}\right) (\log(nm))^{\mathcal{O}(d)}\right)$$
-Tracing the V4 execution log (`1,928.5s`, 5 turns):
-1. **Turns 1–2 (Exploration Gate & Dyadic Decomposition):** The Logician tested coordinate-wise recursion in the persistent kernel and verified that achieving the fractional exponent $\frac{d}{d+1}$ requires a simultaneous dyadic box decomposition into $2^d$ sub-boxes on the threshold $T$.
-2. **Turn 3 (First Draft Rejection):** The initial 7,731-character proof draft was rejected by the internal auditor ($v = 0.10$) for an incomplete accounting of non-vacuous subproblems.
-3. **Turn 4 (Hölder Conjugacy Repair):** Using `SymPy`, the Logician verified that partitioning into $2^d$ shifted boxes $A_\alpha^*$ and applying Hölder's inequality with conjugate exponents $p = \frac{d}{d+1}$ and $q = \frac{1}{d+1}$ (where $p + q = 1$) collapses the sum of non-vacuous subproblem costs $\sum_{\alpha} (n_\alpha m_\alpha)^{\frac{d}{d+1}} c_\alpha^{\frac{1}{d+1}}$ directly into the target bound, lifting internal validity to $v = 0.86$ (8,342 chars).
-4. **Turn 5 (Final Synthesis & Early Exit):** The solver refined the inductive proof over $T$ into an **11,468-character** derivation that triggered certified early exit at $v = 0.93$ internal validity and achieved **Validity $0.88$** from the external referee (*Rigor $0.86$, Completeness $0.90$, Boundary $0.82$, Confidence $0.88$*; complementing V3's 8-turn, 7,275-character proof at $v = 0.94$).
+Tracing the V4 execution log (32.1 min, 5 turns):
+1. **Turns 1–2 (Exploration Gate & Dyadic Decomposition):** The Logician tested coordinate-wise recursion in the persistent kernel and verified that achieving the fractional exponent `d / (d + 1)` requires a simultaneous dyadic box decomposition into `2^d` sub-boxes on the threshold `T`.
+2. **Turn 3 (First Draft Rejection):** The initial 7,731-character proof draft was rejected by the internal auditor (v = 0.10) for an incomplete accounting of non-vacuous subproblems.
+3. **Turn 4 (Hölder Conjugacy Repair):** Using `SymPy`, the Logician verified that partitioning into `2^d` shifted boxes and applying Hölder's inequality with conjugate exponents `p = d / (d + 1)` and `q = 1 / (d + 1)` (where `p + q = 1`) collapses the sum of non-vacuous subproblem costs directly into the target bound, lifting internal validity to v = 0.86 (8,342 chars).
+4. **Turn 5 (Final Synthesis & Early Exit):** The solver refined the inductive proof over `T` into an **11,468-character** derivation that triggered certified early exit at v = 0.93 internal validity and achieved **Validity 0.88** from the external referee (*Rigor 0.86, Completeness 0.90, Boundary 0.82, Confidence 0.88*; complementing V3's 8-turn, 7,275-character proof at v = 0.94).
 
 ---
 

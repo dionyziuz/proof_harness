@@ -7,7 +7,7 @@
 Standard large language models fail on research-level mathematics because of two foundational architectural bottlenecks: **(1) The Probabilistic Trust Fallacy** (relying on statistical next-token prediction to guess whether multi-step algebraic derivations, inequality directions, and boundary cases hold) and **(2) Frozen Weights & Episodic Amnesia** (an inability to learn continuously from solved problems or specialize into a technical domain without expensive weight fine-tuning).
 
 **Proof-Harness (`proof_harness`)** solves both bottlenecks by combining **seven-role cognitive partitioning** with two foundational pillars:
-1. **The Zero-Trust Deterministic Mathematical Kernel Engine (`core_engine/kernel.py`, `core_engine/prover_kernel.py`, `core_engine/math_tools.py`, `core_engine/state_machine.py`)**: Dual-isolated, 3-layer airgapped symbolic and numerical execution kernels (`PersistentMathKernel` and ephemeral `AuditorKernel`) that provide **immediate accuracy and soundness verification**. Every claim is tested deterministically using **`SymPy`**, **`Z3`**, **50-digit `mpmath`**, **`NetworkX`**, specialized domain extensions (topology, planar duals, quantum CPTP channels, PSD operator inequalities), honest three-valued empirical semantics (`holds_on_samples`), Rule 11 anti-brute-force analytical ceilings (`guarded_range` $\le 200,000$), and a formal **Epistemic State Machine** (`MathStateMachine`) that automatically revokes fragile invariants under conditioning or restriction.
+1. **The Zero-Trust Deterministic Mathematical Kernel Engine (`core_engine/kernel.py`, `core_engine/prover_kernel.py`, `core_engine/math_tools.py`, `core_engine/state_machine.py`)**: Dual-isolated, 3-layer airgapped symbolic and numerical execution kernels (`PersistentMathKernel` and ephemeral `AuditorKernel`) that provide **immediate accuracy and soundness verification**. Every claim is tested deterministically using **`SymPy`**, **`Z3`**, **50-digit `mpmath`**, **`NetworkX`**, specialized domain extensions (topology, planar duals, quantum CPTP channels, PSD operator inequalities), honest three-valued empirical semantics (`holds_on_samples`), Rule 11 anti-brute-force analytical ceilings (`guarded_range` ≤ 200,000), and a formal **Epistemic State Machine** (`MathStateMachine`) that automatically revokes fragile invariants under conditioning or restriction.
 2. **The CoALA Heuristics & Continuous Domain Learning Engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`)**: A continual learning architecture grounded in *Cognitive Architectures for Language Agents* (CoALA) where the harness **learns by solving over time**—distilling verified universal strategies (Procedural Memory) and failure post-mortems (Episodic Memory) into role-isolated vector embeddings in vector memory, governed by automated heuristic validation and sanitization. As practitioners and researchers use the harness to prove theorems across vertical domains, the system compounds domain intelligence through vector embeddings—with zero LLM weight fine-tuning.
 
 📄 **Technical Papers & Deep Dives:**
@@ -16,20 +16,20 @@ Standard large language models fail on research-level mathematics because of two
 
 ---
 
-## 🏆 Headline Benchmark Results: TCS-Bench ($N = 300$)
+## 🏆 Headline Benchmark Results: TCS-Bench (N = 300)
 
 Evaluated across **300 research-level problems from TCS-Bench** (arXiv Theoretical Computer Science preprints, [arXiv:2608.09538](https://arxiv.org/abs/2608.09538)) using a single quantized 27B model (`unsloth/Qwen3.8-27B-NVFP4`) on a single 32GB consumer GPU. All baseline first-pass attempts have individual recorded validation scores on disk:
 
-| Evaluation Paradigm | Grade C & Above ($\ge 0.40$)<br>Sound & Directional | Grade B & Above ($\ge 0.50$)<br>Certified Sound Pass | Grade A & Above ($\ge 0.70$)<br>Publication-Grade | Pass Multiplier vs. Initial Draft<br>(Grade C & Up / B & Up / A & Up) |
+| Evaluation Paradigm | Grade C & Above (≥ 0.40)<br>Sound & Directional | Grade B & Above (≥ 0.50)<br>Certified Sound Pass | Grade A & Above (≥ 0.70)<br>Publication-Grade | Pass Multiplier vs. Initial Draft<br>(Grade C & Up / B & Up / A & Up) |
 | :--- | :---: | :---: | :---: | :---: |
-| **1. Unassisted Initial Draft** | $12 / 300$ (**4.00%**) | $10 / 300$ (**3.33%**) | $7 / 300$ (**2.33%**) | $1.00\times$ / $1.00\times$ / $1.00\times$ |
-| **2. Full Proof Harness (`proof_harness`)** | **$71 / 300$** (**23.67%**) | **$63 / 300$** (**21.00%**) | **$54 / 300$** (**18.00%**) | **$5.92\times$** / **$6.30\times$** / **$7.71\times$** |
+| **1. Unassisted Initial Draft** | 12 / 300 (**4.00%**) | 10 / 300 (**3.33%**) | 7 / 300 (**2.33%**) | 1.00× / 1.00× / 1.00× |
+| **2. Full Proof Harness (`proof_harness`)** | **71 / 300** (**23.67%**) | **63 / 300** (**21.00%**) | **54 / 300** (**18.00%**) | **5.92×** / **6.30×** / **7.71×** |
 
 **Cumulative Passing Thresholds Across 300 Research-Level TCS Theorems:**
-- **All Passing Grades ($\ge 0.40$, Grade C and Above — Sound & Directional):** **71 / 300 (23.67%)** — nearly **sextupling ($5.92\times$)** the unassisted initial draft baseline ($4.00\%$).
-- **Certified Sound Passes ($\ge 0.50$, Grade B and Above):** **63 / 300 (21.00%)** — a **$6.30\times$ multiplier** over the initial unassisted draft baseline ($3.33\%$).
-- **Publication-Grade Proofs ($\ge 0.70$, Grade A and Above):** **54 / 300 (18.00%)** — a **$7.71\times$ multiplier** over initial drafting ($2.33\%$, 7/300), with 31 proofs reaching near-flawless ($\ge 0.90$) journal quality.
-- **Passing Proof Validity:** Drives the mean referee validity of certified passing proofs from low-rigor initial drafts (mean internal audit score $0.253 \pm 0.227$; mean external score on unsolved tasks $0.139 \pm 0.107$) to **$0.853 \pm 0.129$** (median **$0.880$**), with structural completeness reaching **$0.907$** and logical rigor reaching **$0.857$**.
+- **All Passing Grades (≥ 0.40, Grade C and Above — Sound & Directional):** **71 / 300 (23.67%)** — nearly **sextupling (5.92×)** the unassisted initial draft baseline (4.00%).
+- **Certified Sound Passes (≥ 0.50, Grade B and Above):** **63 / 300 (21.00%)** — a **6.30× multiplier** over the initial unassisted draft baseline (3.33%).
+- **Publication-Grade Proofs (≥ 0.70, Grade A and Above):** **54 / 300 (18.00%)** — a **7.71× multiplier** over initial drafting (2.33%, 7/300), with 31 proofs reaching near-flawless (≥ 0.90) journal quality.
+- **Passing Proof Validity:** Drives the mean referee validity of certified passing proofs from low-rigor initial drafts (mean internal audit score 0.253 ± 0.227; mean external score on unsolved tasks 0.139 ± 0.107) to **0.853 ± 0.129** (median **0.880**), with structural completeness reaching **0.907** and logical rigor reaching **0.857**.
 - **100% of Passing Proofs** are discovered through governed multi-turn exploration in Turns 2–12 (with **84.1%** won in Turn 4 or later, and **20.6%** won in overtime).
 
 ---
@@ -77,37 +77,39 @@ Evaluated across **300 research-level problems from TCS-Bench** (arXiv Theoretic
 
 ## 🧬 Pillar I: The CoALA Heuristics & Continuous Domain Learning Engine
 
-Prime-Harness implements the **Cognitive Architectures for Language Agents (CoALA)** memory taxonomy ([`core_engine/memory.py`](core_engine/memory.py)) so the harness **learns by solving** without modifying LLM weights.
+Proof-Harness implements the **Cognitive Architectures for Language Agents (CoALA)** memory taxonomy ([`core_engine/memory.py`](core_engine/memory.py)) so the harness **continuously learns from the problems it solves** without modifying LLM weights.
 
 ### 1. Role-Isolated Procedural Vector Collections
-Rather than dumping everything into one noisy RAG index, `CoALAMemoryManager` maintains **five role-isolated procedural collections** across specialized cognitive roles (with raw run trajectories preserved to diagnostic episodic logs via `record_episode`):
+Rather than dumping everything into one noisy RAG index, `CoALAMemoryManager` maintains **five role-isolated procedural collections** in the TurboVec vector database—one for each specialized stage of the prover:
 
-| Agent Namespace (`agent_id`) | Active Procedural Collection (`_procedural`, $\cos \ge 0.65$) | Specialized Cognitive Role |
+| Agent Namespace (`agent_id`) | Vector Collection (`cos ≥ 0.65`) | What It Stores & Retrieves |
 | :--- | :--- | :--- |
-| **`prime_math`** | `prime_math_procedural` | Deductive Logician & Solver: algebraic reductions, invariant formulation, concentration bounds. |
-| **`tcs_architect`** | `tcs_architect_procedural` | Context Architect: decomposing paper contexts, seeding `state.register()`, modular lemma chains. |
-| **`tcs_verifier`** | `tcs_verifier_procedural` | Pre-Flight Falsifier: fast small-instance boundary scripts and Monte Carlo sanity checks. |
-| **`tcs_skeptic`** | `tcs_skeptic_procedural` | Adversarial Skeptic: hostile `Z3`/`NetworkX` counterexample construction and degenerate parameter attacks. |
-| **`tcs_scribe`** | `tcs_scribe_procedural` | Publication Scribe: critical-path pruning, quantifier discharge, and journal-grade LaTeX synthesis. |
+| **`prime_math`** | `prime_math_procedural` | **Deductive Logician & Solver**: Algebraic reductions, invariant formulation, concentration bounds. |
+| **`tcs_architect`** | `tcs_architect_procedural` | **Context Architect**: Decomposing paper contexts, seeding state invariants, modular lemma chains. |
+| **`tcs_verifier`** | `tcs_verifier_procedural` | **Pre-Flight Falsifier**: Fast small-instance boundary scripts and Monte Carlo sanity checks. |
+| **`tcs_skeptic`** | `tcs_skeptic_procedural` | **Adversarial Skeptic**: Hostile `Z3`/`NetworkX` counterexample construction and degenerate parameter attacks. |
+| **`tcs_scribe`** | `tcs_scribe_procedural` | **Publication Scribe**: Critical-path pruning, quantifier discharge, and journal-grade LaTeX synthesis. |
 
-### 2. Closed-Loop Consolidation & The 3-Tier `RemediationEngine`
-- **Online Post-Solve Learning (`_consolidate_learning`)**: After every solve attempt, a low-temperature reflection pass ($T=0.2$) extracts transferable mathematical strategies (`LEARNED_HEURISTIC` $\to$ Procedural Memory) and archives diagnostic run post-mortems (`record_episode`). Near-duplicates ($>0.90$ cosine similarity) are automatically skipped.
-- **Post-Evaluation 3-Tier `RemediationEngine` ([`core_engine/remediation.py`](core_engine/remediation.py))**: Diagnoses failed benchmark tasks and routes fixes across:
-  - **Tier 1 (Harness Guardrails)**: Flagged for human engineering review.
-  - **Tier 2 (System Prompt Directives)**: Governed by the 4-boolean [`Tier2Rubric`](core_engine/remediation.py) (`is_universal`, `is_behavioral_posture`, `no_degradation_risk`, `procedural_insufficient`). Any domain-specific mathematical rule is **automatically downgraded from Tier 2 to Tier 3** so global prompts never bloat.
-  - **Tier 3 (CoALA Vector Memory Injection)**: Validated universal domain strategies synced directly to TurboVec.
+### 2. How the Harness Learns Over Time
+- **Immediate Learning After Every Problem (`core_engine/prover.py`)**: Every time the harness finishes proving (or attempting) a theorem, it runs a brief reflection pass to ask: *"What general mathematical technique worked here, or what subtle trap caused an earlier draft to fail?"*
+  - **Reusable Math Strategies → Procedural Vector Memory**: Generalizable techniques are embedded into the vector database so future problems in the same domain can retrieve them automatically. Near-duplicate rules (>90% similarity) are skipped so memory stays clean.
+  - **Run Summaries → Episodic Logs**: A concise diagnostic summary of what succeeded or failed is saved to disk for post-run analysis.
+- **Automated Failure Analysis & 3-Tier Fix Routing (`core_engine/remediation.py`)**: After a benchmark run, the remediation engine inspects failed tasks, identifies the root cause, and routes each fix to the right place:
+  - **Tier 1 — Harness & Kernel Code Fixes**: If a failure exposed a bug or missing helper in the Python/SymPy kernel, it is flagged for engineering review.
+  - **Tier 2 — Global System Prompts**: Reserved strictly for universal reasoning habits that apply to *every* math problem (e.g., *"always check boundary cases before writing a proof"*).
+  - **Tier 3 — Domain Vector Memory (TurboVec)**: Any strategy specific to a mathematical domain (such as graph theory, Markov chains, or quantum channels) is stored in vector memory and retrieved only when relevant. If a proposed prompt rule is domain-specific rather than universal, the harness automatically moves it from Tier 2 to Tier 3 so global prompts never become bloated.
 
 ### 3. Automated Heuristic Validation & Sanitization
-To ensure procedural memory contains only generalizable mathematical techniques, [`core_engine/heuristic_validation.py`](core_engine/heuristic_validation.py) validates and sanitizes candidate entries before they are embedded (and re-verifies records at retrieval time while excluding self-retrieval via `exclude_problem_id` / `exclude_task_id`):
+Before any learned strategy is saved to vector memory, [`core_engine/heuristic_validation.py`](core_engine/heuristic_validation.py) runs six automated checks to ensure only clean, generalizable mathematics is stored (and blocks self-retrieval during benchmarks):
 
-| Gate | Enforced Invariant | What Gets Blocked |
+| Check | Rule Enforced | What Gets Blocked |
 | :--- | :--- | :--- |
-| **Gate 1: Substantiveness** | $\ge 25$ chars, non-placeholder | Empty strings, `"none"`, `"n/a"`, trivial filler. |
-| **Gate 2: Anti-Extrapolation & Anti-Sieve** | `_CONTAMINATED_PROCEDURAL_PATTERNS` | Empirical guessing hacks (`Richardson extrapolation`, `Aitken delta-squared`, `Shanks`, `Wynn epsilon`), `brute-force sieve`, `fast_spf` for asymptotic limits. |
-| **Gate 3: Benchmark Anonymization** | `_PROBLEM_ID_PATTERNS` | Any reference to `Problem #...`, `AIME`, `Project Euler`, `IMO`, `Putnam`, `FrontierMath`, `TCS-Bench`, or `task_...`. |
-| **Gate 4: Title Decoupling** | `strip_problem_title_Mentions` | Explicit mentions of the source problem's title. |
-| **Gate 5: Instance Variable Bindings** | `_PROBLEM_SPECIFIC_PATTERNS` | Instance-specific equations (`2^k == 3^m`, `for n = 1000`, `modulo 10^9 + 7`, `"in this specific problem"`). |
-| **Gate 6: Ground-Truth & Constant Shield** | `find_ground_truth_leak` / `redact_ground_truth` | Any heuristic containing the `expected_answer` or any 4-or-more-digit integer constant appearing in the problem text. |
+| **1. Substantiveness** | ≥ 25 chars, non-placeholder | Empty strings, `"none"`, `"n/a"`, trivial filler. |
+| **2. Anti-Extrapolation & Anti-Sieve** | Pure deductive methods only | Empirical guessing hacks (`Richardson extrapolation`, `Aitken delta-squared`, `Shanks`, `Wynn epsilon`) and brute-force sieves for asymptotic limits. |
+| **3. Benchmark Anonymization** | No benchmark or task IDs | Any reference to `Problem #...`, `AIME`, `Project Euler`, `IMO`, `Putnam`, `FrontierMath`, `TCS-Bench`, or `task_...`. |
+| **4. Title Decoupling** | Strip problem titles | Explicit mentions of the source paper or problem title. |
+| **5. Instance Variable Bindings** | No hardcoded toy numbers | Problem-specific equations (`2^k == 3^m`, `for n = 1000`, `modulo 10^9 + 7`, `"in this specific problem"`). |
+| **6. Ground-Truth & Constant Shield** | No answer or constant leaks | Any heuristic containing the expected answer or any 4+ digit constant from the problem statement. |
 
 ---
 
@@ -116,43 +118,43 @@ To ensure procedural memory contains only generalizable mathematical techniques,
 Proof-Harness never trusts an LLM's token probabilities to verify algebra, inequalities, or invariant preservation. Instead, it couples the model to a **Zero-Trust Deterministic Mathematical Kernel** ([`core_engine/kernel.py`](core_engine/kernel.py), [`core_engine/prover_kernel.py`](core_engine/prover_kernel.py), [`core_engine/math_tools.py`](core_engine/math_tools.py), [`core_engine/state_machine.py`](core_engine/state_machine.py)).
 
 ### 1. Dual-Kernel Isolation (`PersistentMathKernel` vs. `AuditorKernel`)
-- **`PersistentMathKernel` (Persistent Solver Kernel)**: Preserves verified symbolic expressions, helper functions, and the `MathStateMachine` across exploratory turns $1 \dots T$, with instant state rollback (`state.checkpoint('pre_claim')` / `state.rollback('pre_claim')`).
+- **`PersistentMathKernel` (Persistent Solver Kernel)**: Preserves verified symbolic expressions, helper functions, and the `MathStateMachine` across exploratory turns 1…T, with instant state rollback (`state.checkpoint('pre_claim')` / `state.rollback('pre_claim')`).
 - **`AuditorKernel` (Ephemeral Referee Kernel)**: Spawned fresh from scratch (`timeout = 15s`) during Stage 1 of `_audit_proof_draft` with a completely disjoint namespace so buggy solver definitions can never contaminate proof auditing.
 
 ### 2. Preloaded Symbolic, SMT, Arbitrary-Precision & Diagnostic Toolkit
 - **Exact Computer Algebra & SMT Solving**: Preloaded `sympy` (`sp`), `z3-solver` (`Solver`, `Int`, `Real`, `Bool`, `ForAll`, `Exists` with 10s timeout protection), `numpy` (`np`), `scipy`, `networkx` (`nx`), and optional Lean 4 verification (`lean_check`).
 - **50-Digit Arbitrary-Precision Arithmetic**: `mpmath` configured to **50 decimal digits (`mp.dps = 50`)**, eliminating IEEE-754 float64 precision loss on delicate tail bounds and spectral gaps.
 - **Preloaded Domain Diagnostic Operators ([`core_engine/math_tools.py`](core_engine/math_tools.py))**:
-  1. `check_asymptotic_dominance(f_expr, g_expr, var='n')`: Computes symbolic limit ratios $\lim_{n\to\infty} f(n)/g(n)$ in SymPy to deterministically classify $o(g), \mathcal{O}(g), \Theta(g), \Omega(g), \omega(g)$.
-  2. `check_event_covariance(sampler_fn, n_trials=2000, seed=42)`: Computes empirical covariance and Pearson correlation $\hat{\rho}_{A,B}$ across 2,000 seeded Monte Carlo trials, flagging `DEPENDENCE DETECTED` whenever $|\hat{\rho}_{A,B}| > 0.05$.
-  3. `find_graph_counterexample(predicate_fn, max_n=7, include_random=True)`: Sweeps paths $P_n$, cycles $C_n$, complete graphs $K_n$, stars $S_n$, bipartite graphs $K_{n_1,n_2}$, and Erdős–Rényi random graphs $G(n,p)$ with **fail-closed exception semantics** (`inconclusive: True, verified: False` if the test predicate crashes).
+  1. `check_asymptotic_dominance(f_expr, g_expr, var='n')`: Computes symbolic limit ratios `lim_{n→∞} f(n)/g(n)` in SymPy to deterministically classify `o(g), O(g), Θ(g), Ω(g), ω(g)`.
+  2. `check_event_covariance(sampler_fn, n_trials=2000, seed=42)`: Computes empirical covariance and Pearson correlation across 2,000 seeded Monte Carlo trials, flagging `DEPENDENCE DETECTED` whenever `|ρ| > 0.05`.
+  3. `find_graph_counterexample(predicate_fn, max_n=7, include_random=True)`: Sweeps paths, cycles, complete graphs, stars, bipartite graphs, and Erdős–Rényi random graphs `G(n,p)` with **fail-closed exception semantics** (`inconclusive: True, verified: False` if the test predicate crashes).
   4. **Topological & Planar Graph Duals**:
      - `planar_dual_and_faces(edges_or_adj)`: Computes combinatorial planar embeddings, facial boundaries, enclosing cycles, and planar dual graphs for multiway cut and connectivity proofs.
      - `check_cycle_chords_and_holes(adj, cycle)`: Evaluates cycle chordality, induced chordless holes, and triangulation constraints.
   5. **SMT Constraint & Parameter Hierarchy Solvers**:
      - `smt_disjoint_paths(adj, sources, targets)`: Encodes and proves node-disjoint and edge-disjoint routing feasibility via Z3.
      - `smt_slice_terminal_pairing(terminals, slices)`: Validates terminal assignment constraints across topological slices.
-     - `smt_check_parameter_hierarchy(constraints, hierarchy_order)`: Proves asymptotic multi-variable hierarchies ($k \ll \ell \ll n$) under SMT constraints.
+     - `smt_check_parameter_hierarchy(constraints, hierarchy_order)`: Proves asymptotic multi-variable hierarchies (`k ≪ ℓ ≪ n`) under SMT constraints.
   6. **Quantum Channels & Operator Inequality Verification**:
-     - `check_psd_inequality(A, B)`: Tests Loewner order positive semi-definite matrix inequalities ($A \succeq B$) via Cholesky and Hermitian eigenvalue verification.
-     - `check_quantum_channel_claim(kraus_ops)`: Verifies trace preservation ($\sum K_i^\dagger K_i = I$) and complete positivity for CPTP quantum channels.
+     - `check_psd_inequality(A, B)`: Tests Loewner order positive semi-definite matrix inequalities (`A ⪰ B`) via Cholesky and Hermitian eigenvalue verification.
+     - `check_quantum_channel_claim(kraus_ops)`: Verifies trace preservation (`∑ K_i† K_i = I`) and complete positivity for CPTP quantum channels.
      - `random_density_matrix(dim)`, `random_unitary(dim)`: Generates Haar-distributed random quantum states and unitaries for empirical operator witness testing.
      - `partial_trace(rho, dims, trace_out)`: Computes exact partial traces for quantum subsystem entropy and entanglement bounds.
-     - `uhlmann_fidelity(rho, sigma)`: Computes quantum Uhlmann fidelity $F(\rho, \sigma) = (\text{Tr}\sqrt{\sqrt{\rho}\sigma\sqrt{\rho}})^2$.
+     - `uhlmann_fidelity(rho, sigma)`: Computes quantum Uhlmann fidelity `F(ρ, σ)`.
   7. **NetworkX 3.x Compatibility Shims**:
      - Transparent compatibility shims for renamed or deprecated graph APIs (`nx.random_tree`, `nx.vertex_connectivity`, `nx.Graph.is_connected`), `np.trapz`, and `z3.Solver.constraints`.
 - **Honest Three-Valued Empirical Semantics (`holds_on_samples`)**: `holds_on_samples(rel, max_points=2000)` provides an explicit three-valued Kleene truth value respecting SymPy domain assumptions (`integer`, `positive`, `prime`, `even`, `odd`):
   - `False`: Certified counterexample found.
   - `True`: Empirical survival across sample points (necessary sanity check, never conflated with formal proof).
   - `None`: Inconclusive or domain singularity.
-- **Rule 11 Anti-Brute-Force Analytical Ceilings & APU Safeguards**: `guarded_range` blocks loops exceeding `MAX_DIAGNOSTIC_SIEVE_LIMIT = 200,000` elements, generator wraps enforce `MAX_COMBINATORIAL_STEPS = 200,000` to prevent memory thrashing on unified memory architectures (AMD Ryzen AI Max+ 395 UMA APU), and static AST inspection (`_combinatorial_ceiling`) blocks $O(n!)$ `permutations(range(n))` for $n \ge 7$—forcing analytical deduction over brute force.
-- **Candidate Protection against Destructive Pivots**: `[Hard Pivot Prevented — Substantive/Best Candidate Protected]` prevents catastrophic loss of viable mathematical foundations ($v \ge 0.25$), enforcing surgical revision instead of unconstrained backtracking.
+- **Rule 11 Anti-Brute-Force Analytical Ceilings & APU Safeguards**: `guarded_range` blocks loops exceeding `MAX_DIAGNOSTIC_SIEVE_LIMIT = 200,000` elements, generator wraps enforce `MAX_COMBINATORIAL_STEPS = 200,000` to prevent memory thrashing on unified memory architectures (AMD Ryzen AI Max+ 395 UMA APU), and static AST inspection (`_combinatorial_ceiling`) blocks `O(n!)` `permutations(range(n))` for `n ≥ 7`—forcing analytical deduction over brute force.
+- **Candidate Protection against Destructive Pivots**: `[Hard Pivot Prevented — Substantive/Best Candidate Protected]` prevents catastrophic loss of viable mathematical foundations (`v ≥ 0.25`), enforcing surgical revision instead of unconstrained backtracking.
 - **3-Layer Benchmark Airgapping**: When `allow_internet=False`, `PersistentMathKernel` (via benchmark airgapping mixins) enforces (1) offline research tool stubs, (2) static AST blocking of 24 network modules and dynamic import/process escape hatches (`importlib`, `subprocess`, `ctypes`, `os.system`, `__import__`), and (3) a thread-local runtime `_socket_guard()` plus `_detect_trace_tampering()` stdout anti-forgery checks.
 
 ### 3. Epistemic State Machine (`MathStateMachine`)
 [`core_engine/state_machine.py`](core_engine/state_machine.py) lives in the kernel namespace as `state` and tracks mathematical object provenance DAGs:
-- **Hereditary Properties ($\mathcal{P}_{\text{hereditary}}$)**: Preserved under sub-object restriction (`bipartite`, `planar`, `forest`, `acyclic`, `measurable`, `bounded_support`, `hermitian`, `positive_semidefinite`, `abelian`).
-- **Fragile Properties ($\mathcal{P}_{\text{fragile}}$)**: Automatically **revoked** upon `state.derive(..., via=...)` under `conditioning`, `subgraph`, `projection`, `quotient`, `limit`, or `perturbation` (`independent`, `mutually_independent`, `martingale`, `connected`, `regular`, `invertible`, `positive_definite`).
+- **Hereditary Properties**: Preserved under sub-object restriction (`bipartite`, `planar`, `forest`, `acyclic`, `measurable`, `bounded_support`, `hermitian`, `positive_semidefinite`, `abelian`).
+- **Fragile Properties**: Automatically **revoked** upon `state.derive(..., via=...)` under `conditioning`, `subgraph`, `projection`, `quotient`, `limit`, or `perturbation` (`independent`, `mutually_independent`, `martingale`, `connected`, `regular`, `invertible`, `positive_definite`).
 - **Epistemic Scribe Gate**: Blocks handoff to the Publication Scribe if any active object has undischarged revoked properties without an explicit invariance witness (`state.assert_property(..., witness=...)`).
 
 ---
@@ -186,10 +188,10 @@ flowchart TD
 - **Multi-Stage Internal Proof Auditor ([`core_engine/prover_auditor.py`](core_engine/prover_auditor.py))**:
   1. *Stage 1*: Ephemeral `AuditorKernel` Python falsification.
   2. *Stage 1.5*: Deterministic regex pre-check (`_detect_unauthorized_restrictions`) catching mid-proof domain narrowing lacking a complementary case split.
-  3. *Stage 2*: Academic Referee enforcing hard boolean validity caps (`statement_fidelity_exact` $\le 0.25$, `inequality_directions_verified` $\le 0.30$, `theorem_hypotheses_verified` $\le 0.35$).
+  3. *Stage 2*: Academic Referee enforcing hard boolean validity caps (`statement_fidelity_exact` ≤ 0.25, `inequality_directions_verified` ≤ 0.30, `theorem_hypotheses_verified` ≤ 0.35).
   4. *Stage 2.5*: Adversarial second-opinion confirmation on borderline `[0.75, 0.88)` drafts.
-- **Stateless 4-Message Blackboard & `CandidatePool` Noise-Band Occam's Razor ($\epsilon = 0.03$)**: Collapses revision context to `[System, Clean Task Prompt, Pinned Candidate Proof, Surgical Repair Directive]`, penalizes revisions that bloat proof length by $>50\%$ for a $\le 0.03$ score bump, and triggers a **Clean-Slate Hard Pivot** (`kernel.reset()` + `BANNED PREMISES` ledger) when a reduction stagnates below `0.30` (unless protected by Candidate Protection).
-- **High-Potential Overtime Gate (Turns 9–12)**: Grants $+4$ overtime turns when a Turn-8 draft achieves directional validity ($\ge 0.35$), converting $26.1\%$ of overtime tasks into certified passes.
+- **Stateless 4-Message Blackboard & `CandidatePool` Noise-Band Occam's Razor (ε = 0.03)**: Collapses revision context to `[System, Clean Task Prompt, Pinned Candidate Proof, Surgical Repair Directive]`, penalizes revisions that bloat proof length by >50% for a ≤ 0.03 score bump, and triggers a **Clean-Slate Hard Pivot** (`kernel.reset()` + `BANNED PREMISES` ledger) when a reduction stagnates below `0.30` (unless protected by Candidate Protection).
+- **High-Potential Overtime Gate (Turns 9–12)**: Grants +4 overtime turns when a Turn-8 draft achieves directional validity (≥ 0.35), converting 26.1% of overtime tasks into certified passes.
 
 ---
 
