@@ -4,15 +4,15 @@
 
 ---
 
-## 1. The Myth of the Monolithic Mathematician
+## 1. Beyond Generic Agent Scaffolding: The Myth of the Monolithic Mathematician
 
-In the modern AI landscape, conventional wisdom dictates that solving frontier, graduate-level mathematics requires massive frontier models: multi-hundred-billion-parameter clusters consuming kilowatts of data center power. When researchers benchmark smaller open-weight models on hard mathematical domains—such as research-level Theoretical Computer Science (TCS)—the results from standard **Pass@1** evaluations are predictably bleak.
+In the modern AI landscape, conventional wisdom dictates that solving frontier, graduate-level mathematics requires massive frontier models: multi-hundred-billion-parameter clusters consuming kilowatts of data center power. While multi-turn agent harnesses and execution loops have become standard practice across software engineering, most mathematical reasoning harnesses remain generic—relying on unguided iterative prompting, conversational multi-agent debates, or raw Python code interpreters that lack formal mathematical semantics and cross-problem learning. When researchers benchmark open-weight models on hard research domains—such as research-level Theoretical Computer Science (TCS)—unassisted first-pass attempts and unguided scaffolds yield predictably bleak results (under 4% passing grades).
 
-Prompted in a single shot, even capable open-weight models often hallucinate algebraic leaps, assert false lemmas with supreme confidence, or fail completely when tracking complex invariant inheritance.
+Even capable open-weight models routinely hallucinate algebraic leaps, assert false lemmas with supreme confidence, or fail completely when tracking complex invariant inheritance.
 
-We set out to challenge this assumption with an alternative paradigm:
+We set out to demonstrate that the true performance bottleneck is not raw parameter scale, but harness specialization:
 
-> **Core Thesis:** *Mathematical reasoning is not purely a function of raw parameter scale. It is a function of cognitive architecture, **continuous domain learning via CoALA vector heuristics**, and **zero-trust deterministic testing inside a symbolic execution kernel**.*
+> **Core Thesis:** *Mathematical reasoning is not purely a function of raw parameter scale. It is unlocked by a **specialized neuro-symbolic proving harness** equipped with **continuous domain learning via CoALA vector heuristics** and **zero-trust deterministic testing inside an airgapped mathematical kernel**.*
 
 To test this thesis, we evaluated **unsloth/Qwen3.8-27B-NVFP4**—a 27B/28B parameter model running in **4-bit quantization** on consumer hardware (a single **NVIDIA GeForce RTX 5090** with 32GB VRAM)—across **300 graduate-level research problems from TCS-Bench**, drawn directly from recent theoretical computer science literature on arXiv.
 
