@@ -141,7 +141,7 @@ Proof-Harness never trusts an LLM's token probabilities to verify algebra, inequ
      - `uhlmann_fidelity(rho, sigma)`: Computes quantum Uhlmann fidelity $F(\rho, \sigma) = (\text{Tr}\sqrt{\sqrt{\rho}\sigma\sqrt{\rho}})^2$.
   7. **NetworkX 3.x Compatibility Shims**:
      - Transparent compatibility shims for renamed or deprecated graph APIs (`nx.random_tree`, `nx.vertex_connectivity`, `nx.Graph.is_connected`), `np.trapz`, and `z3.Solver.constraints`.
-- **Honest Three-Valued Empirical Semantics (`holds_on_samples`)**: Instead of unsoundly monkeypatching SymPy's `Relational.__bool__`, `holds_on_samples(rel, max_points=2000)` returns a three-valued Kleene truth value respecting SymPy domain assumptions (`integer`, `positive`, `prime`, `even`, `odd`):
+- **Honest Three-Valued Empirical Semantics (`holds_on_samples`)**: `holds_on_samples(rel, max_points=2000)` provides an explicit three-valued Kleene truth value respecting SymPy domain assumptions (`integer`, `positive`, `prime`, `even`, `odd`):
   - `False`: Certified counterexample found.
   - `True`: Empirical survival across sample points (necessary sanity check, never conflated with formal proof).
   - `None`: Inconclusive or domain singularity.

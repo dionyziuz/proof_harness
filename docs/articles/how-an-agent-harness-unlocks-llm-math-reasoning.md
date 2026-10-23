@@ -129,8 +129,8 @@ When proving advanced theorems in graph theory, topological connectivity, or qua
 - **NetworkX 3.x Compatibility Shims & Combinatorial Safety Ceilings**: Provides transparent shims for renamed graph APIs (`nx.random_tree`, `nx.vertex_connectivity`) alongside a hard ceiling (`MAX_COMBINATORIAL_STEPS = 200,000`) that prevents exponential combinatorial runaway (such as iterating over $6.87 \times 10^9$ subsets) from exhausting system RAM.
 
 #### 4. Honest Empirical Semantics (`holds_on_samples` vs. Unsound Symbolic Truthiness)
-In standard Python/SymPy, calling `bool(x**2 + 1 > 0)` on symbolic expressions raises a `TypeError` for undecidable relations. Some agent frameworks monkeypatch `Relational.__bool__` to return `True` if a few sample points pass—a catastrophic soundness hole that tricks the LLM into believing a finite spot-check is a formal proof.
-Proof Harness refuses to patch `Relational.__bool__`. Instead, it provides **`holds_on_samples(rel, max_points=2000)`**, which respects declared SymPy symbol assumptions (`positive=True`, `integer=True`) and enforces strict three-valued epistemic logic:
+In standard Python/SymPy, calling `bool(x**2 + 1 > 0)` on symbolic expressions raises a `TypeError` for undecidable relations. Attempting to force these relations to a boolean based on sample evaluations creates a dangerous soundness hole that tricks an LLM into believing a finite spot-check is a formal proof.
+Proof Harness provides **`holds_on_samples(rel, max_points=2000)`**, which respects declared SymPy symbol assumptions (`positive=True`, `integer=True`) and enforces strict three-valued epistemic logic:
 - **`False`**: A concrete counterexample was found (definitive refutation).
 - **`True`**: No counterexample found among the sample grid—reported to the LLM strictly as `holds_on_samples: True` (*empirical survival evidence only, NOT a formal proof*).
 - **`None`**: Inconclusive (division by zero, non-real values, or incompatible assumptions).
