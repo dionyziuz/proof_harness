@@ -521,8 +521,8 @@ def main() -> None:
                         help=f"Maximum prover turns per task (default: {tcs_cfg.prover_max_iterations} from .env)")
     parser.add_argument("--timeout", type=float, default=tcs_cfg.solver_timeout_seconds,
                         help=f"Per-task solve timeout budget in seconds (default: {tcs_cfg.solver_timeout_seconds})")
-    parser.add_argument("--judge-timeout", type=float, default=120,
-                        help="Per-judge-call timeout in seconds (default: 120)")
+    parser.add_argument("--judge-timeout", type=float, default=tcs_cfg.judge_timeout_seconds,
+                        help=f"Per-judge-call timeout in seconds (default: {tcs_cfg.judge_timeout_seconds} from .env)")
     parser.add_argument("--prove-dir", "--solve-dir", dest="prove_dir", type=Path, default=DEFAULT_EVAL_DIR / "tcs_pipeline_50",
                         help="Directory to save tasks, logs, and judgments")
     parser.add_argument("--tasks-dir", type=Path, default=DEFAULT_TASKS_DIR,
