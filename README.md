@@ -11,6 +11,7 @@ Standard large language models fail on research-level mathematics because of two
 2. **The CoALA Heuristics & Continuous Domain Learning Engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`)**: A continual learning architecture grounded in *Cognitive Architectures for Language Agents* (CoALA) where the harness **learns by solving over time**—distilling verified universal strategies (Procedural Memory) and failure post-mortems (Episodic Memory) into role-isolated vector embeddings in vector memory, governed by automated heuristic validation and sanitization. As practitioners and researchers use the harness to prove theorems across vertical domains, the system compounds domain intelligence through vector embeddings—with zero LLM weight fine-tuning.
 
 📄 **Technical Papers & Deep Dives:**
+- **Frontier Physics Deep Dive:** [`docs/articles/from-spacetime-thermodynamics-to-open-quantum-horizons.md`](docs/articles/from-spacetime-thermodynamics-to-open-quantum-horizons.md) (Autonomous discovery, Casini/Wall/Bousso QNEC heuristics, and solving open AQFT horizon problems)
 - **Technical Report:** [`docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md`](docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md)
 - **Engineering Deep Dive:** [`docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md`](docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md)
 
@@ -31,6 +32,21 @@ Evaluated across **300 research-level problems from TCS-Bench** (arXiv Theoretic
 - **Publication-Grade Proofs (≥ 0.70, Grade A and Above):** **54 / 300 (18.00%)** — a **7.71× multiplier** over initial drafting (2.33%, 7/300), with 31 proofs reaching near-flawless (≥ 0.90) journal quality.
 - **Passing Proof Validity:** Drives the mean referee validity of certified passing proofs from low-rigor initial drafts (mean internal audit score 0.253 ± 0.227; mean external score on unsolved tasks 0.139 ± 0.107) to **0.853 ± 0.129** (median **0.880**), with structural completeness reaching **0.907** and logical rigor reaching **0.857**.
 - **100% of Passing Proofs** are discovered through governed multi-turn exploration in Turns 2–12 (with **84.1%** won in Turn 4 or later, and **20.6%** won in overtime).
+
+---
+
+### 🌌 Frontier Physics & Spacetime Thermodynamics Benchmark (100% Pass Rate)
+
+Evaluated across mathematical physics and Algebraic Quantum Field Theory (AQFT) benchmarks using `unsloth/Qwen3.8-27B-NVFP4` with domain-isolated procedural memory:
+
+| Benchmark Task ID | Historical Milestone / Paper | Core Derivation Focus | Turn & Latency | Validity Score | Result Status |
+| :--- | :--- | :--- | :---: | :---: | :---: |
+| **`task_gr-qc_9504004_statement_01_01`** | **Jacobson (1995)**: *Thermodynamics of Spacetime* | Derives the Einstein Field Equations $G_{ab} + \Lambda g_{ab} = \frac{8\pi G}{c^4} T_{ab}$ via local Rindler horizon thermal flux, Unruh temperature $\eta = \frac{\hbar \kappa}{2\pi c k_B}$, Raychaudhuri expansion, and Clausius entropy balance $\delta Q = T dS$. | Turn 3<br>(1,204.6s) | **0.86 / 1.00** | **PASS (Publication-Grade)** |
+| **`task_2510.24491_statement_01_01`** | **Dorau & Much (2026)**: *Modular Flow on Null Hypersurfaces* | Proves that the modular Hamiltonian on null Cauchy surfaces generates local geometric translations $K_V = 2\pi \int H_V(x) T_{uu}(x) d\Sigma$ under local algebra inclusions. | Turn 8<br>(2,816.8s) | **0.76 / 1.00** | **PASS (Certified Sound)** |
+| **`task_2510.24491_open_01_01`** | **Open Frontier Problem**: *General Hadamard Modular Invariance* | Deep autonomous 50-turn exploration of the modular obstruction across general Hadamard states, deriving iso-entropic conditions ($\Delta S_{\mathrm{ent}} = 0$) and integrating Quantum Null Energy Condition (QNEC) boundary tensor corrections. | 50-turn deep search | Checkpointed | **Active Exploration** |
+
+- **Physics Suite Baseline Pass Rate:** **2 / 2 (100.0%)** recorded in `data/eval_results/physics_qwen_solved_v1/pipeline_metrics.json`.
+- **Domain Memory Specialization:** Evaluated using dedicated `physics_procedural` memory partition (`--domain physics`), harvesting frontier heuristics from Casini (2008), Faulkner et al. (2014), Wall (2012), Bousso et al. (2014), and Ciolli–Longo–Ruzzi (2021).
 
 ---
 
@@ -110,6 +126,12 @@ Before any learned strategy is saved to vector memory, [`core_engine/heuristic_v
 | **4. Title Decoupling** | Strip problem titles | Explicit mentions of the source paper or problem title. |
 | **5. Instance Variable Bindings** | No hardcoded toy numbers | Problem-specific equations (`2^k == 3^m`, `for n = 1000`, `modulo 10^9 + 7`, `"in this specific problem"`). |
 | **6. Ground-Truth & Constant Shield** | No answer or constant leaks | Any heuristic containing the expected answer or any 4+ digit constant from the problem statement. |
+
+### 4. Domain-Specific Procedural Memory Partitioning (`--domain`)
+In addition to role-isolated collections within pure mathematics, Proof-Harness supports **domain-specific procedural memory partitioning** via `TCS_MEMORY_DOMAIN="<domain>"` in `.env` or `--domain <name>` (`--memory-domain <name>`) on the CLI:
+- **`prime_math` / `tcs`**: Default collections (`prime_math_procedural`, `tcs_architect_procedural`, etc.) storing universal graph, number theory, and combinatorics heuristics.
+- **`physics`**: Dedicated `physics_procedural` collection storing specialized mathematical physics strategies (e.g., Tomita–Takesaki modular theory, KMS condition, Raychaudhuri optical scalars, Quantum Null Energy Condition $\langle T_{kk} \rangle \ge \frac{1}{2\pi} S''$, and horizon entropy balance $\delta Q = T dS$).
+- **Clean Cross-Domain Isolation**: Prevents vertical domain lore from contaminating TCS queries or general math benchmarks, while allowing deep domain specialization to compound across sessions without risk of cross-domain hallucination.
 
 ---
 
@@ -227,12 +249,15 @@ proof_harness/
 │   └── tcs_bench_leakage_audit.py
 ├── docs/
 │   ├── articles/                    # Technical papers & deep-dive engineering articles
+│   │   ├── from-spacetime-thermodynamics-to-open-quantum-horizons.md
 │   │   ├── arxiv-prime-math-neuro-symbolic-prover-harness.md
 │   │   └── how-an-agent-harness-unlocks-llm-math-reasoning.md
 │   └── adr/                         # Architecture Decision Records
-├── data/                            # Benchmark suites (TCS-Bench, Open Problems 50, Euler)
-├── tests/                           # Comprehensive pytest suite (220+ unit & integrity tests)
-├── .env.example                     # Configuration template (copy to .env)
+├── data/                            # Benchmark suites (TCS-Bench, Physics, Open Problems 50, Euler)
+│   └── physics/tasks/               # Solved baselines & open AQFT horizon problems
+├── tests/                           # Comprehensive pytest suite (260+ unit & integrity tests)
+├── .env.example                     # Configuration template for DeepSeek / Meta Muse
+├── .env.example.qwen                # Calibrated configuration for local Qwen3.8-27B
 └── pyproject.toml                   # Package dependencies & CLI entrypoints
 ```
 
@@ -248,11 +273,22 @@ uv sync
 uv pip install -e .
 ```
 
-### 2. Configure `.env`
+### 2. Configure `.env` and Model Endpoints
 Copy the template and set your LLM endpoint and API credentials:
 ```bash
+# Default DeepSeek / Meta Muse / Remote configuration
 cp .env.example .env
-# Edit .env to set PRIME_MATH_BASE_URL, PRIME_MATH_API_KEY, and JINA_API_KEY
+
+# Alternatively, for local Qwen3.8-27B on consumer/APU hardware:
+cp .env.example.qwen .env.qwen
+```
+
+> [!IMPORTANT]
+> **Zero-Secrets & Git Ignore Guarantee**: All `.env`, `.env.*`, and `*.env.local` files are strictly excluded via `.gitignore` (`.gitignore:59-61`). API keys, tunnel URLs, and bearer tokens are never committed to version control. Only sanitized `.env.example*` templates are tracked.
+
+You can also specify a custom environment file at runtime via `--env-file` (or `PROOF_HARNESS_ENV_FILE`), allowing concurrent runs with different endpoints or domain settings without modifying the active `.env`:
+```bash
+uv run prime-math prove "..." --env-file .env.qwen
 ```
 
 ### 3. Optional: Install Lean 4 (For Formal Compiler Verification)
@@ -320,27 +356,56 @@ uv run prime-math heuristic add "When upper-bounding the neighborhood |N(S)| of 
 uv run prime-math remediate --latest 1
 ```
 
-### 7. Running Benchmark Suites (TCS-Bench, Open Problems 50, FrontierMath, Project Euler)
+### 7. Running Benchmark Suites (TCS-Bench, Physics, Open Problems, FrontierMath)
+
+#### Frontier Physics Benchmark Suite (Jacobson 1995 & Dorau–Much 2026 Baselines)
+Run the 2-problem solved physics baseline suite with local Qwen 27B and domain-isolated physics procedural memory:
 ```bash
-# Continuous Autonomous TCS-Bench Proving & Multi-Replicate Judging Pipeline
 .venv/bin/python scripts/run_tcs_continuous_pipeline.py \
+  --env-file .env.physics_qwen \
+  --tasks-file data/physics/tasks/physics_tasks.json \
+  --domain physics \
+  --prove-dir data/eval_results/physics_qwen_solved_v1
+```
+
+#### Open Problem Exploration (Up to 100 Deep Iterations)
+Run deep open-conjecture exploration on frontier physics problems (e.g. 50 turns on the general Hadamard modular obstruction):
+```bash
+.venv/bin/python scripts/run_tcs_continuous_pipeline.py \
+  --env-file .env.physics_qwen \
+  --tasks-file data/physics/tasks/task_2510.24491_open_01_01.json \
+  --domain physics \
+  --max-iterations 50 \
+  --prove-dir data/eval_results/physics_open_50turns_v1
+```
+
+#### Continuous Autonomous TCS-Bench Proving & Multi-Replicate Judging Pipeline
+```bash
+# Standard 8-iteration TCS pipeline run with custom env and domain partitioning
+.venv/bin/python scripts/run_tcs_continuous_pipeline.py \
+  --env-file .env \
+  --domain tcs \
   --prove-dir data/eval_results/tcs_pipeline_run \
   --workers 2 \
   --max-iterations 8
+```
 
-# Standalone TCS-Bench Prover on a task range
+#### Standalone Bench Prover & Calibrated Judge
+```bash
+# Standalone prover on a specific task range
 .venv/bin/python scripts/run_tcs_bench_prove.py \
   --prove-dir data/eval_results/tcs_prove_run \
   --task-range 1-20 \
+  --domain tcs \
   --workers 2
 
-# Standalone Calibrated TCS Judge (or --config lean for Lean 4 verification)
+# Standalone calibrated judge (or --config lean for Lean 4 formal verification)
 .venv/bin/python scripts/run_tcs_bench_judge.py \
   --prove-dir data/eval_results/tcs_prove_run \
   --config b \
   --workers 2
 
-# 10-Gram Jaccard Containment & Zero-Leakage Audit
+# 10-Gram Jaccard containment & zero-leakage audit
 .venv/bin/python scripts/tcs_bench_leakage_audit.py post \
   --prove-dir data/eval_results/tcs_prove_run
 

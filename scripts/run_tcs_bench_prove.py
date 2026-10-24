@@ -183,7 +183,8 @@ def solve_one(task: Dict[str, Any], args: argparse.Namespace, run_dir: Path) -> 
             # ablation run (--enable-research).
             kernel = (PersistentMathKernel() if args.enable_research
                       else TCSCompliantKernel())
-            memory = CoALAMemoryManager()
+            mem_domain = getattr(args, "domain", None) or tcs_cfg.memory_domain
+            memory = CoALAMemoryManager(agent_id=mem_domain)
             solver = MathProver(
                 client=client,
                 kernel=kernel,
@@ -335,18 +336,20 @@ def main() -> None:
     tcs_cfg = load_tcs_config()
     parser = argparse.ArgumentParser(
         description="TCS-Bench Stage 1: solve all tasks (MathProver, Stage 0 OFF)")
+    parser.add_argument("--env-file", "-e", type=Path, default=None,
+                        help="Path to .env configuration file to load (default: .env)")
     parser.add_argument("--tasks-dir", type=Path, default=DEFAULT_TASKS_DIR)
     parser.add_argument("--task-id", type=str, default=None,
                         help="Solve a single specific task ID (e.g. task_1907.04585_statement_93_142)")
     parser.add_argument("--task-range", type=str, default=None,
                         help="Solve a 1-indexed range of tasks (e.g. 4-10)")
     parser.add_argument("--workers", type=int, default=2)
-    parser.add_argument("--max-iterations", type=int, default=tcs_cfg.prover_max_iterations,
+    parser.add_argument("--max-iterations", "--max-turns", dest="max_iterations", type=int, default=tcs_cfg.prover_max_iterations,
                         help=f"Maximum prover turns per task (default: {tcs_cfg.prover_max_iterations} from tcs_config)")
     parser.add_argument("--telegram", action="store_true", default=False,
                         help="Send live problem completion alerts directly to Telegram")
-    parser.add_argument("--timeout", type=float, default=3600.0,
-                        help="per-task time budget in seconds (default 3600)")
+    parser.add_argument("--timeout", type=float, default=None,
+                        help="per-task time budget in seconds (default 3600, auto-scaled for >8 turns)")
     parser.add_argument("--retries", type=int, default=2,
                         help="extra attempts per task on transient network errors (default 2)")
     parser.add_argument("--limit", type=int, default=None,
@@ -366,7 +369,20 @@ def main() -> None:
                         help="Comma-separated 1-based task indices or task ID substrings to skip (e.g. 1,5,10,18,19)")
     parser.add_argument("--no-thinking", action="store_true",
                         help="Disable internal thinking tokens on Qwen (default: thinking enabled).")
+    parser.add_argument("--domain", "--memory-domain", type=str, default=None,
+                        help="Procedural memory domain (e.g. 'physics', 'tcs', 'prime_math'). Overrides .env")
     args = parser.parse_args()
+    if args.domain:
+        os.environ["TCS_MEMORY_DOMAIN"] = args.domain
+    if args.env_file:
+        from core_engine.config import configure_env_file
+        configure_env_file(args.env_file)
+        tcs_cfg = load_tcs_config(env_path=args.env_file, reload=True)
+    if args.timeout is None:
+        args.timeout = max(
+            tcs_cfg.solver_timeout_seconds,
+            args.max_iterations * tcs_cfg.overtime_seconds_per_iter,
+        )
     args.enable_thinking = not getattr(args, "no_thinking", False)
 
     if not args.tasks_dir.is_dir():

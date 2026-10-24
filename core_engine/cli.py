@@ -20,7 +20,8 @@ from rich.table import Table
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-from .config import load_config
+from .config import configure_env_file, load_config
+from .tcs_config import load_tcs_config
 from .kernel import PersistentMathKernel
 from .solver import MathSolver
 from .prover import MathProver
@@ -112,22 +113,24 @@ def cmd_prove(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     cfg = load_config()
+    tcs_cfg = load_tcs_config()
+    max_iters = args.max_iterations or tcs_cfg.prover_max_iterations
     console.print(
         Panel(
             f"[bold cyan]Conjecture / Model Spec:[/bold cyan] {spec}",
             title="Prime Math - Prover & Model Derivation Engine",
-            subtitle=f"Engine: {cfg.base_url} ({cfg.model})",
+            subtitle=f"Engine: {cfg.base_url} ({cfg.model}) | Max Turns: {max_iters}",
         )
     )
 
     prover = MathProver(
-        default_max_iterations=args.max_iterations,
+        default_max_iterations=max_iters,
         enable_literature_search=getattr(args, "literature_search", False),
     )
 
     def on_step(event: str, data: Any) -> None:
         if event == "turn_start":
-            console.print(f"\n[bold blue]─── Turn {data}: Analyzing & Formalizing Invariants ───[/bold blue]")
+            console.print(f"\n[bold blue]─── Turn {data}/{max_iters}: Analyzing & Formalizing Invariants ───[/bold blue]")
         elif event == "code_start":
             console.print("[bold yellow]⚡ Python Verification Kernel:[/bold yellow]")
             console.print(Syntax(data, "python", theme="monokai", line_numbers=False))
@@ -143,7 +146,7 @@ def cmd_prove(args: argparse.Namespace) -> None:
             if data.error:
                 console.print(f"[bold red]Traceback:[/bold red] {data.error.strip()}")
 
-    res = prover.prove(spec, max_iterations=args.max_iterations, on_step=on_step)
+    res = prover.prove(spec, max_iterations=max_iters, on_step=on_step)
 
     console.print("\n" + "=" * 60 + "\n")
     if res.status == "PROVEN":
@@ -602,24 +605,37 @@ def cmd_heuristic(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="prime-math", description="Prime Math CLI & Agentic Harness")
+    env_parent = argparse.ArgumentParser(add_help=False)
+    env_parent.add_argument(
+        "--env-file",
+        "-e",
+        type=Path,
+        default=None,
+        help="Path to .env configuration file to load (default: .env)",
+    )
+
+    parser = argparse.ArgumentParser(
+        prog="prime-math",
+        description="Prime Math CLI & Agentic Harness",
+        parents=[env_parent],
+    )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # heuristic
-    heur_p = subparsers.add_parser("heuristic", help="Manage CoALA procedural heuristics in TurboVec")
+    heur_p = subparsers.add_parser("heuristic", parents=[env_parent], help="Manage CoALA procedural heuristics in TurboVec")
     heur_sub = heur_p.add_subparsers(dest="action", help="Heuristic action (add, search)")
 
-    h_add_p = heur_sub.add_parser("add", help="Validate and commit a universal mathematical heuristic")
+    h_add_p = heur_sub.add_parser("add", parents=[env_parent], help="Validate and commit a universal mathematical heuristic")
     h_add_p.add_argument("rule", nargs="+", help="Heuristic rule text")
 
-    h_search_p = heur_sub.add_parser("search", help="Search procedural heuristics via TurboVec vector similarity")
+    h_search_p = heur_sub.add_parser("search", parents=[env_parent], help="Search procedural heuristics via TurboVec vector similarity")
     h_search_p.add_argument("query", nargs="+", help="Mathematical topic or concept query")
     h_search_p.add_argument("--limit", type=int, default=5, help="Maximum number of heuristics to return (default: 5)")
     h_search_p.add_argument("--min-score", type=float, default=0.50, help="Minimum cosine similarity score (default: 0.50)")
     heur_p.set_defaults(func=cmd_heuristic)
 
     # remediate
-    remed_p = subparsers.add_parser("remediate", help="Run automated 3-tier post-evaluation failure remediation")
+    remed_p = subparsers.add_parser("remediate", parents=[env_parent], help="Run automated 3-tier post-evaluation failure remediation")
     remed_p.add_argument("--problems", type=str, default=None, help="Comma-separated problem IDs to remediate (e.g. 850,851,854)")
     remed_p.add_argument("--latest", type=int, default=1, help="Number of latest evaluation run files to scan (default: 1)")
     remed_p.add_argument("--limit", type=int, default=None, help="Maximum number of failed problems to diagnose")
@@ -630,77 +646,79 @@ def main() -> None:
     remed_p.set_defaults(func=cmd_remediate)
 
     # bench
-    bench_p = subparsers.add_parser("bench", help="Run automated benchmark on Project Euler problems")
+    bench_p = subparsers.add_parser("bench", parents=[env_parent], help="Run automated benchmark on Project Euler problems")
     bench_p.add_argument("--start", type=int, default=1, help="Starting problem ID")
     bench_p.add_argument("--end", type=int, default=10, help="Ending problem ID")
     bench_p.add_argument("--problems", type=str, default=None, help="Comma-separated problem IDs (e.g. 1,2,3,78)")
     bench_p.add_argument("--workers", type=int, default=2, help="Number of concurrent workers (default: 2)")
-    bench_p.add_argument("--max-iterations", type=int, default=12, help="Max iterations per problem (default: 12)")
+    bench_p.add_argument("--max-iterations", "--max-turns", dest="max_iterations", type=int, default=12, help="Max iterations per problem (default: 12)")
     bench_p.add_argument("--dataset", type=str, default=None, help="Custom dataset JSON path")
     bench_p.add_argument("--force", action="store_true", help="Force re-running already solved problems (default skips passed)")
     bench_p.set_defaults(func=cmd_bench)
 
     # frontier
-    frontier_p = subparsers.add_parser("frontier", help="Run automated benchmark on FrontierMath problems (Tiers 1-4)")
+    frontier_p = subparsers.add_parser("frontier", parents=[env_parent], help="Run automated benchmark on FrontierMath problems (Tiers 1-4)")
     frontier_p.add_argument("--tier", type=int, default=None, choices=[1, 2, 3, 4], help="Evaluate specific Tier (1-4)")
     frontier_p.add_argument("--problems", type=str, default=None, help="Comma-separated problem IDs (e.g. 1,2,5)")
     frontier_p.add_argument("--workers", type=int, default=2, help="Number of concurrent workers (default: 2)")
-    frontier_p.add_argument("--max-iterations", type=int, default=60, help="Max iterations per problem (default: 60)")
+    frontier_p.add_argument("--max-iterations", "--max-turns", dest="max_iterations", type=int, default=60, help="Max iterations per problem (default: 60)")
     frontier_p.add_argument("--timeout", type=float, default=3600.0, help="Max wall-clock seconds per problem before moving on (default: 3600s / 1h)")
     frontier_p.add_argument("--no-fast-composer", action="store_true", help="Bypass Tier 1 Fast Composer and start directly with Deep Orchestrator + Stage 0")
     frontier_p.set_defaults(func=cmd_frontier)
 
     # step
-    step_p = subparsers.add_parser("step", help="Execute problem solving step-by-step")
+    step_p = subparsers.add_parser("step", parents=[env_parent], help="Execute problem solving step-by-step")
     step_sub = step_p.add_subparsers(dest="action", help="Step action")
     
-    start_p = step_sub.add_parser("start", help="Start new step session")
+    start_p = step_sub.add_parser("start", parents=[env_parent], help="Start new step session")
     start_p.add_argument("problem", nargs="+", help="Problem statement")
-    start_p.add_argument("--max-iterations", type=int, default=12, help="Max reasoning iterations (default: 12)")
+    start_p.add_argument("--max-iterations", "--max-turns", dest="max_iterations", type=int, default=12, help="Max reasoning iterations (default: 12)")
 
-    step_sub.add_parser("next", help="Execute next turn in active session")
+    step_sub.add_parser("next", parents=[env_parent], help="Execute next turn in active session")
 
     step_p.set_defaults(func=cmd_step)
 
     # prove
-    prove_p = subparsers.add_parser("prove", help="Derive and computationally verify a generic mathematical model or theorem")
+    prove_p = subparsers.add_parser("prove", parents=[env_parent], help="Derive and computationally verify a generic mathematical model or theorem")
     prove_p.add_argument("spec", nargs="+", help="Conjecture, dynamical system, or model specification")
-    prove_p.add_argument("--max-iterations", type=int, default=8, help="Max derivation/verification iterations (default: 8)")
+    prove_p.add_argument("--max-iterations", "--max-turns", dest="max_iterations", type=int, default=None, help="Max derivation/verification iterations (default: PROVER_MAX_ITERATIONS from .env or 8)")
     prove_p.add_argument("--literature-search", action="store_true", default=False, help="Enable pre-proof academic literature harvesting (arXiv / MathWorld)")
     prove_p.set_defaults(func=cmd_prove)
 
     # falsify
-    falsify_p = subparsers.add_parser("falsify", help="Actively stress-test and search for counterexamples to a mathematical claim")
+    falsify_p = subparsers.add_parser("falsify", parents=[env_parent], help="Actively stress-test and search for counterexamples to a mathematical claim")
     falsify_p.add_argument("claim", nargs="+", help="Mathematical claim or conjecture to falsify")
-    falsify_p.add_argument("--max-iterations", type=int, default=6, help="Max adversarial search iterations (default: 6)")
+    falsify_p.add_argument("--max-iterations", "--max-turns", dest="max_iterations", type=int, default=6, help="Max adversarial search iterations (default: 6)")
     falsify_p.set_defaults(func=cmd_falsify)
 
     # discover
-    discover_p = subparsers.add_parser("discover", help="Inductively discover mathematical laws, closed forms, or recurrences from data")
+    discover_p = subparsers.add_parser("discover", parents=[env_parent], help="Inductively discover mathematical laws, closed forms, or recurrences from data")
     discover_p.add_argument("data", nargs="+", help="Sequence, data points, or mathematical system description to analyze")
-    discover_p.add_argument("--max-iterations", type=int, default=8, help="Max discovery iterations (default: 8)")
+    discover_p.add_argument("--max-iterations", "--max-turns", dest="max_iterations", type=int, default=8, help="Max discovery iterations (default: 8)")
     discover_p.set_defaults(func=cmd_discover)
 
     # solve
-    solve_p = subparsers.add_parser("solve", help="Solve a math problem autonomously")
+    solve_p = subparsers.add_parser("solve", parents=[env_parent], help="Solve a math problem autonomously")
     solve_p.add_argument("problem", nargs="+", help="Problem statement")
-    solve_p.add_argument("--max-iterations", type=int, default=12, help="Max reasoning iterations (default: 12)")
+    solve_p.add_argument("--max-iterations", "--max-turns", dest="max_iterations", type=int, default=12, help="Max reasoning iterations (default: 12)")
     solve_p.set_defaults(func=cmd_solve)
 
     # eval
-    eval_p = subparsers.add_parser("eval", help="Execute math code directly in the preloaded kernel")
+    eval_p = subparsers.add_parser("eval", parents=[env_parent], help="Execute math code directly in the preloaded kernel")
     eval_p.add_argument("code", nargs="+", help="Python code to evaluate")
     eval_p.set_defaults(func=cmd_eval)
 
     # repl
-    repl_p = subparsers.add_parser("repl", help="Start interactive persistent math REPL")
+    repl_p = subparsers.add_parser("repl", parents=[env_parent], help="Start interactive persistent math REPL")
     repl_p.set_defaults(func=cmd_repl)
 
     # mcp
-    mcp_p = subparsers.add_parser("mcp", help="Start MCP server over stdio")
+    mcp_p = subparsers.add_parser("mcp", parents=[env_parent], help="Start MCP server over stdio")
     mcp_p.set_defaults(func=lambda _: run_mcp())
 
     args = parser.parse_args()
+    if getattr(args, "env_file", None):
+        configure_env_file(args.env_file)
     if not args.command:
         parser.print_help()
         sys.exit(0)

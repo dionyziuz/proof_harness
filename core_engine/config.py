@@ -10,12 +10,92 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DOTENV_PATH = PROJECT_ROOT / ".env"
+
+
+def _extract_cli_env_file(argv: Optional[List[str]] = None) -> Optional[str]:
+    """Inspects CLI arguments for ``--env-file`` / ``-e`` so even module-level
+    imports before ``argparse.parse_args()`` resolve the requested ``.env`` file.
+    """
+    args = argv if argv is not None else sys.argv[1:]
+    for i, arg in enumerate(args):
+        if arg in ("--env-file", "-e") and i + 1 < len(args):
+            return args[i + 1]
+        if arg.startswith("--env-file="):
+            return arg.split("=", 1)[1]
+    return None
+
+
+def resolve_dotenv_path(dotenv_path: Optional[Union[Path, str]] = None) -> Path:
+    """Resolves the active ``.env`` file path.
+
+    Priority:
+    1. Explicit ``dotenv_path`` argument.
+    2. ``PROOF_HARNESS_ENV_FILE`` / ``PRIME_MATH_ENV_FILE`` / ``DOTENV_PATH`` env var.
+    3. ``--env-file`` CLI flag in ``sys.argv``.
+    4. ``PROJECT_ROOT / ".env"`` (default).
+    """
+    raw = (
+        dotenv_path
+        or os.environ.get("PROOF_HARNESS_ENV_FILE")
+        or os.environ.get("PRIME_MATH_ENV_FILE")
+        or os.environ.get("DOTENV_PATH")
+        or _extract_cli_env_file()
+    )
+    if not raw:
+        return DEFAULT_DOTENV_PATH
+    candidate = Path(raw).expanduser()
+    if not candidate.is_absolute() and not candidate.is_file():
+        repo_candidate = PROJECT_ROOT / candidate
+        if repo_candidate.is_file():
+            return repo_candidate.resolve()
+    return candidate
+
+
+def configure_env_file(
+    dotenv_path: Optional[Union[Path, str]] = None,
+    reload_tcs: bool = True,
+) -> Path:
+    """Configures the active ``.env`` file for the current process and reloads cached configs.
+
+    When a custom ``dotenv_path`` is provided, sets ``PROOF_HARNESS_ENV_FILE`` in ``os.environ``
+    and applies its key-value pairs so all downstream modules inherit the selected environment.
+    Defaults to ``PROJECT_ROOT / ".env"`` when ``dotenv_path`` is None.
+    """
+    target = resolve_dotenv_path(dotenv_path)
+    if not target.is_file():
+        raise ConfigError(
+            f"Required .env file not found at {target}. "
+            "Copy .env.example to .env (or specify a valid --env-file) and fill in your credentials."
+        )
+    if dotenv_path is not None:
+        os.environ["PROOF_HARNESS_ENV_FILE"] = str(target)
+    try:
+        from dotenv import dotenv_values, load_dotenv
+    except ImportError as exc:  # pragma: no cover
+        raise ConfigError("python-dotenv is required to load .env (pip install python-dotenv)") from exc
+
+    if dotenv_path is not None or target.resolve() != DEFAULT_DOTENV_PATH.resolve():
+        # Apply values from the explicitly selected .env file over any previously loaded .env defaults
+        vals = dotenv_values(target)
+        for k, v in vals.items():
+            if v is not None:
+                os.environ[k] = v
+    else:
+        load_dotenv(dotenv_path=target, override=False)
+
+    if reload_tcs and "core_engine.tcs_config" in sys.modules:
+        try:
+            sys.modules["core_engine.tcs_config"].load_tcs_config(env_path=target, reload=True)
+        except Exception:
+            pass
+    return target
 
 
 class ConfigError(RuntimeError):
@@ -89,8 +169,9 @@ def load_config(
     Raises:
         ConfigError: if the .env file is missing or required credentials are absent.
     """
-    # 0. Load the project .env (required). override=False keeps explicit process env vars authoritative.
-    env_file = dotenv_path or DEFAULT_DOTENV_PATH
+    # 0. Load the active .env (defaults to PROJECT_ROOT / ".env", configurable via
+    #    dotenv_path, PROOF_HARNESS_ENV_FILE / PRIME_MATH_ENV_FILE / DOTENV_PATH, or --env-file).
+    env_file = resolve_dotenv_path(dotenv_path)
     if not env_file.is_file():
         raise ConfigError(
             f"Required .env file not found at {env_file}. "
@@ -100,7 +181,7 @@ def load_config(
         from dotenv import load_dotenv
     except ImportError as exc:  # pragma: no cover - dependency is pinned
         raise ConfigError("python-dotenv is required to load .env (pip install python-dotenv)") from exc
-    load_dotenv(dotenv_path=env_file, override=False)
+    load_dotenv(dotenv_path=env_file, override=bool(dotenv_path is not None))
 
     cfg = PrimeMathConfig()
 

@@ -72,12 +72,19 @@ class CoALAMemoryManager:
         self,
         base_url: Optional[str] = None,
         timeout: float = 5.0,
-        agent_id: str = "prime_math",
+        agent_id: Optional[str] = None,
         db_path: Optional[str] = None,
     ):
         self.base_url = base_url
         self.timeout = timeout
-        self.agent_id = agent_id
+        resolved_agent = (
+            agent_id
+            or os.getenv("TCS_MEMORY_DOMAIN")
+            or os.getenv("PROOF_HARNESS_DOMAIN")
+            or os.getenv("PRIME_MATH_DOMAIN")
+            or "prime_math"
+        )
+        self.agent_id = str(resolved_agent).strip()
         self.db_path = Path(db_path or DEFAULT_MEMORY_DIR).resolve()
         self._lock = _STORAGE_LOCK
 

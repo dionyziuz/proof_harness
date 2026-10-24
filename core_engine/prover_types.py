@@ -212,6 +212,7 @@ class CandidatePool:
     def __init__(self):
         self._best: Optional[CandidateRecord] = None
         self._history: List[CandidateRecord] = []
+        self._archived: List[CandidateRecord] = []
 
     @property
     def best(self) -> Optional[CandidateRecord]:
@@ -395,10 +396,45 @@ class CandidatePool:
                 return pruned
         return None
 
+    def archive_for_pivot(self) -> Optional[CandidateRecord]:
+        """Archives the current branch's best candidate into cross-pivot memory and clears
+        the active branch best so a fresh Clean-Slate Hard Pivot can explore a new proof
+        architecture from scratch without losing the best prior draft if later pivots fail.
+        """
+        if self._best is not None:
+            archived = self._best
+            self._archived.append(archived)
+            self._best = None
+            self._history.clear()
+            return archived
+        return None
+
+    def restore_best_from_archive(self) -> Optional[CandidateRecord]:
+        """Restores the highest-scoring candidate across all pivot branches when exploratory
+        turns finish without an active candidate that surpasses earlier archived branches.
+        """
+        if not self._archived:
+            return self._best
+        candidates = list(self._archived)
+        if self._best is not None:
+            candidates.append(self._best)
+        best_overall = max(
+            candidates,
+            key=lambda c: (
+                1 if c.verdict == "VALID" else 0,
+                round(c.validity, 4),
+                round(c.structural_validity, 4),
+                -len(c.proof),
+            ),
+        )
+        self._best = best_overall
+        return self._best
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "best": self._best.to_dict() if self._best is not None else None,
             "history": [r.to_dict() for r in self._history],
+            "archived": [r.to_dict() for r in self._archived],
         }
 
     @classmethod
@@ -407,6 +443,7 @@ class CandidatePool:
         if not data:
             return pool
         pool._history = [CandidateRecord.from_dict(r) for r in (data.get("history") or [])]
+        pool._archived = [CandidateRecord.from_dict(r) for r in (data.get("archived") or [])]
         best_data = data.get("best")
         if best_data:
             pool._best = CandidateRecord.from_dict(best_data)

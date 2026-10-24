@@ -382,7 +382,8 @@ def process_single_task(
 
         client = TunnelThinkingClient()
         kernel = TCSCompliantKernel()
-        memory = CoALAMemoryManager()
+        mem_domain = getattr(args, "domain", None) or tcs_cfg.memory_domain
+        memory = CoALAMemoryManager(agent_id=mem_domain)
 
         solver = MathProver(
             client=client,
@@ -487,9 +488,10 @@ def process_single_task(
         threshold = summary.get("threshold", TCS_PASS_THRESHOLD)
         if (b_val is None or b_val < threshold) and solve_rec.get("learned_heuristics"):
             from core_engine.memory import CoALAMemoryManager
-            pruned_n = CoALAMemoryManager().remove_by_task_id("prime_math_procedural", task_id)
+            mem_domain = getattr(args, "domain", None) or tcs_cfg.memory_domain
+            pruned_n = CoALAMemoryManager(agent_id=mem_domain).remove_by_task_id(f"{mem_domain}_procedural", task_id)
             if pruned_n:
-                log(f"[yellow][{task_id}] Pruned {pruned_n} unconfirmed heuristic(s) after Official TCS Judge rejection.[/yellow]")
+                log(f"[yellow][{task_id}] Pruned {pruned_n} unconfirmed heuristic(s) from {mem_domain}_procedural after Official TCS Judge rejection.[/yellow]")
     except Exception as e:
         log(f"[yellow]Procedural memory hygiene check warning for {task_id}: {e}[/yellow]")
 
@@ -511,16 +513,18 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(
         description="Continuous TCS-Bench Pipeline: Solve + Immediate Judge + Live Scoreboard")
+    parser.add_argument("--env-file", "-e", type=Path, default=None,
+                        help="Path to .env configuration file to load (default: .env)")
     parser.add_argument("--limit", type=int, default=50,
                         help="Number of problems to evaluate from start of dataset (default: 50)")
     parser.add_argument("--task-range", type=str, default=None,
                         help="1-indexed range of tasks to run (e.g. 1-50)")
     parser.add_argument("--workers", type=int, default=tcs_cfg.pipeline_workers,
                         help=f"Number of concurrent pipeline workers (default: {tcs_cfg.pipeline_workers} from .env)")
-    parser.add_argument("--max-iterations", type=int, default=tcs_cfg.prover_max_iterations,
+    parser.add_argument("--max-iterations", "--max-turns", dest="max_iterations", type=int, default=tcs_cfg.prover_max_iterations,
                         help=f"Maximum prover turns per task (default: {tcs_cfg.prover_max_iterations} from .env)")
-    parser.add_argument("--timeout", type=float, default=tcs_cfg.solver_timeout_seconds,
-                        help=f"Per-task solve timeout budget in seconds (default: {tcs_cfg.solver_timeout_seconds})")
+    parser.add_argument("--timeout", type=float, default=None,
+                        help=f"Per-task solve timeout budget in seconds (default: {tcs_cfg.solver_timeout_seconds}, auto-scaled for >8 turns)")
     parser.add_argument("--judge-timeout", type=float, default=tcs_cfg.judge_timeout_seconds,
                         help=f"Per-judge-call timeout in seconds (default: {tcs_cfg.judge_timeout_seconds} from .env)")
     parser.add_argument("--prove-dir", "--solve-dir", dest="prove_dir", type=Path, default=DEFAULT_EVAL_DIR / "tcs_pipeline_50",
@@ -555,10 +559,23 @@ def main() -> None:
                         help="Disable thinking tokens on solver Qwen (default: False)")
     parser.add_argument("--task-ids", type=str, default=None,
                         help="Comma-separated list of specific task indices (e.g. 6,18,50,51) or task_ids to run")
+    parser.add_argument("--domain", "--memory-domain", type=str, default=None,
+                        help="Procedural memory domain (e.g. 'physics', 'tcs', 'prime_math'). Overrides .env")
     parser.add_argument("--force", action="store_true", default=False,
                         help="Force re-solving and re-judging existing tasks")
 
     args = parser.parse_args()
+    if args.domain:
+        os.environ["TCS_MEMORY_DOMAIN"] = args.domain
+    if args.env_file:
+        from core_engine.config import configure_env_file
+        configure_env_file(args.env_file)
+        tcs_cfg = load_tcs_config(env_path=args.env_file, reload=True)
+    if args.timeout is None:
+        args.timeout = max(
+            tcs_cfg.solver_timeout_seconds,
+            args.max_iterations * tcs_cfg.overtime_seconds_per_iter,
+        )
     if args.tcs_judge:
         args.config = "tcs"
         args.judge_thinking = True

@@ -1615,6 +1615,142 @@ def test_combinatorial_and_range_ceilings_prevent_hangs():
         assert (time.perf_counter() - t1) < 1.5
 
 
+def test_configurable_env_file_and_turns_defaulting_to_standard(tmp_path, monkeypatch):
+    """Verifies that .env path and max turns/iterations are configurable via
+    dotenv_path / PROOF_HARNESS_ENV_FILE / --env-file while defaulting to .env and 8 turns.
+    """
+    from core_engine.config import (
+        DEFAULT_DOTENV_PATH,
+        configure_env_file,
+        load_config,
+        resolve_dotenv_path,
+    )
+    from core_engine.tcs_config import load_tcs_config
+
+    monkeypatch.delenv("PROOF_HARNESS_ENV_FILE", raising=False)
+    monkeypatch.delenv("PRIME_MATH_ENV_FILE", raising=False)
+    monkeypatch.delenv("DOTENV_PATH", raising=False)
+    monkeypatch.delenv("PROVER_MAX_TURNS", raising=False)
+    monkeypatch.delenv("PROVER_MAX_ITERATIONS", raising=False)
+    monkeypatch.delenv("TCS_PROVER_MAX_ITERATIONS", raising=False)
+
+    # 1. Default resolves strictly to project-root .env and 8 turns
+    assert resolve_dotenv_path() == DEFAULT_DOTENV_PATH
+    default_tcs_cfg = load_tcs_config(reload=True)
+    assert default_tcs_cfg.prover_max_iterations == 8
+    assert default_tcs_cfg.stagnation_pivot_turns == 6
+
+    # 2. Custom .env file overrides turns, model, and stagnation pivot threshold
+    custom_env = tmp_path / ".env.physics"
+    custom_env.write_text(
+        "PRIME_MATH_BASE_URL=https://physics-endpoint.example/v1\n"
+        "PRIME_MATH_API_KEY=phys-key-123\n"
+        "PRIME_MATH_MODEL=physics-prover-v1\n"
+        "PRIME_MATH_FAST_ENABLED=false\n"
+        "JINA_API_KEY=jina-test-key\n"
+        "PROVER_MAX_TURNS=100\n"
+        "PROVER_STAGNATION_PIVOT_TURNS=5\n",
+        encoding="utf-8",
+    )
+
+    configured = configure_env_file(custom_env)
+    assert configured == custom_env
+    assert resolve_dotenv_path() == custom_env
+
+    pm_cfg = load_config(dotenv_path=custom_env)
+    assert pm_cfg.base_url == "https://physics-endpoint.example/v1"
+    assert pm_cfg.model == "physics-prover-v1"
+
+    phys_tcs_cfg = load_tcs_config(env_path=custom_env, reload=True)
+    assert phys_tcs_cfg.prover_max_iterations == 100
+    assert phys_tcs_cfg.stagnation_pivot_turns == 5
+
+    # Restore default cached config
+    monkeypatch.delenv("PROOF_HARNESS_ENV_FILE", raising=False)
+    monkeypatch.delenv("PROVER_MAX_TURNS", raising=False)
+    monkeypatch.delenv("PROVER_STAGNATION_PIVOT_TURNS", raising=False)
+    load_tcs_config(reload=True)
+
+
+def test_long_horizon_deep_stagnation_multi_pivot_and_archive_restore():
+    """On long-horizon runs (e.g. 20..100 turns), if an intermediate candidate (< 0.75)
+    stagnates for stagnation_pivot_turns consecutive revisions without improvement,
+    the prover archives that candidate into cross-pivot memory, unlocks a Clean-Slate
+    Hard Pivot + 1-Turn REPL-First Pivot Gate, and restores the archived best at the end
+    if subsequent pivots score lower.
+    """
+    prover = MathProver()
+    prover._log_write = lambda *_a, **_k: None
+    prover.compactor = MagicMock()
+    prover.compactor.should_compact.return_value = False
+    prover.config.stagnation_pivot_turns = 4
+
+    with patch.object(prover, "_run_context_architect", return_value="blueprint"), \
+         patch.object(prover, "_run_computational_falsifier", return_value=([], [])), \
+         patch.object(prover.memory, "query_procedural_heuristics", return_value=[]), \
+         patch.object(prover.memory, "check_health", return_value=True):
+        messages, result, _ = prover._init_solve_session(
+            "t_open_phys",
+            "Target Problem: extend relative entropy flux to general Hadamard states.",
+            max_turns=8,
+            reset_kernel=True,
+        )
+
+    p_stagnant = "\\begin{proof}\n" + ("Coherent state Weyl algebra reduction with unproved Hadamard remainder. " * 4) + "\n\\end{proof}"
+    p_weaker = "\\begin{proof}\n" + ("Incomplete conformal map sketch. " * 4) + "\n\\end{proof}"
+
+    captured_prompts = []
+
+    def fake_stream(messages, **_kw):
+        captured_prompts.append([dict(m) for m in messages])
+        idx = len(captured_prompts)
+        if idx in (1, 2, 3, 4):
+            return (f"t{idx}", p_stagnant)
+        if idx == 5:
+            # Turn 5 is 1-Turn REPL-First Pivot Gate after Turn 4 deep stagnation pivot
+            return ("t5", "```python\nprint('Testing Tomita-Takesaki modular flow')\n```")
+        return (f"t{idx}", p_weaker)
+
+    audit_results = iter([
+        AuditResult(verdict="REJECT", issues="Unproved Hadamard state extension", validity=0.42, rigor=0.45, completeness=0.45, boundary_cases=0.50),
+        AuditResult(verdict="REJECT", issues="Unproved Hadamard state extension", validity=0.42, rigor=0.45, completeness=0.45, boundary_cases=0.50),
+        AuditResult(verdict="REJECT", issues="Unproved Hadamard state extension", validity=0.42, rigor=0.45, completeness=0.45, boundary_cases=0.50),
+        AuditResult(verdict="REJECT", issues="Unproved Hadamard state extension", validity=0.42, rigor=0.45, completeness=0.45, boundary_cases=0.50),
+        AuditResult(verdict="REJECT", issues="Conformal map incomplete", validity=0.25, rigor=0.25, completeness=0.25, boundary_cases=0.30),
+        AuditResult(verdict="REJECT", issues="Conformal map incomplete", validity=0.25, rigor=0.25, completeness=0.25, boundary_cases=0.30),
+        AuditResult(verdict="REJECT", issues="Conformal map incomplete", validity=0.25, rigor=0.25, completeness=0.25, boundary_cases=0.30),
+    ])
+
+    hard_pivots = []
+
+    def on_step(ev, data):
+        if ev == "hard_pivot":
+            hard_pivots.append(data)
+
+    with patch.object(prover, "_stream_completion_with_retry", side_effect=fake_stream), \
+         patch.object(prover, "_audit_proof_draft", side_effect=lambda *_a, **_k: next(audit_results)), \
+         patch.object(prover, "_run_critique_falsifier", return_value=([], [])), \
+         patch.object(prover, "_run_publication_scribe", return_value=None):
+        best, _ = prover._run_exploratory_turns(
+            task_id="t_open_phys",
+            task_prompt="Target Problem: extend relative entropy flux to general Hadamard states.",
+            messages=messages,
+            result=result,
+            max_turns=7,
+            start_wall_time=0.0,
+            on_step=on_step,
+        )
+
+    # 1. Deep stagnation pivot fired at Turn 4 and activated 1-Turn REPL-First Pivot Gate on Turn 5
+    assert any(hp["turn"] == 4 for hp in hard_pivots)
+    assert "1-TURN REPL-FIRST PIVOT GATE" in captured_prompts[4][-1]["content"]
+    # 2. Because the post-pivot branch only reached 0.25, the archived 0.42 candidate was restored at the end!
+    assert best is not None
+    assert best.validity == pytest.approx(0.42)
+    assert best.proof == p_stagnant
+
+
+
 
 
 

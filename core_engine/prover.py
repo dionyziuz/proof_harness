@@ -949,7 +949,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 enable_thinking=self.enable_thinking,
                 thinking_budget_tokens=self.client.config.thinking_token_budget or 16384,
                 temperature=0.2,
-                timeout_seconds=600.0,
+                timeout_seconds=float(getattr(self.client.config, "timeout_seconds", 900.0) or 900.0),
                 max_retries=5,
                 on_reasoning=_on_reasoning,
                 on_content=_on_content,
@@ -1449,11 +1449,32 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                             validity > prev_rejected_validity + 0.05
                             or (rejection_count <= 2 and structural_val > prev_structural_validity + 0.05)
                         )
+                        stagnation_pivot_turns = int(getattr(self.config, "stagnation_pivot_turns", 6) or 6)
+                        deep_stagnation_pivot = (
+                            not audit_inconclusive
+                            and not overtime_triggered_now
+                            and not boundary_defect
+                            and (current_max_turns - turn) >= 2
+                            and rejection_count >= stagnation_pivot_turns
+                            and best_stagnant_count >= max(2, stagnation_pivot_turns - 2)
+                            and not is_improving
+                            and (
+                                pool.best is None
+                                or (
+                                    pool.best.verdict != "VALID"
+                                    and pool.best_validity < THRESHOLDS.audit_verdict_floor
+                                )
+                            )
+                        )
                         would_hard_pivot_raw = (not audit_inconclusive) and (
                             (validity <= THRESHOLDS.hard_pivot_floor)
                             or (rejection_count >= 2 and validity < THRESHOLDS.pivot_threshold and not is_improving)
                         )
-                        if would_hard_pivot_raw and (has_substantive_structure or overtime_triggered_now or pool_has_viable_foundation):
+                        if (
+                            would_hard_pivot_raw
+                            and not deep_stagnation_pivot
+                            and (has_substantive_structure or overtime_triggered_now or pool_has_viable_foundation)
+                        ):
                             self._log_write(
                                 f"[Hard Pivot Prevented — Substantive/Best Candidate Protected] "
                                 f"Turn {turn} validity was {validity:.2f}, but a viable foundation exists "
@@ -1461,10 +1482,13 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                                 f"Proceeding with Surgical Revision instead of wiping candidate.\n"
                             )
                         is_stuck_low_validity = (
-                            would_hard_pivot_raw
-                            and not has_substantive_structure
-                            and not overtime_triggered_now
-                            and not pool_has_viable_foundation
+                            (
+                                would_hard_pivot_raw
+                                and not has_substantive_structure
+                                and not overtime_triggered_now
+                                and not pool_has_viable_foundation
+                            )
+                            or deep_stagnation_pivot
                         )
                         prev_rejected_validity = validity
                         prev_structural_validity = structural_val
@@ -1479,7 +1503,9 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
 
                             dead_routes_directive = "\n".join(f"  ❌ {dr}" for dr in dead_routes)
 
-                            # 1. Prune the low-validity refuted candidate from the pool so it cannot anchor search or become the final output
+                            # 1. Prune low-validity refuted candidates, or archive a stagnated intermediate
+                            #    candidate into cross-pivot memory so a fresh Clean-Slate Hard Pivot can
+                            #    explore a new mathematical paradigm without losing the prior best fallback.
                             pruned = pool.prune_abandoned(THRESHOLDS.pivot_threshold, force=True)
                             if pruned:
                                 self._log_write(
@@ -1490,6 +1516,16 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                                 if pool.best:
                                     result.candidate_proof = pool.best.proof
                                 else:
+                                    result.candidate_proof = ""
+                            elif deep_stagnation_pivot and pool.best is not None:
+                                archived = pool.archive_for_pivot()
+                                if archived:
+                                    self._log_write(
+                                        f"[Deep Stagnation Pivot] Archived candidate from Turn {archived.turn} "
+                                        f"(validity: {archived.validity:.2f}) after {rejection_count} stagnant revisions; "
+                                        f"unlocking Clean-Slate Hard Pivot for fresh proof architecture.\n"
+                                    )
+                                    best_candidate = None
                                     result.candidate_proof = ""
 
                             # 2. Reset the Python execution kernel, state machine, and prior-defect memory completely (clean slate)
@@ -1683,9 +1719,18 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                                 "% [End of candidate proof under revision]"
                             )
 
+                            dead_routes_reminder = ""
+                            if dead_routes:
+                                dr_lines = "\n".join(f"  ❌ {dr}" for dr in dead_routes)
+                                dead_routes_reminder = (
+                                    "[BANNED PREMISES FROM PRIOR REFUTED PIVOTS — DO NOT REVERT TO THESE]:\n"
+                                    f"{dr_lines}\n\n"
+                                )
+
                             revision_prompt = (
                                 f"{state_ledger_block}"
                                 f"{repl_evidence}"
+                                f"{dead_routes_reminder}"
                                 f"[ADVERSARIAL PROOF AUDIT - DEFECTS DETECTED IN YOUR DRAFT (Validity: {validity:.2f})]\n"
                                 f"An independent mathematical referee audited your draft and identified the following defects:\n"
                                 f"{issues}\n\n"
@@ -1871,6 +1916,25 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                         "pivot_unlocked_revision_prompt": pivot_unlocked_revision_prompt,
                     },
                 )
+
+        if not result.verified:
+            restored = pool.restore_best_from_archive()
+            if restored is not None and (
+                best_candidate is None
+                or restored.validity > best_candidate.validity
+                or (
+                    restored.validity == best_candidate.validity
+                    and restored.structural_validity > best_candidate.structural_validity
+                )
+            ):
+                self._log_write(
+                    f"[Cross-Pivot Best Restored] Restored highest-scoring archived candidate from Turn {restored.turn} "
+                    f"(validity: {restored.validity:.2f}) across all pivot branches.\n"
+                )
+                best_candidate = restored
+                result.candidate_proof = restored.proof
+                if restored.issues and restored.issues.strip().lower() != "none":
+                    last_auditor_issues = restored.issues
 
         self._last_messages = messages
         return best_candidate, last_auditor_issues
@@ -2576,8 +2640,12 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         ckpt = self._load_checkpoint(ckpt_path, task_id)
 
         max_turns = max_iterations or self.default_max_iterations
+        base_timeout = float(getattr(getattr(self, "config", None), "solver_timeout_seconds", 3600.0) or 3600.0)
+        per_turn_s = float(getattr(getattr(self, "config", None), "overtime_seconds_per_iter", 450.0) or 450.0)
         if max_time_seconds is None:
-            max_time_seconds = float(getattr(getattr(self, "config", None), "solver_timeout_seconds", 3600.0) or 3600.0)
+            max_time_seconds = max(base_timeout, max_turns * per_turn_s)
+        elif max_time_seconds == 3600.0 and max_turns > 8:
+            max_time_seconds = max(max_time_seconds, max_turns * per_turn_s)
 
         if ckpt is not None:
             prior_elapsed_s = float(ckpt.get("elapsed_s", 0.0))

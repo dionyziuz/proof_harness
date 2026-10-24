@@ -96,7 +96,7 @@ def judge_one(rec: Dict[str, Any], task_data: Dict[str, Any],
               args: argparse.Namespace, client: TunnelThinkingClient,
               thinking: Optional[bool], timeout_seconds: float) -> Dict[str, Any]:
     prompt = task_data["prompt"]
-    gt = task_data.get("ground_truth_solution", "")
+    gt = task_data.get("ground_truth_solution") or ""
     final = rec.get("candidate_proof")
     if final:
         truncated = len(final) > MAX_PROOF_CHARS
@@ -183,6 +183,8 @@ def judge_with_retry(rec: Dict[str, Any], task_data: Dict[str, Any],
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="TCS-Bench Stage 2: judge all saved candidate proofs (A.1, 4 calls, >=3/4)")
+    parser.add_argument("--env-file", "-e", type=Path, default=None,
+                        help="Path to .env configuration file to load (default: .env)")
     parser.add_argument("--prove-dir", "--solve-dir", dest="solve_dir", type=Path, required=True,
                         help="Stage 1 prove/solve run dir (data/eval_results/tcs_prove_<ts> or tcs_solve_<ts>)")
     parser.add_argument("--tasks-dir", type=Path, default=DEFAULT_TASKS_DIR)
@@ -215,6 +217,9 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=None,
                         help="output JSON path (default data/eval_results/tcs_judge_<ts>.json)")
     args = parser.parse_args()
+    if args.env_file:
+        from core_engine.config import configure_env_file
+        configure_env_file(args.env_file)
 
     if not (args.solve_dir / "tasks").is_dir():
         sys.exit(f"no tasks/ dir under --solve-dir: {args.solve_dir}")

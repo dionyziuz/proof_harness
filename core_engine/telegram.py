@@ -17,16 +17,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+from core_engine.config import resolve_dotenv_path
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DOTENV_PATH = PROJECT_ROOT / ".env"
 
 
-def load_telegram_credentials(dotenv_path: Path = DEFAULT_DOTENV_PATH) -> Tuple[str, str]:
-    """Load TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID from environment or .env."""
-    if dotenv_path.is_file():
+def load_telegram_credentials(dotenv_path: Optional[Path] = None) -> Tuple[str, str]:
+    """Load TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID from environment or active .env."""
+    target_env = resolve_dotenv_path(dotenv_path)
+    if target_env.is_file():
         try:
             from dotenv import load_dotenv
-            load_dotenv(dotenv_path=dotenv_path, override=False)
+            load_dotenv(dotenv_path=target_env, override=bool(dotenv_path is not None))
         except ImportError:
             pass
 
@@ -77,6 +80,17 @@ def format_task_report(entry: Dict[str, Any], metrics: Optional[Dict[str, Any]] 
     iters = entry.get("iterations", "?")
     p_chars = entry.get("candidate_chars", 0)
 
+    # Detect benchmark domain (Physics vs TCS-Bench)
+    str_tid = str(task_id).lower()
+    is_physics = (
+        "gr-qc" in str_tid
+        or "2510.24491" in str_tid
+        or "physics" in str_tid
+        or (metrics and metrics.get("target_total_problems") == 2)
+    )
+    bench_name = "Physics Benchmark" if is_physics else "TCS-Bench"
+    bench_icon = "⚛️" if is_physics else "🎯"
+
     # TCS Judge evaluation
     val = entry.get("judge_b_validity")
     if val is None:
@@ -95,7 +109,7 @@ def format_task_report(entry: Dict[str, Any], metrics: Optional[Dict[str, Any]] 
 
     target_disp = metrics.get("target_total_problems", 300) if metrics else 300
     lines = [
-        f"🎯 <b>TCS-Bench Problem [{task_idx}/{target_disp}] Completed</b>",
+        f"{bench_icon} <b>{bench_name} Problem [{task_idx}/{target_disp}] Completed</b>",
         f"<b>ID:</b> <code>{html.escape(str(task_id))}</code>",
         f"⏱ <b>Solve Time:</b> <code>{dur_s:.1f}s</code> | <b>Turns:</b> <code>{iters}</code> | <b>Proof Size:</b> <code>{p_chars} chars</code>",
         "",
@@ -145,7 +159,7 @@ def format_task_report(entry: Dict[str, Any], metrics: Optional[Dict[str, Any]] 
 
         score_lines = [
             "",
-            f"📊 <b>TCS-Bench Scoreboard ({checked}/{target} - {pct}%):</b>",
+            f"📊 <b>{bench_name} Scoreboard ({checked}/{target} - {pct}%):</b>",
             f"  • <b>TCS Judge Pass Rate (≥0.50):</b> {tcs_passes}/{checked} ({tcs_pct}%)",
             f"  • <b>Directionally Sound (≥0.40):</b> {dir_passes}/{checked} ({dir_pct}%)",
         ]
@@ -159,6 +173,8 @@ def format_final_summary(metrics: Dict[str, Any]) -> str:
     target = metrics.get("target_total_problems", 300)
     checked = metrics.get("total_checked", 0)
 
+    bench_name = "Physics Benchmark" if target <= 5 else "TCS-Bench"
+
     tcs_data = metrics.get("judge_b") or metrics.get("tcs_judge") or {}
     proven_data = metrics.get("proven") or tcs_data
     dir_data = metrics.get("directionally_sound", {})
@@ -170,7 +186,7 @@ def format_final_summary(metrics: Dict[str, Any]) -> str:
     dir_pct = dir_data.get("pass_percentage", 0.0)
 
     lines = [
-        "🏁 <b>TCS-Bench Benchmark Complete!</b>",
+        f"🏁 <b>{bench_name} Complete!</b>",
         f"All <b>{checked}/{target}</b> problems evaluated under TCS Judge validation.",
         "",
         "📈 <b>Final Benchmark Metrics:</b>",

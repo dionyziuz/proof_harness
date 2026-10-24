@@ -10,7 +10,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
+
+from core_engine.config import resolve_dotenv_path
 
 try:
     from dotenv import load_dotenv
@@ -62,8 +64,9 @@ def _str_env(key: str, default: str) -> str:
 # Override with TCS_PIPELINE_JUDGE_THRESHOLD (environment or project .env).
 # ---------------------------------------------------------------------------
 DEFAULT_TCS_PASS_THRESHOLD = 0.50
-if load_dotenv is not None and DEFAULT_ENV_PATH.exists():
-    load_dotenv(dotenv_path=DEFAULT_ENV_PATH, override=False)
+_INITIAL_ENV_PATH = resolve_dotenv_path()
+if load_dotenv is not None and _INITIAL_ENV_PATH.exists():
+    load_dotenv(dotenv_path=_INITIAL_ENV_PATH, override=False)
 TCS_PASS_THRESHOLD: float = _float_env("TCS_PIPELINE_JUDGE_THRESHOLD", DEFAULT_TCS_PASS_THRESHOLD)
 
 # Half-width of the borderline band centred on the pass threshold (used by adaptive judging).
@@ -131,11 +134,12 @@ class TCSConfig:
     scribe_thinking_budget: int = 16384
     scribe_timeout_seconds: float = 360.0
 
-    # High-Potential Overtime Gate
+    # High-Potential Overtime Gate & Multi-Pivot Governance
     enable_overtime: bool = True
     overtime_iterations: int = 4
     overtime_validity_threshold: float = 0.35
     overtime_seconds_per_iter: float = 450.0
+    stagnation_pivot_turns: int = 6
 
     # Subagents: Proof Auditor
     auditor_max_tokens: int = 16384
@@ -153,6 +157,7 @@ class TCSConfig:
     # TurboVec Memory Retrieval
     turbovec_min_score: float = 0.68
     turbovec_limit: int = 5
+    memory_domain: str = "prime_math"
 
     # Lean 4 Judge & Runner Defaults
     lean_timeout_seconds: float = 60.0
@@ -167,17 +172,22 @@ class TCSConfig:
 
 
 _CACHED_CONFIG: Optional[TCSConfig] = None
+_CACHED_ENV_PATH: Optional[Path] = None
 
 
-def load_tcs_config(env_path: Optional[Path] = None, reload: bool = False) -> TCSConfig:
-    """Loads configuration strictly from .env located in the project root."""
-    global _CACHED_CONFIG
-    if _CACHED_CONFIG is not None and not reload:
+def load_tcs_config(env_path: Optional[Union[Path, str]] = None, reload: bool = False) -> TCSConfig:
+    """Loads configuration from the active .env file (defaulting to project-root .env)."""
+    global _CACHED_CONFIG, _CACHED_ENV_PATH
+    target_env = resolve_dotenv_path(env_path)
+    if _CACHED_CONFIG is not None and not reload and _CACHED_ENV_PATH == target_env:
         return _CACHED_CONFIG
 
-    target_env = env_path or DEFAULT_ENV_PATH
+    override_env = bool(
+        env_path is not None
+        or (_CACHED_ENV_PATH is not None and _CACHED_ENV_PATH != target_env)
+    )
     if target_env.exists() and load_dotenv is not None:
-        load_dotenv(dotenv_path=target_env, override=False)
+        load_dotenv(dotenv_path=target_env, override=override_env)
     else:
         if load_dotenv is not None:
             load_dotenv(override=False)
@@ -187,7 +197,16 @@ def load_tcs_config(env_path: Optional[Path] = None, reload: bool = False) -> TC
         compactor_reserve_tokens=_int_env("TCS_COMPACTOR_RESERVE_TOKENS", 16000),
         compactor_keep_recent_turns=_int_env("TCS_COMPACTOR_KEEP_RECENT_TURNS", 2),
 
-        solver_max_iterations=_int_env("PROVER_MAX_ITERATIONS", _int_env("TCS_PROVER_MAX_ITERATIONS", _int_env("TCS_SOLVER_MAX_ITERATIONS", 8))),
+        solver_max_iterations=_int_env(
+            "PROVER_MAX_TURNS",
+            _int_env(
+                "TCS_PROVER_MAX_TURNS",
+                _int_env(
+                    "PROVER_MAX_ITERATIONS",
+                    _int_env("TCS_PROVER_MAX_ITERATIONS", _int_env("TCS_SOLVER_MAX_ITERATIONS", 8)),
+                ),
+            ),
+        ),
         solver_enable_thinking=_bool_env("PROVER_ENABLE_THINKING", _bool_env("TCS_PROVER_ENABLE_THINKING", _bool_env("TCS_SOLVER_ENABLE_THINKING", True))),
         solver_thinking_budget=_int_env("PROVER_THINKING_BUDGET", _int_env("TCS_PROVER_THINKING_BUDGET", _int_env("TCS_SOLVER_THINKING_BUDGET", 24576))),
         solver_temperature=_float_env("PROVER_TEMPERATURE", _float_env("TCS_PROVER_TEMPERATURE", _float_env("TCS_SOLVER_TEMPERATURE", 0.2))),
@@ -216,6 +235,7 @@ def load_tcs_config(env_path: Optional[Path] = None, reload: bool = False) -> TC
         overtime_iterations=_int_env("TCS_OVERTIME_ITERATIONS", 4),
         overtime_validity_threshold=_float_env("TCS_OVERTIME_VALIDITY_THRESHOLD", 0.35),
         overtime_seconds_per_iter=_float_env("TCS_OVERTIME_SECONDS_PER_ITER", 450.0),
+        stagnation_pivot_turns=_int_env("PROVER_STAGNATION_PIVOT_TURNS", _int_env("TCS_STAGNATION_PIVOT_TURNS", 6)),
 
         auditor_max_tokens=_int_env("TCS_AUDITOR_MAX_TOKENS", 16384),
         auditor_thinking_budget=_int_env("TCS_AUDITOR_THINKING_BUDGET", 12288),
@@ -230,6 +250,7 @@ def load_tcs_config(env_path: Optional[Path] = None, reload: bool = False) -> TC
 
         turbovec_min_score=_float_env("TCS_TURBOVEC_MIN_SCORE", 0.68),
         turbovec_limit=_int_env("TCS_TURBOVEC_LIMIT", 5),
+        memory_domain=_str_env("TCS_MEMORY_DOMAIN", _str_env("PROOF_HARNESS_DOMAIN", "prime_math")),
 
         lean_timeout_seconds=_float_env("TCS_LEAN_TIMEOUT_SECONDS", 60.0),
 
@@ -241,6 +262,7 @@ def load_tcs_config(env_path: Optional[Path] = None, reload: bool = False) -> TC
         pipeline_judge_adaptive=_bool_env("TCS_PIPELINE_JUDGE_ADAPTIVE", True),
     )
     _CACHED_CONFIG = cfg
+    _CACHED_ENV_PATH = target_env
     return cfg
 
 

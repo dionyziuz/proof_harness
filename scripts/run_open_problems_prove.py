@@ -43,6 +43,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from core_engine.judging import extract_lean_code, judge_lean_proof
 from core_engine.llm_client import TunnelThinkingClient
+from core_engine.tcs_config import load_tcs_config
 from core_engine.prover import MathProver
 from core_engine.telegram import load_telegram_credentials, send_telegram_message
 
@@ -413,7 +414,10 @@ Write only the working Lean 4 code inside a ```lean code block."""
 
 
 def main() -> int:
+    tcs_cfg = load_tcs_config()
     parser = argparse.ArgumentParser(description="Autonomous Prover for the 50 Open Mathematical Problems")
+    parser.add_argument("--env-file", "-e", type=Path, default=None,
+                        help="Path to .env configuration file to load (default: .env)")
     parser.add_argument("--domain", choices=["frontiermath50", "lean"], default="frontiermath50",
                         help="Problem domain: 'frontiermath50' (default) or 'lean'")
     parser.add_argument("--problems-dir", type=Path, default=None,
@@ -433,8 +437,8 @@ def main() -> int:
                         help="Exclude already-solved problems from the run (default: True)")
     parser.add_argument("--include-solved", action="store_false", dest="exclude_solved",
                         help="Include already-solved problems")
-    parser.add_argument("--max-iterations", type=int, default=8,
-                        help="Max solver turns per problem (default: 8)")
+    parser.add_argument("--max-iterations", "--max-turns", dest="max_iterations", type=int, default=tcs_cfg.prover_max_iterations,
+                        help=f"Max solver turns per problem (default: {tcs_cfg.prover_max_iterations} from .env)")
     parser.add_argument("--max-time", type=float, default=None,
                         help="Optional maximum execution time per problem in seconds (default: None, full iterations)")
     parser.add_argument("--timeout", type=float, default=60.0,
@@ -449,6 +453,10 @@ def main() -> int:
     parser.add_argument("--run-dir", type=Path, default=None,
                         help="Output evaluation directory")
     args = parser.parse_args()
+    if args.env_file:
+        from core_engine.config import configure_env_file
+        configure_env_file(args.env_file)
+        load_tcs_config(env_path=args.env_file, reload=True)
 
     if args.smoke_test:
         run_smoke_test(args)
