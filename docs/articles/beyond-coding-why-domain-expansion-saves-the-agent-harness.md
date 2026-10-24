@@ -8,7 +8,9 @@
 
 In late 2026, an uncomfortable consensus began circulating among AI engineering teams: **the software engineering agent harness appeared to be running out of runway.**
 
-The skepticism was crystallized in a widely discussed talk and podcast appearance by **Jediah Katz** (formerly of the Cursor agent team, now at SpaceX/xAI), titled [*"Is the Agent Harness Dead?"*](https://finance.biggo.com/podcast/119b307cecd92bca). Evaluating frontier foundation models across leading scaffolding frameworks, researchers at UC Berkeley and across the open-source community observed a sobering reality: **swapping out one clever coding harness for another barely moved the needle on benchmarks like SWE-bench Lite.**
+The skepticism was crystallized in a widely discussed talk by **Jediah Katz** (formerly of the Cursor agent team, now at SpaceX/xAI) delivered at *AI Engineer* ([YouTube: "Is the Agent Harness Dead? — Jediah Katz, SpaceXAI"](https://www.youtube.com/watch?v=7Y4sbZgBdnc)) and analyzed on [BigGo Finance](https://finance.biggo.com/podcast/119b307cecd92bca). Evaluating frontier foundation models across leading scaffolding frameworks, researchers at UC Berkeley and across the open-source community observed a sobering reality: **swapping out one clever coding harness for another barely moved the needle on benchmarks like SWE-bench Lite.**
+
+As Katz bluntly put it: *"In this day and age, a fancy harness no longer adds coding intelligence."*
 
 The reason was obvious in hindsight: **The Model Absorbency Flywheel.**
 
@@ -278,7 +280,8 @@ You get an autonomous research colleague capable of pushing the boundaries of hu
 ---
 
 ### *References & Further Reading*
-- **The Core Debate**: [Jediah Katz on the AI Engineer Podcast: *"Is the Agent Harness Dead?"* (BigGo Finance)](https://finance.biggo.com/podcast/119b307cecd92bca)
+- **The Core Talk**: [Jediah Katz: *"Is the Agent Harness Dead?"* (AI Engineer on YouTube)](https://www.youtube.com/watch?v=7Y4sbZgBdnc)
+- **Podcast & Deep Analysis**: [BigGo Finance: *"Is the Agent Harness Dead?"*](https://finance.biggo.com/podcast/119b307cecd92bca)
 - **Proof Harness Architecture Deep Dive**: [`docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md`](how-an-agent-harness-unlocks-llm-math-reasoning.md)
 - **Spacetime Thermodynamics & AQFT Open Problems**: [`docs/articles/from-spacetime-thermodynamics-to-open-quantum-horizons.md`](from-spacetime-thermodynamics-to-open-quantum-horizons.md)
 - **Formal Academic Report**: [`docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md`](arxiv-prime-math-neuro-symbolic-prover-harness.md)
