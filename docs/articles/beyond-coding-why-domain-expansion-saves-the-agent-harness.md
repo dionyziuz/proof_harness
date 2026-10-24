@@ -8,7 +8,7 @@
 
 Over the past year, an important debate has rippled across the AI engineering community: **has the agent harness reached the end of its useful life?**
 
-In software engineering, the symptoms of stagnation are undeniable. Across industry evaluations and academic studies (such as UC Berkeley's work on *SWE-bench Lite*), researchers found that swapping one complex coding framework for another barely moved the needle on frontier models. In a widely discussed talk at *AI Engineer* titled [*"Is the Agent Harness Dead?"*](https://www.youtube.com/watch?v=7Y4sbZgBdnc) (analyzed on [BigGo Finance](https://finance.biggo.com/podcast/119b307cecd92bca)), engineer Jediah Katz gave voice to what many practitioners were privately noticing: *"In this day and age, a fancy harness no longer adds coding intelligence."*
+In software engineering, the symptoms of stagnation are undeniable. Across industry evaluations and academic studies (such as UC Berkeley's work on *SWE-bench Lite*), researchers found that swapping one complex coding framework for another barely moved the needle on frontier models. In a widely discussed presentation at *AI Engineer* titled [*"Is the Agent Harness Dead?"*](https://www.youtube.com/watch?v=7Y4sbZgBdnc), engineer Jediah Katz (formerly of Cursor, now at SpaceX/xAI) gave voice to what many practitioners were privately noticing: *"In this day and age, a fancy harness no longer adds coding intelligence."*
 
 At first glance, this observation might seem like an obituary for harness engineering. For the last two years, the typical "agent harness" was largely an assortment of prompt tricks: custom XML wrapping, regex-based AST chunkers, reminders to run `pytest`, and superficial retry loops. 
 
@@ -245,7 +245,7 @@ The future of AI engineering is not about waiting passively for next year's mode
 ---
 
 ### *References & Further Reading*
-- **The Core Debate**: Jediah Katz, [*"Is the Agent Harness Dead?"* (AI Engineer Talk on YouTube)](https://www.youtube.com/watch?v=7Y4sbZgBdnc) and analysis on [BigGo Finance](https://finance.biggo.com/podcast/119b307cecd92bca).
+- **The Core Talk**: Jediah Katz, [*"Is the Agent Harness Dead?"* (AI Engineer Presentation on YouTube)](https://www.youtube.com/watch?v=7Y4sbZgBdnc).
 - **Proof Harness Architecture Deep Dive**: [`docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md`](how-an-agent-harness-unlocks-llm-math-reasoning.md)
 - **Spacetime Thermodynamics & AQFT Open Problems**: [`docs/articles/from-spacetime-thermodynamics-to-open-quantum-horizons.md`](from-spacetime-thermodynamics-to-open-quantum-horizons.md)
 - **Formal Academic Report**: [`docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md`](arxiv-prime-math-neuro-symbolic-prover-harness.md)
