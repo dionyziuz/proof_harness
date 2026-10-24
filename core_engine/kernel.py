@@ -12,12 +12,18 @@ import ctypes
 import functools
 import io
 import itertools
+import os
+import pydoc
 import socket as _socket_mod
 import sys
 import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Optional, Set, Tuple
+
+# Ensure pydoc and subprocess pagers never block on interactive terminal input (e.g. less)
+pydoc.pager = pydoc.plainpager
+os.environ.setdefault("PAGER", "cat")
 
 from .research import oeis_lookup, read_paper, search_math
 from .token_shield import sanitize_traceback, shield_output, summarize_value
@@ -353,6 +359,8 @@ class ThreadAwareStream(io.TextIOBase):
             return self._target.flush()
 
     def isatty(self) -> bool:
+        if getattr(self._local, "buf", None) is not None:
+            return False
         if self._target and hasattr(self._target, "isatty"):
             return self._target.isatty()
         return False
