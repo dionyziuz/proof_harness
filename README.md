@@ -11,7 +11,7 @@ Standard large language models fail on research-level mathematics because of two
 2. **The CoALA Heuristics & Continuous Domain Learning Engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`)**: A continual learning architecture grounded in *Cognitive Architectures for Language Agents* (CoALA) where the harness **learns by solving over time**—distilling verified universal strategies (Procedural Memory) and failure post-mortems (Episodic Memory) into role-isolated vector embeddings in vector memory, governed by automated heuristic validation and sanitization. As practitioners and researchers use the harness to prove theorems across vertical domains, the system compounds domain intelligence through vector embeddings—with zero LLM weight fine-tuning.
 
 📄 **Technical Papers & Deep Dives:**
-- **The Harness Debate & Domain Expansion:** [`docs/articles/beyond-coding-why-domain-expansion-saves-the-agent-harness.md`](docs/articles/beyond-coding-why-domain-expansion-saves-the-agent-harness.md) (Rebuttal to "Is the Agent Harness Dead?", automated shim-cleanup, and long-horizon persistent runtimes)
+- **The Second Generation of Agent Harnesses:** [`docs/articles/the-second-generation-of-agent-harnesses.md`](docs/articles/the-second-generation-of-agent-harnesses.md) (Why frontier mathematical reasoning demands cognitive architecture, the data flywheel, and self-pruning procedural memory)
 - **Frontier Physics Deep Dive:** [`docs/articles/from-spacetime-thermodynamics-to-open-quantum-horizons.md`](docs/articles/from-spacetime-thermodynamics-to-open-quantum-horizons.md) (Autonomous discovery, Casini/Wall/Bousso QNEC heuristics, and solving open AQFT horizon problems)
 - **Technical Report:** [`docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md`](docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md)
 - **Engineering Deep Dive:** [`docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md`](docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md)
@@ -250,7 +250,7 @@ proof_harness/
 │   └── tcs_bench_leakage_audit.py
 ├── docs/
 │   ├── articles/                    # Technical papers & deep-dive engineering articles
-│   │   ├── beyond-coding-why-domain-expansion-saves-the-agent-harness.md
+│   │   ├── the-second-generation-of-agent-harnesses.md
 │   │   ├── from-spacetime-thermodynamics-to-open-quantum-horizons.md
 │   │   ├── arxiv-prime-math-neuro-symbolic-prover-harness.md
 │   │   └── how-an-agent-harness-unlocks-llm-math-reasoning.md
