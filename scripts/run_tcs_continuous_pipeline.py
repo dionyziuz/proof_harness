@@ -382,7 +382,7 @@ def process_single_task(
 
         client = TunnelThinkingClient()
         kernel = TCSCompliantKernel()
-        mem_domain = getattr(args, "domain", None) or tcs_cfg.memory_domain
+        mem_domain = getattr(args, "domain", None) or load_tcs_config().memory_domain
         memory = CoALAMemoryManager(agent_id=mem_domain)
 
         solver = MathProver(
@@ -488,7 +488,7 @@ def process_single_task(
         threshold = summary.get("threshold", TCS_PASS_THRESHOLD)
         if (b_val is None or b_val < threshold) and solve_rec.get("learned_heuristics"):
             from core_engine.memory import CoALAMemoryManager
-            mem_domain = getattr(args, "domain", None) or tcs_cfg.memory_domain
+            mem_domain = getattr(args, "domain", None) or load_tcs_config().memory_domain
             pruned_n = CoALAMemoryManager(agent_id=mem_domain).remove_by_task_id(f"{mem_domain}_procedural", task_id)
             if pruned_n:
                 log(f"[yellow][{task_id}] Pruned {pruned_n} unconfirmed heuristic(s) from {mem_domain}_procedural after Official TCS Judge rejection.[/yellow]")
@@ -571,6 +571,8 @@ def main() -> None:
         from core_engine.config import configure_env_file
         configure_env_file(args.env_file)
         tcs_cfg = load_tcs_config(env_path=args.env_file, reload=True)
+    if not args.domain:
+        args.domain = tcs_cfg.memory_domain
     if args.timeout is None:
         args.timeout = max(
             tcs_cfg.solver_timeout_seconds,
