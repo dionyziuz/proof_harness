@@ -885,7 +885,8 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
             turn = int(resume_state.get("turn", 0))
             current_max_turns = int(resume_state.get("current_max_turns", max_turns))
             if resume_state.get("max_time_seconds") is not None:
-                max_time_seconds = float(resume_state["max_time_seconds"])
+                ckpt_max_s = float(resume_state["max_time_seconds"])
+                max_time_seconds = ckpt_max_s if max_time_seconds is None else min(float(max_time_seconds), ckpt_max_s)
             if isinstance(resume_state.get("pool"), dict):
                 pool = CandidatePool.from_dict(resume_state["pool"])
             if isinstance(resume_state.get("best_candidate"), dict):
@@ -2652,7 +2653,8 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
             start_wall_time = time.perf_counter() - prior_elapsed_s
             exp_state = ckpt.get("exploration_state")
             if isinstance(exp_state, dict) and exp_state.get("max_time_seconds") is not None:
-                max_time_seconds = float(exp_state["max_time_seconds"])
+                ckpt_max_s = float(exp_state["max_time_seconds"])
+                max_time_seconds = ckpt_max_s if max_time_seconds is None else min(float(max_time_seconds), ckpt_max_s)
             self._solve_deadline = (start_wall_time + max_time_seconds) if max_time_seconds else None
 
             self.memory.check_health()
