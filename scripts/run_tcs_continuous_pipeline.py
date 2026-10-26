@@ -26,6 +26,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ctypes
+import gc
 import json
 import os
 import sys
@@ -296,6 +298,15 @@ def display_task_update(summary: Dict[str, Any], task_idx: int, task_id: str, so
     log("=" * 80 + "\n")
 
 
+def release_system_memory() -> None:
+    """Force Python garbage collection and return glibc heap arenas back to the Linux OS."""
+    try:
+        gc.collect()
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
+
+
 def process_single_task(
     orig_idx: int,
     task_path: Path,
@@ -506,6 +517,9 @@ def process_single_task(
                 send_telegram_message(bot_token, chat_id, msg)
         except Exception as e:
             log(f"[yellow]Telegram notification error for {task_id}: {e}[/yellow]")
+
+    # Periodic glibc heap arena and GC trim to prevent long-run OOM accumulation
+    release_system_memory()
 
 
 def main() -> None:
