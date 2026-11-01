@@ -318,8 +318,8 @@ def main() -> None:
                         help="Comma-separated list of specific task indices or task_ids to run")
     parser.add_argument("--workers", type=int, default=4,
                         help="Number of concurrent workers (default: 4)")
-    parser.add_argument("--timeout", type=float, default=600.0,
-                        help="Per-task single-pass timeout in seconds (default: 600)")
+    parser.add_argument("--timeout", type=float, default=1200.0,
+                        help="Per-task single-pass timeout in seconds (default: 1200)")
     parser.add_argument("--judge-timeout", type=float, default=tcs_cfg.judge_timeout_seconds,
                         help=f"Per-judge-call timeout in seconds (default: {tcs_cfg.judge_timeout_seconds})")
     parser.add_argument("--prove-dir", "--solve-dir", dest="prove_dir", type=Path,

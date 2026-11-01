@@ -599,7 +599,7 @@ class ProverStagesMixin:
             resp = self.client.complete(
                 [{"role": "system", "content": scribe_system}, {"role": "user", "content": scribe_user}],
                 temperature=0.15,
-                **self._stage_budget("scribe", 65536, 16384, 360.0),
+                **self._stage_budget("scribe", 65536, 16384, 1200.0),
             )
             content = resp.content or ""
             reasoning = getattr(resp, "reasoning", None) or ""

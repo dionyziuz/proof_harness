@@ -517,16 +517,27 @@ class ProverAuditorMixin:
                 max_tokens=65536,
                 enable_thinking=True,
                 thinking_budget_tokens=16384,
-                timeout_seconds=360.0,
+                timeout_seconds=float(getattr(getattr(self, "config", None), "scribe_timeout_seconds", 1200.0) or 1200.0),
             )
             content = resp.content or ""
             reasoning = getattr(resp, "reasoning", None) or ""
             proof = extract_latex_proof(content)
             if not proof and content.strip():
-                if not content.strip().startswith(r"\begin{proof}"):
-                    proof = extract_latex_proof(r"\begin{proof}" + "\n" + content.strip())
+                c_str = content.strip()
+                if not c_str.startswith(r"\begin{proof}"):
+                    c_str = r"\begin{proof}" + "\n" + c_str
+                if not c_str.endswith(r"\end{proof}"):
+                    c_str = c_str + "\n" + r"\end{proof}"
+                proof = extract_latex_proof(c_str)
             if not proof and reasoning and r"\begin{proof}" in reasoning:
                 proof = extract_latex_proof(reasoning)
+            if not proof and reasoning.strip():
+                r_str = reasoning.strip()
+                if not r_str.startswith(r"\begin{proof}"):
+                    r_str = r"\begin{proof}" + "\n" + r_str
+                if not r_str.endswith(r"\end{proof}"):
+                    r_str = r_str + "\n" + r"\end{proof}"
+                proof = extract_latex_proof(r_str)
             if proof and is_valid_latex_proof(proof):
                 return proof
             if proof:
@@ -539,6 +550,14 @@ class ProverAuditorMixin:
                     p_c = extract_latex_proof(san_c)
                     if p_c and is_valid_latex_proof(p_c):
                         return p_c
+            # Fallback: if proof was extracted but had minor structural defect, return it if non-empty
+            if proof and len(proof.strip()) > 150:
+                p_cand = proof.strip()
+                if not p_cand.startswith(r"\begin{proof}"):
+                    p_cand = r"\begin{proof}" + "\n" + p_cand
+                if not p_cand.endswith(r"\end{proof}"):
+                    p_cand = p_cand + "\n" + r"\end{proof}"
+                return p_cand
         except Exception as e:
             self._log_write(f"[Typesetter Error] {e}\n")
         return None

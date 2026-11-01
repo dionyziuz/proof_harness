@@ -132,7 +132,7 @@ class TCSConfig:
     # Subagents: Publication Scribe
     scribe_max_tokens: int = 65536
     scribe_thinking_budget: int = 16384
-    scribe_timeout_seconds: float = 360.0
+    scribe_timeout_seconds: float = 1200.0
 
     # High-Potential Overtime Gate & Multi-Pivot Governance
     enable_overtime: bool = True
@@ -144,7 +144,7 @@ class TCSConfig:
     # Subagents: Proof Auditor
     auditor_max_tokens: int = 16384
     auditor_thinking_budget: int = 12288
-    auditor_timeout_seconds: float = 360.0
+    auditor_timeout_seconds: float = 1200.0
     auditor_validity_threshold: float = 0.70
     proof_mode: str = "auto"  # "auto", "tcs", or "computational"
     auditor_kernel_timeout_seconds: float = 15.0
@@ -229,7 +229,7 @@ def load_tcs_config(env_path: Optional[Union[Path, str]] = None, reload: bool = 
 
         scribe_max_tokens=_int_env("TCS_SCRIBE_MAX_TOKENS", 65536),
         scribe_thinking_budget=_int_env("TCS_SCRIBE_THINKING_BUDGET", 16384),
-        scribe_timeout_seconds=_float_env("TCS_SCRIBE_TIMEOUT_SECONDS", 360.0),
+        scribe_timeout_seconds=_float_env("TCS_SCRIBE_TIMEOUT_SECONDS", 1200.0),
 
         enable_overtime=_bool_env("TCS_ENABLE_OVERTIME", True),
         overtime_iterations=_int_env("TCS_OVERTIME_ITERATIONS", 4),
@@ -239,14 +239,14 @@ def load_tcs_config(env_path: Optional[Union[Path, str]] = None, reload: bool = 
 
         auditor_max_tokens=_int_env("TCS_AUDITOR_MAX_TOKENS", 16384),
         auditor_thinking_budget=_int_env("TCS_AUDITOR_THINKING_BUDGET", 12288),
-        auditor_timeout_seconds=_float_env("TCS_AUDITOR_TIMEOUT_SECONDS", 360.0),
+        auditor_timeout_seconds=_float_env("TCS_AUDITOR_TIMEOUT_SECONDS", 1200.0),
         auditor_validity_threshold=_float_env("TCS_AUDITOR_VALIDITY_THRESHOLD", 0.70),
         proof_mode=_str_env("TCS_PROOF_MODE", "auto"),
         auditor_kernel_timeout_seconds=_float_env("TCS_AUDITOR_KERNEL_TIMEOUT_SECONDS", 15.0),
 
         judge_max_tokens=_int_env("TCS_JUDGE_MAX_TOKENS", _int_env("TCS_AUDITOR_MAX_TOKENS", 16384)),
         judge_thinking_budget=_int_env("TCS_JUDGE_THINKING_BUDGET", _int_env("TCS_AUDITOR_THINKING_BUDGET", 12288)),
-        judge_timeout_seconds=_float_env("TCS_JUDGE_TIMEOUT_SECONDS", _float_env("TCS_AUDITOR_TIMEOUT_SECONDS", 360.0)),
+        judge_timeout_seconds=_float_env("TCS_JUDGE_TIMEOUT_SECONDS", _float_env("TCS_AUDITOR_TIMEOUT_SECONDS", 1200.0)),
 
         turbovec_min_score=_float_env("TCS_TURBOVEC_MIN_SCORE", 0.68),
         turbovec_limit=_int_env("TCS_TURBOVEC_LIMIT", 5),

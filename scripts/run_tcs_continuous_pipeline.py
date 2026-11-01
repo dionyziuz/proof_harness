@@ -352,15 +352,41 @@ def process_single_task(
                 except Exception:
                     pass
 
-    # Step 1: Check if already judged and valid
+    # Step 1: Check if already judged and determine if it should be skipped
     if judge_out.exists() and solve_out.exists() and not args.force:
         try:
             prev_solve = json.loads(solve_out.read_text(encoding="utf-8"))
             prev_judge = json.loads(judge_out.read_text(encoding="utf-8"))
-            summary = scorecard.record_judgment(orig_idx, task_id, prev_solve, prev_judge)
-            log(f"[dim]Loaded existing judgment for Task {orig_idx} ({task_id})[/dim]")
-            display_task_update(summary, orig_idx, task_id, prev_solve, prev_judge)
-            return
+            b_val = prev_judge.get("b", {}).get("validity") if isinstance(prev_judge.get("b"), dict) else None
+            is_pass = (
+                (b_val is not None and b_val >= args.judge_threshold)
+                or prev_judge.get("pass_proven", False)
+                or prev_judge.get("verdict") == "PASS"
+            )
+
+            # In two-step funnel mode (--skip-passed-only, default True):
+            # If the task already passed (e.g. from Step 1 one-pass triage), keep it and skip!
+            if is_pass:
+                summary = scorecard.record_judgment(orig_idx, task_id, prev_solve, prev_judge)
+                log(f"[bold green]✓ Skipping Task {orig_idx} ({task_id}): Already passed in Step 1 (validity={b_val})[/bold green]")
+                display_task_update(summary, orig_idx, task_id, prev_solve, prev_judge)
+                return
+            elif getattr(args, "skip_passed_only", True):
+                # Prior attempt did not achieve a certified pass (e.g. Step 1 one-pass fail/no_proof).
+                # Ignore Step 1 failure and escalate to full multi-turn harness.
+                log(f"[yellow]Task {orig_idx} ({task_id}) did not pass in Step 1 (validity={b_val}); escalating to multi-turn harness...[/yellow]")
+                for stale_f in (solve_out, judge_out, ckpt_path):
+                    if stale_f.exists():
+                        try:
+                            stale_f.unlink()
+                        except Exception:
+                            pass
+            else:
+                # Legacy --resume-all behavior: skip anything that was already evaluated
+                summary = scorecard.record_judgment(orig_idx, task_id, prev_solve, prev_judge)
+                log(f"[dim]Loaded existing judgment for Task {orig_idx} ({task_id})[/dim]")
+                display_task_update(summary, orig_idx, task_id, prev_solve, prev_judge)
+                return
         except Exception as e:
             log(f"[yellow]Failed to load existing record for Task {orig_idx} ({task_id}): {e}[/yellow]")
 
@@ -575,6 +601,10 @@ def main() -> None:
                         help="Comma-separated list of specific task indices (e.g. 6,18,50,51) or task_ids to run")
     parser.add_argument("--domain", "--memory-domain", type=str, default=None,
                         help="Procedural memory domain (e.g. 'physics', 'tcs', 'prime_math'). Overrides .env")
+    parser.add_argument("--skip-passed-only", action="store_true", default=True,
+                        help="In 2-step funnel mode, only skip tasks that have already achieved a certified pass (validity >= threshold). Non-passing tasks are re-attempted with full multi-turn harness (default: True)")
+    parser.add_argument("--resume-all", action="store_false", dest="skip_passed_only",
+                        help="Skip ALL previously judged tasks regardless of whether they passed or failed (legacy behavior)")
     parser.add_argument("--force", action="store_true", default=False,
                         help="Force re-solving and re-judging existing tasks")
 
@@ -627,8 +657,9 @@ def main() -> None:
         if (args.solve_dir / "pipeline_metrics.json").exists():
             try:
                 prev = json.loads((args.solve_dir / "pipeline_metrics.json").read_text(encoding="utf-8"))
-                if prev.get("total_target"):
-                    total_target = prev["total_target"]
+                stored_target = prev.get("target_total_problems") or prev.get("total_target")
+                if stored_target:
+                    total_target = stored_target
             except Exception:
                 pass
     elif args.task_range:

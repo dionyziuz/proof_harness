@@ -91,6 +91,17 @@ def format_task_report(entry: Dict[str, Any], metrics: Optional[Dict[str, Any]] 
     bench_name = "Physics Benchmark" if is_physics else "TCS-Bench"
     bench_icon = "⚛️" if is_physics else "🎯"
 
+    # Detect model and execution mode for clear attribution
+    model_env = (os.environ.get("TUNNEL_MODEL") or os.environ.get("COALAGENT_MODEL") or "").lower()
+    if "qwen" in model_env:
+        model_tag = "Qwen-27B"
+    elif "muse" in model_env or "spark" in model_env or "meta" in model_env:
+        model_tag = "Meta-Muse"
+    else:
+        model_tag = model_env if model_env else "LLM"
+
+    mode_tag = "1-Shot" if str(iters) == "1" else f"Harness ({iters}T)"
+
     # TCS Judge evaluation
     val = entry.get("judge_b_validity")
     if val is None:
@@ -109,7 +120,7 @@ def format_task_report(entry: Dict[str, Any], metrics: Optional[Dict[str, Any]] 
 
     target_disp = metrics.get("target_total_problems", 300) if metrics else 300
     lines = [
-        f"{bench_icon} <b>{bench_name} Problem [{task_idx}/{target_disp}] Completed</b>",
+        f"{bench_icon} <b>{bench_name} [{model_tag} • {mode_tag}] Problem [{task_idx}/{target_disp}] Completed</b>",
         f"<b>ID:</b> <code>{html.escape(str(task_id))}</code>",
         f"⏱ <b>Solve Time:</b> <code>{dur_s:.1f}s</code> | <b>Turns:</b> <code>{iters}</code> | <b>Proof Size:</b> <code>{p_chars} chars</code>",
         "",

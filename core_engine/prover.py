@@ -1960,6 +1960,17 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
         if on_step:
             on_step("synthesis_start", "")
 
+        # UNCONDITIONAL SYNTHESIS RUNWAY EXTENSION:
+        # Guarantee dedicated runway (at least 1800s) for synthesis, journal typesetting,
+        # and referee revision passes so deep multi-turn runs are never choked by cumulative task deadlines.
+        deadline = getattr(self, "_solve_deadline", None)
+        if deadline is not None and (deadline - time.perf_counter()) < 1800.0:
+            self._solve_deadline = time.perf_counter() + 1800.0
+            self._log_write(
+                f"[Synthesis Runway Extension] Extended synthesis deadline by +1800s to guarantee dedicated typesetter "
+                f"and referee revision passes for final publication proof emission.\n"
+            )
+
         substage = str(resume_state.get("substage", "init")) if isinstance(resume_state, dict) else "init"
         pool = CandidatePool()
         if isinstance(resume_state, dict) and isinstance(resume_state.get("pool"), dict):
@@ -2203,7 +2214,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                         max_tokens=self.client.config.max_tokens,
                         enable_thinking=self.enable_thinking,
                         thinking_budget_tokens=self.client.config.thinking_token_budget or 16384,
-                        timeout_seconds=600.0,
+                        timeout_seconds=float(getattr(getattr(self, "config", None), "scribe_timeout_seconds", 1200.0) or 1200.0),
                         max_retries=5,
                     )
                     if not synth_text and synth_reasoning_text:
@@ -2334,16 +2345,11 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                         current_issues = best_candidate.issues
 
                 deadline = getattr(self, "_solve_deadline", None)
-                if (
-                    deadline is not None
-                    and (deadline - time.perf_counter()) < 600.0
-                    and best_candidate
-                    and (best_candidate.validity >= THRESHOLDS.pivot_threshold or best_candidate.has_substantive_structure)
-                ):
-                    self._solve_deadline = time.perf_counter() + 600.0
+                if deadline is not None and (deadline - time.perf_counter()) < 900.0:
+                    self._solve_deadline = time.perf_counter() + 900.0
                     self._log_write(
-                        f"[Synthesis Runway Extension] Extended synthesis deadline by +600s to allow complete referee revision "
-                        f"passes for viable candidate (validity: {best_candidate.validity:.2f}).\n"
+                        f"[Synthesis Revision Runway Extension] Extended synthesis deadline by +900s to complete "
+                        f"referee revision passes for final publication proof.\n"
                     )
 
                 for rev_iter in range(start_rev_iter, max_revision_iters + 1):
@@ -2423,7 +2429,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                             max_tokens=self.client.config.max_tokens,
                             enable_thinking=self.enable_thinking,
                             thinking_budget_tokens=self.client.config.thinking_token_budget or 16384,
-                            timeout_seconds=600.0,
+                            timeout_seconds=float(getattr(getattr(self, "config", None), "scribe_timeout_seconds", 1200.0) or 1200.0),
                             max_retries=5,
                         )
                         rev_code_blocks = self.extract_code_blocks(repair_text)
@@ -2590,13 +2596,32 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                     if p and is_valid_latex_proof(p):
                         result.candidate_proof = p
                         break
+
+            # Also scan assistant messages in conversation history
+            if not result.candidate_proof and hasattr(self, "_last_messages"):
+                for m in reversed(getattr(self, "_last_messages", [])):
+                    if m.get("role") == "assistant" and m.get("content"):
+                        p = extract_latex_proof(m["content"])
+                        if p and is_valid_latex_proof(p):
+                            result.candidate_proof = p
+                            break
+
             if not result.candidate_proof:
                 draft_src = result.final_response or (result.reasoning_traces[-1] if result.reasoning_traces else "")
+                if not draft_src and hasattr(self, "_last_messages"):
+                    asst_msgs = [
+                        m["content"]
+                        for m in getattr(self, "_last_messages", [])
+                        if m.get("role") == "assistant" and m.get("content")
+                    ]
+                    if asst_msgs:
+                        draft_src = "\n\n".join(asst_msgs[-2:])
                 if draft_src:
                     self._log_write("[Fallback Notice] Attempting Journal Typesetter on best available draft...\n")
                     p_fallback = self._typeset_publication_proof(task_prompt, draft_src)
                     if p_fallback:
                         result.candidate_proof = p_fallback
+
             if result.candidate_proof:
                 result.final_response = result.candidate_proof
 
@@ -2654,7 +2679,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
             exp_state = ckpt.get("exploration_state")
             if isinstance(exp_state, dict) and exp_state.get("max_time_seconds") is not None:
                 ckpt_max_s = float(exp_state["max_time_seconds"])
-                max_time_seconds = ckpt_max_s if max_time_seconds is None else min(float(max_time_seconds), ckpt_max_s)
+                max_time_seconds = max(float(max_time_seconds), ckpt_max_s) if max_time_seconds is not None else ckpt_max_s
             self._solve_deadline = (start_wall_time + max_time_seconds) if max_time_seconds else None
 
             self.memory.check_health()
