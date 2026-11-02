@@ -14,6 +14,7 @@ import re
 import time
 from typing import Callable, Dict, List, Optional, Tuple
 
+from .llm_client import TunnelThinkingClient
 from .prompt_loader import load_tcs_prompt
 from .proof_extractor import (
     extract_latex_proof,
@@ -569,6 +570,7 @@ class ProverAuditorMixin:
         temperature: float = 0.1,
         enable_thinking: bool = False,
         thinking_budget_tokens: Optional[int] = None,
+        reasoning_effort: Optional[str] = None,
         timeout_seconds: float = 600.0,
         max_retries: int = 5,
         on_reasoning: Optional[Callable[[str], None]] = None,
@@ -576,8 +578,14 @@ class ProverAuditorMixin:
         on_turn_switch: Optional[Callable[[], None]] = None,
     ) -> Tuple[str, str]:
         """Streams completion from LLM client with automatic retry if interrupted mid-stream.
+        If the stream finishes with 0 tokens under thinking/reasoning_effort, automatically
+        steps down reasoning_effort (e.g. xhigh -> high -> medium) or halves thinking budget
+        and retries to prevent empty-content choke.
         Returns (reasoning_text, content_text).
         """
+        active_effort = reasoning_effort or getattr(getattr(self.client, "config", None), "reasoning_effort", None)
+        active_thinking_budget = thinking_budget_tokens
+        active_max_tokens = max_tokens
         for attempt in range(max_retries):
             reasoning_chunks: List[str] = []
             content_chunks: List[str] = []
@@ -585,10 +593,11 @@ class ProverAuditorMixin:
             try:
                 for typ, delta in self.client.stream_complete(
                     messages,
-                    max_tokens=max_tokens,
+                    max_tokens=active_max_tokens,
                     temperature=temperature,
                     enable_thinking=enable_thinking,
-                    thinking_budget_tokens=thinking_budget_tokens,
+                    thinking_budget_tokens=active_thinking_budget,
+                    reasoning_effort=active_effort,
                     timeout_seconds=timeout_seconds,
                     max_retries=1,
                 ):
@@ -606,7 +615,39 @@ class ProverAuditorMixin:
                         self._log_write(delta)
                         if on_content:
                             on_content(delta)
-                return "".join(reasoning_chunks).strip(), "".join(content_chunks).strip()
+                
+                r_text = "".join(reasoning_chunks).strip()
+                c_text = "".join(content_chunks).strip()
+
+                if not r_text and not c_text:
+                    can_step_down_effort = active_effort and active_effort not in ("minimal", "low")
+                    can_step_down_budget = (
+                        active_thinking_budget is not None
+                        and active_thinking_budget > 4096
+                    )
+                    if (can_step_down_effort or can_step_down_budget) and attempt < max_retries - 1:
+                        if can_step_down_effort:
+                            step_fn = getattr(self.client, "_step_down_effort", None) or TunnelThinkingClient._step_down_effort
+                            new_effort = step_fn(active_effort)
+                            step_msg = (
+                                f"\n[Empty Stream Alert] Stream completed with 0 tokens under reasoning_effort={active_effort!r}; "
+                                f"auto stepping down to reasoning_effort={new_effort!r} (retry {attempt + 1}/{max_retries})...\n"
+                            )
+                            active_effort = new_effort
+                            active_max_tokens = max(active_max_tokens, 32768)
+                        else:
+                            new_budget = max(4096, active_thinking_budget // 2)
+                            step_msg = (
+                                f"\n[Empty Stream Alert] Stream completed with 0 tokens under thinking_budget={active_thinking_budget}; "
+                                f"halving thinking_budget to {new_budget} (retry {attempt + 1}/{max_retries})...\n"
+                            )
+                            active_thinking_budget = new_budget
+                        self._log_write(step_msg)
+                        logger.warning(step_msg.strip())
+                        time.sleep(1.0)
+                        continue
+
+                return r_text, c_text
             except Exception as exc:
                 exc_str = str(exc)
                 status = getattr(getattr(exc, "response", None), "status_code", None)
