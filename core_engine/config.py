@@ -248,6 +248,16 @@ def load_config(
             cfg.max_tokens = int(os.environ["PRIME_MATH_MAX_TOKENS"])
         except ValueError:
             pass
+    if "TCS_SOLVER_THINKING_BUDGET" in os.environ:
+        try:
+            cfg.thinking_token_budget = int(os.environ["TCS_SOLVER_THINKING_BUDGET"])
+        except ValueError:
+            pass
+    elif "PROVER_THINKING_BUDGET" in os.environ:
+        try:
+            cfg.thinking_token_budget = int(os.environ["PROVER_THINKING_BUDGET"])
+        except ValueError:
+            pass
 
     # Fast Composer overrides
     if "PRIME_MATH_FAST_ENABLED" in os.environ:

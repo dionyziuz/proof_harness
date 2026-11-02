@@ -177,6 +177,8 @@ def process_onepass_task(
         from core_engine.llm_client import TunnelThinkingClient
 
         client = TunnelThinkingClient()
+        tcs_cfg = load_tcs_config()
+        thinking_budget = tcs_cfg.solver_thinking_budget if (not args.no_thinking) else None
         log(f"[{task_id}] [bold cyan]Running Unassisted One-Pass Generation (Model: {client.config.model})...[/bold cyan]")
 
         messages = [
@@ -201,6 +203,7 @@ def process_onepass_task(
                     messages=messages,
                     timeout_seconds=args.timeout,
                     enable_thinking=not args.no_thinking,
+                    thinking_budget_tokens=thinking_budget,
                     stream_collect=True,
                 )
                 break

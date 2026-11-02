@@ -92,8 +92,22 @@ def format_task_report(entry: Dict[str, Any], metrics: Optional[Dict[str, Any]] 
     bench_icon = "⚛️" if is_physics else "🎯"
 
     # Detect model and execution mode for clear attribution
-    model_env = (os.environ.get("TUNNEL_MODEL") or os.environ.get("COALAGENT_MODEL") or "").lower()
-    if "qwen" in model_env:
+    model_env = (
+        str(entry.get("model") or "")
+        or os.environ.get("PRIME_MATH_MODEL")
+        or os.environ.get("TUNNEL_MODEL")
+        or os.environ.get("COALAGENT_MODEL")
+        or ""
+    ).lower()
+    if "flash" in model_env:
+        model_tag = "Gemini-3.8-Flash"
+    elif "argon" in model_env:
+        model_tag = "Gemini-4-Argon"
+    elif "opus" in model_env:
+        model_tag = "Claude-Opus-5.5"
+    elif "sonnet" in model_env:
+        model_tag = "Claude-Sonnet-5.5"
+    elif "qwen" in model_env:
         model_tag = "Qwen-27B"
     elif "muse" in model_env or "spark" in model_env or "meta" in model_env:
         model_tag = "Meta-Muse"

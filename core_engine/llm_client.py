@@ -411,13 +411,16 @@ class TunnelThinkingClient:
             if _stream_usage_enabled():
                 # Ask the server to append a final usage chunk (OpenAI / vLLM stream_options).
                 payload["stream_options"] = {"include_usage": True}
-        if enable_thinking is not None and use_vllm:
-            payload["chat_template_kwargs"] = {"enable_thinking": enable_thinking}
         budget = (
             thinking_budget_tokens
             if thinking_budget_tokens is not None
             else getattr(self.config, "thinking_token_budget", None)
         )
+        if enable_thinking is not None and use_vllm:
+            kwargs: Dict[str, Any] = {"enable_thinking": enable_thinking}
+            if budget is not None and (enable_thinking is True or enable_thinking is None):
+                kwargs["thinking_budget"] = budget
+            payload["chat_template_kwargs"] = kwargs
         if use_vllm and budget is not None and (enable_thinking is True or enable_thinking is None):
             payload["thinking_token_budget"] = budget
             payload["thinking_budget_tokens"] = budget
