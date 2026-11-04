@@ -16,7 +16,60 @@
 
 ---
 
-## Section 1: The Arena — TCS-300 Benchmark & The 2-Step Funnel
+## Section 1: The Core Storyline — The Library, The Wanderer, and The Diligent Scribe
+
+To make sense of these benchmark outcomes, we must look beyond single leaderboard percentages. The empirical data reveals that autonomous mathematical proving is governed by the dynamic equilibrium between **three competing forces**:
+
+```
+                       [TOTAL PARAMETERS]
+                     (Latent Knowledge Base)
+                              ▲
+                              │
+             Gemini Flash (1.2T)      Meta Muse (800B)
+                              │
+                              ├───────────────────────────┐
+                              │                           │
+                       [ACTIVE PARAMS]            [THINKING HABIT]
+                       (~40B vs 27B)               (Fast vs Deep)
+                              │                           │
+                  Qwen 27B (Dense, 27B)          Muse (95m deep search)
+                                                 Flash (26m self-governed)
+                                                 Qwen (needs harness cap)
+```
+
+1. **The Latent Library (Total Parameters: *What the model knows*)**:
+   * Research-level TCS proofs extracted from arXiv preprints do not test trivial high-school algebra; they test familiarity with dense, non-standard mathematical abstractions—semidefinite relaxations, quantum oracle circuits, graph expansion metrics, and algebraic invariant certificates.
+   * **Gemini Flash (~1.2T total)** and **Meta Muse (~800B total)** possess an ocean of pretraining literature. They have vast latent representations for obscure mathematical objects.
+   * **Qwen 27B**, with 1/30th the total parameter scale, has a comparatively modest reference library. It cannot rely on having encountered a near-identical lemma during pretraining; it is forced to reconstruct structural truth from first principles.
+   * *The Score Impact*: This directly explains the unassisted 1-shot baseline: **Flash (33.7%) $\to$ Muse (22.0%) $\to$ Qwen (12.7%)**. Total parameter scale establishes the baseline ceiling of zero-shot familiarity.
+
+2. **The Inference Engine (Active Parameters: *How much compute fires per step*)**:
+   * While Flash and Muse are total-parameter giants, **both are sparse Mixture-of-Experts architectures activating roughly ~40B to ~50B parameters per token**.
+   * Qwen is a pure dense model activating **27B parameters per token**.
+   * **FLOP-for-FLOP during inference, Qwen is operating at ~70% of the active compute of Flash and Muse.**
+   * *The Score Impact*: This active compute parity explains why Qwen punches vastly above its weight class in harness escalation (scoring **~31%** and achieving **72+ verified passes**). Its forward-pass deductive engine is remarkably capable; its only bottleneck was lack of external discipline and reference memory.
+
+3. **The Meta-Cognitive Governor (Thinking Dynamics: *How and when the model stops thinking*)**:
+   * *Why does Muse think so much longer than Flash when both have ~40B active params?*
+     * **Meta Muse 1.3 (The Wandering Genius)**: Characterized by deep, high-entropy, associative exploration. It spends **39k completion tokens** in 1-shot and averages **95.7 minutes per multi-turn problem**. On contest math (AIME: 96.9%), this exhaustive searching guarantees hitting the single integer. But on arXiv research papers, unguided deep thinking drifts into speculative dead-ends or 0-token stream aborts. When it finally emits a proof, it is remarkably **compact (~6,700 chars)**, having done the work internally while skipping written algebraic steps.
+     * **Gemini 3.8 Flash (The Disciplined Engineer)**: Possesses built-in meta-cognitive self-regulation. Backed by its 1.2T expert library, Flash needs only **60–90 seconds (2k–4k thinking tokens)** before concluding that further internal debate yields diminishing returns. It finishes 1-shot problems in **3.2 minutes** and multi-turn in **26.3 minutes** (median 9.0 min)—nearly **4× faster than Muse**—and emits a **balanced, structured 13,500-character proof**.
+     * **Qwen 3.8 27B (The Diligent Scribe)**: Lacking the massive total parameter library of the MoEs, Qwen suffers from imposter-syndrome reasoning. Left unconstrained, it debates itself for 50,000 tokens, hitting the 65,536 truncation cliff. But when the harness provides an **external meta-cognitive ceiling** (`TCS_SOLVER_THINKING_BUDGET=32768`), Qwen channels its remaining tokens into an **exhaustive 39,000-character proof** (6× longer than Muse and 3× longer than Flash), proving its theorems through sheer, undeniable algebraic derivation.
+
+### The Cognitive Persona Matrix
+
+| Dimension | Qwen-3.8-27B | Meta Muse 1.3 | Gemini 3.8 Flash |
+| :--- | :--- | :--- | :--- |
+| **Model Archetype** | **The Diligent Scribe** | **The Wandering Genius** | **The Disciplined Engineer** |
+| **Total Parameter Scale** | 27B (Dense) | ~800B (MoE) | ~1.2T (MoE) |
+| **Active Params / Token** | 27B | ~40B–50B | ~40B |
+| **Thinking Habit** | Verbose, self-doubting, unbudgeted runaway | Deep, high-entropy, unhurried (95.7 min avg) | Disciplined, fast, self-terminating (26.3 min avg) |
+| **Candidate Proof Style** | Exhaustive treatise (**39,377 chars**) | Compact abstract (**6,713 chars**) | Structured modular paper (**13,455 chars**) |
+| **Harness Dependency** | **Critical**: Truncates without 32k budget cap | **Critical**: Aborts without adaptive backoff | **Minimal**: Naturally self-governing |
+| **Pass Rate (1-Shot $\to$ 2-Step)** | **12.7% $\to$ ~31%** (1.89×–2.5× lift) | **22.0% $\to$ 46.3%** (2.11× lift) | **33.7% $\to$ ~56%** (1.66× lift) |
+
+---
+
+## Section 2: The Arena — TCS-300 Benchmark & The 2-Step Funnel
 
 1. **The Testbed**: 300 publication-grade mathematical lemmas and theorems extracted directly from arXiv preprints in Theoretical Computer Science (TCS), spanning graph theory, quantum complexity, circuit lower bounds, and randomized algorithms (arXiv:2608.09538).
 2. **The 2-Step Funnel Architecture**:
@@ -26,7 +79,7 @@
 
 ---
 
-## Section 2: Master Scorecard — Passing Results & Scoring Accuracy
+## Section 3: Master Scorecard — Passing Results & Scoring Accuracy
 
 ### 1. The Head-to-Head TCS-300 Scoreboard
 
@@ -56,7 +109,7 @@
 
 ---
 
-## Section 3: Tokens Used for the Proofs — The Verbosity Paradox
+## Section 4: Tokens Used for the Proofs — The Verbosity Paradox
 
 How much LaTeX does each model actually produce when constructing a candidate proof, and does longer equal better?
 
@@ -75,7 +128,7 @@ How much LaTeX does each model actually produce when constructing a candidate pr
 
 ---
 
-## Section 4: Overall Tokens Consumed — Total API & Inference Expenditure
+## Section 5: Overall Tokens Consumed — Total API & Inference Expenditure
 
 Beyond the final proof, how many total tokens (prompt context, internal reasoning/scratchwork, and proof generation) does each model burn per problem?
 
@@ -102,7 +155,7 @@ Beyond the final proof, how many total tokens (prompt context, internal reasonin
 
 ---
 
-## Section 5: Iterations & Time Needed — Velocity vs. Exhaustion
+## Section 6: Iterations & Time Needed — Velocity vs. Exhaustion
 
 How many turns does it take to solve a research problem, and how long do you have to wait?
 
@@ -128,7 +181,7 @@ How many turns does it take to solve a research problem, and how long do you hav
 
 ---
 
-## Section 6: Efficiency Normalization — Active Compute vs. Total Parameter Scale
+## Section 7: Efficiency Normalization — Active Compute vs. Total Parameter Scale
 
 ### 1. Active Inference Compute (FLOPs per Token) vs. Pass Yield
 
@@ -144,7 +197,7 @@ How many turns does it take to solve a research problem, and how long do you hav
 
 ---
 
-## Section 7: Cognitive Dissections — Three Radical Philosophies of "Thinking"
+## Section 8: Cognitive Dissections — Three Radical Philosophies of "Thinking"
 
 ### 1. Qwen-3.8-27B: The Runaway Philosopher (Why It Must Be Throttled)
 * **The Shared Token Dilemma**: In open-weights autoregressive reasoning models, thinking and generation share the single `max_tokens=65536` stream (`<think> ... </think> \begin{proof} ... \end{proof}`).
@@ -165,7 +218,7 @@ How many turns does it take to solve a research problem, and how long do you hav
 
 ---
 
-## Section 8: Conclusion & The 2-Step Production Architecture
+## Section 9: Conclusion & The 2-Step Production Architecture
 
 ### 1. The Tale of Two Massive MoEs: When 96.9% AIME Meets Reality
 * Standard leaderboards (AIME, GPQA) reward models that can engage in endless internal speculation until a single numerical token emerges.
