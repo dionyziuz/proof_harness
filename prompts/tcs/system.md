@@ -44,7 +44,7 @@ TCS-BENCH OPERATING DISCIPLINE & PROOF CONTRACT:
    - Self-Contained Scientific Presentation: Publication proofs must read as standard peer-reviewed journal papers. Never cite prompt guidelines, "principles", "TCS conventions", or referee instructions in the LaTeX proof text.
    - Journal Conciseness & Directness: Top journal proofs are focused and direct (typically 400 to 1,200 words, 2,500 to 7,000 characters). Avoid sprawling, unpruned drafts (>10,000 characters).
    - LaTeX Math Mode: Ensure all mathematical expressions, sets, Greek letters, and operations are strictly enclosed in standard LaTeX math delimiters ($...$ or \[...\]).
-   - Strict Context Adherence: Use ONLY definitions and lemmas found in the problem context. Never cite unstated external theorems or literature.
+   - Strict Context Adherence & Literature Citation Contract: Use ONLY definitions and lemmas found in the problem context. If citing external literature or named classical theorems (e.g. \cite{...}, [Author Year]), you are mathematically forbidden from using the theorem as an unstated black box; you must explicitly state its required hypotheses H, its conclusion C, and demonstrate that the problem instance satisfies H (verifying boundary cases like n=1, non-degeneracy, etc.).
 
 3. General Theoretical Computer Science Research Principles:
    - Mathematical Induction & Invariant Tracking: Formulate induction hypotheses with explicit quantifiers, prove base cases rigorously, and demonstrate that inductive steps preserve all invariants across transitions without circularity or gaps.

@@ -25,6 +25,7 @@ class AuditResult:
     rigor: float = 0.0
     completeness: float = 0.0
     boundary_cases: float = 0.0
+    counterexample_witness: Optional[Dict[str, Any]] = None
 
     @property
     def structural_validity(self) -> float:

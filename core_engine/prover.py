@@ -1376,6 +1376,19 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                     if is_valid_latex_proof(extracted_proof):
                         result.candidate_proof = extracted_proof
 
+                    # Inject structured counterexample witness into state machine and banned routes
+                    if getattr(audit_res, "counterexample_witness", None):
+                        cw = audit_res.counterexample_witness
+                        if hasattr(self, "state") and self.state is not None and hasattr(self.state, "record_counterexample"):
+                            self.state.record_counterexample(
+                                claim=f"Candidate Proof Turn {turn}",
+                                witness=cw,
+                                source="AuditorKernel",
+                                error=issues[:200]
+                            )
+                        dead_routes.append(f"Auditor Counterexample on Turn {turn}: {cw}")
+                        self._log_write(f"[Auditor Counterexample Witness Injected]: {cw}\n")
+
                     # High-Potential Overtime Extension Gate:
                     # When reaching nominal turn ceiling, if the candidate proof has demonstrated
                     # strong internal validity (>= threshold, default 0.40) but is not yet fully verified,

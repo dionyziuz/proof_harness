@@ -79,11 +79,11 @@ class ProverAuditorMixin:
         # Default fallback is TCS
         return "tcs"
 
-    def _empirical_falsifier_audit(self, task_prompt: str, proof_text: str) -> Tuple[bool, str]:
+    def _empirical_falsifier_audit(self, task_prompt: str, proof_text: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
         """Stage 1: Sandboxed Empirical Adversarial Falsifier.
         Generates and runs an isolated Python verification script testing any claimed concrete
         witnesses, equations, numerical values, or finite graph/algebraic properties asserted in the proof.
-        Returns (passed: bool, reason: str).
+        Returns (passed: bool, reason: str, counterexample_witness: Optional[dict]).
         """
         try:
             falsifier_system = load_tcs_prompt("proof_auditor_computational")
@@ -91,15 +91,14 @@ class ProverAuditorMixin:
             falsifier_system = (
                 "You are an adversarial mathematical auditor and code-based empirical falsifier.\n"
                 "Your objective: given a problem and candidate proof, write an isolated Python verification script "
-                "that tests every concrete numerical claim, witness, algebraic identity, or finite object asserted in the proof.\n\n"
-                "GUIDELINES:\n"
-                "1. Extract all concrete claims: claimed solution values (x, y, z), points on curves, graph constructions, "
-                "residues, matrix ranks, or small boundary values (e.g. n=1, 2, 3, 4).\n"
-                "2. Write a Python script using standard libraries (sympy, math, fractions, networkx, mpmath, z3, itertools).\n"
-                "3. Use explicit `assert` statements to verify whether the claimed witness actually solves the equation or conditions.\n"
-                "4. If the proof is purely abstract and contains NO concrete witnesses, numerical claims, or finite checks, "
-                "output ```python\n# NO_CONCRETE_WITNESS\n```\n"
-                "5. Wrap your Python code strictly in ```python ... ``` fences."
+                "that hostilely stress-tests the candidate proof.\n\n"
+                "ATTACK VECTORS:\n"
+                "1. Degenerate boundary cases (n in {0, 1, 2, 3}, d=1, singletons, empty sets).\n"
+                "2. Denominators, poles, and zero-checks on fractions A/B and matrix inverses.\n"
+                "3. Boundary inequality evaluations.\n"
+                "4. Small-instance counterexample hunting via Z3 / NetworkX / itertools.\n"
+                "Print FAILING_WITNESS: ... and assert False if a counterexample is found.\n"
+                "Wrap your Python code strictly in ```python ... ``` fences."
             )
         falsifier_user = f"Target Problem:\n{task_prompt}\n\nCandidate Proof:\n{proof_text}\n"
 
@@ -116,15 +115,21 @@ class ProverAuditorMixin:
             content = resp.content or ""
             code_blocks = self.extract_code_blocks(content)
             if not code_blocks:
-                return True, "No test code generated; skipping Stage 1"
+                return True, "No test code generated; skipping Stage 1", None
 
             test_code = code_blocks[0].strip()
-            if "NO_CONCRETE_WITNESS" in test_code:
-                return True, "Proof is abstract with no finite witness to falsify"
+            if "NO_CONCRETE_WITNESS" in test_code and len(test_code) < 60:
+                return True, "Proof is abstract with no finite witness to falsify", None
 
             # Execute in an ephemeral AuditorKernel
             auditor_kernel = AuditorKernel(default_timeout=getattr(self, "auditor_kernel_timeout", 15.0))
             exec_res = auditor_kernel.execute(test_code, timeout_seconds=getattr(self, "auditor_kernel_timeout", 15.0))
+
+            # Inspect stdout for explicit FAILING_WITNESS
+            witness_match = re.search(r"FAILING_WITNESS:\s*(.+)", exec_res.stdout or "")
+            witness_data = None
+            if witness_match:
+                witness_data = {"raw": witness_match.group(1).strip()}
 
             if not exec_res.success:
                 err_text = exec_res.error or ""
@@ -135,18 +140,111 @@ class ProverAuditorMixin:
                         a, b = floats_in_err[-2], floats_in_err[-1]
                         denom = max(abs(a), abs(b), 1.0)
                         if abs(a - b) / denom < 1e-8:
-                            return True, f"Ignored IEEE-754 floating-point rounding difference ({a} vs {b})"
+                            return True, f"Ignored IEEE-754 floating-point rounding difference ({a} vs {b})", None
+
+                    if not witness_data:
+                        witness_data = {
+                            "error": err_text.strip()[:300],
+                            "test_code_snippet": test_code[:400]
+                        }
+
+                    # Record structured counterexample in state machine if available
+                    state_obj = getattr(self, "state", None)
+                    if state_obj is not None and hasattr(state_obj, "record_counterexample"):
+                        claim_summary = "Candidate Proof Empirical Step"
+                        if witness_data.get("raw") and "claim=" in witness_data["raw"]:
+                            cm = re.search(r"claim=['\"]([^'\"]+)['\"]", witness_data["raw"])
+                            if cm:
+                                claim_summary = cm.group(1)
+                        state_obj.record_counterexample(
+                            claim=claim_summary,
+                            witness=witness_data,
+                            source="AuditorKernel",
+                            error=err_text.strip()[:200]
+                        )
+
                     fail_msg = (
                         f"Empirical Falsification: Witness/assertion failed:\n{err_text.strip()}\n"
                         f"[Falsifier Test Script]:\n{test_code[:1200]}"
                     )
-                    return False, fail_msg
+                    return False, fail_msg, witness_data
                 # Runtime script bugs (e.g. NameError in auditor's test code) are inconclusive
-                return True, f"Auditor test script encountered runtime error: {err_text[:200]}"
+                return True, f"Auditor test script encountered runtime error: {err_text[:200]}", None
 
-            return True, "Empirical verification passed all assertions"
+            return True, "Empirical verification passed all assertions", None
         except Exception as e:
-            return True, f"Stage 1 auditor error: {e}"
+            return True, f"Stage 1 auditor error: {e}", None
+
+    @staticmethod
+    def _detect_singularities_and_zero_denominators(proof_text: str, task_prompt: str) -> List[Dict[str, Any]]:
+        """Deterministically scans LaTeX candidate proof for denominators that evaluate to zero
+        at small integer boundary roots (e.g. n=0, 1, 2) without an explicit case split or guard.
+        """
+        if not proof_text:
+            return []
+        try:
+            import sympy
+        except ImportError:
+            return []
+
+        singularities = []
+        frac_pats = re.findall(r"\\frac\{([^{}]+)\}\{([^{}]+)\}", proof_text)
+        for num, denom in frac_pats:
+            clean = re.sub(r"\\[a-zA-Z]+", " ", denom)
+            clean = re.sub(r"[{}\\]", "", clean).strip()
+            try:
+                expr = sympy.sympify(clean, evaluate=False)
+                symbols = list(expr.free_symbols)
+                if len(symbols) == 1:
+                    sym = symbols[0]
+                    roots = sympy.solve(sympy.Eq(expr, 0), sym)
+                    for r in roots:
+                        if hasattr(r, "is_integer") and r.is_integer and 0 <= int(r) <= 5:
+                            val = int(r)
+                            # Check whether the proof text guards this vanishing root
+                            guard_patterns = [
+                                rf"{sym}\s*>\s*{val}",
+                                rf"{sym}\s*>=\s*{val+1}",
+                                rf"{sym}\s*\\ge\s*{val+1}",
+                                rf"{sym}\s*\\neq\s*{val}",
+                                rf"{sym}\s*!=\s*{val}",
+                                rf"for\s+{sym}\s*=\s*{val}",
+                                rf"case\s+{sym}\s*=\s*{val}",
+                                rf"{sym}\s*=\s*{val}\s*:",
+                            ]
+                            if not any(re.search(gp, proof_text, re.IGNORECASE) for gp in guard_patterns):
+                                singularities.append({
+                                    "expression": denom.strip(),
+                                    "symbol": str(sym),
+                                    "vanishing_root": val,
+                                    "issue": f"Denominator '{denom.strip()}' evaluates to zero at {sym}={val}, with no explicit case split or guard in the proof."
+                                })
+            except Exception:
+                continue
+        return singularities
+
+    @staticmethod
+    def _detect_unverified_citations(proof_text: str) -> List[str]:
+        r"""Detects literature citations (e.g. \cite{...}, [Author Year]) used without
+        explicit hypothesis verification discourse.
+        """
+        if not proof_text:
+            return []
+        cite_pats = re.findall(r"(\\cite\{[^}]+\}|\[[A-Z][a-zA-Z\s,]+(?:19|20)\d{2}\]|By\s+Theorem\s+\d+\s+of\s+\[[^\]]+\])", proof_text)
+        if not cite_pats:
+            return []
+        has_hyp_check = bool(re.search(
+            r"(?:hypothes(?:is|es)\s+(?:of|for|hold|satisfied)|"
+            r"preconditions?\s+(?:of|for|hold|satisfied)|"
+            r"satisf(?:y|ies|ied)\s+(?:all\s+)?(?:the\s+)?(?:hypothes(?:is|es)|conditions?|preconditions?)|"
+            r"verif(?:y|ies|ying|ied)\s+(?:the\s+)?(?:hypothes(?:is|es)|conditions?|preconditions?)|"
+            r"conditions?\s+of\s+(?:the\s+lemma|the\s+theorem|\\cite|\[))",
+            proof_text,
+            re.IGNORECASE
+        ))
+        if not has_hyp_check:
+            return [str(c) for c in cite_pats]
+        return []
 
     @staticmethod
     def _detect_unauthorized_restrictions(proof_text: str, task_prompt: str) -> List[str]:
@@ -195,8 +293,9 @@ class ProverAuditorMixin:
 
         # Stage 1: Empirical Adversarial Falsification
         stage1_note = ""
+        stage1_witness: Optional[Dict[str, Any]] = None
         if mode in ("computational", "tcs", "auto"):
-            stage1_passed, failure_reason = self._empirical_falsifier_audit(task_prompt, proof_text)
+            stage1_passed, failure_reason, stage1_witness = self._empirical_falsifier_audit(task_prompt, proof_text)
             if not stage1_passed:
                 self._log_write(f"[Proof Auditor Stage 1 Counterexample]: {failure_reason}\n")
                 if mode == "computational":
@@ -204,6 +303,7 @@ class ProverAuditorMixin:
                         verdict="REJECT",
                         issues=failure_reason,
                         validity=0.0,
+                        counterexample_witness=stage1_witness,
                     )
                 # In TCS and auto modes, forward the concrete falsification finding to the Stage 2 referee
                 # so that test script assertion bugs do not unilaterally zero out mathematical proofs.
@@ -225,6 +325,31 @@ class ProverAuditorMixin:
                 f"Target Problem's universally quantified domain to a subset without proving the complement. "
                 f"If any part of the target domain is left unproved, set \"statement_fidelity_exact\": false, "
                 f"cap \"validity\" at <= 0.25, and return \"verdict\": \"REJECT\"."
+            )
+
+        # Stage 1.6: Deterministic Singularity & Zero-Denominator Pre-Check
+        singularities = self._detect_singularities_and_zero_denominators(proof_text, task_prompt)
+        if singularities:
+            sing_msgs = "; ".join(f"'{s['expression']}' vanishes at {s['symbol']}={s['vanishing_root']}" for s in singularities[:3])
+            self._log_write(f"[Proof Auditor Singularity Pre-Check]: Flagged {sing_msgs}\n")
+            stage1_note += (
+                f"\n\n[Deterministic Singularity & Pole Pre-Check Alert]:\n"
+                f"The candidate proof contains denominators that evaluate to zero at boundary values ({sing_msgs}) "
+                f"without an explicit case split or boundary guard in the proof text. Verify whether the target problem "
+                f"permits this boundary value. If the proof divides by zero or encounters an unhandled pole, "
+                f"set \"statement_fidelity_exact\": false, cap \"validity\" at <= 0.35, and return \"verdict\": \"REJECT\"."
+            )
+
+        # Stage 1.7: Literature Citation Explication Pre-Check
+        unverified_cites = self._detect_unverified_citations(proof_text)
+        if unverified_cites:
+            cites_str = ", ".join(unverified_cites[:3])
+            self._log_write(f"[Proof Auditor Literature Citation Check]: Flagged unverified {cites_str}\n")
+            stage1_note += (
+                f"\n\n[Literature Citation Explication Alert]:\n"
+                f"The candidate proof cites external literature ({cites_str}) without explicitly demonstrating "
+                f"that the problem instance satisfies all required hypotheses H. Verify that the citation is not "
+                f"being used as an unstated black box."
             )
 
         # Stage 1.75: Stateful Prior-Defect Verification
@@ -351,6 +476,9 @@ class ProverAuditorMixin:
                 self._prior_audit_defects = []
             if result.issues not in self._prior_audit_defects:
                 self._prior_audit_defects.append(result.issues)
+
+        if stage1_witness is not None and getattr(result, "counterexample_witness", None) is None:
+            result.counterexample_witness = stage1_witness
 
         return result
 

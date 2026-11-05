@@ -143,6 +143,7 @@ class StateSnapshot:
     subgoals: List[Dict[str, Any]]
     verified_lemmas: List[str]
     namespace_keys: Set[str]
+    counterexample_witnesses: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -151,6 +152,7 @@ class StateSnapshot:
             "subgoals": _json_safe(self.subgoals),
             "verified_lemmas": [str(x) for x in self.verified_lemmas],
             "namespace_keys": sorted((str(k) for k in self.namespace_keys), key=str),
+            "counterexample_witnesses": _json_safe(self.counterexample_witnesses),
         }
 
     @classmethod
@@ -164,6 +166,7 @@ class StateSnapshot:
             subgoals=list(data.get("subgoals") or []),
             verified_lemmas=list(data.get("verified_lemmas") or []),
             namespace_keys=set(data.get("namespace_keys") or []),
+            counterexample_witnesses=list(data.get("counterexample_witnesses") or []),
         )
 
 
@@ -177,6 +180,7 @@ class MathStateMachine:
         self._objects: Dict[str, MathObject] = {}
         self._subgoals: List[Dict[str, Any]] = []
         self._verified_lemmas: List[str] = []
+        self._counterexample_witnesses: List[Dict[str, Any]] = []
         self._checkpoints: Dict[str, StateSnapshot] = {}
         self._namespace_ref = kernel_namespace
 
@@ -270,6 +274,17 @@ class MathStateMachine:
         clean_prop = prop.strip().lower()
         obj = self._objects[name]
 
+        # Block assertion if refuted by certified counterexample witness
+        for cw in self._counterexample_witnesses:
+            if clean_prop in cw.get("claim", "").lower():
+                raise StateInvariantViolation(
+                    f"\n[MATHEMATICAL INVARIANT VIOLATION on '{name}']:\n"
+                    f"Property/Claim '{clean_prop}' was REFUTED by {cw.get('source', 'AuditorKernel')}!\n"
+                    f"Counterexample Witness: {cw.get('witness')}\n"
+                    f"Reason: {cw.get('error')}\n"
+                    f"You are FORBIDDEN from asserting this refuted property."
+                )
+
         if clean_prop in obj.properties:
             return True
 
@@ -305,7 +320,8 @@ class MathStateMachine:
             objects=copy.deepcopy(self._objects),
             subgoals=copy.deepcopy(self._subgoals),
             verified_lemmas=list(self._verified_lemmas),
-            namespace_keys=ns_keys
+            namespace_keys=ns_keys,
+            counterexample_witnesses=copy.deepcopy(self._counterexample_witnesses),
         )
         self._checkpoints[name] = snapshot
         return f"[State] Checkpoint '{name}' established ({len(self._objects)} objects, {len(self._subgoals)} subgoals)."
@@ -319,6 +335,7 @@ class MathStateMachine:
         self._objects = copy.deepcopy(snapshot.objects)
         self._subgoals = copy.deepcopy(snapshot.subgoals)
         self._verified_lemmas = list(snapshot.verified_lemmas)
+        self._counterexample_witnesses = copy.deepcopy(snapshot.counterexample_witnesses)
 
         # Namespace clean-up: remove variables defined after checkpoint
         if self._namespace_ref:
@@ -432,6 +449,41 @@ class MathStateMachine:
         """Records a formally verified intermediate lemma into the proof trace."""
         self._verified_lemmas.append(lemma_text.strip())
 
+    def record_counterexample(
+        self,
+        claim: str,
+        witness: Any,
+        source: str = "AuditorKernel",
+        error: str = "",
+    ) -> Dict[str, Any]:
+        """Records a certified counterexample witness that refutes a claim or premise.
+        Automatically revokes any registered lemma whose text contains this refuted claim.
+        """
+        clean_claim = str(claim).strip()
+        record = {
+            "claim": clean_claim,
+            "witness": _json_safe(witness),
+            "source": str(source),
+            "error": str(error)[:300],
+        }
+        self._counterexample_witnesses.append(record)
+        # Also purge any registered lemma that asserted this refuted claim
+        self._verified_lemmas = [
+            vl for vl in self._verified_lemmas
+            if clean_claim.lower() not in vl.lower()
+        ]
+        print(f"[State Machine] Counterexample RECORDED for '{clean_claim[:80]}': {record['witness']}")
+        return record
+
+    def get_counterexamples(self) -> List[Dict[str, Any]]:
+        """Returns the list of certified counterexample witnesses."""
+        return list(self._counterexample_witnesses)
+
+    def has_counterexample(self, claim_substring: str) -> bool:
+        """Returns True if any registered counterexample refutes this claim."""
+        needle = claim_substring.strip().lower()
+        return any(needle in cw.get("claim", "").lower() for cw in self._counterexample_witnesses)
+
     def status(self) -> str:
         """Outputs a clean ASCII status report of the current mathematical state."""
         lines = ["=== Mathematical State Machine Status ==="]
@@ -452,6 +504,12 @@ class MathStateMachine:
         lines.append(f"\nVerified Lemmas ({len(self._verified_lemmas)}):")
         for vl in self._verified_lemmas:
             lines.append(f"  ✓ {vl}")
+
+        if self._counterexample_witnesses:
+            lines.append(f"\nRefuted Claims & Counterexamples ({len(self._counterexample_witnesses)}):")
+            for cw in self._counterexample_witnesses:
+                lines.append(f"  ✗ {cw.get('claim', '')} [Witness: {cw.get('witness')}] ({cw.get('source', '')})")
+
         return "\n".join(lines)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -460,6 +518,7 @@ class MathStateMachine:
             "objects": {str(k): v.to_dict() if hasattr(v, "to_dict") else _json_safe(v) for k, v in self._objects.items()},
             "subgoals": _json_safe(self._subgoals),
             "verified_lemmas": [str(x) for x in self._verified_lemmas],
+            "counterexample_witnesses": _json_safe(self._counterexample_witnesses),
             "checkpoints": {str(k): v.to_dict() if hasattr(v, "to_dict") else _json_safe(v) for k, v in self._checkpoints.items()},
         }
 
@@ -473,6 +532,7 @@ class MathStateMachine:
         }
         self._subgoals = copy.deepcopy(list(data.get("subgoals") or []))
         self._verified_lemmas = list(data.get("verified_lemmas") or [])
+        self._counterexample_witnesses = list(data.get("counterexample_witnesses") or [])
         self._checkpoints = {
             k: StateSnapshot.from_dict(v)
             for k, v in (data.get("checkpoints") or {}).items()
