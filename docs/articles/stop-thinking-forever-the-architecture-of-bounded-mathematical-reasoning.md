@@ -1,19 +1,21 @@
 # Stop Thinking Forever: The Architecture of Bounded Mathematical Reasoning
 
-### *Why unconstrained AI models fall into multi-day infinite loops on hard problems, and how configurable constraints, adversarial auditing, and human-in-the-loop checkpoints force proofs to converge.*
+### *How configurable constraints, adversarial auditing, and human-in-the-loop checkpoints keep frontier reasoning models focused and converging on hard problems.*
 
 ---
 
-## The Million-Token Nightmare
+## The Long-Horizon Challenge: When Extended Thinking Meets Hard Problems
 
-Here is a dirty secret about frontier "thinking" models: **give an advanced reasoning LLM a truly hard, unsolved mathematical problem with an open-ended token budget, and it will not experience an intellectual breakthrough. It will enter an existential trance.**
+Long-thinking frontier models have fundamentally transformed automated reasoning. As our own empirical benchmarks on TCS-Bench show, given generous thinking budgets, models like Google Gemini 3.8 Flash, Meta Muse 1.3, and Qwen 2.5-Math can solve an impressive fraction of complex research problems directly in one shot—deriving intricate bounds and complete, publication-grade LaTeX proofs without external assistance.
 
-We have all watched it happen. You launch an autonomous reasoning run. The model spins up its chain-of-thought. It analyzes the theorem. It posits an ambitious reduction. Five minutes pass. Ten minutes pass. An hour passes. You glance at your GPU cluster or API dashboard: the model has emitted 180,000 reasoning tokens, consumed 85% of your VRAM or hundreds of dollars in API credits, and is currently writing its forty-second variation of an algebraic bound that collapsed thirty thousand tokens ago. 
+However, when an advanced model encounters a truly stubborn mathematical obstruction or an open research conjecture, scaling test-time compute with an open-ended token budget does not always guarantee a breakthrough. In fact, without structural guardrails, it can enter an extended cycle of cognitive perseveration.
 
-Left unconstrained, modern frontier models suffer from **cognitive perseveration**:
-1. **The Sunk-Cost Loop**: Once a model commits to a flawed lemma, it treats that lemma as an immutable axiom and spends endless tokens inventing increasingly convoluted mathematical contortions to "rescue" it.
-2. **Context Window Asphyxiation**: As the reasoning trace balloons toward context limits, token compaction mechanisms drop critical initial definitions, turning the downstream derivation into syntactically valid mathematical word salad.
-3. **The Multi-Day Black Hole**: Without rigid bounding constraints, an autonomous agent running on an open research conjecture will run for days without ever emitting an answer, failing to provide human researchers with any inspectable interim artifacts or decision gates.
+We have all observed this phenomenon: an autonomous run spins up, analyzes a difficult theorem, posits an ambitious reduction, and hits a subtle mathematical impasse. Because the model's own prior derivation sits directly in its context prefix, it can spend tens of thousands of tokens exploring minor variations of an intermediate lemma that collapsed early on—steadily consuming compute budgets without converging on a sound resolution.
+
+Left unconstrained on the hardest problem cohorts, extended reasoning can suffer from three structural challenges:
+1. **The Sunk-Cost Loop**: Once a model commits to a flawed intermediate lemma, it often treats that premise as foundational, spending extended tokens attempting to patch or rescue it rather than taking a step back.
+2. **Context Window Degradation**: As exploratory scratchpad reasoning balloons toward context limits, standard token compaction mechanisms can inadvertently compress critical definitions or premises, degrading the downstream derivation.
+3. **The Multi-Day Black Hole**: Without clear bounds and stopping criteria, an autonomous agent exploring open research conjectures can run for days without emitting inspectable interim artifacts or decision gates for human researchers.
 
 At **Proof-Harness (`proof_harness`)**, we designed an autonomous neuro-symbolic engine capable of tackling research-grade preprints from arXiv Theoretical Computer Science (**TCS-Bench 300**). In our technical papers, we frequently discuss our first two architectural pillars:
 * **The Deterministic Mathematical Kernel**: Airgapped Python REPL execution using `SymPy`, `Z3`, 50-digit `mpmath`, and an epistemic state machine that ruthlessly verifies equations instead of trusting next-token probabilities.
@@ -55,7 +57,7 @@ The flawed derivation is right there in its context window. The model's attentio
 * The partition breaks independence.
 * Four hours later, the model is still trying to salvage a mathematical premise that was dead on arrival.
 
-To break this pathological cycle, an autonomous harness must act as a **ruthless, time-budgeted research director**. It must enforce strict token leashes, bounded iteration limits, in-the-loop adversarial auditing, automated cognitive pivots, and human-in-the-loop checkpoints.
+To prevent these unproductive loops on difficult problems, an autonomous harness acts as a **disciplined, time-budgeted research director**. It enforces strict token leashes, bounded iteration limits, in-the-loop adversarial auditing, automated cognitive pivots, and human-in-the-loop checkpoints.
 
 ---
 
@@ -210,7 +212,7 @@ forbidden from attempting to rescue it. Select an alternative problem
 to reduce from, or pivot to an inductive structural argument.
 ```
 
-The harness **forcibly incinerates the dead branch**. It wipes the refuted variables from the `MathStateMachine`, explicitly posts the banned premises to the cognitive blackboard, and forces the model to pivot to an alternative mathematical direction.
+The harness **actively purges the refuted branch**. It wipes the refuted variables from the `MathStateMachine`, explicitly posts the banned premises to the cognitive blackboard, and guides the model to pivot to an alternative mathematical direction.
 
 It is the algorithmic equivalent of a senior research advisor taking away a student's broken whiteboard and saying: *"Stop. That route is dead. Start clean with approach B."*
 
