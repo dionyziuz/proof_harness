@@ -281,15 +281,87 @@ This dual-tier separation ensures that the internal auditor acts as a coaching r
 
 ---
 
-## 7. Cognitive Anti-Perseveration: The Mandatory Reductive Pivot
+## 7. The Multi-Turn Pivot Engine: When, Why, and How We Pivot Across Iterations
 
-What happens when an agent gets stuck?
+What happens across iterations when an agent's proof is rejected by the auditor?
 
-In our benchmark runs on research preprints (exemplified here on TCS-Bench), we observed a fascinating failure mode: on **Task 31** (*Existential Theory of the Reals ($\exists\mathbb{R}$) Hardness for Convex Body Inscriptions*, [arXiv:2106.02397](https://arxiv.org/abs/2106.02397)), the model attempted an $\exists\mathbb{R}$-hardness reduction for the computational geometry problem $\textsc{CCIEXPL}$. By Turn 4, the REPL kernel proved that its proposed reduction created an exponential blowup in coordinate precision under $\delta$-scaling, completely refuting the approach (validity: 0.20).
+In multi-turn mathematical reasoning, managing failed drafts is one of the hardest architectural problems in harness design. Every iterative solver faces the **Golden Balance Dilemma** between two opposite failure modes:
+1. **Pivoting Too Late (Cognitive Perseveration)**: On Turn 2, the model proposes a flawed reduction—for example, an inequality that points in the wrong direction or a geometric construction that suffers from exponential coordinate blowup. Left to itself, the model will spend Turns 3 through 8 inventing cosmetic patches, circular helper lemmas, and hand-wavy claims to defend its broken premise, burning the entire compute budget on a dead end.
+2. **Pivoting Too Early (Destructive Amnesia)**: On Turn 3, the model constructs a 90%-complete proof ($v = 0.62$) that gets rejected by the referee solely because it omitted a base case at $n=1$ or dropped a constant factor of $2$. If a naive harness treats every rejection as a failure and wipes the slate clean on Turn 4, it destroys a winning mathematical foundation.
 
-In an unconstrained setup, the model would spend the next 20 turns trying to patch the coordinate blowup.
+Proof-Harness resolves this dilemma through a stateful **Tri-State Routing & Pivot Engine** (`core_engine/prover.py`, `core_engine/prover_types.py`) backed by the `CandidatePool`:
 
-Proof-Harness has an active **Anti-Perseveration Engine**:
+```mermaid
+flowchart TD
+    Audit["Turn t Candidate Audited\n(Validity v, Rigor, Completeness, Defects)"] --> Gate{"Golden Balance\nRouting Gate"}
+
+    Gate -->|"v >= 0.25 OR Substantive Structure\nOR Boundary-Only Defect\nOR Improving (Δv > 0.05)"| Protect["Route 1: Candidate Protection\n& Surgical Revision"]
+    Gate -->|"Viable Draft Stagnated\n(stagnant_revisions >= 2)"| Bridge["Route 2: Stagnant Loop Breaker\n(Bridging Lemma Escalation)"]
+    Gate -->|"v <= 0.05 (Single-Strike Collapse)\nOR (Rejections >= 2 AND v < 0.25)\nOR Deep Stagnation (>= 6 turns)"| Pivot["Route 3: Clean-Slate Hard Pivot\n(4-Step Epistemic Reset)"]
+
+    Protect --> Restore["Restore Best Foundation (pool.best)\n+ Stateless 4-Message Blackboard\n+ Noise-Band Occam's Razor (ε=0.03)"]
+    Bridge --> Subclaim["Stop Verbatim Drafts;\nIsolate & Prove Missing Bridging Lemma"]
+    Pivot --> Step1["1. Prune Refuted Drafts & Archive Fallback\n2. kernel.reset() & Wipe State Machine\n3. Pin BANNED PREMISES Ledger\n4. Lock \\begin{proof} on Turn t+1 (REPL Gate)"]
+
+    Restore --> NextTurn["Turn t+1 Execution"]
+    Subclaim --> NextTurn
+    Step1 --> TurnT1["Turn t+1: Mandatory Python REPL Exploration\n(Test 2-3 Orthogonal Invariants)"]
+    TurnT1 --> TurnT2["Turn t+2: Unlock Formal LaTeX Proof Synthesis"]
+```
+
+---
+
+### 1. WHEN We Pivot vs. When We Protect (The Tri-State Gate)
+
+At the end of every turn $t$, if a proof is not yet certified (`validity < 0.70`), the harness inspects both the current audit score and the historical trajectory in `CandidatePool` (thresholds below reflect our calibrated benchmark defaults and are fully tunable via `.env`):
+
+#### Route 1: Candidate Protection & Surgical Revision (No Pivot)
+* **When It Triggers**:
+  * The candidate achieves directional viability (`validity >= 0.25`), **OR**
+  * The referee's structural sub-scores show a substantive partial proof (`has_substantive_structure`: completeness or rigor $\ge 0.35$), **OR**
+  * The failure is localized to a boundary or edge case (`is_boundary_defect`), **OR**
+  * The score is actively climbing across consecutive turns ($\Delta v > 0.05$).
+* **Why & How**: Wiping a promising foundation over a localized gap is catastrophic. The harness logs `[Hard Pivot Prevented — Substantive/Best Candidate Protected]` and locks the solver into **Surgical Repair Mode**.
+* **Best-Candidate Restoration & Occam's Razor**: If the solver's edit on Turn $t$ accidentally breaks a stronger proof from Turn $t-1$, `CandidatePool` automatically restores `pool.best` as the pinned baseline for Turn $t+1$. Furthermore, **Noise-Band Occam's Razor** ($\epsilon = 0.03$) rejects bloated revisions that inflate proof length by $>50\%$ for a negligible $\le 0.03$ score bump, keeping drafts lean and focused.
+
+#### Route 2: Stagnant Loop Breaking (Bridging Lemma Escalation)
+* **When It Triggers**: A protected candidate has undergone $\ge 2$ surgical revision turns without meaningful score improvement (`stagnant_revisions >= 2`).
+* **Why & How**: When an LLM is asked to surgically repair a full proof twice and fails both times, it typically falls into a local paraphrase loop—re-wording the exact same flawed paragraph without fixing the underlying mathematical gap. The harness breaks this loop by halting verbatim draft restoration and issuing a **Bridging Lemma Directive**: the solver must isolate the exact unproved step flagged by the referee, formulate it as a standalone helper claim, and verify it in the REPL before re-synthesizing the proof.
+
+#### Route 3: The Clean-Slate Hard Pivot
+* **When It Triggers** (provided at least 2 turns remain in the iteration budget):
+  1. **Single-Strike Collapse (`validity <= 0.05`)**: Complete gibberish, vacuous circularity, or a totally hallucinated premise with zero structural merit.
+  2. **Confirmed Dead Reduction (`rejection_count >= 2` and `validity < 0.25`)**: Two consecutive turns have failed below the viability floor with no upward progress ($\Delta v \le 0.05$) and no viable candidate in `CandidatePool`.
+  3. **Deep Stagnation Pivot (`rejection_count >= 6`)**: A moderate approach has plateaued for 6 consecutive turns (`PROVER_STAGNATION_PIVOT_TURNS=6`, tunable) without crossing the verification threshold, signaling that local repairs cannot bridge a deeper structural flaw.
+
+---
+
+### 2. HOW We Pivot: The 4-Step Epistemic Reset & 1-Turn REPL Lock
+
+Why do naive "retry prompts" fail when an LLM gets stuck?
+
+In an autoregressive transformer, **attention is sticky**. If a conversation thread contains 30,000 tokens of a failed algebraic reduction and you simply append *"That didn't work, try a different approach"* at the bottom, the model's attention heads still attend strongly to the equations, variable names, and lemmas in the previous turns. Nine times out of ten, the model will subtly re-derive the exact same dead reduction in slightly different notation.
+
+To force a genuine mathematical paradigm shift on Turn $t$, Proof-Harness executes **four physical operations**:
+
+#### Step 1: Stateless 4-Message Blackboard Collapse
+Instead of appending to a polluted multi-turn chat history, the harness physically collapses the active context window into a clean **4-message blackboard**:
+1. `System`: Core mathematical operating contract.
+2. `User`: The clean, original Target Problem & Context.
+3. `Assistant`: The clean blackboard state (purged of the failed draft).
+4. `User`: The Mandatory Reductive Pivot directive.
+
+By physically excising the failed LaTeX draft from the context window, the model is freed from autoregressive anchoring.
+
+#### Step 2: Candidate Pool Pruning & Cross-Pivot Archiving
+* Low-validity refuted drafts are permanently purged from `CandidatePool` (`pool.prune_abandoned()`) so that Best-Candidate Restoration can never accidentally resurrect the dead path on a later turn.
+* If the pivot was triggered by a **Deep Stagnation Pivot** (where a moderate $0.45$ draft plateaued), the harness does not throw that work away—it moves the draft into **Cross-Pivot Archive Memory** (`pool.archive_for_pivot()`). This gives the solver a completely clean slate to hunt for a $0.85+$ proof on Turns $t+1 \dots T$, while guaranteeing that if the new paradigm fails, the archived $0.45$ proof is still preserved as a fallback at final submission.
+
+#### Step 3: Deterministic Kernel Purge + The `BANNED PREMISES` Ledger
+The harness calls `kernel.reset()`, wiping all Python REPL variables, broken functions, and refuted lemmas from `MathStateMachine`, and re-initializes `state.checkpoint('init')`.
+
+Crucially, however, a total memory wipe without negative memory would risk the model re-inventing the same failed idea from scratch! The harness therefore retains a compact **Negative-Knowledge Ledger** (`dead_routes`):
+
 ```text
 ⚠️ MANDATORY REDUCTIVE PIVOT (Turn 4):
 Your previous reduction attempt reached a fatal mathematical obstacle 
@@ -299,16 +371,33 @@ All Python kernel variables, intermediate claims, and subgoals from
 this reduction path have been REFUTED AND PURGED from the state machine.
 
 BANNED PREMISES / REFUTED ROUTES (DO NOT RE-ATTEMPT OR RESCUE):
-  ❌ Refuted Reduction: Coordinate precision blowup under delta scaling.
+  ❌ Refuted Reduction (Turn 4, Validity 0.20): Coordinate precision blowup 
+     under delta-scaling in CCIEXPL reduction.
 
-Directive: Abandon this entire reduction branch. You are mathematically 
-forbidden from attempting to rescue it. Select an alternative problem 
-to reduce from, or pivot to an inductive structural argument.
+CRITICAL PIVOT DIRECTIVE:
+1. DO NOT DEFEND THE REFUTED PATH: Do not attempt cosmetic re-patching,
+   helper lemmas, or circular deductions to rescue the banned premise.
+2. CONSTRUCT A FUNDAMENTALLY DISTINCT PROOF ARCHITECTURE: Step back and
+   discover an alternative structural invariant, global conservation law,
+   extremal property, or dual representation from first principles.
 ```
 
-The harness **actively purges the refuted branch**. It wipes the refuted variables from the `MathStateMachine`, explicitly posts the banned premises to the cognitive blackboard, and guides the model to pivot to an alternative mathematical direction.
+#### Step 4: The 1-Turn REPL-First Pivot Gate (Locking `\begin{proof}` on Turn $t+1$)
+Even with a clean context window and a banned-premises ledger, reasoning models have an ingrained habit: when told to pivot, they immediately try to write a brand-new monolithic `\begin{proof} ... \end{proof}` on the very next turn without checking if the new idea actually holds.
 
-It is the algorithmic equivalent of a senior research advisor taking away a student's broken whiteboard and saying: *"Stop. That route is dead. Start clean with approach B."*
+To prevent the solver from jumping out of one broken proof straight into another untested guess, Proof-Harness activates the **1-Turn REPL-First Pivot Gate** (`pivot_repl_gate_active`) whenever at least 2 turns remain:
+* **Turn $t+1$ (Exploration Lock)**: Formal proof emission (`\begin{proof}`) is **mathematically locked**. The solver is strictly forbidden from writing a full proof on Turn $t+1$. Instead, it must:
+  1. Propose 2–3 orthogonal candidate reductions or structural invariants.
+  2. Write executable Python code in the fresh REPL (`SymPy`, `Z3`, `NetworkX`) to empirically stress-test those new invariants on small instances.
+  3. Register surviving objects in `MathStateMachine` and emit its strongest new step as `[CLAIM]: ...` and `[REDUCTION]: ...` for the Adversarial Skeptic to audit.
+* **Turn $t+2$ (Synthesis Unlock)**: Once the new reduction has survived empirical testing in the REPL on Turn $t+1$, the gate automatically unlocks on Turn $t+2$, allowing the Deductive Logician and Publication Scribe to compose the formal LaTeX proof on a verified foundation.
+
+### Pivoting in the Trenches: Task 31 ($\exists\mathbb{R}$-Hardness for Convex Body Inscriptions)
+In our benchmark evaluation on **Task 31** (*Existential Theory of the Reals ($\exists\mathbb{R}$) Hardness for Convex Body Inscriptions*, [arXiv:2106.02397](https://arxiv.org/abs/2106.02397)), the solver initially attempted an $\exists\mathbb{R}$-hardness reduction for the computational geometry problem $\textsc{CCIEXPL}$ using naive $\delta$-perturbation coordinates. By Turn 4, the REPL kernel proved that the reduction suffered from an exponential blowup in coordinate precision, refuting the approach ($v = 0.20$).
+
+Rather than spending Turns 5 through 8 trying to patch the unfixable coordinate blowup, the **Clean-Slate Hard Pivot** fired at Turn 4: it purged the broken geometry variables from the kernel, pinned the $\delta$-scaling blowup to `BANNED PREMISES`, forced a 1-turn REPL exploration on Turn 5 to test an alternative algebraic invariance encoding, and unlocked clean synthesis on Turn 6.
+
+It is the algorithmic equivalent of a senior research advisor walking into a doctoral student's office, erasing a cluttered whiteboard of dead-end equations, writing *"Do NOT use naive $\delta$-scaling"* in the corner, and saying: *"Test your new invariant on small cases first before you write another page of LaTeX."*
 
 ---
 
