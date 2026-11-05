@@ -17,15 +17,15 @@ Left unconstrained on the hardest problem cohorts, extended reasoning can suffer
 2. **Context Window Degradation**: As exploratory scratchpad reasoning balloons toward context limits, standard token compaction mechanisms can inadvertently compress critical definitions or premises, degrading the downstream derivation.
 3. **The Multi-Day Black Hole**: Without clear bounds and stopping criteria, an autonomous agent exploring open research conjectures can run for days without emitting inspectable interim artifacts or decision gates for human researchers.
 
-At **Proof-Harness (`proof_harness`)**, we designed an autonomous neuro-symbolic engine capable of tackling research-grade preprints from arXiv Theoretical Computer Science (**TCS-Bench 300**). In our technical papers, we frequently discuss our first two architectural pillars:
-* **The Deterministic Mathematical Kernel**: Airgapped Python REPL execution using `SymPy`, `Z3`, 50-digit `mpmath`, and an epistemic state machine that ruthlessly verifies equations instead of trusting next-token probabilities.
-* **The CoALA Continuous Domain Memory**: Vectorized procedural and episodic heuristics that allow the system to compound specialized domain intelligence across runs without weight fine-tuning.
+At **Proof-Harness (`proof_harness`)**, we designed an autonomous neuro-symbolic engine capable of tackling research-grade preprints from arXiv Theoretical Computer Science (**TCS-Bench 300**). In our technical papers and reports, we frequently discuss our first two architectural pillars:
+* **The Deterministic Mathematical Kernel**: Airgapped Python REPL execution using `SymPy`, `Z3`, 50-digit `mpmath`, and an epistemic state machine that ruthlessly verifies equations instead of trusting next-token probabilities (explored in our [Technical Report](arxiv-prime-math-neuro-symbolic-prover-harness.md) and [Engineering Deep Dive](how-an-agent-harness-unlocks-llm-math-reasoning.md)).
+* **The CoALA Continuous Domain Memory**: Vectorized procedural and episodic heuristics that allow the system to compound specialized domain intelligence across runs without weight fine-tuning (detailed in [*The Second Generation of Agent Harnesses*](the-second-generation-of-agent-harnesses.md)).
 
 **But those two pillars alone are not enough.** A perfect execution kernel and infinite vector memory will still happily run in circles forever if the reasoning harness lacks **configurable constraints**. 
 
 True mathematical problem-solving is not an unconstrained random walk through theorem space; it is a **bounded, adversarial search under resource limits**. 
 
-This article explores the third, unheralded pillar of Proof-Harness: **The Configurable Bounded Constraint & Human-in-the-Loop (HITL) Governance Engine**.
+This article explores the third, unheralded pillar of Proof-Harness: **The Configurable Bounded Constraint & Human-in-the-Loop (HITL) Governance Engine**. In our companion empirical study, [*Taming the Reasoners: Lessons from Benchmarking Qwen-3.8-27B, Meta Muse 1.3, and Gemini 3.8 Flash*](taming-the-reasoners-qwen-muse-flash-benchmark.md), we detail the macroeconomic benchmark results across 300 problems; here, we pull back the curtain on the control architecture that makes autonomous convergence possible.
 
 ---
 
@@ -217,7 +217,7 @@ It is the algorithmic equivalent of a senior research advisor taking away a stud
 
 Automated theorem proving is not just for automated benchmarks; it is built for **open research frontiers**. 
 
-When a human mathematician uses Proof-Harness to attack an open conjecture in mathematical physics (like our runs on the Quantum Null Energy Condition on null Cauchy surfaces), the human cannot be an afterthought waiting for a script to finish next Tuesday. The human must be an active collaborator.
+When a human mathematician uses Proof-Harness to attack an open conjecture in mathematical physics (such as our autonomous derivations of modular Hamiltonian flow and the Quantum Null Energy Condition, documented in [*From Spacetime Thermodynamics to Open Quantum Horizons*](from-spacetime-thermodynamics-to-open-quantum-horizons.md)), the human cannot be an afterthought waiting for a script to finish next Tuesday. The human must be an active collaborator.
 
 Proof-Harness treats **Human-in-the-Loop observability and intervention** as a core architectural primitive:
 
@@ -266,7 +266,7 @@ This allows human mathematicians to steer multi-day campaigns on open problems w
 
 ## 8. Real-World Case Studies from the Benchmark Trenches
 
-Does this bounded constraint architecture actually work in practice? The empirical data from our 300-problem TCS-Bench runs provides a resounding answer.
+Does this bounded constraint architecture actually work in practice? The empirical data from our 300-problem TCS-Bench runs provides a resounding answer. (For comprehensive model-by-model comparisons, token velocity graphs, and parameter trade-offs across all 300 tasks, see our companion benchmark report: [*Taming the Reasoners: Lessons from Benchmarking Qwen-3.8-27B, Meta Muse 1.3, and Gemini 3.8 Flash on Research-Level Mathematics*](taming-the-reasoners-qwen-muse-flash-benchmark.md)).
 
 ### Case 1: The Overtime Clutch Win (Task 299)
 * **Problem**: `task_2601.20718_statement_196_82`
@@ -284,10 +284,21 @@ Does this bounded constraint architecture actually work in practice? The empiric
 * **The Lesson**: Even when a model fails to cross the finish line, the harness **guaranteed termination within 7,040 seconds (~1.9 hrs)** rather than burning 48 hours in a runaway hallucination loop.
 
 ### Case 3: The Overnight Milestone (Gemini Flash on TCS-300)
-By enforcing these exact bounded constraints—fast single-pass triage followed by bounded 12-turn multi-turn escalation—Google Gemini 3.8 Flash completed all 300 research problems in 36.8 hours, achieving:
+As detailed in the companion benchmark report ([*Taming the Reasoners*](taming-the-reasoners-qwen-muse-flash-benchmark.md)), by enforcing these exact bounded constraints—fast single-pass triage followed by bounded 12-turn multi-turn escalation—Google Gemini 3.8 Flash completed all 300 research problems in 36.8 hours, achieving:
 * **Headline Certified Passes ($\ge 0.50$)**: **166 / 300 (55.33%)**
 * **Directionally Sound ($\ge 0.40$)**: **184 / 300 (61.33%)**
 * **Parse or Execution Errors**: **0**
+
+---
+
+## Companion Articles & Further Reading
+
+To explore different facets of the Proof-Harness neuro-symbolic ecosystem, see our related deep-dives:
+* **The Benchmark Deep-Dive**: [*Taming the Reasoners: Lessons from Benchmarking Qwen-3.8-27B, Meta Muse 1.3, and Gemini 3.8 Flash*](taming-the-reasoners-qwen-muse-flash-benchmark.md) — Comprehensive empirical comparison of model cognitive personalities, token expenditure, and scaling efficiencies on TCS-300.
+* **The Cognitive Architecture**: [*The Second Generation of Agent Harnesses*](the-second-generation-of-agent-harnesses.md) — Why frontier reasoning demands cognitive architecture, the data flywheel, and self-pruning procedural memory.
+* **Frontier Physics Exploration**: [*From Spacetime Thermodynamics to Open Quantum Horizons*](from-spacetime-thermodynamics-to-open-quantum-horizons.md) — Autonomous derivation of Jacobson spacetime thermodynamics and exploring modular Hamiltonian flow on null Cauchy surfaces.
+* **Foundational Architecture**: [*How an Agent Harness Unlocks LLM Math Reasoning*](how-an-agent-harness-unlocks-llm-math-reasoning.md) — Engineering walk-through of the deterministic Python/Lean execution kernel.
+* **Formal Technical Report**: [*ArXiv Technical Report: Prime Math Neuro-Symbolic Prover Harness*](arxiv-prime-math-neuro-symbolic-prover-harness.md) — Full formal system specification and proof verification protocols.
 
 ---
 
