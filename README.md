@@ -311,23 +311,23 @@ Designed specifically for human mathematicians collaborating on open research fr
 
 ```mermaid
 flowchart TD
-    Task["Target Task T = (C, S, D)"] --> S1["1. Context Architect\n(CoALA: tcs_architect)"]
-    S1 -->|"Quarantined Blueprint B\n+ state.register() seeds"| S2["2. Pre-Flight Falsifier\n(CoALA: tcs_verifier)"]
-    S2 -->|"Verified Facts + Warnings"| S3["3. Deductive Logician\n(Turn-1 Proof Ban + REPL\nCoALA: prime_math)"]
+    Task["Target Theorem Task\n(Context & Statement)"] --> S1["1. Context Architect\n(Blueprint Quarantine)"]
+    S1 -->|"Quarantined Blueprint B\n+ state.register() seeds"| S2["2. Pre-Flight Falsifier\n(Pre-Turn Python Tests)"]
+    S2 -->|"Verified Facts + Warnings"| S3["3. Deductive Logician\n(Turn-1 Proof Ban + REPL)"]
     
-    S3 -->|"Emits [CLAIM] c_i"| S4["4. Adversarial Skeptic\n(Isolated Context, CoALA: tcs_skeptic)"]
+    S3 -->|"Emits [CLAIM] c_i"| S4["4. Adversarial Skeptic\n(Isolated Context Sandbox)"]
     S4 -->|"VERIFIED"| Rec["state.record_lemma(c_i)"]
     S4 -->|"REFUTED"| Roll["state.rollback('pre_claim')"]
     Rec --> S3
     Roll --> S3
 
-    S3 -->|"[ALL CLAIMS ESTABLISHED]\n+ Epistemic State Gate"| S5["5. Publication Scribe\n(Critical-Path Pruning, CoALA: tcs_scribe)"]
-    S5 -->|"Candidate LaTeX \pi_t"| S6["6. Multi-Stage Proof Auditor\n(AuditorKernel + Domain Check + Academic Referee)"]
+    S3 -->|"[ALL CLAIMS ESTABLISHED]\n+ Epistemic State Gate"| S5["5. Publication Scribe\n(Critical-Path Pruning)"]
+    S5 -->|"Candidate LaTeX \pi_t"| S6["6. Multi-Stage Proof Auditor\n(AuditorKernel + Referee)"]
     
     S6 -->|"v_int >= 0.90 or Max Turns"| PoolOut["CandidatePool Best Proof \pi*"]
-    S6 -->|"REJECT / v_int < 0.90"| S7["7. Dynamic Critique Falsifier\n+ Stateless 4-Msg Blackboard\n+ Hard Pivot / Overtime Controller"]
+    S6 -->|"REJECT / v_int < 0.90"| S7["7. Dynamic Critique Falsifier\n+ Hard Pivot / Overtime Controller"]
     S7 -->|"Surgical Repair or Clean-Slate Pivot"| S3
-    PoolOut --> ExtJudge["External Calibrated TCS Judge\n+ CoALA Memory Consolidation"]
+    PoolOut --> ExtJudge["External Calibrated Referee\n+ CoALA Memory Consolidation"]
 ```
 
 ### Closed-Loop Search Governance Highlights

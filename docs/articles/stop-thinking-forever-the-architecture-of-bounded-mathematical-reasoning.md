@@ -17,7 +17,7 @@ Left unconstrained on the hardest problem cohorts, extended reasoning can suffer
 2. **Context Window Degradation**: As exploratory scratchpad reasoning balloons toward context limits, standard token compaction mechanisms can inadvertently compress critical definitions or premises, degrading the downstream derivation.
 3. **The Multi-Day Black Hole**: Without clear bounds and stopping criteria, an autonomous agent exploring open research conjectures can run for days without emitting inspectable interim artifacts or decision gates for human researchers.
 
-With **Proof-Harness (`proof_harness`)**, we built an open-source neuro-symbolic engine capable of tackling research-grade preprints from arXiv Theoretical Computer Science (**TCS-Bench 300**). In our research, we ground autonomous reasoning in two foundational pillars:
+With **Proof-Harness (`proof_harness`)**, we built an open-source neuro-symbolic engine designed to tackle research-grade mathematics and scientific discovery across diverse domains—from algebraic combinatorics and graph theory to quantum field theory and general relativity (stress-tested on empirical suites including **TCS-Bench 300** and quantum horizon theorems). In our research, we ground autonomous reasoning in two foundational pillars:
 * **The Deterministic Mathematical Kernel**: Airgapped Python REPL execution using `SymPy`, `Z3`, and 50-digit `mpmath` coupled with an [epistemic state machine](how-an-agent-harness-unlocks-llm-math-reasoning.md) that verifies equations, **enhancing next-token probabilities with deterministic symbolic guarantees** (formalized in our [technical specification](arxiv-prime-math-neuro-symbolic-prover-harness.md)).
 * **The CoALA Continuous Domain Memory**: Distilling verified strategies and failure post-mortems into [second-generation cognitive vector memory](the-second-generation-of-agent-harnesses.md) so the engine compounds domain intelligence over time without weight fine-tuning.
 
@@ -71,13 +71,13 @@ The Proof-Harness governance substrate operates across five deeply integrated co
 | 1. Spatial & Token   | Dual-Buffer Context Compactor & Thinking Token Budgets:         |
 |    Boundaries        |   • 48k–60k Active Context Ceiling (compactor.py)               |
 |                      |   • 16k Partitioned Synthesis Reserve Buffer                    |
-|                      |   • Configurable Thinking Budget (TCS_SOLVER_THINKING_BUDGET)   |
+|                      |   • Configurable Thinking Budget (PROVER_THINKING_BUDGET)       |
 |                      | Prevents context degradation, truncation & runaway reasoning    |
 +----------------------+-----------------------------------------------------------------+
-| 2. Iteration Budgets | Configurable Standard Iterations (TCS_SOLVER_MAX_ITERATIONS=8)  |
-|    & Overtime Gates  | Configurable Overtime Runway (TCS_OVERTIME_ITERATIONS=4)        |
+| 2. Iteration Budgets | Configurable Standard Iterations (PROVER_MAX_ITERATIONS=8)      |
+|    & Overtime Gates  | Configurable Overtime Runway (PROVER_OVERTIME_ITERATIONS=4)     |
 |                      | Overtime Gate: Validity >= 0.35 required to enter Turns 9..12   |
-|                      | Configurable Timeout Ceiling (TCS_SOLVER_TIMEOUT_SECONDS=3600s) |
+|                      | Configurable Timeout Ceiling (PROVER_TIMEOUT_SECONDS=3600s)     |
 |                      | Stops dead-end problems from running for days                   |
 +----------------------+-----------------------------------------------------------------+
 | 3. In-Loop Auditing  | Adversarial Auditor (Ephemeral Kernel)                          |
@@ -129,18 +129,20 @@ flowchart TD
     S6 -->|"Validity >= 0.70\nor Max Turns"| PoolOut["CandidatePool Best Proof"]
     S6 -->|"REJECT / Validity < 0.70"| S7["7. Dynamic Critique Falsifier\n(Empirical Stress-Test)"]
     S7 -->|"Surgical Repair or Clean-Slate Pivot"| S3
-    PoolOut --> ExtJudge["External Zero-Trust TCS Judge\n(k=3 Independent Replicates)"]
+    PoolOut --> ExtJudge["External Zero-Trust Academic Referee\n(k=3 Independent Replicates)"]
 ```
 
 ### The Seven Cognitive Roles in Action
 
-1. **Context Architect (`tcs_architect`)**: Decomposes the dense arXiv paper context, extracts relevant definitions and precursor lemmas, and seeds initial objects into the `MathStateMachine`. Under the **Blueprint Quarantine Rule**, the Architect's plan is treated as an unverified conjectural sketch—if a later Python check falsifies an intermediate bound, the solver is mathematically forbidden from restricting the theorem's target domain to rescue the sketch.
-2. **Pre-Flight Computational Falsifier (`tcs_verifier`)**: Runs automated verification scripts in the Python kernel *before Turn 1 begins*, establishing baseline invariants and emitting explicit falsification warnings if a naive approach has obvious counterexamples.
+These seven roles represent domain-agnostic mathematical reasoning primitives—operating identically whether the solver is proving a theorem in graph theory, algebraic combinatorics, or curved spacetime quantum field theory:
+
+1. **Context Architect (`prover_architect`)**: Decomposes the dense arXiv paper context, extracts relevant definitions and precursor lemmas, and seeds initial objects into the `MathStateMachine`. Under the **Blueprint Quarantine Rule**, the Architect's plan is treated as an unverified conjectural sketch—if a later Python check falsifies an intermediate bound, the solver is mathematically forbidden from restricting the theorem's target domain to rescue the sketch.
+2. **Pre-Flight Computational Falsifier (`prover_verifier`)**: Runs automated verification scripts in the Python kernel *before Turn 1 begins*, establishing baseline invariants and emitting explicit falsification warnings if a naive approach has obvious counterexamples.
 3. **Deductive Logician (`prime_math`)**: The core deductive engine. Governed by the **Turn-1 Proof Ban**, the Logician is strictly prohibited from emitting `\begin{proof}` on Turn 1; it must spend its opening turn exploring the problem space in the REPL and proposing formal `[CLAIM]` invariants.
-4. **Adversarial Skeptic (`tcs_skeptic`)**: Whenever the Logician emits a `[CLAIM]`, execution pauses. The Skeptic spins up in an airgapped context window to aggressively hunt for counterexamples. If an invariant fails, the state machine rolls back to the pre-claim checkpoint; only verified claims are recorded into the lemma ledger.
-5. **Publication Scribe (`tcs_scribe`)**: Operates in an isolated context window with dedicated thinking allocations. The Scribe ingests the verified lemma ledger and writes the formal LaTeX proof using **backward critical-path pruning**—deliberately purging dead exploratory side-tracks and failed scratchpads so the referee receives an immaculate, self-contained academic paper.
-6. **Multi-Stage Proof Auditor (`prover_auditor.py`)**: Runs an ephemeral, 5-layer audit (AuditorKernel execution, domain restriction checks, prior defect tracking, structured academic referee rubrics, and second-opinion confirmation).
-7. **Dynamic Critique Falsifier**: Translates the auditor's rejection critique into an executable Python stress-test, empirically confirming whether the referee's objection is valid before routing the solver into surgical repair or a clean-slate pivot.
+4. **Adversarial Skeptic (`prover_skeptic`)**: Whenever the Logician emits a `[CLAIM]`, execution pauses. The Skeptic spins up in an airgapped context window to aggressively hunt for counterexamples. If an invariant fails, the state machine rolls back to the pre-claim checkpoint; only verified claims are recorded into the lemma ledger.
+5. **Publication Scribe (`prover_scribe`)**: Operates in an isolated context window with dedicated thinking allocations. The Scribe ingests the verified lemma ledger and writes the formal LaTeX proof using **backward critical-path pruning**—deliberately purging dead exploratory side-tracks and failed scratchpads so the referee receives an immaculate, self-contained academic paper.
+6. **Multi-Stage Proof Auditor (`prover_auditor`)**: Runs an ephemeral, 5-layer audit (AuditorKernel execution, domain restriction checks, prior defect tracking, structured academic referee rubrics, and second-opinion confirmation).
+7. **Dynamic Critique Falsifier (`dynamic_falsifier`)**: Translates the auditor's rejection critique into an executable Python stress-test, empirically confirming whether the referee's objection is valid before routing the solver into surgical repair or a clean-slate pivot.
 
 ---
 
@@ -152,19 +154,19 @@ Modern reasoning models support 32k, 64k, or 128k context windows, but context d
 1. **The U-Shaped Attention Dip**: Crucial preconditions stated in the original problem prompt get "lost in the middle."
 2. **Mid-Derivation Truncation (`finish_reason='length'`)**: The model consumes all available tokens during intermediate thinking or turns, hitting a hard wall right as it drafts the final proof step. The external judge sees an unclosed bracket or unfinished sentence and awards a zero.
 
-Proof-Harness solves this through **externalized spatial compaction** (`compactor.py`) paired with **configurable thinking token budgets** (`llm_client.py`, `core_engine/tcs_config.py`):
+Proof-Harness solves this through **externalized spatial compaction** (`compactor.py`) paired with **configurable thinking token budgets** (`llm_client.py`, `core_engine/config.py`):
 
 ```bash
 # Spatial Context Compaction Leash (compactor.py)
-TCS_COMPACTOR_MAX_CONTEXT_TOKENS=48000   # Active conversation history ceiling
-TCS_COMPACTOR_RESERVE_TOKENS=16000       # Partitioned reserve buffer for proof synthesis
-TCS_COMPACTOR_KEEP_RECENT_TURNS=2        # Full verbatim preservation of recent turns
+PROVER_COMPACTOR_MAX_CONTEXT_TOKENS=48000   # Active conversation history ceiling
+PROVER_COMPACTOR_RESERVE_TOKENS=16000       # Partitioned reserve buffer for proof synthesis
+PROVER_COMPACTOR_KEEP_RECENT_TURNS=2        # Full verbatim preservation of recent turns
 
-# Cognitive Thinking Token Budgets (llm_client.py / tcs_config.py)
-TCS_SOLVER_ENABLE_THINKING=true          # Activates reasoning token streams
-TCS_SOLVER_THINKING_BUDGET=24576         # Enforces bounded reasoning trace (e.g. 32768 for Qwen)
-TCS_SCRIBE_THINKING_BUDGET=16384         # Partitioned budget for final LaTeX synthesis
-TCS_AUDITOR_THINKING_BUDGET=12288        # Dedicated thinking budget for adversarial referee
+# Cognitive Thinking Token Budgets (llm_client.py / config.py)
+PROVER_ENABLE_THINKING=true                 # Activates reasoning token streams
+PROVER_THINKING_BUDGET=24576                # Enforces bounded reasoning trace (e.g. 32768 for Qwen)
+PROVER_SCRIBE_THINKING_BUDGET=16384         # Partitioned budget for final LaTeX synthesis
+PROVER_AUDITOR_THINKING_BUDGET=12288        # Dedicated thinking budget for adversarial referee
 ```
 
 ### 1. The Spatial Context Leash (`compactor.py`)
@@ -175,7 +177,7 @@ Instead of letting context accumulate monotonically:
 
 ### 2. Cognitive Thinking Token Budgets (`llm_client.py`)
 Reasoning models generate internal chain-of-thought tokens before emitting user-visible text. Without an enforced ceiling, verbose models can get lost in recursive self-debate, consuming their entire token allowance before writing a single line of proof.
-* By externalizing `TCS_SOLVER_THINKING_BUDGET=24576` (or `32768` for verbose reasoners), the harness disciplines the model's internal exploration per step.
+* By externalizing `PROVER_THINKING_BUDGET=24576` (or `32768` for verbose reasoners), the harness disciplines the model's internal exploration per step.
 * Specialized subagents receive role-tailored thinking budgets—ensuring the Scribe has ample room for rigorous LaTeX derivation while the Auditor has focused compute for line-by-line verification.
 
 The model gets infinite conceptual runway without ever hitting a hard context wall or starving the completion buffer.
@@ -189,12 +191,12 @@ The second boundary is temporal: how many turns and seconds does an agent get be
 In Proof-Harness, problem-solving is fully parameterized rather than hard-coded:
 
 ```bash
-# Temporal Iteration Budgets & Overtime Controls (tcs_config.py)
-TCS_SOLVER_MAX_ITERATIONS=8              # Base turn ceiling (CLI: --max-iterations / PROVER_MAX_TURNS)
-TCS_ENABLE_OVERTIME=true                 # Enables high-potential overtime rescue
-TCS_OVERTIME_ITERATIONS=4                # Additional overtime turns (Turns 9..12)
-TCS_OVERTIME_VALIDITY_THRESHOLD=0.35     # Minimum auditor score required at Turn 8
-TCS_SOLVER_TIMEOUT_SECONDS=3600.0        # Hard wall-clock timeout ceiling per problem
+# Temporal Iteration Budgets & Overtime Controls (config.py)
+PROVER_MAX_ITERATIONS=8                     # Base turn ceiling (CLI: --max-iterations / PROVER_MAX_TURNS)
+PROVER_ENABLE_OVERTIME=true                 # Enables high-potential overtime rescue
+PROVER_OVERTIME_ITERATIONS=4                # Additional overtime turns (Turns 9..12)
+PROVER_OVERTIME_VALIDITY_THRESHOLD=0.35     # Minimum auditor score required at Turn 8
+PROVER_TIMEOUT_SECONDS=3600.0               # Hard wall-clock timeout ceiling per problem
 ```
 
 Solving is structured as a **staged tournament**:
@@ -225,7 +227,7 @@ Solving is structured as a **staged tournament**:
 └─────────────────────────┘         └──────────────────────────────┘
 ```
 
-Why is the **Overtime Gate (`TCS_OVERTIME_VALIDITY_THRESHOLD=0.35`)** so crucial?
+Why is the **Overtime Gate (`PROVER_OVERTIME_VALIDITY_THRESHOLD=0.35`)** so crucial?
 
 In automated discovery, **knowing when to admit failure is a superpower**:
 Across hundreds of open conjectures, an unconstrained model forced to guess on every problem produces predominantly flawed derivations—often hallucinating subtle algebraic leaps to satisfy the prompt. However, when a harness equips the system with the ability to **halt and admit failure**, conditional accuracy on the answered subset jumps dramatically.
@@ -265,7 +267,7 @@ This dual-tier separation ensures that the internal auditor acts as a coaching r
 
 What happens when an agent gets stuck?
 
-In our benchmark runs on TCS-Bench, we observed a fascinating failure mode: on **Task 31** (*Existential Theory of the Reals ($\exists\mathbb{R}$) Hardness for Convex Body Inscriptions*, [arXiv:2106.02397](https://arxiv.org/abs/2106.02397)), the model attempted an $\exists\mathbb{R}$-hardness reduction for the computational geometry problem $\textsc{CCIEXPL}$. By Turn 4, the REPL kernel proved that its proposed reduction created an exponential blowup in coordinate precision under $\delta$-scaling, completely refuting the approach (validity: 0.20).
+In our benchmark runs on research preprints (exemplified here on TCS-Bench), we observed a fascinating failure mode: on **Task 31** (*Existential Theory of the Reals ($\exists\mathbb{R}$) Hardness for Convex Body Inscriptions*, [arXiv:2106.02397](https://arxiv.org/abs/2106.02397)), the model attempted an $\exists\mathbb{R}$-hardness reduction for the computational geometry problem $\textsc{CCIEXPL}$. By Turn 4, the REPL kernel proved that its proposed reduction created an exponential blowup in coordinate precision under $\delta$-scaling, completely refuting the approach (validity: 0.20).
 
 In an unconstrained setup, the model would spend the next 20 turns trying to patch the coordinate blowup.
 
@@ -360,7 +362,7 @@ Supporting this iterative cycle are robust operational guarantees:
 
 ## 9. Real-World Case Studies from the Benchmark Trenches
 
-Does this bounded constraint architecture actually work in practice? The empirical data from our 300-problem TCS-Bench runs provides a resounding answer. While our [companion empirical benchmark study](taming-the-reasoners-qwen-muse-flash-benchmark.md) provides the macro-level comparisons of model cognitive personalities, token velocities, and cost curves across all 300 tasks, individual problem trajectories highlight the micro-mechanics of bounded constraints in action.
+Does this bounded constraint architecture actually work in practice? The empirical data from our 300-problem benchmark evaluation on research-level preprints (exemplified by our TCS-Bench runs) provides a resounding answer. While our [companion empirical benchmark study](taming-the-reasoners-qwen-muse-flash-benchmark.md) provides the macro-level comparisons of model cognitive personalities, token velocities, and cost curves across all 300 tasks, individual problem trajectories highlight the micro-mechanics of bounded constraints in action.
 
 ### Case 1: The Overtime Clutch Win — Fault-Tolerant Low-Congestion Graph Spanners
 * **Problem**: Task 299 (*Fault-Tolerant Low-Congestion Graph Spanners*, [arXiv:2601.20718](https://arxiv.org/abs/2601.20718)) — Proving the existence of an $f$-fault-tolerant $(d,\eta)$-low congestion spanner $H'$ with bounded maximum vertex degree $\Delta_{\max}(G)$ across deleted component clusters.
@@ -377,7 +379,7 @@ Does this bounded constraint architecture actually work in practice? The empiric
 * **Verdict**: The external referee spotted the unproven eigenvalue bound and scored it **0.18 (FAIL)**. 
 * **The Lesson**: Even when a model fails to cross the finish line, the harness **guaranteed termination within 7,040 seconds (~1.9 hrs)** rather than burning 48 hours in a runaway hallucination loop.
 
-### Case 3: The Overnight Milestone (Gemini Flash on TCS-300)
+### Case 3: The Overnight Milestone (Gemini Flash on 300 Research Problems)
 As observed during our [benchmark evaluation of Google Gemini 3.8 Flash](taming-the-reasoners-qwen-muse-flash-benchmark.md), by enforcing these exact bounded constraints—fast single-pass triage followed by bounded 12-turn multi-turn escalation—Google Gemini 3.8 Flash completed all 300 research problems in 36.8 hours, achieving:
 * **Headline Certified Passes ($\ge 0.50$)**: **166 / 300 (55.33%)**
 * **Directionally Sound ($\ge 0.40$)**: **184 / 300 (61.33%)**
