@@ -44,20 +44,15 @@ To understand why constraints must be hard-coded into the harness architecture, 
                    (Repeats for 12 hours / 150k tokens / Context overflow)
 ```
 
-In standard chat or agent wrappers, the prompt essentially says: *"Prove this theorem. Think as long as you need."*
+When solving research-level mathematical problems—such as establishing an asymptotic expansion bound on a $d$-regular graph or proving an $\exists\mathbb{R}$-hardness reduction—any reasoning process inevitably encounters mathematical obstructions. Human mathematicians frequently experience this: when an initial reduction path runs into a barrier, the most natural move is to step back, clean the blackboard, and try an alternative angle.
 
-When faced with a genuinely difficult problem—such as establishing an asymptotic expansion bound on a $d$-regular graph or proving an $\exists\mathbb{R}$-hardness reduction—the model encounters mathematical obstructions. But unlike a human mathematician who stands up, takes a walk, erases the blackboard, and starts with an entirely new reduction, the LLM is trapped by its own autoregressive prefix. 
+For language models, however, the challenge is architectural: the prior derivation is present in the context prefix. As self-attention attends to earlier generated tokens, the model can naturally lean toward justifying or patching its existing lemmas rather than pivoting to an entirely different approach. This phenomenon—often termed **epistemic fixation** or **cognitive perseveration**—can manifest in subtle ways:
+* An initial candidate bound relies on a property that holds only approximately.
+* Upon discovering the gap, the reasoning trace introduces an ad-hoc adjustment.
+* The adjustment introduces additional constraints or breaks independence.
+* The model spends extended turns attempting to harmonize mutually incompatible constraints.
 
-The flawed derivation is right there in its context window. The model's attention heads attend to its own prior arguments. It enters a state of **epistemic fixation**:
-* It misapplies the Lovász Local Lemma because $c_3 > \ln 2$ is false.
-* The auditor flags the defect.
-* Instead of throwing away the Local Lemma, the model introduces an ad-hoc sub-case.
-* The sub-case violates the degree condition.
-* The model introduces an ad-hoc graph partition to fix the degree condition.
-* The partition breaks independence.
-* Four hours later, the model is still trying to salvage a mathematical premise that was dead on arrival.
-
-To prevent these unproductive loops on difficult problems, an autonomous harness acts as a **disciplined, time-budgeted research director**. It enforces strict token leashes, bounded iteration limits, in-the-loop adversarial auditing, automated cognitive pivots, and human-in-the-loop checkpoints.
+To help models navigate past these dead ends efficiently, Proof-Harness acts as an external scaffolding layer. By structuring the exploration into bounded iterations, in-the-loop adversarial auditing, automated cognitive pivots, and human-in-the-loop checkpoints, the harness provides the structural prompts needed to step back and try fresh pathways.
 
 ---
 
@@ -164,9 +159,9 @@ Conversely, if the candidate achieves **0.45 validity** at Turn 8, the harness r
 
 A core innovation in Proof-Harness is the architectural separation between the **In-Loop Adversarial Auditor** and the **External Benchmark Judge**.
 
-Many naive agent harnesses make the fatal mistake of letting the agent evaluate its own work ("Self-Correction"). LLMs are notoriously biased toward their own outputs; an agent that wrote a flawed proof will almost always convince itself that the proof is correct when asked to verify it.
+In automated mathematical reasoning, relying solely on single-context self-verification presents well-documented cognitive challenges: models naturally exhibit confirmation bias toward their own intermediate derivations. When an agent is asked to verify its own complex proof within the same conversational thread, it can easily overlook subtle gaps that were invisible during generation.
 
-Proof-Harness implements an **airgapped adversarial referee**:
+To provide objective, rigorous evaluation along the way, Proof-Harness implements an **airgapped, dual-tier referee architecture**:
 
 ### Tier 1: The In-Loop Adversarial Auditor (`prover_auditor.py`)
 * Operates in an ephemeral execution sandbox after every single candidate proof draft.
@@ -296,20 +291,18 @@ By enforcing these exact bounded constraints—fast single-pass triage followed 
 
 ---
 
-## Conclusion: True Intelligence Requires Boundaries
+## Conclusion: Amplifying Frontier Reasoning through Thoughtful Governance
 
-In the early days of automated coding and reasoning, the prevailing assumption was simple: *more compute and longer thinking traces equal better answers*.
+As reasoning models continue to advance at an astonishing pace, the question facing automated discovery is no longer whether models can reason, but how best to scaffold and direct their intelligence on the hardest open problems.
 
-Our journey building Proof-Harness on research-grade mathematics proved the opposite. Without guardrails, raw frontier intelligence quickly collapses into cognitive perseveration, infinite loops, and multi-day black holes.
+Our experience benchmarking across hundreds of research-level theorems indicates that extended test-time compute is vastly amplified when paired with structured problem governance. While the latent knowledge of frontier models provides the essential mathematical intuition, thoughtful constraints provide the focus:
+* **Spatial boundaries** through context leashes and reserve buffers to prevent context degradation and ensure complete proof emission.
+* **Temporal boundaries** through iteration budgets and overtime gates to balance deep exploration with computational efficiency.
+* **Epistemic boundaries** through airgapped adversarial auditors that coach models with objective, line-by-line feedback.
+* **Cognitive boundaries** through reductive pivots that encourage stepping back to explore fresh, orthogonal mathematical pathways.
+* **Human-in-the-loop collaboration** through transparent, loss-free checkpoints that keep researchers informed and in control at every stage.
 
-To build an AI that can legitimately assist human researchers on the hardest open problems in mathematics and theoretical physics, we cannot just build bigger models or give them infinite context. We must build **disciplined cognitive harnesses**:
-* We must give them **spatial boundaries** through context leashes and reserve buffers.
-* We must give them **temporal boundaries** through turn budgets and overtime gates.
-* We must give them **epistemic boundaries** through adversarial in-the-loop auditors.
-* We must give them **psychological boundaries** through mandatory reductive pivots.
-* And we must keep the **human in the loop** through transparent, loss-free checkpoints.
-
-When you tame the reasoning engine with the right constraints, it stops thinking forever—and starts actually solving.
+By uniting the remarkable capabilities of modern reasoning engines with a disciplined, bounded harness architecture, autonomous systems can tackle the hardest frontiers in mathematics and theoretical science—efficiently, reliably, and collaboratively.
 
 ---
 
