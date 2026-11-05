@@ -296,11 +296,15 @@ Proof-Harness completely rejects "LLM Self-Correction" in favor of an airgapped,
   - **Early Exit ($\ge 0.70$)**: If validity reaches certified sound threshold (`PROVER_AUDITOR_VALIDITY_THRESHOLD=0.70`), the proof is accepted immediately (`Auditor: VALID`), terminating iterations early.
 - **Tier 2: External Benchmark Judge (`core_engine/judging/`)**: Evaluates final submissions across **3 independent replicates ($k=3$)** under strict benchmark criteria ($\ge 0.50$ for Certified Sound Pass, $\ge 0.40$ for Directionally Sound), eliminating internal evaluator bias.
 
-### 4. Psychological Boundaries: The Mandatory Reductive Pivot
-When an approach hits a fatal mathematical refutation (e.g. an AST boundary counterexample or invalid probability exponent), models naturally perseverate. Proof-Harness breaks this through an automated **Reductive Pivot**:
-- Detects repeated local revisions failing to resolve core referee objections (validity $\le 0.25$).
-- **Epistemic Purge**: Forcibly wipes all refuted variables, subgoals, and lemmas associated with that reduction from `MathStateMachine`.
-- **Cognitive Quarantine**: Injects explicit `BANNED PREMISES / REFUTED ROUTES` into the cognitive blackboard, mathematically forbidding the model from attempting to rescue the flawed premise and compelling an orthogonal proof trajectory.
+### 4. Psychological Boundaries: The Multi-Turn Pivot Engine (When, Why & How We Pivot)
+Across iterations, the harness balances two opposite risks: **cognitive perseveration** (wasting turns defending a refuted reduction) and **destructive amnesia** (wiping a 90%-complete proof over a minor boundary defect). After every audited turn $t$, `MathProver` routes through a **Tri-State Decision Gate**:
+- **Route 1 — Candidate Protection & Surgical Revision**: When validity $\ge 0.25$, or `has_substantive_structure` (completeness/rigor $\ge 0.35$), or `is_boundary_defect`, hard pivots are **blocked**. If Turn $t$ regresses below an earlier draft, `CandidatePool` restores `pool.best` and enforces **Noise-Band Occam's Razor** ($\epsilon = 0.03$) on a **Stateless 4-Message Blackboard**.
+- **Route 2 — Stagnant Loop Breaking (Bridging Lemma Mode)**: When a protected draft stagnates for $\ge 2$ surgical revisions (`stagnant_revisions >= 2`), the harness stops verbatim draft restoration and directs the solver to isolate and prove the missing bridging lemma first.
+- **Route 3 — Clean-Slate Hard Pivot (4-Step Epistemic Reset)**: Triggered on single-strike collapse ($\le 0.05$), repeated low-validity refutation ($\ge 2$ rejections at $< 0.25$ with $\Delta v \le 0.05$), or deep stagnation ($\ge 6$ stagnant turns, `PROVER_STAGNATION_PIVOT_TURNS=6`):
+  1. **Blackboard Collapse & Pruning**: Collapses context to 4 clean messages, prunes refuted drafts (`pool.prune_abandoned()`), and archives any moderate stagnant draft into cross-pivot fallback memory (`pool.archive_for_pivot()`).
+  2. **Deterministic Kernel Purge**: Calls `kernel.reset()`, wiping all dead-end Python variables and refuted lemmas from `MathStateMachine` back to `init`.
+  3. **Negative-Knowledge Ledger**: Pins `BANNED PREMISES / REFUTED ROUTES` (`dead_routes`) at the top of the blackboard so the solver starts clean without repeating the same mathematical trap.
+  4. **1-Turn REPL-First Pivot Gate**: Locks `\begin{proof}` on Turn $t+1$, forcing the solver to propose and empirically test 2–3 orthogonal invariants in the Python REPL before unlocking formal LaTeX proof synthesis on Turn $t+2$.
 
 ### 5. Human-in-the-Loop (HITL): Iterative Problem Refinement & Compounding Heuristics
 Designed specifically for human mathematicians collaborating on open research frontiers:
