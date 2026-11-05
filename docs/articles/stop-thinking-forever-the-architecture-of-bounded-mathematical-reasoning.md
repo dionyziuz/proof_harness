@@ -186,7 +186,7 @@ This dual-tier separation ensures that the internal auditor acts as a coaching r
 
 What happens when an agent gets stuck?
 
-In our benchmark runs on TCS-Bench, we observed a fascinating failure mode: on **Task 31** (`task_2106.02397`), the model attempted an $\exists\mathbb{R}$-hardness reduction for a computational geometry problem (`CCIEXPL`). By Turn 4, the REPL kernel proved that its proposed reduction created an exponential blowup in coordinate precision, completely refuting the approach (validity: 0.20).
+In our benchmark runs on TCS-Bench, we observed a fascinating failure mode: on **Task 31** (*Existential Theory of the Reals ($\exists\mathbb{R}$) Hardness for Convex Body Inscriptions*, [arXiv:2106.02397](https://arxiv.org/abs/2106.02397)), the model attempted an $\exists\mathbb{R}$-hardness reduction for the computational geometry problem $\textsc{CCIEXPL}$. By Turn 4, the REPL kernel proved that its proposed reduction created an exponential blowup in coordinate precision under $\delta$-scaling, completely refuting the approach (validity: 0.20).
 
 In an unconstrained setup, the model would spend the next 20 turns trying to patch the coordinate blowup.
 
@@ -280,17 +280,17 @@ Supporting this iterative cycle are robust operational guarantees:
 
 Does this bounded constraint architecture actually work in practice? The empirical data from our 300-problem TCS-Bench runs provides a resounding answer. While our [companion empirical benchmark study](taming-the-reasoners-qwen-muse-flash-benchmark.md) provides the macro-level comparisons of model cognitive personalities, token velocities, and cost curves across all 300 tasks, individual problem trajectories highlight the micro-mechanics of bounded constraints in action.
 
-### Case 1: The Overtime Clutch Win (Task 299)
-* **Problem**: `task_2601.20718_statement_196_82`
-* **Turn 1 (Unassisted Baseline)**: Validity **0.22 (FAIL)**.
-* **Escalation**: The harness caught the failure, entered multi-turn solving, and climbed through turns 2 and 3.
-* **The Overtime Breakthrough**: At Turn 4, the Auditor detected a sound invariant and scored it **0.92**. The proof was immediately accepted and emitted early.
+### Case 1: The Overtime Clutch Win — Fault-Tolerant Low-Congestion Graph Spanners
+* **Problem**: Task 299 (*Fault-Tolerant Low-Congestion Graph Spanners*, [arXiv:2601.20718](https://arxiv.org/abs/2601.20718)) — Proving the existence of an $f$-fault-tolerant $(d,\eta)$-low congestion spanner $H'$ with bounded maximum vertex degree $\Delta_{\max}(G)$ across deleted component clusters.
+* **Turn 1 (Unassisted Baseline)**: Validity **0.22 (FAIL)** — The unassisted model failed to bound edge congestion across deleted cluster boundaries.
+* **Escalation**: The harness caught the failure, entered multi-turn solving, and climbed through turns 2 and 3 by decomposing vertex set partitions in the symbolic state machine.
+* **The Overtime Breakthrough**: At Turn 4, the Auditor verified a sound invariant on the edge set union and scored the candidate proof **0.92**. The proof was immediately accepted and emitted early.
 * **Result**: **0.92 PASS** across all judge replicates. A problem that was completely dead in one-shot was converted into a near-perfect publication-grade pass in 960 seconds.
 
-### Case 2: The Auditor-vs-Judge Reality Check (Task 20)
-* **Problem**: `task_2101.05549_statement_226_137`
+### Case 2: The Auditor-vs-Judge Reality Check — Matrix Sketching Eigendecomposition Perturbations
+* **Problem**: Task 20 (*Matrix Sketching Spectral Perturbation Bounds*, [arXiv:2101.05549](https://arxiv.org/abs/2101.05549)) — Proving spectral norm perturbation bounds $\|\widehat{W}_{[k]}\widehat{\Sigma}_{[k]}^{-2}\widehat{W}_{[k]}^T - \widetilde{W}_{[k]}\widetilde{\Sigma}^{-4}_{[k]} \widetilde{W}^T_{[k]}\|_2 < \xi$ for inverse squared matrix sketches under low-rank subspace embeddings.
 * **Turn 8**: Candidate scored **0.45** by the internal auditor, triggering Overtime.
-* **Turns 9 through 12**: The model tried local patches but perseverated on a subtle eigenvalue gap scaling issue.
+* **Turns 9 through 12**: The model tried local algebraic repairs but perseverated on a subtle eigenvalue gap scaling issue between sketched singular values.
 * **The Boundary Enforcement**: At Turn 12, the harness refused to loop indefinitely. It halted execution, locked the candidate, and submitted it to the external judge.
 * **Verdict**: The external referee spotted the unproven eigenvalue bound and scored it **0.18 (FAIL)**. 
 * **The Lesson**: Even when a model fails to cross the finish line, the harness **guaranteed termination within 7,040 seconds (~1.9 hrs)** rather than burning 48 hours in a runaway hallucination loop.

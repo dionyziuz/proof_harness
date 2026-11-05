@@ -111,17 +111,17 @@ In our 300-problem benchmark, **100% of all passing proofs were discovered throu
 
 To see the difference in practice, consider three real problems from our TCS-Bench V4 evaluation logs where initial drafts failed, but the governed harness converged to a rigorous proof:
 
-### 1. The Blueprint Trap: Theta-Series Lattice Tail Bound (`task_2108.01161_statement_14_242`)
+### 1. The Blueprint Trap: Theta-Series Lattice Tail Bound ([arXiv:2108.01161](https://arxiv.org/abs/2108.01161), Task 42)
 - **The Problem**: Proving a Fourier-series conversion and Gaussian tail bound across a lattice $\mathcal{L} = \alpha + \beta\mathbb{Z}$ for all lattice spacings $\beta > 0$.
 - **Why the Initial Draft Failed**: In its early Turn-3 draft, the model relied on a loose intermediate estimate that only held when $a = \pi/\beta \ge 1$ ($\beta \le \pi$), restricting the theorem domain rather than replacing the loose bound ($v = 0.05$).
 - **How the Harness Solved It**: The internal auditor rejected the restricted draft and triggered a **Clean-Slate Hard Pivot** with a mandatory 1-turn REPL exploration gate on Turn 4. Forced back into the kernel, the model re-evaluated the tail integral across the full parameter regime and synthesized a verified derivation via the Publication Scribe, scoring **0.68 (Certified Pass)**.
 
-### 2. The Concentration Regime Trap: Capped Balls-into-Bins (`task_2104.05093_statement_18_258`)
+### 2. The Concentration Regime Trap: Capped Balls-into-Bins ([arXiv:2104.05093](https://arxiv.org/abs/2104.05093), Task 27)
 - **The Problem**: Proving high-probability concentration bounds for the stopping time $T$ in a capped balls-into-bins process across both large-capacity ($C > \frac{3(1+\varepsilon)(1+\gamma)\log n}{\varepsilon^2}$) and complementary regimes.
 - **Why the Initial Draft Failed**: The initial Turn-4 proof draft failed ($v = 0.10$) due to flawed Chernoff/union-bound arithmetic and an unverified variance proxy in the complementary parameter regime.
 - **How the Harness Solved It**: Across 5,000 seeded Monte Carlo trials and symbolic threshold checks in the Python kernel, the solver verified the exact event equivalence $\{T = n\} \iff \{\max_j X_j^{(n)} \le C\}$ and confirmed that the target width $\frac{\sqrt{m}\log n}{\varepsilon^2}$ strictly dominates the geometric-sum standard deviation in the complementary regime, converging on Turn 8 to **0.96 (Publication-Grade Pass)**.
 
-### 3. The Exponential Blowup: High-Dimensional Sumsets (`task_2410.21942_statement_30_71`)
+### 3. The Exponential Blowup: High-Dimensional Sumsets ([arXiv:2410.21942](https://arxiv.org/abs/2410.21942), Task 245)
 - **The Problem**: Computing prefix-restricted sumsets $C = (A + B) \cap [0 \dots t]^d$ in output-sensitive time $\mathcal{O}\left((n + m + (nm)^{\frac{d}{d+1}} c^{\frac{1}{d+1}}) \log(nm)^{\mathcal{O}(d)}\right)$.
 - **Why the Initial Draft Failed**: Naive coordinate-wise recursion fails because unscaled subproblem costs blow up in dimension $d$, and the initial Turn-3 draft was rejected ($v = 0.10$) for incomplete accounting of non-vacuous subproblems.
 - **How the Harness Solved It**: Using `SymPy` in the kernel, the model verified that bounding the non-vacuous subproblems requires a simultaneous dyadic box decomposition into $2^d$ sub-boxes, and proved that **Hölder's inequality** with conjugate exponents $p = \frac{d}{d+1}$ and $q = \frac{1}{d+1}$ collapses the recursive sum cleanly into the target bound—converging in 5 turns to **0.88 (Publication-Grade Pass in V4; 0.94 in V3)**.
