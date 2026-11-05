@@ -599,7 +599,7 @@ class ProverAuditorMixin:
                     thinking_budget_tokens=active_thinking_budget,
                     reasoning_effort=active_effort,
                     timeout_seconds=timeout_seconds,
-                    max_retries=1,
+                    max_retries=5,
                 ):
                     if typ == "reasoning":
                         reasoning_chunks.append(delta)

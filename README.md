@@ -4,13 +4,15 @@
 
 **Proof-Harness** is an open-source neuro-symbolic mathematical reasoning engine, autonomous theorem prover, and zero-trust deterministic Python/Lean execution harness.
 
-Standard large language models fail on research-level mathematics because of two foundational architectural bottlenecks: **(1) The Probabilistic Trust Fallacy** (relying on statistical next-token prediction to guess whether multi-step algebraic derivations, inequality directions, and boundary cases hold) and **(2) Frozen Weights & Episodic Amnesia** (an inability to learn continuously from solved problems or specialize into a technical domain without expensive weight fine-tuning).
+Standard large language models fail on research-level mathematics because of three foundational architectural bottlenecks: **(1) The Probabilistic Trust Fallacy** (relying on statistical next-token prediction to guess whether multi-step algebraic derivations, inequality directions, and boundary cases hold), **(2) Frozen Weights & Episodic Amnesia** (an inability to learn continuously from solved problems or specialize into a technical domain without expensive weight fine-tuning), and **(3) The Infinite Reasoning Trap & Cognitive Perseveration** (an unconstrained model tackling hard, open problems will enter multi-day rabbit holes, loop into runaway chain-of-thought debates over flawed lemmas, and consume hundreds of thousands of tokens without ever converging or yielding inspectable interim milestones).
 
-**Proof-Harness (`proof_harness`)** solves both bottlenecks by combining **seven-role cognitive partitioning** with two foundational pillars:
+**Proof-Harness (`proof_harness`)** solves all three bottlenecks by combining **seven-role cognitive partitioning** with three foundational pillars:
 1. **The Zero-Trust Deterministic Mathematical Kernel Engine (`core_engine/kernel.py`, `core_engine/prover_kernel.py`, `core_engine/math_tools.py`, `core_engine/state_machine.py`)**: Dual-isolated, 3-layer airgapped symbolic and numerical execution kernels (`PersistentMathKernel` and ephemeral `AuditorKernel`) that provide **immediate accuracy and soundness verification**. Every claim is tested deterministically using **`SymPy`**, **`Z3`**, **50-digit `mpmath`**, **`NetworkX`**, specialized domain extensions (topology, planar duals, quantum CPTP channels, PSD operator inequalities), honest three-valued empirical semantics (`holds_on_samples`), Rule 11 anti-brute-force analytical ceilings (`guarded_range` ≤ 200,000), and a formal **Epistemic State Machine** (`MathStateMachine`) that automatically revokes fragile invariants under conditioning or restriction.
 2. **The CoALA Heuristics & Continuous Domain Learning Engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`)**: A continual learning architecture grounded in *Cognitive Architectures for Language Agents* (CoALA) where the harness **learns by solving over time**—distilling verified universal strategies (Procedural Memory) and failure post-mortems (Episodic Memory) into role-isolated vector embeddings in vector memory, governed by automated heuristic validation and sanitization. As practitioners and researchers use the harness to prove theorems across vertical domains, the system compounds domain intelligence through vector embeddings—with zero LLM weight fine-tuning.
+3. **The Configurable Bounded Constraint & Human-in-the-Loop Governance Engine (`compactor.py`, `core_engine/prover.py`, `core_engine/prover_auditor.py`, `core_engine/judging/`)**: Mathematical reasoning is treated as a **strictly bounded, adversarial search under resource limits**. The harness prevents models from thinking indefinitely through configurable spatial token leashes (`TCS_COMPACTOR_MAX_CONTEXT_TOKENS=48000`, `TCS_COMPACTOR_RESERVE_TOKENS=16000`), bounded iteration budgets (Turns 1..8 Standard $\to$ Overtime Gate $\ge 0.35$ $\to$ Turns 9..12 Overtime $\to$ Forced Emission), in-the-loop adversarial auditing with score-gated repair routing (Surgical Repair for validity $\ge 0.40$, Early Acceptance for $\ge 0.70$), automated **anti-perseveration reductive pivots** (forcibly purging refuted mathematical premises from memory when an approach collapses), and **granular JSON checkpointing** (`checkpoints/*.ckpt.json`) that allows human researchers to inspect partial proofs on open problems, pause loss-free via SIGINT, and resume anytime with zero wasted compute.
 
 📄 **Technical Papers & Deep Dives:**
+- **The Art of Bounded Reasoning (Medium Deep-Dive):** [`docs/articles/stop-thinking-forever-the-architecture-of-bounded-mathematical-reasoning.md`](docs/articles/stop-thinking-forever-the-architecture-of-bounded-mathematical-reasoning.md) (Why unconstrained reasoning models loop into multi-day black holes, how configurable constraints and reductive pivots force convergence, and orchestrating human-in-the-loop oversight on open research problems)
 - **Taming the Reasoners Benchmark Article:** [`docs/articles/taming-the-reasoners-qwen-muse-flash-benchmark.md`](docs/articles/taming-the-reasoners-qwen-muse-flash-benchmark.md) (Empirical reasoning dynamics, token expenditure, and harness governance across Qwen-3.8-27B, Meta Muse 1.3, and Gemini 3.8 Flash)
 - **The Second Generation of Agent Harnesses:** [`docs/articles/the-second-generation-of-agent-harnesses.md`](docs/articles/the-second-generation-of-agent-harnesses.md) (Why frontier mathematical reasoning demands cognitive architecture, the data flywheel, and self-pruning procedural memory)
 - **Frontier Physics Deep Dive:** [`docs/articles/from-spacetime-thermodynamics-to-open-quantum-horizons.md`](docs/articles/from-spacetime-thermodynamics-to-open-quantum-horizons.md) (Autonomous discovery, Casini/Wall/Bousso QNEC heuristics, and solving open AQFT horizon problems)
@@ -110,6 +112,10 @@ Evaluated across mathematical physics and Algebraic Quantum Field Theory (AQFT) 
 | Deterministic Kernel | (`kernel.py`, `prover_kernel.py`| `holds_on_samples`, Rule 11     |
 | & State Machine      |  `math_tools.py`,               | ceilings, `MathStateMachine`    |
 |                      |  `state_machine.py`)            | fragile invariant revocation    |
++----------------------+---------------------------------+---------------------------------+
+| Pillar III: Bounded  | Compactor & Governance Engine   | Context token leashes (48k/16k),|
+| Constraint & HITL    | (`compactor.py`, `prover.py`,   | 8+4 turn budgets, overtime gate |
+| Governance Engine    |  `prover_auditor.py`, `judging`)| (>=0.35), reductive pivot, ckpt|
 +----------------------+---------------------------------+---------------------------------+
 | Flagship Theorem     | MathProver (7 Cognitive Roles)  | Turn-1 Proof Ban, Blueprint     |
 | Prover (`prove`)     | (`prover.py`, `prover_stages.py`| Quarantine, 4-Msg Blackboard,   |
@@ -222,6 +228,77 @@ A deterministic execution kernel is the foundation for agentic math solving. Pro
 - **Hereditary Properties**: Preserved under sub-object restriction (`bipartite`, `planar`, `forest`, `acyclic`, `measurable`, `bounded_support`, `hermitian`, `positive_semidefinite`, `abelian`).
 - **Fragile Properties**: Automatically **revoked** upon `state.derive(..., via=...)` under `conditioning`, `subgraph`, `projection`, `quotient`, `limit`, or `perturbation` (`independent`, `mutually_independent`, `martingale`, `connected`, `regular`, `invertible`, `positive_definite`).
 - **Epistemic Scribe Gate**: Blocks handoff to the Publication Scribe if any active object has undischarged revoked properties without an explicit invariance witness (`state.assert_property(..., witness=...)`).
+
+---
+
+## ⏱️ Pillar III: The Configurable Bounded Constraint & Human-in-the-Loop Governance Engine
+
+Unconstrained frontier reasoning models given hard, unsolved mathematical problems do not naturally converge; they fall into **cognitive perseveration**—burning hundreds of thousands of tokens debating the same flawed lemma, thrashing context windows, and disappearing into multi-day black holes. 
+
+Proof-Harness treats mathematical reasoning as a **strictly bounded, resource-governed adversarial search**. Rather than permitting indefinite self-debate, the harness wraps the reasoning engine in configurable spatial, temporal, epistemic, and human-in-the-loop control surfaces:
+
+```text
++========================================================================================+
+|                       BOUNDED CONSTRAINT & GOVERNANCE SUBSTRATE                        |
++========================================================================================+
+| 1. Spatial Bounds    | Dual-Buffer Token Compactor                                     |
+|    (Context Leash)   | • TCS_COMPACTOR_MAX_CONTEXT_TOKENS (48,000 tokens)              |
+|                      | • TCS_COMPACTOR_RESERVE_TOKENS     (16,000 tokens)              |
+|                      | Epistemic extraction: compacts scratchpads, preserves lemmas    |
++----------------------+-----------------------------------------------------------------+
+| 2. Temporal Bounds   | Tiered Iteration & Overtime Gates                               |
+|    (Turn Budgets)    | • Standard Iterations: Turns 1..8 (TCS_SOLVER_MAX_ITERATIONS=8) |
+|                      | • Overtime Gate: Requires Validity >= 0.35 at Turn 8            |
+|                      | • Overtime Runway: Turns 9..12 (TCS_OVERTIME_ITERATIONS=4)      |
+|                      | • Hard Forced Termination at Turn 12 (cuts compute losses)      |
++----------------------+-----------------------------------------------------------------+
+| 3. Epistemic Bounds  | Dual-Tier In-Loop Auditor & Score-Gated Routing                 |
+|    (Referee Tiers)   | • Validity < 0.40  ──► Structural Defect Reprimand              |
+|                      | • 0.40 <= v < 0.70 ──► Surgical Repair Mode (Preserves Lemmas)  |
+|                      | • Validity >= 0.70 ──► Early Certified Exit (Auditor: VALID)    |
+|                      | • External TCS Judge: Zero-trust k=3 replicate evaluation       |
++----------------------+-----------------------------------------------------------------+
+| 4. Cognitive Bounds  | Mandatory Reductive Pivot (Anti-Perseveration Engine)           |
+|    (Anti-Looping)    | Purges refuted premises & kernel variables from MathStateMachine|
+|                      | when an approach is disproved, forcing an orthogonal route      |
++----------------------+-----------------------------------------------------------------+
+| 5. Human-in-the-Loop | Granular JSON Checkpointing (`checkpoints/*.ckpt.json`)         |
+|    (Observability)   | Loss-free SIGINT pause, interim proof validation, instant resume|
++========================================================================================+
+```
+
+### 1. Spatial Boundaries: Dual-Buffer Context Compaction (`compactor.py`)
+To prevent the U-shaped attention dip and eliminate mid-derivation truncation (`finish_reason='length'`), Proof-Harness implements an asymmetric dual-buffer context leash:
+- **Active Context Ceiling (`TCS_COMPACTOR_MAX_CONTEXT_TOKENS=48000`)**: Hard ceiling on total conversation history.
+- **Synthesis Reserve Buffer (`TCS_COMPACTOR_RESERVE_TOKENS=16000`)**: Strictly partitioned token reserve guaranteeing that the model always has sufficient token headroom to output complete, unclipped publication-grade proofs.
+- **Epistemic Extraction**: When compaction triggers, the compactor never blindly drops tokens. It preserves the original problem prompt verbatim, retains verified invariants from `MathStateMachine`, preserves the last 2 active turns (`TCS_COMPACTOR_KEEP_RECENT_TURNS=2`), and compresses earlier exploratory scratchpads into dense, symbolic lemmas.
+
+### 2. Temporal Boundaries: Turn Budgets & The Overtime Gate
+Problems are tackled across a staged tournament architecture:
+1. **Standard Solving (Turns 1..8)**: The model explores lemma structures, registers objects in the kernel, and formulates candidate proofs.
+2. **Turn 8 Evaluation & Overtime Gate (`TCS_OVERTIME_VALIDITY_THRESHOLD=0.35`)**:
+   - If validity is **$< 0.35$**, the model is mathematically lost. The harness halts execution, cuts compute losses, submits the best candidate, and advances to the next task.
+   - If validity is **$\ge 0.35$**, the foundational approach is viable. The harness unlocks **Overtime (Turns 9..12)**, granting up to 4 additional turns to repair isolated defects.
+3. **Hard Forced Termination (Turn 12)**: Even in overtime, execution is strictly capped at Turn 12, guaranteeing that no problem can ever trap the cluster in a multi-day run.
+
+### 3. Epistemic Boundaries: Dual-Tier Referee Architecture
+Proof-Harness completely rejects "LLM Self-Correction" in favor of an airgapped, dual-tier referee hierarchy:
+- **Tier 1: In-Loop Adversarial Auditor (`prover_auditor.py`)**: Runs after every candidate proof draft in an isolated execution sandbox.
+  - **Surgical Repair Routing ($\ge 0.40$)**: If validity reaches 0.40, the harness activates `Modular Lemma Immutability`. It instructs the model: *"Your previous draft achieved strong validity (0.45). Do NOT rewrite the proof. Make targeted, surgical repairs directly to the specific defect flagged."*
+  - **Early Exit ($\ge 0.70$)**: If validity reaches certified sound threshold (`TCS_AUDITOR_VALIDITY_THRESHOLD=0.70`), the proof is accepted immediately (`Auditor: VALID`), terminating iterations early.
+- **Tier 2: External Benchmark Judge (`core_engine/judging/`)**: Evaluates final submissions across **3 independent replicates ($k=3$)** under strict benchmark criteria ($\ge 0.50$ for Certified Sound Pass, $\ge 0.40$ for Directionally Sound), eliminating internal evaluator bias.
+
+### 4. Psychological Boundaries: The Mandatory Reductive Pivot
+When an approach hits a fatal mathematical refutation (e.g. an AST boundary counterexample or invalid probability exponent), models naturally perseverate. Proof-Harness breaks this through an automated **Reductive Pivot**:
+- Detects repeated local revisions failing to resolve core referee objections (validity $\le 0.25$).
+- **Epistemic Purge**: Forcibly wipes all refuted variables, subgoals, and lemmas associated with that reduction from `MathStateMachine`.
+- **Cognitive Quarantine**: Injects explicit `BANNED PREMISES / REFUTED ROUTES` into the cognitive blackboard, mathematically forbidding the model from attempting to rescue the flawed premise and compelling an orthogonal proof trajectory.
+
+### 5. Human-in-the-Loop (HITL) Observability & Checkpoint Resumption
+Built specifically to empower human mathematicians collaborating on open research conjectures:
+- **Granular JSON Checkpoints**: Written after every turn to `checkpoints/{task_id}.ckpt.json`, capturing active stage, turn index, registered invariants, prior auditor defects, and full message history.
+- **Loss-Free Interruption**: Human operators can pause a multi-worker pipeline at any moment via standard `SIGINT` (`Ctrl+C`). Running processes complete atomic writes and suspend gracefully.
+- **Instant Checkpoint Resumption**: When relaunched with `--resume-all` or `--skip-passed-only`, the pipeline checks `judgments/` and `tasks/` to skip finished problems instantly without consuming tokens, detects active checkpoints, and emits `>>> Resumed from checkpoint at stage='exploration', turn=X/8`—resuming mid-turn with **100% zero lost progress**.
 
 ---
 

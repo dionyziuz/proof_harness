@@ -116,9 +116,9 @@ class FastComposerConfig:
 
 @dataclass
 class PrimeMathConfig:
-    base_url: str = "http://127.0.0.1:8000/v1"
-    api_key: str = ""  # from PRIME_MATH_API_KEY / TUNNEL_API_KEY (.env)
-    model: str = "default"
+    base_url: str = "http://127.0.0.1:8091/v1"
+    api_key: str = "agy-local-key"  # default to local agy wrapper
+    model: str = "gemini-3.8-flash-high"
     timeout_seconds: float = 240.0
     max_tokens: int = 65536
     temperature: float = 0.7
@@ -205,22 +205,9 @@ def load_config(
                 if models and isinstance(models, list):
                     cfg.fast_composer.model = models[0].get("id", "default")
 
-            # Primary Orchestrator (OpenAI-compatible vLLM / thinking endpoint)
-            tunnel_info = providers.get("tunnel", {})
-            if tunnel_info:
-                if "baseUrl" in tunnel_info:
-                    cfg.base_url = tunnel_info["baseUrl"]
-                if "apiKey" in tunnel_info:
-                    cfg.api_key = tunnel_info["apiKey"]
-                models = tunnel_info.get("models", [])
-                if models and isinstance(models, list):
-                    cfg.model = models[0].get("id", "default")
-                    if "maxTokens" in models[0]:
-                        cfg.max_tokens = int(models[0]["maxTokens"])
-                    if "contextWindow" in models[0]:
-                        cfg.max_context_window = int(models[0]["contextWindow"])
+            # NOTE: Never silently fall back to external tunnels.
+            # Base URL and model must strictly come from .env / environment variables.
         except Exception:
-            # Fallback to defaults gracefully
             pass
 
     # 2. Environment variable overrides take highest priority

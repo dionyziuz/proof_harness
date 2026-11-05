@@ -227,6 +227,11 @@ def _raise_http_error(response: httpx.Response) -> None:
     try:
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
+        if response.status_code == 404:
+            raise RuntimeError(
+                f"FATAL: Model not found or invalid endpoint (HTTP 404): {body[:500]}. "
+                "Silent fallbacks are strictly prohibited. Please verify that the requested model is registered on the active endpoint."
+            ) from exc
         if response.status_code == 400 and is_context_overflow_message(body):
             raise ContextOverflowError(
                 f"HTTP 400 context overflow: {body[:1000]}", status_code=400, body=body, response=response
