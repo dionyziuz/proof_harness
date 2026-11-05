@@ -98,7 +98,55 @@ Let's dissect each mechanism.
 
 ---
 
-## 3. Spatial & Cognitive Token Bounds: Compaction Leashes & Thinking Budgets
+## 3. The Cognitive Assembly Line: Seven-Role Cognitive Partitioning
+
+Why does a single monolithic prompt fail on research-level mathematics?
+
+In Google DeepMind's [*Towards Autonomous Mathematics Research*](https://arxiv.org/abs/2602.10177), researchers recognized that unassisted models cannot simultaneously generate and verify complex proofs. Aletheia addressed this by decoupling the process into three subagents: a *Generator*, *Verifier*, and *Reviser*.
+
+Proof-Harness takes cognitive decoupling to its full neuro-symbolic maturity. A central hypothesis of our architecture is that **exploratory mathematical scratchwork, adversarial falsification, and formal academic typesetting require mutually incompatible attention distributions**:
+* **The Explorer** needs broad, speculative attention to map the problem space and test edge cases.
+* **The Skeptic** needs ruthless, adversarial focus looking specifically for counterexamples.
+* **The Scribe** needs structured, clean focus to produce backward critical-path proofs without rambling side-tracks.
+
+When an agent attempts all three tasks within a single conversational context, attention bleeds across roles: the scribe inherits the unverified conjectures of the explorer, while the skeptic falls victim to the confirmation bias of the author.
+
+Proof-Harness eliminates this interference through **Seven-Role Cognitive Partitioning** (`core_engine/prover.py`):
+
+```mermaid
+flowchart TD
+    Task["Target Theorem Task\n(Context & Statement)"] --> S1["1. Context Architect\n(Blueprint Quarantine)"]
+    S1 -->|"Unverified Blueprint\n+ State Seeds"| S2["2. Pre-Flight Falsifier\n(Pre-Turn Python Tests)"]
+    S2 -->|"Verified Facts\n+ Warning Flags"| S3["3. Deductive Logician\n(Turn-1 Proof Ban + REPL)"]
+    
+    S3 -->|"Emits [CLAIM] Invariant"| S4["4. Adversarial Skeptic\n(Isolated Context Sandbox)"]
+    S4 -->|"VERIFIED"| Rec["Commit Lemma to State"]
+    S4 -->|"REFUTED"| Roll["Rollback to Pre-Claim State"]
+    Rec --> S3
+    Roll --> S3
+
+    S3 -->|"[ALL CLAIMS ESTABLISHED]\n+ Epistemic Gate"| S5["5. Publication Scribe\n(Critical-Path Pruning)"]
+    S5 -->|"Candidate LaTeX Proof"| S6["6. Multi-Stage Proof Auditor\n(AuditorKernel + Referee Gates)"]
+    
+    S6 -->|"Validity >= 0.70\nor Max Turns"| PoolOut["CandidatePool Best Proof"]
+    S6 -->|"REJECT / Validity < 0.70"| S7["7. Dynamic Critique Falsifier\n(Empirical Stress-Test)"]
+    S7 -->|"Surgical Repair or Clean-Slate Pivot"| S3
+    PoolOut --> ExtJudge["External Zero-Trust TCS Judge\n(k=3 Independent Replicates)"]
+```
+
+### The Seven Cognitive Roles in Action
+
+1. **Context Architect (`tcs_architect`)**: Decomposes the dense arXiv paper context, extracts relevant definitions and precursor lemmas, and seeds initial objects into the `MathStateMachine`. Under the **Blueprint Quarantine Rule**, the Architect's plan is treated as an unverified conjectural sketch—if a later Python check falsifies an intermediate bound, the solver is mathematically forbidden from restricting the theorem's target domain to rescue the sketch.
+2. **Pre-Flight Computational Falsifier (`tcs_verifier`)**: Runs automated verification scripts in the Python kernel *before Turn 1 begins*, establishing baseline invariants and emitting explicit falsification warnings if a naive approach has obvious counterexamples.
+3. **Deductive Logician (`prime_math`)**: The core deductive engine. Governed by the **Turn-1 Proof Ban**, the Logician is strictly prohibited from emitting `\begin{proof}` on Turn 1; it must spend its opening turn exploring the problem space in the REPL and proposing formal `[CLAIM]` invariants.
+4. **Adversarial Skeptic (`tcs_skeptic`)**: Whenever the Logician emits a `[CLAIM]`, execution pauses. The Skeptic spins up in an airgapped context window to aggressively hunt for counterexamples. If an invariant fails, the state machine rolls back to the pre-claim checkpoint; only verified claims are recorded into the lemma ledger.
+5. **Publication Scribe (`tcs_scribe`)**: Operates in an isolated context window with dedicated thinking allocations. The Scribe ingests the verified lemma ledger and writes the formal LaTeX proof using **backward critical-path pruning**—deliberately purging dead exploratory side-tracks and failed scratchpads so the referee receives an immaculate, self-contained academic paper.
+6. **Multi-Stage Proof Auditor (`prover_auditor.py`)**: Runs an ephemeral, 5-layer audit (AuditorKernel execution, domain restriction checks, prior defect tracking, structured academic referee rubrics, and second-opinion confirmation).
+7. **Dynamic Critique Falsifier**: Translates the auditor's rejection critique into an executable Python stress-test, empirically confirming whether the referee's objection is valid before routing the solver into surgical repair or a clean-slate pivot.
+
+---
+
+## 4. Spatial & Cognitive Token Bounds: Compaction Leashes & Thinking Budgets
 
 The first boundary is spatial and computational: managing both the conversation context window and the internal reasoning token stream.
 
@@ -136,7 +184,7 @@ The model gets infinite conceptual runway without ever hitting a hard context wa
 
 ---
 
-## 4. The Iteration Funnel: Configurable Turn Budgets & The Overtime Gate
+## 5. The Iteration Funnel: Configurable Turn Budgets & The Overtime Gate
 
 The second boundary is temporal: how many turns and seconds does an agent get before the system halts?
 
@@ -190,7 +238,7 @@ In automated discovery, **knowing when to admit failure is a superpower**:
 
 ---
 
-## 5. Dual-Tier Referee Architecture: Decoupled Auditing vs. Zero-Trust Judging
+## 6. Dual-Tier Referee Architecture: Decoupled Auditing vs. Zero-Trust Judging
 
 In Section 2.2 of [*Towards Autonomous Mathematics Research*](https://arxiv.org/abs/2602.10177), Google DeepMind formalized the core design principle behind their Aletheia agent:
 > *"Decoupling a reasoning model’s final output from its intermediate thinking tokens, and adding well-chosen prompt scaffolding, enables the model to recognize flaws it initially overlooked during generation."*
@@ -219,7 +267,7 @@ This dual-tier separation ensures that the internal auditor acts as a coaching r
 
 ---
 
-## 6. Cognitive Anti-Perseveration: The Mandatory Reductive Pivot
+## 7. Cognitive Anti-Perseveration: The Mandatory Reductive Pivot
 
 What happens when an agent gets stuck?
 
@@ -250,7 +298,7 @@ It is the algorithmic equivalent of a senior research advisor taking away a stud
 
 ---
 
-## 7. Human-in-the-Loop (HITL): Iterative Problem Refinement & Compounding Heuristics
+## 8. Human-in-the-Loop (HITL): Iterative Problem Refinement & Compounding Heuristics
 
 Automated theorem proving is not just for automated benchmarks; it is built for **open research frontiers**. 
 
@@ -316,7 +364,7 @@ Supporting this iterative cycle are robust operational guarantees:
 
 ---
 
-## 8. Real-World Case Studies from the Benchmark Trenches
+## 9. Real-World Case Studies from the Benchmark Trenches
 
 Does this bounded constraint architecture actually work in practice? The empirical data from our 300-problem TCS-Bench runs provides a resounding answer. While our [companion empirical benchmark study](taming-the-reasoners-qwen-muse-flash-benchmark.md) provides the macro-level comparisons of model cognitive personalities, token velocities, and cost curves across all 300 tasks, individual problem trajectories highlight the micro-mechanics of bounded constraints in action.
 
