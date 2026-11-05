@@ -62,22 +62,26 @@ To break this cycle, Proof-Harness acts as an external scaffolding layer. By str
 
 ## 2. Pillar III: The Bounded Constraint Architecture
 
-The Proof-Harness governance substrate operates across five deeply integrated control surfaces:
+The Proof-Harness governance substrate operates across five deeply integrated control surfaces. 
+
+> [!NOTE]
+> **Empirical Defaults, Not Rigid Dogma**: The numerical thresholds below represent reference calibrations established during our benchmark runs (e.g. across Qwen-27B, Meta Muse, and Gemini Flash on consumer APU and GPU setups). Every boundary in Proof-Harness is externalized and fully tunable—practitioners can and should fine-tune these parameters to match their chosen model's cognitive verbosity, context window, and compute budget.
 
 ```text
 +========================================================================================+
 |                       BOUNDED CONSTRAINT & GOVERNANCE SUBSTRATE                        |
+|        (Reference Calibrations; Fully Tunable via .env & Command-Line Flags)           |
 +========================================================================================+
 | 1. Spatial & Token   | Dual-Buffer Context Compactor & Thinking Token Budgets:         |
-|    Boundaries        |   • 48k–60k Active Context Ceiling (compactor.py)               |
-|                      |   • 16k Partitioned Synthesis Reserve Buffer                    |
-|                      |   • Configurable Thinking Budget (PROVER_THINKING_BUDGET)       |
+|    Boundaries        |   • Active Context Ceiling (Ref: 48k–60k tokens, compactor.py)  |
+|                      |   • Partitioned Synthesis Reserve Buffer (Ref: 16k tokens)      |
+|                      |   • Tunable Thinking Budget (PROVER_THINKING_BUDGET)            |
 |                      | Prevents context degradation, truncation & runaway reasoning    |
 +----------------------+-----------------------------------------------------------------+
-| 2. Iteration Budgets | Configurable Standard Iterations (PROVER_MAX_ITERATIONS=8)      |
-|    & Overtime Gates  | Configurable Overtime Runway (PROVER_OVERTIME_ITERATIONS=4)     |
-|                      | Overtime Gate: Validity >= 0.35 required to enter Turns 9..12   |
-|                      | Configurable Timeout Ceiling (PROVER_TIMEOUT_SECONDS=3600s)     |
+| 2. Iteration Budgets | Configurable Standard Iterations (Ref: PROVER_MAX_ITERATIONS=8) |
+|    & Overtime Gates  | Configurable Overtime Runway (Ref: PROVER_OVERTIME_ITERATIONS=4)|
+|                      | Overtime Gate: Validity >= 0.35 required to enter Overtime      |
+|                      | Configurable Timeout Ceiling (Ref: PROVER_TIMEOUT_SECONDS=3600s)|
 |                      | Stops dead-end problems from running for days                   |
 +----------------------+-----------------------------------------------------------------+
 | 3. In-Loop Auditing  | Adversarial Auditor (Ephemeral Kernel)                          |
@@ -154,30 +158,38 @@ Modern reasoning models support 32k, 64k, or 128k context windows, but context d
 1. **The U-Shaped Attention Dip**: Crucial preconditions stated in the original problem prompt get "lost in the middle."
 2. **Mid-Derivation Truncation (`finish_reason='length'`)**: The model consumes all available tokens during intermediate thinking or turns, hitting a hard wall right as it drafts the final proof step. The external judge sees an unclosed bracket or unfinished sentence and awards a zero.
 
-Proof-Harness solves this through **externalized spatial compaction** (`compactor.py`) paired with **configurable thinking token budgets** (`llm_client.py`, `core_engine/config.py`):
+Proof-Harness solves this through **externalized spatial compaction** (`compactor.py`) paired with **configurable thinking token budgets** (`llm_client.py`, `core_engine/config.py`). 
+
+> [!TIP]
+> **Tuning to Your Model's Cognitive Persona**: The parameters below are **empirical reference configurations**, not rigid dogmatic truth. For example, a lightweight, concise model (such as Gemini 3.8 Flash) operates effectively with a lean thinking budget of 2,048–4,096 tokens and a 32,000-token context ceiling. Conversely, a large, highly verbose open-weights reasoner (such as Qwen-2.5-32B or DeepSeek-R1) thrives when given a 24k–48k thinking budget and a 64k+ context ceiling. Proof-Harness externalizes every parameter so you can tune them directly to your hardware, API pricing, and model verbosity:
 
 ```bash
+# ==============================================================================
+# Reference Configuration (.env or CLI flags)
+# Calibrated defaults used in our empirical runs; fully tunable to your model & budget:
+# ==============================================================================
+
 # Spatial Context Compaction Leash (compactor.py)
-PROVER_COMPACTOR_MAX_CONTEXT_TOKENS=48000   # Active conversation history ceiling
+PROVER_COMPACTOR_MAX_CONTEXT_TOKENS=48000   # Reference conversation ceiling (tune: 16k–128k+)
 PROVER_COMPACTOR_RESERVE_TOKENS=16000       # Partitioned reserve buffer for proof synthesis
 PROVER_COMPACTOR_KEEP_RECENT_TURNS=2        # Full verbatim preservation of recent turns
 
 # Cognitive Thinking Token Budgets (llm_client.py / config.py)
 PROVER_ENABLE_THINKING=true                 # Activates reasoning token streams
-PROVER_THINKING_BUDGET=24576                # Enforces bounded reasoning trace (e.g. 32768 for Qwen)
+PROVER_THINKING_BUDGET=24576                # Reference reasoning trace budget (tune: 2k–64k)
 PROVER_SCRIBE_THINKING_BUDGET=16384         # Partitioned budget for final LaTeX synthesis
 PROVER_AUDITOR_THINKING_BUDGET=12288        # Dedicated thinking budget for adversarial referee
 ```
 
 ### 1. The Spatial Context Leash (`compactor.py`)
 Instead of letting context accumulate monotonically:
-* The active context is hard-capped at **48,000 tokens** (configurable up to 60,000).
-* A guaranteed **16,000-token reserve buffer** is strictly partitioned for the final proof generation and synthesis stage.
+* In our baseline benchmark runs, the active context is leashed at a reference ceiling of **48,000 tokens** (fully tunable from 16k to 128k+ depending on your model's effective attention span).
+* A guaranteed **16,000-token reserve buffer** (also configurable) is strictly partitioned for the final proof generation and synthesis stage.
 * When the reasoning trace exceeds the boundary, the compactor executes an **epistemic extraction**: it preserves the original problem prompt verbatim, preserves all verified invariants in the `MathStateMachine`, retains the last 2 recent turns, and compacts earlier exploratory turns into a dense, symbolic summary of proved lemmas and refuted paths.
 
 ### 2. Cognitive Thinking Token Budgets (`llm_client.py`)
 Reasoning models generate internal chain-of-thought tokens before emitting user-visible text. Without an enforced ceiling, verbose models can get lost in recursive self-debate, consuming their entire token allowance before writing a single line of proof.
-* By externalizing `PROVER_THINKING_BUDGET=24576` (or `32768` for verbose reasoners), the harness disciplines the model's internal exploration per step.
+* By externalizing `PROVER_THINKING_BUDGET=24576` as a tunable knob, the harness disciplines the model's internal exploration per step. Practitioners can set this lower for concise models or expand it for massive reasoning engines.
 * Specialized subagents receive role-tailored thinking budgets—ensuring the Scribe has ample room for rigorous LaTeX derivation while the Auditor has focused compute for line-by-line verification.
 
 The model gets infinite conceptual runway without ever hitting a hard context wall or starving the completion buffer.
@@ -188,14 +200,17 @@ The model gets infinite conceptual runway without ever hitting a hard context wa
 
 The second boundary is temporal: how many turns and seconds does an agent get before the system halts?
 
-In Proof-Harness, problem-solving is fully parameterized rather than hard-coded:
+In Proof-Harness, problem-solving is treated not as a rigid, unbending mandate, but as a **fully parameterized search tournament** that can be scaled to problem difficulty and compute resources:
 
 ```bash
+# ==============================================================================
 # Temporal Iteration Budgets & Overtime Controls (config.py)
-PROVER_MAX_ITERATIONS=8                     # Base turn ceiling (CLI: --max-iterations / PROVER_MAX_TURNS)
+# Reference tournament calibration; fully tunable per problem domain:
+# ==============================================================================
+PROVER_MAX_ITERATIONS=8                     # Reference turn ceiling (CLI: --max-iterations / PROVER_MAX_TURNS)
 PROVER_ENABLE_OVERTIME=true                 # Enables high-potential overtime rescue
 PROVER_OVERTIME_ITERATIONS=4                # Additional overtime turns (Turns 9..12)
-PROVER_OVERTIME_VALIDITY_THRESHOLD=0.35     # Minimum auditor score required at Turn 8
+PROVER_OVERTIME_VALIDITY_THRESHOLD=0.35     # Minimum auditor score required to qualify for overtime
 PROVER_TIMEOUT_SECONDS=3600.0               # Hard wall-clock timeout ceiling per problem
 ```
 
@@ -206,7 +221,7 @@ Solving is structured as a **staged tournament**:
         │
         ▼
 ┌────────────────────────────────────────────────────────┐
-│ STANDARD SOLVER: Turns 1 through 8                    │
+│ STANDARD SOLVER: Turns 1 through 8 (Configurable)      │
 │   • Turn 1: Zero-Shot / Exploration (No proof emitted) │
 │   • Turns 2..7: REPL testing, lemma building           │
 │   • Turn 8: Mandatory Candidate Proof Synthesis        │
@@ -227,12 +242,15 @@ Solving is structured as a **staged tournament**:
 └─────────────────────────┘         └──────────────────────────────┘
 ```
 
+> [!NOTE]
+> **Scaling Iterations to the Problem Horizon**: While our standard competitive benchmark evaluation calibrated `PROVER_MAX_ITERATIONS=8` with a 4-turn overtime runway, this is a flexible tournament structure. For rapid triage or simpler problem sets, 3 to 5 turns are often sufficient. Conversely, when researchers deploy the harness on open-frontier conjectures, they frequently scale turn budgets to 20, 50, or even 100 turns, relying on JSON checkpoints and intermediate auditor checkpoints to monitor long-horizon progress.
+
 Why is the **Overtime Gate (`PROVER_OVERTIME_VALIDITY_THRESHOLD=0.35`)** so crucial?
 
 In automated discovery, **knowing when to admit failure is a superpower**:
 Across hundreds of open conjectures, an unconstrained model forced to guess on every problem produces predominantly flawed derivations—often hallucinating subtle algebraic leaps to satisfy the prompt. However, when a harness equips the system with the ability to **halt and admit failure**, conditional accuracy on the answered subset jumps dramatically.
-* Empirically, if an AI agent has spent 8 multi-thousand-token iterations on a theorem and cannot even achieve a directional validity score of **0.35**, the probability of it magically discovering a sound proof in turns 9 through 12 is less than **2%**. 
-* Allowing an unguided agent to keep guessing past Turn 8 on a completely broken foundation is pure compute waste. The harness **cuts its losses immediately**, submits the best effort to the referee, and moves to the next problem.
+* In our benchmark calibration, if an AI agent has spent 8 multi-thousand-token iterations on a theorem and cannot even achieve a directional validity score of **0.35**, the probability of it magically discovering a sound proof in turns 9 through 12 is less than **2%**. (Users tackling different mathematical domains can fine-tune `PROVER_OVERTIME_VALIDITY_THRESHOLD`—for instance, lowering it to 0.20 for highly speculative, non-linear conjectures, or raising it to 0.50 for high-precision verification pipelines).
+* Allowing an unguided agent to keep guessing past the base budget on a completely broken foundation is pure compute waste. The harness **cuts its losses immediately**, submits the best effort to the referee, and moves to the next problem.
 * Conversely, if the candidate achieves **0.45 validity** at Turn 8, the harness recognizes that the core architecture of the proof is sound and only specific lemmas or constants are flawed. It unlocks **Turns 9 through 12 (Overtime)**, providing the extra runway needed to land the proof.
 
 ---

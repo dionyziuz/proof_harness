@@ -206,7 +206,7 @@ How many turns does it take to solve a research problem, and how long do you hav
 ### 1. Qwen-3.8-27B: The Diligent Scribe (The Necessity of Thinking Budgets)
 * **The Shared Token Dilemma**: In open-weights autoregressive reasoning models, thinking and generation share a single output stream (`<think> ... </think> \begin{proof} ... \end{proof}`).
 * **The Overthinking Trap**: Without an explicit architectural boundary, an open-weights model will spend excessive tokens debating intermediate lemmas, risking context exhaustion before the formal LaTeX proof is fully generated.
-* **The Budgeted Thinking Architecture**: By establishing a strict ceiling (`TCS_SOLVER_THINKING_BUDGET=32768`), the harness enforces a clean partition: exactly 32k tokens dedicated to internal scratchwork, reserving a guaranteed 32k tokens for LaTeX proof generation.
+* **The Budgeted Thinking Architecture**: By establishing a calibrated thinking ceiling (`PROVER_THINKING_BUDGET=32768`, tunable via configuration), the harness enforces a clean partition: dedicating up to 32k tokens to internal scratchwork while guaranteeing ample token headroom for publication-grade LaTeX proof generation.
 * **The Empirical Return**: This budgeted architecture achieves **38 certified passes in 1-shot (12.67%)**, writes exhaustive **39,000-character proofs**, and powers the multi-turn escalation to **~31%+ certified accuracy**.
 
 ### 2. Meta Muse 1.3: The Deep Diver (Why It Demands an Adaptive Backoff Ladder)
