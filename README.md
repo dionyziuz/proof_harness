@@ -9,7 +9,7 @@ Autonomous reasoning systems tackling research-level mathematics face three foun
 **Proof-Harness (`proof_harness`)** addresses all three challenges by combining **seven-role cognitive partitioning** with three foundational pillars:
 1. **The Zero-Trust Deterministic Mathematical Kernel Engine (`core_engine/kernel.py`, `core_engine/prover_kernel.py`, `core_engine/math_tools.py`, `core_engine/state_machine.py`)**: Dual-isolated, 3-layer airgapped symbolic and numerical execution kernels (`PersistentMathKernel` and ephemeral `AuditorKernel`) that provide **immediate accuracy and soundness verification**. Every claim is tested deterministically using **`SymPy`**, **`Z3`**, **50-digit `mpmath`**, **`NetworkX`**, specialized domain extensions (topology, planar duals, quantum CPTP channels, PSD operator inequalities), honest three-valued empirical semantics (`holds_on_samples`), Rule 11 anti-brute-force analytical ceilings (`guarded_range` ≤ 200,000), and a formal **Epistemic State Machine** (`MathStateMachine`) that automatically revokes fragile invariants under conditioning or restriction.
 2. **The CoALA Heuristics & Continuous Domain Learning Engine (`core_engine/memory.py`, `core_engine/heuristic_validation.py`, `core_engine/remediation.py`)**: A continual learning architecture grounded in *Cognitive Architectures for Language Agents* (CoALA) where the harness **learns by solving over time**—distilling verified universal strategies (Procedural Memory) and failure post-mortems (Episodic Memory) into role-isolated vector embeddings in vector memory, governed by automated heuristic validation and sanitization. As practitioners and researchers use the harness to prove theorems across vertical domains, the system compounds domain intelligence through vector embeddings—with zero LLM weight fine-tuning.
-3. **The Configurable Bounded Constraint & Human-in-the-Loop Governance Engine (`compactor.py`, `core_engine/prover.py`, `core_engine/prover_auditor.py`, `core_engine/judging/`)**: Mathematical reasoning is treated as a **strictly bounded, adversarial search under resource limits**. The harness prevents models from thinking indefinitely through configurable spatial token leashes (`TCS_COMPACTOR_MAX_CONTEXT_TOKENS=48000`, `TCS_COMPACTOR_RESERVE_TOKENS=16000`), bounded iteration budgets (Turns 1..8 Standard $\to$ Overtime Gate $\ge 0.35$ $\to$ Turns 9..12 Overtime $\to$ Forced Emission), in-the-loop adversarial auditing with score-gated repair routing (Surgical Repair for validity $\ge 0.40$, Early Acceptance for $\ge 0.70$), automated **anti-perseveration reductive pivots** (forcibly purging refuted mathematical premises from memory when an approach collapses), and **granular JSON checkpointing** (`checkpoints/*.ckpt.json`) that allows human researchers to inspect partial proofs on open problems, pause loss-free via SIGINT, and resume anytime with zero wasted compute.
+3. **The Configurable Bounded Constraint & Human-in-the-Loop Governance Engine (`compactor.py`, `core_engine/prover.py`, `core_engine/prover_auditor.py`, `core_engine/judging/`)**: Mathematical reasoning is treated as a **strictly bounded, adversarial search under resource limits**. The harness prevents models from thinking indefinitely through configurable spatial token leashes (`TCS_COMPACTOR_MAX_CONTEXT_TOKENS=48000`, `TCS_COMPACTOR_RESERVE_TOKENS=16000`), bounded cognitive thinking token budgets (`TCS_SOLVER_THINKING_BUDGET=24576`), configurable iteration budgets (`TCS_SOLVER_MAX_ITERATIONS=8`, Turns 1..8 Standard $\to$ Overtime Gate $\ge 0.35$ $\to$ Turns 9..12 Overtime $\to$ Forced Emission), in-the-loop adversarial auditing with score-gated repair routing (Surgical Repair for validity $\ge 0.40$, Early Acceptance for $\ge 0.70$), automated **anti-perseveration reductive pivots** (forcibly purging refuted mathematical premises from memory when an approach collapses), and **granular JSON checkpointing** (`checkpoints/*.ckpt.json`) that allows human researchers to inspect partial proofs on open problems, pause loss-free via SIGINT, and resume anytime with zero wasted compute.
 
 📄 **Technical Papers & Deep Dives:**
 - **The Art of Bounded Reasoning (Medium Deep-Dive):** [`docs/articles/stop-thinking-forever-the-architecture-of-bounded-mathematical-reasoning.md`](docs/articles/stop-thinking-forever-the-architecture-of-bounded-mathematical-reasoning.md) (Why unconstrained reasoning models loop into multi-day black holes, how configurable constraints and reductive pivots force convergence, and orchestrating human-in-the-loop oversight on open research problems)
@@ -241,15 +241,17 @@ Proof-Harness treats mathematical reasoning as a **strictly bounded, resource-go
 +========================================================================================+
 |                       BOUNDED CONSTRAINT & GOVERNANCE SUBSTRATE                        |
 +========================================================================================+
-| 1. Spatial Bounds    | Dual-Buffer Token Compactor                                     |
-|    (Context Leash)   | • TCS_COMPACTOR_MAX_CONTEXT_TOKENS (48,000 tokens)              |
+| 1. Spatial & Token   | Dual-Buffer Token Compactor & Thinking Token Budgets            |
+|    (Context Leash)   | • TCS_COMPACTOR_MAX_CONTEXT_TOKENS (48,000–60,000 tokens)       |
 |                      | • TCS_COMPACTOR_RESERVE_TOKENS     (16,000 tokens)              |
+|                      | • TCS_SOLVER_THINKING_BUDGET       (24,576–32,768 tokens)       |
 |                      | Epistemic extraction: compacts scratchpads, preserves lemmas    |
 +----------------------+-----------------------------------------------------------------+
 | 2. Temporal Bounds   | Tiered Iteration & Overtime Gates                               |
 |    (Turn Budgets)    | • Standard Iterations: Turns 1..8 (TCS_SOLVER_MAX_ITERATIONS=8) |
 |                      | • Overtime Gate: Requires Validity >= 0.35 at Turn 8            |
 |                      | • Overtime Runway: Turns 9..12 (TCS_OVERTIME_ITERATIONS=4)      |
+|                      | • Timeout Ceiling: TCS_SOLVER_TIMEOUT_SECONDS (3,600s)          |
 |                      | • Hard Forced Termination at Turn 12 (cuts compute losses)      |
 +----------------------+-----------------------------------------------------------------+
 | 3. Epistemic Bounds  | Dual-Tier In-Loop Auditor & Score-Gated Routing                 |
@@ -268,19 +270,20 @@ Proof-Harness treats mathematical reasoning as a **strictly bounded, resource-go
 +========================================================================================+
 ```
 
-### 1. Spatial Boundaries: Dual-Buffer Context Compaction (`compactor.py`)
-To prevent the U-shaped attention dip and eliminate mid-derivation truncation (`finish_reason='length'`), Proof-Harness implements an asymmetric dual-buffer context leash:
-- **Active Context Ceiling (`TCS_COMPACTOR_MAX_CONTEXT_TOKENS=48000`)**: Hard ceiling on total conversation history.
+### 1. Spatial & Token Boundaries: Dual-Buffer Context Compaction & Thinking Budgets
+To prevent the U-shaped attention dip, eliminate mid-derivation truncation (`finish_reason='length'`), and govern internal reasoning depth, Proof-Harness implements an asymmetric dual-buffer context leash and thinking token budgets:
+- **Active Context Ceiling (`TCS_COMPACTOR_MAX_CONTEXT_TOKENS=48000`)**: Hard ceiling on total conversation history (configurable up to 60,000).
 - **Synthesis Reserve Buffer (`TCS_COMPACTOR_RESERVE_TOKENS=16000`)**: Strictly partitioned token reserve guaranteeing that the model always has sufficient token headroom to output complete, unclipped publication-grade proofs.
+- **Thinking Token Budgets (`TCS_SOLVER_THINKING_BUDGET=24576`)**: Enforces bounded internal reasoning traces per turn, preventing verbose reasoners from getting trapped in endless internal monologues or starving completion tokens. Specialized subagents receive role-tailored allocations (`TCS_SCRIBE_THINKING_BUDGET=16384`, `TCS_AUDITOR_THINKING_BUDGET=12288`).
 - **Epistemic Extraction**: When compaction triggers, the compactor never blindly drops tokens. It preserves the original problem prompt verbatim, retains verified invariants from `MathStateMachine`, preserves the last 2 active turns (`TCS_COMPACTOR_KEEP_RECENT_TURNS=2`), and compresses earlier exploratory scratchpads into dense, symbolic lemmas.
 
-### 2. Temporal Boundaries: Turn Budgets & The Overtime Gate
+### 2. Temporal Boundaries: Configurable Turn Budgets & The Overtime Gate
 Problems are tackled across a staged tournament architecture:
-1. **Standard Solving (Turns 1..8)**: The model explores lemma structures, registers objects in the kernel, and formulates candidate proofs.
+1. **Standard Solving (Turns 1..8)**: Governed by `TCS_SOLVER_MAX_ITERATIONS=8` (configurable via `PROVER_MAX_TURNS` or `--max-iterations`). The model explores lemma structures, registers objects in the kernel, and formulates candidate proofs.
 2. **Turn 8 Evaluation & Overtime Gate (`TCS_OVERTIME_VALIDITY_THRESHOLD=0.35`)**:
    - If validity is **$< 0.35$**, the model is mathematically lost. The harness halts execution, cuts compute losses, submits the best candidate, and advances to the next task.
-   - If validity is **$\ge 0.35$**, the foundational approach is viable. The harness unlocks **Overtime (Turns 9..12)**, granting up to 4 additional turns to repair isolated defects.
-3. **Hard Forced Termination (Turn 12)**: Even in overtime, execution is strictly capped at Turn 12, guaranteeing that no problem can ever trap the cluster in a multi-day run.
+   - If validity is **$\ge 0.35$**, the foundational approach is viable. The harness unlocks **Overtime (Turns 9..12)** (`TCS_OVERTIME_ITERATIONS=4`), granting up to 4 additional turns to repair isolated defects.
+3. **Hard Forced Termination & Timeouts**: Even in overtime, execution is strictly capped at Turn 12 and `TCS_SOLVER_TIMEOUT_SECONDS=3600.0`, guaranteeing that no problem can ever trap the cluster in an unbounded multi-day loop.
 
 ### 3. Epistemic Boundaries: Dual-Tier Referee Architecture
 Proof-Harness completely rejects "LLM Self-Correction" in favor of an airgapped, dual-tier referee hierarchy:

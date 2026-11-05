@@ -64,12 +64,16 @@ The Proof-Harness governance substrate operates across five deeply integrated co
 +========================================================================================+
 |                       BOUNDED CONSTRAINT & GOVERNANCE SUBSTRATE                        |
 +========================================================================================+
-| 1. Token Leashes     | TCS_COMPACTOR_MAX_CONTEXT_TOKENS (48,000)                       |
-|    & Reserve Buffers | TCS_COMPACTOR_RESERVE_TOKENS     (16,000)                       |
-|                      | Prevents mid-derivation truncation & context blowouts           |
+| 1. Spatial & Token   | Dual-Buffer Context Compactor & Thinking Token Budgets:         |
+|    Boundaries        |   • 48k–60k Active Context Ceiling (compactor.py)               |
+|                      |   • 16k Partitioned Synthesis Reserve Buffer                    |
+|                      |   • Configurable Thinking Budget (TCS_SOLVER_THINKING_BUDGET)   |
+|                      | Prevents context degradation, truncation & runaway reasoning    |
 +----------------------+-----------------------------------------------------------------+
-| 2. Iteration Budgets | Standard Iterations: Turns 1..8                                 |
-|    & Overtime Gates  | Overtime Gate: Validity >= 0.35 required to enter Turns 9..12   |
+| 2. Iteration Budgets | Configurable Standard Iterations (TCS_SOLVER_MAX_ITERATIONS=8)  |
+|    & Overtime Gates  | Configurable Overtime Runway (TCS_OVERTIME_ITERATIONS=4)        |
+|                      | Overtime Gate: Validity >= 0.35 required to enter Turns 9..12   |
+|                      | Configurable Timeout Ceiling (TCS_SOLVER_TIMEOUT_SECONDS=3600s) |
 |                      | Stops dead-end problems from running for days                   |
 +----------------------+-----------------------------------------------------------------+
 | 3. In-Loop Auditing  | Adversarial Auditor (Ephemeral Kernel)                          |
@@ -80,8 +84,9 @@ The Proof-Harness governance substrate operates across five deeply integrated co
 | 4. Reductive Pivots  | Anti-Perseveration Engine: Purges refuted premises & kernel     |
 |    (Anti-Looping)    | variables if validity <= 0.25 across consecutive iterations     |
 +----------------------+-----------------------------------------------------------------+
-| 5. Human-in-the-Loop | Granular JSON Checkpoints (`checkpoints/*.ckpt.json`)           |
-|    State Persistence | Loss-free SIGINT pause, interim inspection, zero-loss resumption|
+| 5. Human-in-the-Loop | Iterative Problem Refinement & Compounding Heuristics           |
+|    Flywheel          | Bounded runs with score gates; human refines conjectures;       |
+|                      | vector memory & JSON checkpoints preserve compounding knowledge |
 +========================================================================================+
 ```
 
@@ -89,35 +94,60 @@ Let's dissect each mechanism.
 
 ---
 
-## 3. The Token Leash: Context Compaction without Information Loss
+## 3. Spatial & Cognitive Token Bounds: Compaction Leashes & Thinking Budgets
 
-The first boundary is spatial: the context window.
+The first boundary is spatial and computational: managing both the conversation context window and the internal reasoning token stream.
 
-Modern models support 32k, 64k, or 128k context windows, but context degradation is real. If the context window fills up with rambling intermediate scratchpad code, two disasters strike:
+Modern reasoning models support 32k, 64k, or 128k context windows, but context degradation and unconstrained thinking are twin risks. If intermediate scratchpads and rambling internal monologues accumulate unchecked, two disasters strike:
 1. **The U-Shaped Attention Dip**: Crucial preconditions stated in the original problem prompt get "lost in the middle."
-2. **Mid-Derivation Truncation (`finish_reason='length'`)**: The model hits the hard token ceiling right as it is typing the final proof step, causing an abrupt cutoff. The external judge sees an unclosed bracket or unfinished sentence and awards a zero.
+2. **Mid-Derivation Truncation (`finish_reason='length'`)**: The model consumes all available tokens during intermediate thinking or turns, hitting a hard wall right as it drafts the final proof step. The external judge sees an unclosed bracket or unfinished sentence and awards a zero.
 
-Proof-Harness solves this through **asymmetric dual-buffer context compaction** (`compactor.py`):
+Proof-Harness solves this through **externalized spatial compaction** (`compactor.py`) paired with **configurable thinking token budgets** (`llm_client.py`, `core_engine/tcs_config.py`):
+
 ```bash
-TCS_COMPACTOR_MAX_CONTEXT_TOKENS=48000
-TCS_COMPACTOR_RESERVE_TOKENS=16000
-TCS_COMPACTOR_KEEP_RECENT_TURNS=2
+# Spatial Context Compaction Leash (compactor.py)
+TCS_COMPACTOR_MAX_CONTEXT_TOKENS=48000   # Active conversation history ceiling
+TCS_COMPACTOR_RESERVE_TOKENS=16000       # Partitioned reserve buffer for proof synthesis
+TCS_COMPACTOR_KEEP_RECENT_TURNS=2        # Full verbatim preservation of recent turns
+
+# Cognitive Thinking Token Budgets (llm_client.py / tcs_config.py)
+TCS_SOLVER_ENABLE_THINKING=true          # Activates reasoning token streams
+TCS_SOLVER_THINKING_BUDGET=24576         # Enforces bounded reasoning trace (e.g. 32768 for Qwen)
+TCS_SCRIBE_THINKING_BUDGET=16384         # Partitioned budget for final LaTeX synthesis
+TCS_AUDITOR_THINKING_BUDGET=12288        # Dedicated thinking budget for adversarial referee
 ```
 
+### 1. The Spatial Context Leash (`compactor.py`)
 Instead of letting context accumulate monotonically:
-* The active context is hard-capped at **48,000 tokens**.
-* A guaranteed **16,000-token reserve buffer** is strictly walled off for the final proof generation and synthesis stage.
+* The active context is hard-capped at **48,000 tokens** (configurable up to 60,000).
+* A guaranteed **16,000-token reserve buffer** is strictly partitioned for the final proof generation and synthesis stage.
 * When the reasoning trace exceeds the boundary, the compactor executes an **epistemic extraction**: it preserves the original problem prompt verbatim, preserves all verified invariants in the `MathStateMachine`, retains the last 2 recent turns, and compacts earlier exploratory turns into a dense, symbolic summary of proved lemmas and refuted paths.
 
-The model gets infinite conceptual runway without ever hitting a hard context wall.
+### 2. Cognitive Thinking Token Budgets (`llm_client.py`)
+Reasoning models generate internal chain-of-thought tokens before emitting user-visible text. Without an enforced ceiling, verbose models can get lost in recursive self-debate, consuming their entire token allowance before writing a single line of proof.
+* By externalizing `TCS_SOLVER_THINKING_BUDGET=24576` (or `32768` for verbose reasoners), the harness disciplines the model's internal exploration per step.
+* Specialized subagents receive role-tailored thinking budgets—ensuring the Scribe has ample room for rigorous LaTeX derivation while the Auditor has focused compute for line-by-line verification.
+
+The model gets infinite conceptual runway without ever hitting a hard context wall or starving the completion buffer.
 
 ---
 
-## 4. The Iteration Funnel: 8 Standard Turns and the Overtime Gate
+## 4. The Iteration Funnel: Configurable Turn Budgets & The Overtime Gate
 
-The second boundary is temporal: how many turns does an agent get before the system says *enough*?
+The second boundary is temporal: how many turns and seconds does an agent get before the system halts?
 
-In Proof-Harness, problem-solving is structured as a **staged tournament**:
+In Proof-Harness, problem-solving is fully parameterized rather than hard-coded:
+
+```bash
+# Temporal Iteration Budgets & Overtime Controls (tcs_config.py)
+TCS_SOLVER_MAX_ITERATIONS=8              # Base turn ceiling (CLI: --max-iterations / PROVER_MAX_TURNS)
+TCS_ENABLE_OVERTIME=true                 # Enables high-potential overtime rescue
+TCS_OVERTIME_ITERATIONS=4                # Additional overtime turns (Turns 9..12)
+TCS_OVERTIME_VALIDITY_THRESHOLD=0.35     # Minimum auditor score required at Turn 8
+TCS_SOLVER_TIMEOUT_SECONDS=3600.0        # Hard wall-clock timeout ceiling per problem
+```
+
+Solving is structured as a **staged tournament**:
 
 ```text
 [ Problem Ingest ]
