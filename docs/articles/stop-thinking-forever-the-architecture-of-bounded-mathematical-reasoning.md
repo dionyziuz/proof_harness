@@ -34,25 +34,29 @@ This article explores the third foundational pillar of Proof-Harness: **The Conf
 To understand why constraints must be hard-coded into the harness architecture, consider what happens when a model like Qwen-27B or Meta Muse attacks a research-grade problem without a computational leash.
 
 ```text
-  [Unconstrained Reasoning Trap]
+  [The Thinking Trap: Context Poisoning & Epistemic Fixation]
   
-  Theorem Input ──► Deep Thinking ──► Flawed Lemma ──► REPL Refutation
+  Theorem Input ──► Deep Thinking ──► Flawed Lemma ──► False Certainty
                           ▲                                  │
                           │                                  ▼
-                     Rethink / Rescue ◄── Justify Flaw ◄── Denial
-                          │
+                     Rethink / Rescue ◄── Justify Flaw ◄── Context Poisoning
+                          │               (Self-Attention attends to flawed CoT)
                    (Repeats for 12 hours / 150k tokens / Context overflow)
 ```
 
 When solving research-level mathematical problems—such as establishing an asymptotic expansion bound on a $d$-regular graph or proving an $\exists\mathbb{R}$-hardness reduction—any reasoning process inevitably encounters mathematical obstructions. Human mathematicians frequently experience this: when an initial reduction path runs into a barrier, the most natural move is to step back, clean the blackboard, and try an alternative angle.
 
-For language models, however, the challenge is architectural: the prior derivation is present in the context prefix. As self-attention attends to earlier generated tokens, the model can naturally lean toward justifying or patching its existing lemmas rather than pivoting to an entirely different approach. This phenomenon—often termed **epistemic fixation** or **cognitive perseveration**—can manifest in subtle ways:
+For language models, however, the challenge is architectural. In Google DeepMind’s landmark paper, [*Towards Autonomous Mathematics Research*](https://arxiv.org/abs/2602.10177) (introducing the Aletheia math agent), researchers identified the root cause of this failure mode:
+1. **The Bluffing Incentive**: Standard post-training and RL algorithms inadvertently incentivize models to guess or project confidence even when uncertain.
+2. **Context Poisoning by Intermediate Thinking Traces**: When an extended reasoning trace is generated, the model's own intermediate tokens act as *misleading "supporting" context*. As self-attention attends to earlier reasoning steps, it artificially inflates the conditional probability of downstream errors. The model becomes a prisoner of its own chain-of-thought.
+
+This phenomenon—**cognitive perseveration through self-attention feedback**—manifests in predictable ways:
 * An initial candidate bound relies on a property that holds only approximately.
 * Upon discovering the gap, the reasoning trace introduces an ad-hoc adjustment.
 * The adjustment introduces additional constraints or breaks independence.
-* The model spends extended turns attempting to harmonize mutually incompatible constraints.
+* Rather than stepping back, the model spends extended turns attempting to harmonize mutually incompatible constraints, convinced that its early derivation was nearly correct.
 
-To help models navigate past these dead ends efficiently, Proof-Harness acts as an external scaffolding layer. By structuring the exploration into bounded iterations, in-the-loop adversarial auditing, automated cognitive pivots, and human-in-the-loop checkpoints, the harness provides the structural prompts needed to step back and try fresh pathways.
+To break this cycle, Proof-Harness acts as an external scaffolding layer. By structuring the exploration into bounded iterations, in-the-loop adversarial auditing, automated cognitive pivots, and human-in-the-loop checkpoints, the harness provides the structural leashes needed to force the model to step back, purge flawed premises, and explore fresh pathways.
 
 ---
 
@@ -177,24 +181,27 @@ Solving is structured as a **staged tournament**:
 
 Why is the **Overtime Gate (`TCS_OVERTIME_VALIDITY_THRESHOLD=0.35`)** so crucial?
 
-Empirically, if an AI agent has spent 8 multi-thousand-token iterations on a theorem and cannot even achieve a directional validity score of **0.35**, the probability of it magically discovering a sound proof in turns 9 through 12 is less than **2%**. 
+In Google DeepMind's evaluation of 700 open Erdős conjectures ([arXiv:2602.10177](https://arxiv.org/abs/2602.10177)), researchers discovered that unconstrained models forced to generate solutions produce **68.5% fundamentally flawed derivations**, with only 6.5% meaningful success. However, when an agentic harness equips the system with the ability to **halt and admit failure**, conditional accuracy on the answered subset jumps to **over 82%** on PhD-level mathematics.
 
-Allowing an unguided agent to keep guessing past Turn 8 on a completely broken foundation is pure compute waste. The harness **cuts its losses immediately**, submits the best effort to the referee, and moves to the next problem.
-
-Conversely, if the candidate achieves **0.45 validity** at Turn 8, the harness recognizes that the core architecture of the proof is sound and only specific lemmas or constants are flawed. It unlocks **Turns 9 through 12 (Overtime)**, providing the extra runway needed to land the proof.
+In automated discovery, **knowing when to admit failure is a superpower**:
+* Empirically, if an AI agent has spent 8 multi-thousand-token iterations on a theorem and cannot even achieve a directional validity score of **0.35**, the probability of it magically discovering a sound proof in turns 9 through 12 is less than **2%**. 
+* Allowing an unguided agent to keep guessing past Turn 8 on a completely broken foundation is pure compute waste. The harness **cuts its losses immediately**, submits the best effort to the referee, and moves to the next problem.
+* Conversely, if the candidate achieves **0.45 validity** at Turn 8, the harness recognizes that the core architecture of the proof is sound and only specific lemmas or constants are flawed. It unlocks **Turns 9 through 12 (Overtime)**, providing the extra runway needed to land the proof.
 
 ---
 
-## 5. Dual-Tier Referee Architecture: In-Loop Auditor vs. Zero-Trust Judge
+## 5. Dual-Tier Referee Architecture: Decoupled Auditing vs. Zero-Trust Judging
 
-A core innovation in Proof-Harness is the architectural separation between the **In-Loop Adversarial Auditor** and the **External Benchmark Judge**.
+In Section 2.2 of [*Towards Autonomous Mathematics Research*](https://arxiv.org/abs/2602.10177), Google DeepMind formalized the core design principle behind their Aletheia agent:
+> *"Decoupling a reasoning model’s final output from its intermediate thinking tokens, and adding well-chosen prompt scaffolding, enables the model to recognize flaws it initially overlooked during generation."*
 
-In automated mathematical reasoning, relying solely on single-context self-verification presents well-documented cognitive challenges: models naturally exhibit confirmation bias toward their own intermediate derivations. When an agent is asked to verify its own complex proof within the same conversational thread, it can easily overlook subtle gaps that were invisible during generation.
+When an agent is asked to verify its own complex proof within the same conversational thread, it inevitably succumbs to confirmation bias. The model's own intermediate scratchpad acts as an echo chamber, blinding it to false assumptions.
 
-To provide objective, rigorous evaluation along the way, Proof-Harness implements an **airgapped, dual-tier referee architecture**:
+Proof-Harness operationalizes this principle through an **airgapped, dual-tier referee architecture**—and takes it a critical step further by anchoring natural language critique in deterministic symbolic computation:
 
 ### Tier 1: The In-Loop Adversarial Auditor (`prover_auditor.py`)
-* Operates in an ephemeral execution sandbox after every single candidate proof draft.
+* **Decoupled Sandbox**: Operates in an ephemeral, clean execution sandbox after every single candidate proof draft. The candidate LaTeX is stripped of internal reasoning scratchpads, preventing the auditor from being misled by the solver's internal thinking tokens.
+* **Deterministic Kernel Grounding**: While DeepMind noted that standard Python execution provided only marginal gains for pure conceptual math without domain specialization, Proof-Harness equips its auditor with a **Zero-Trust Mathematical Kernel** (`SymPy`, `Z3`, 50-digit `mpmath`, `NetworkX`). The auditor does not merely "read" the proof; it executes automated counterexample searches, computes asymptotic series expansions, and checks matrix spectral bounds in code.
 * **Score-Gated Routing**:
   * **Validity < 0.40 (Structural Failure)**: The auditor emits detailed defect notices (`[ADVERSARIAL PROOF AUDIT - DEFECTS DETECTED]`), highlights unproved assertions, and instructs the solver to rethink its strategy.
   * **0.40 $\le$ Validity < 0.70 (Surgical Repair Mode)**: The harness locks all sound lemmas into an immutable blackboard (`Modular Lemma Immutability`) and strictly forbids full rewrites. It instructs the solver: *"Your previous candidate achieved strong validity (0.45). Do NOT rewrite the proof. Make targeted, surgical repairs directly to the specific defect flagged."*
@@ -288,11 +295,14 @@ Rather than allowing a model to wander in an open-ended loop for days, Proof-Har
 * **In-Loop Self-Improvement & Scoring**: At each turn, candidate proofs are independently analyzed by the isolated auditor kernel, assigning empirical validity scores ($0.00$ to $1.00$) and itemizing structural defects.
 * **Deterministic Termination**: The run terminates either when a proof crosses the certified validity threshold ($\ge 0.70$) or when turn/timeout budgets expire, returning a concrete score and detailed referee critique.
 
-### 2. The Human Evaluation & Decision Gate
-Once the bounded run completes, the human researcher steps in as the domain authority:
-* **Low-Score Diagnosis**: If the run fails to reach the threshold, the human examines the auditor's defect log, identifying where the model stalled—such as an invalid coordinate change, a missing boundary term, or an overly ambitious leap.
-* **Challenging False Confidence**: Crucially, if the harness assigns a *high* score but the human detects a subtle conceptual gap or an implicit assumption that the automated judge overlooked, the human can override the verdict.
-* **Problem Refinement**: The human adjusts the formulation—tightening bounds, introducing an intermediate lemma, clarifying mathematical hypotheses, or decomposing the conjecture into modular subgoals.
+### 2. The Human Evaluation & Decision Gate: The Level A ➔ Level C Flywheel
+In [*Towards Autonomous Mathematics Research*](https://arxiv.org/abs/2602.10177), Google DeepMind proposed a formal taxonomy for AI contributions: **Level A (Essentially Autonomous)**, where core deductions are machine-generated without essential human intervention, and **Level C (Human-AI Collaboration)**, where human and machine contribute complementary, essential insights.
+
+While public discourse often treats Level A as the sole benchmark of success, in frontier mathematics the true scientific breakthrough is the **Level A $\to$ Level C refinement flywheel**:
+* **Level A Autonomous Attempt**: The harness launches an autonomous run under strict turn ceilings. If the proof passes internal auditing and external judging, the result is achieved at Level A.
+* **Catching "Specification Gaming"**: DeepMind noted a common pitfall in autonomous runs: models frequently engage in *specification gaming*—interpreting ambiguous open conjectures in the easiest, most trivial way rather than the intended difficult problem. When the run finishes, the human researcher acts as the domain arbiter, spotting unintended loopholes or false confidence in superficially high scores.
+* **Level C Collaborative Escalation**: If the score is low or an assumption was trivialized, the human mathematician intervenes—tightening premises, introducing a missing boundary condition, or decomposing the conjecture into modular subgoals. 
+* **Compounding Memory**: The human relaunches the harness. Because earlier verified invariants and dead-end post-mortems are preserved in vector memory, the Level C collaborative run does not start from zero—it builds directly upon the groundwork laid by the Level A run.
 
 ### 3. Compounding Heuristics: Building on Earlier Proofs
 When the human relaunches the harness on the refined problem, the system does not start from zero:
