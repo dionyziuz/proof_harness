@@ -262,8 +262,9 @@ Proof-Harness treats mathematical reasoning as a **strictly bounded, resource-go
 |    (Anti-Looping)    | Purges refuted premises & kernel variables from MathStateMachine|
 |                      | when an approach is disproved, forcing an orthogonal route      |
 +----------------------+-----------------------------------------------------------------+
-| 5. Human-in-the-Loop | Granular JSON Checkpointing (`checkpoints/*.ckpt.json`)         |
-|    (Observability)   | Loss-free SIGINT pause, interim proof validation, instant resume|
+| 5. Human-in-the-Loop | Iterative Problem Refinement & Compounding Heuristics           |
+|    (Collaborative)   | Bounded runs with score gates; human refines conjectures; vector |
+|                      | memory & checkpoints preserve compounding proof heuristics       |
 +========================================================================================+
 ```
 
@@ -294,11 +295,12 @@ When an approach hits a fatal mathematical refutation (e.g. an AST boundary coun
 - **Epistemic Purge**: Forcibly wipes all refuted variables, subgoals, and lemmas associated with that reduction from `MathStateMachine`.
 - **Cognitive Quarantine**: Injects explicit `BANNED PREMISES / REFUTED ROUTES` into the cognitive blackboard, mathematically forbidding the model from attempting to rescue the flawed premise and compelling an orthogonal proof trajectory.
 
-### 5. Human-in-the-Loop (HITL) Observability & Checkpoint Resumption
-Built specifically to empower human mathematicians collaborating on open research conjectures:
-- **Granular JSON Checkpoints**: Written after every turn to `checkpoints/{task_id}.ckpt.json`, capturing active stage, turn index, registered invariants, prior auditor defects, and full message history.
-- **Loss-Free Interruption**: Human operators can pause a multi-worker pipeline at any moment via standard `SIGINT` (`Ctrl+C`). Running processes complete atomic writes and suspend gracefully.
-- **Instant Checkpoint Resumption**: When relaunched with `--resume-all` or `--skip-passed-only`, the pipeline checks `judgments/` and `tasks/` to skip finished problems instantly without consuming tokens, detects active checkpoints, and emits `>>> Resumed from checkpoint at stage='exploration', turn=X/8`—resuming mid-turn with **100% zero lost progress**.
+### 5. Human-in-the-Loop (HITL): Iterative Problem Refinement & Compounding Heuristics
+Designed specifically for human mathematicians collaborating on open research frontiers:
+- **Bounded Autonomous Execution**: The harness runs bounded iterations with configurable loop ceilings and timeouts, self-improving and self-scoring via an in-loop auditor, ending with a definitive score rather than burning compute for days.
+- **Human Evaluation & Decision Gate**: The human researcher evaluates the final candidate. If scores are low, or if the human spots a subtle domain flaw in a high-scoring draft, the human adjusts the problem statement—tightening assumptions, relaxing constraints, or decomposing the theorem into modular subgoals.
+- **Compounding Heuristics & Vector Memory**: As runs iterate, continuous heuristic learning (procedural/episodic vector memory) builds on itself. Verified sub-lemmas, symbolic state objects, and refuted dead-ends are preserved, so subsequent runs start with compounding domain knowledge rather than from scratch.
+- **Granular JSON Checkpoints & Resume**: Every turn is checkpointed to `checkpoints/{task_id}.ckpt.json`. Operators can pause via `SIGINT` (`Ctrl+C`) and resume instantly via `--resume-all` with zero recomputation.
 
 ---
 

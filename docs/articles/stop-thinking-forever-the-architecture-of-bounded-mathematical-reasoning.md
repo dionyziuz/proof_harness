@@ -213,54 +213,66 @@ It is the algorithmic equivalent of a senior research advisor taking away a stud
 
 ---
 
-## 7. Human-in-the-Loop (HITL) as a First-Class Citizen
+## 7. Human-in-the-Loop (HITL): Iterative Problem Refinement & Compounding Heuristics
 
 Automated theorem proving is not just for automated benchmarks; it is built for **open research frontiers**. 
 
-When a human mathematician uses Proof-Harness to attack an open conjecture in mathematical physics—such as our autonomous derivations of [modular Hamiltonian flow and quantum null energy bounds on null Cauchy surfaces](from-spacetime-thermodynamics-to-open-quantum-horizons.md)—the human cannot be an afterthought waiting for a script to finish next Tuesday. The human must be an active collaborator.
+When a human mathematician uses Proof-Harness to attack an open conjecture in mathematical physics—such as our autonomous derivations of [modular Hamiltonian flow and quantum null energy bounds on null Cauchy surfaces](from-spacetime-thermodynamics-to-open-quantum-horizons.md)—the human cannot be an afterthought waiting days for an unconstrained script to finish. The human must be an active, high-level collaborator in an iterative research cycle.
 
-Proof-Harness treats **Human-in-the-Loop observability and intervention** as a core architectural primitive:
+In Proof-Harness, the human-in-the-loop workflow is not merely about manual pausing; it is an **iterative problem-refinement flywheel** powered by continuous heuristic memory:
 
 ```text
-       [ Live Autonomous Run ]
-                 │
-                 ├──► Live JSON Checkpoint (`checkpoints/task_xyz.ckpt.json`)
-                 │      • Current turn & elapsed seconds
-                 │      • Registered state machine objects & lemmas
-                 │      • Prior auditor defects & validity scores
-                 │
-  [ Human Operator Sends SIGINT / C-c ]
-                 │
-                 ▼
-       [ Graceful Suspension ]
-                 │
-                 ├──► Human inspects intermediate proof & auditor critique
-                 ├──► Human validates whether partial lemma is promising
-                 │
-       [ Resume Pipeline (--resume-all) ]
-                 │
-                 ▼
-       [ 100% Zero-Loss Instant Catch-up ]
+           [ Problem Statement / Conjecture ]
+                          │
+                          ▼
+           [ Bounded Autonomous Harness Run ] ◄──┐ Continuous Heuristic Learning
+           • Configurable loop ceiling (e.g. 8+4 turns) │   (CoALA Vector Memory:
+           • Configurable per-turn & task timeouts      │    compounds verified lemmas,
+           • Multi-turn self-improvement & in-loop audit│    banned routes & prior proofs)
+                          │                             │
+                          ▼                             │
+           [ Evaluated Candidate & Score ]             │
+           (Auditor / Referee Score & Defect Report)    │
+                          │                             │
+                          ▼                             │
+           [ Human Researcher Decision Gate ]          │
+             • Validates intermediate / final proof     │
+             • Checks rigor against mathematical intuition
+                          │
+             ┌────────────┴────────────┐
+             ▼                         ▼
+   Score Above Bar &          Score Low OR Human
+    Human Agrees              Disagrees with Score
+             │                         │
+             ▼                         ▼
+      [ PROOF ACCEPTED ]      [ Human Refines Problem Statement ]
+      (Publication / Lean     • Tightens premises / adds bounds
+       Formalization)         • Decomposes into sub-lemmas
+                              • Relaunches solver with accumulated
+                                heuristic memory ────────┘
 ```
 
-### 1. Granular On-Disk JSON Checkpoints
-After every turn, the harness writes a comprehensive checkpoint file (`checkpoints/{task_id}.ckpt.json`). This file captures:
-* The current stage (`exploration`, `synthesis`, `audit`).
-* The active `MathStateMachine` invariants and verified Python REPL facts.
-* All prior auditor defects and scores.
-* The exact conversation history and token counts.
+### 1. Bounded Autonomous Execution with Concrete Score Cutoffs
+Rather than allowing a model to wander in an open-ended loop for days, Proof-Harness enforces strict temporal and iteration boundaries:
+* **Configurable Iterations & Timeouts**: Runs operate under explicit turn ceilings (e.g., 8 standard turns plus 4 overtime turns) and configurable timeouts per step.
+* **In-Loop Self-Improvement & Scoring**: At each turn, candidate proofs are independently analyzed by the isolated auditor kernel, assigning empirical validity scores ($0.00$ to $1.00$) and itemizing structural defects.
+* **Deterministic Termination**: The run terminates either when a proof crosses the certified validity threshold ($\ge 0.70$) or when turn/timeout budgets expire, returning a concrete score and detailed referee critique.
 
-### 2. Loss-Free Graceful Interruption
-If a run needs to pause—whether to free up GPU VRAM for another job, reboot the machine, or wait for an unstable remote tunnel to recover—the operator can send a clean `SIGINT` (`Ctrl+C`). The harness finishes its atomic write, flushes logs, and suspends cleanly.
+### 2. The Human Evaluation & Decision Gate
+Once the bounded run completes, the human researcher steps in as the domain authority:
+* **Low-Score Diagnosis**: If the run fails to reach the threshold, the human examines the auditor's defect log, identifying where the model stalled—such as an invalid coordinate change, a missing boundary term, or an overly ambitious leap.
+* **Challenging False Confidence**: Crucially, if the harness assigns a *high* score but the human detects a subtle conceptual gap or an implicit assumption that the automated judge overlooked, the human can override the verdict.
+* **Problem Refinement**: The human adjusts the formulation—tightening bounds, introducing an intermediate lemma, clarifying mathematical hypotheses, or decomposing the conjecture into modular subgoals.
 
-### 3. Instant Resume with Zero Recomputation
-When relaunched with `--resume-all`, the pipeline:
-1. Instantly scans `tasks/` and `judgments/`—skipping all completed problems in milliseconds without firing a single LLM token.
-2. Identifies active checkpoints in `checkpoints/`.
-3. Emits `>>> Resumed from checkpoint at stage='exploration', turn=4/8`.
-4. Continues solving mid-flight with **zero lost progress**.
+### 3. Compounding Heuristics: Building on Earlier Proofs
+When the human relaunches the harness on the refined problem, the system does not start from zero:
+* **Heuristic Memory Retention**: Through the [second-generation harness memory architecture](the-second-generation-of-agent-harnesses.md), earlier verified sub-lemmas, symbolic invariants from `MathStateMachine`, and post-mortems of refuted dead-ends are retained in vector memory.
+* **Cumulative Acceleration**: The refined run immediately benefits from earlier discoveries and avoids previously refuted routes, allowing subsequent iterations to converge rapidly on the final rigorous proof.
 
-This allows human mathematicians to steer multi-day campaigns on open problems with total confidence, inspecting partial proofs at breakfast, tweaking domain vector heuristics at lunch, and letting the bounded solver crunch overtime overnight.
+### 4. Granular Checkpoints & Operational Resilience
+Supporting this iterative cycle are robust operational guarantees:
+* **Granular JSON Checkpoints**: After every turn, the harness writes a checkpoint (`checkpoints/{task_id}.ckpt.json`) capturing the active stage, verified REPL facts, conversation state, and auditor scores.
+* **Loss-Free Interruption & Resume**: Operators can safely pause long-running batch jobs via `SIGINT` (`Ctrl+C`) to adjust compute allocations or inspect partial results, and resume instantly via `--resume-all` with zero recomputation.
 
 ---
 
