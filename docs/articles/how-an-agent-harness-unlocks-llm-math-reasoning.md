@@ -149,3 +149,10 @@ Larger foundation models will continue to push the frontier of raw capability. B
 By pairing an open-weight 27B model with a zero-trust execution kernel, continuous heuristic memory, and adaptive search horizons, Proof Harness demonstrates that consumer hardware can tackle problems that previously seemed out of reach.
 
 *For implementation details, evaluation scripts, and the full benchmark harness, check out the [Proof Harness repository on GitHub](https://github.com/dionyziuz/proof_harness). For theoretical analysis and comprehensive ablation studies, our full technical paper is available in the repository documentation.*
+
+---
+
+## References & Further Reading
+* **Towards Autonomous Mathematics Research**: Tony Feng, Trieu H. Trinh, Demis Hassabis, Thang Luong, et al. (Google DeepMind, 2026), [arXiv:2602.10177](https://arxiv.org/abs/2602.10177). Investigates the Aletheia agentic harness, natural language verification, and inference-time scaling for research-level mathematics.
+* **Stellar Colosseum**: H. Lin et al. (Google Research & CMU, 2026), *A Many-Agent Harness for Long-Horizon Research in Mathematics and Theoretical Computer Science*, [arXiv:2609.15983](https://arxiv.org/abs/2609.15983).
+* **TCS-Bench**: *Benchmarking Large Language Models on Research-Level Theoretical Computer Science* ([arXiv:2608.09538](https://arxiv.org/abs/2608.09538)).

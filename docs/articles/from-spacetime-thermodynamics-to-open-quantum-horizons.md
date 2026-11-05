@@ -356,3 +356,10 @@ We don't yet know if a 27B model will fully solve the general Hadamard horizon p
 ---
 
 *The full Proof Harness codebase, evaluation data, and benchmark logs are available on GitHub.*
+
+---
+
+## References & Related Work
+* **Towards Autonomous Mathematics Research**: Tony Feng, Trieu H. Trinh, Demis Hassabis, Thang Luong, et al. (Google DeepMind, 2026), [arXiv:2602.10177](https://arxiv.org/abs/2602.10177). Explores agentic harnesses (Aletheia), natural language verification, and human-AI collaboration on research-level mathematics.
+* **Thermodynamics of Spacetime: The Einstein Equation of State**: Ted Jacobson (1995), Phys. Rev. Lett. 75, 1260, [gr-qc/9504004](https://arxiv.org/abs/gr-qc/9504004).
+* **Modular Flow on Null Hypersurfaces**: M. Dorau & G. Much (2025/2026), [arXiv:2510.24491](https://arxiv.org/abs/2510.24491).

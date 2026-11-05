@@ -242,3 +242,10 @@ Our empirical metrics dictate an optimal hierarchical production harness:
 * Complete reproducibility logs and environment configurations (`.env.qwen`, `.env.agy_flash`, `.env.example.muse`).
 * Full LaTeX proofs of notable benchmark breakthroughs (Task 234, Task 250, Perrenet lower bound frontier).
 * Complete token distributions, log sizes, duration histograms, and TCS referee audit scorecards across all 300 problems.
+
+---
+
+## References & Related Work
+* **Towards Autonomous Mathematics Research**: Tony Feng, Trieu H. Trinh, Demis Hassabis, Thang Luong, et al. (Google DeepMind, 2026), [arXiv:2602.10177](https://arxiv.org/abs/2602.10177). Investigates inference-time scaling, Gemini Deep Think, and the Aletheia agentic harness across Olympiad and PhD-level mathematics.
+* **TCS-Bench Benchmark Suite**: *TCS-Bench: Evaluating Frontier Language Models on Research-Level Theoretical Computer Science Proofs* ([arXiv:2608.09538](https://arxiv.org/abs/2608.09538)).
+* **Stellar Colosseum**: H. Lin et al. (Google Research & CMU, 2026), *A Many-Agent Harness for Long-Horizon Research in Mathematics and Theoretical Computer Science*, [arXiv:2609.15983](https://arxiv.org/abs/2609.15983).

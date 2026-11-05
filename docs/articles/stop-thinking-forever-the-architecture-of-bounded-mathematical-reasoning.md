@@ -341,6 +341,7 @@ To explore different facets of the Proof-Harness neuro-symbolic ecosystem, see o
 * **Frontier Physics Exploration**: [*From Spacetime Thermodynamics to Open Quantum Horizons*](from-spacetime-thermodynamics-to-open-quantum-horizons.md) — Autonomous derivation of Jacobson spacetime thermodynamics and exploring modular Hamiltonian flow on null Cauchy surfaces.
 * **Foundational Architecture**: [*How an Agent Harness Unlocks LLM Math Reasoning*](how-an-agent-harness-unlocks-llm-math-reasoning.md) — Engineering walk-through of the deterministic Python/Lean execution kernel.
 * **Formal Technical Report**: [*ArXiv Technical Report: Prime Math Neuro-Symbolic Prover Harness*](arxiv-prime-math-neuro-symbolic-prover-harness.md) — Full formal system specification and proof verification protocols.
+* **Related Frontier Research**: [*Towards Autonomous Mathematics Research* (Google DeepMind, arXiv:2602.10177)](https://arxiv.org/abs/2602.10177) — Tony Feng, Trieu Trinh, Demis Hassabis, Thang Luong, et al. on agentic harnesses (Aletheia), decoupled verification in natural language, and inference-time scaling for research-level mathematics.
 
 ---
 

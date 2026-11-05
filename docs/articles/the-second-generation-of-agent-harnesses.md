@@ -262,6 +262,7 @@ The future of AI engineering is not about waiting passively for next year's mode
 
 ### *References & Further Reading*
 - **The Core Talk**: Jediah Katz, [*"Is the Agent Harness Dead?"* (AI Engineer Presentation on YouTube)](https://www.youtube.com/watch?v=7Y4sbZgBdnc).
+- **Autonomous Mathematics Research**: Tony Feng, Trieu H. Trinh, Demis Hassabis, Thang Luong, et al. (Google DeepMind, 2026), [*"Towards Autonomous Mathematics Research"* (arXiv:2602.10177)](https://arxiv.org/abs/2602.10177). Explores the Aletheia agentic harness, natural language verification, and inference-time scaling for research-level mathematics.
 - **Proof Harness Architecture Deep Dive**: [`docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md`](how-an-agent-harness-unlocks-llm-math-reasoning.md)
 - **Spacetime Thermodynamics & AQFT Open Problems**: [`docs/articles/from-spacetime-thermodynamics-to-open-quantum-horizons.md`](from-spacetime-thermodynamics-to-open-quantum-horizons.md)
 - **Formal Academic Report**: [`docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md`](arxiv-prime-math-neuro-symbolic-prover-harness.md)
