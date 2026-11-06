@@ -117,26 +117,7 @@ When an agent attempts all three tasks within a single conversational context, a
 
 Proof-Harness eliminates this interference through **Seven-Role Cognitive Partitioning** (`core_engine/prover.py`):
 
-```mermaid
-flowchart TD
-    Task["Target Theorem Task\n(Context & Statement)"] --> S1["1. Context Architect\n(Blueprint Quarantine)"]
-    S1 -->|"Unverified Blueprint\n+ State Seeds"| S2["2. Pre-Flight Falsifier\n(Pre-Turn Python Tests)"]
-    S2 -->|"Verified Facts\n+ Warning Flags"| S3["3. Deductive Logician\n(Turn-1 Proof Ban + REPL)"]
-    
-    S3 -->|"Emits [CLAIM] Invariant"| S4["4. Adversarial Skeptic\n(Isolated Context Sandbox)"]
-    S4 -->|"VERIFIED"| Rec["Commit Lemma to State"]
-    S4 -->|"REFUTED"| Roll["Rollback to Pre-Claim State"]
-    Rec --> S3
-    Roll --> S3
-
-    S3 -->|"[ALL CLAIMS ESTABLISHED]\n+ Epistemic Gate"| S5["5. Publication Scribe\n(Critical-Path Pruning)"]
-    S5 -->|"Candidate LaTeX Proof"| S6["6. Multi-Stage Proof Auditor\n(AuditorKernel + Referee Gates)"]
-    
-    S6 -->|"Validity >= 0.70\nor Max Turns"| PoolOut["CandidatePool Best Proof"]
-    S6 -->|"REJECT / Validity < 0.70"| S7["7. Dynamic Critique Falsifier\n(Empirical Stress-Test)"]
-    S7 -->|"Surgical Repair or Clean-Slate Pivot"| S3
-    PoolOut --> ExtJudge["External Zero-Trust Academic Referee\n(k=3 Independent Replicates)"]
-```
+![The Seven-Role Cognitive Assembly Line](../images/tcs_seven_role_pipeline.png)
 
 ### The Seven Cognitive Roles in Action
 
@@ -295,23 +276,7 @@ In multi-turn mathematical reasoning, managing failed drafts is one of the harde
 
 Proof-Harness resolves this dilemma through a stateful **Tri-State Routing & Pivot Engine** (`core_engine/prover.py`, `core_engine/prover_types.py`) backed by the `CandidatePool`:
 
-```mermaid
-flowchart TD
-    Audit["Turn t Candidate Audited\n(Validity v, Rigor, Completeness, Defects)"] --> Gate{"Golden Balance\nRouting Gate"}
-
-    Gate -->|"v >= 0.25 OR Substantive Structure\nOR Boundary-Only Defect\nOR Improving (Δv > 0.05)"| Protect["Route 1: Candidate Protection\n& Surgical Revision"]
-    Gate -->|"Viable Draft Stagnated\n(stagnant_revisions >= 2)"| Bridge["Route 2: Stagnant Loop Breaker\n(Bridging Lemma Escalation)"]
-    Gate -->|"v <= 0.05 (Single-Strike Collapse)\nOR (Rejections >= 2 AND v < 0.25)\nOR Deep Stagnation (>= 6 turns)"| Pivot["Route 3: Clean-Slate Hard Pivot\n(4-Step Epistemic Reset)"]
-
-    Protect --> Restore["Restore Best Foundation (pool.best)\n+ Stateless 4-Message Blackboard\n+ Noise-Band Occam's Razor (ε=0.03)"]
-    Bridge --> Subclaim["Stop Verbatim Drafts;\nIsolate & Prove Missing Bridging Lemma"]
-    Pivot --> Step1["1. Prune Refuted Drafts & Archive Fallback\n2. kernel.reset() & Wipe State Machine\n3. Pin BANNED PREMISES Ledger\n4. Lock \\begin{proof} on Turn t+1 (REPL Gate)"]
-
-    Restore --> NextTurn["Turn t+1 Execution"]
-    Subclaim --> NextTurn
-    Step1 --> TurnT1["Turn t+1: Mandatory Python REPL Exploration\n(Test 2-3 Orthogonal Invariants)"]
-    TurnT1 --> TurnT2["Turn t+2: Unlock Formal LaTeX Proof Synthesis"]
-```
+![The Tri-State Routing and Pivot Engine](../images/tcs_tristate_pivot_engine.png)
 
 ---
 
