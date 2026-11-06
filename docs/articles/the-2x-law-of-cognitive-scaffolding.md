@@ -1,4 +1,4 @@
-# The 1.6×–2× Law of Cognitive Scaffolding: How an Agent Harness Amplifies Math Reasoning Across Qwen, Meta Muse, and Gemini Flash
+# Scale the Model, Scale the Harness: Unlocking a 2× Leap in Mathematical Reasoning
 
 *By the Proof Harness Research Team · November 2026*
 
@@ -23,7 +23,7 @@ Across all three architectures, wrapping the model in **Proof Harness** produced
 
 ---
 
-## 1. The Empirical Discovery: The 1.6×–2× Law Across Model Scales
+## 1. The Empirical Discovery: The Scaffolding Multiplier Across Model Scales
 
 When evaluating LLMs on graduate-level mathematics, industry benchmarks overwhelmingly report **one-shot (T=1) accuracy**: the model receives a theorem statement, generates a single stream of reasoning and LaTeX tokens, and is graded by an automated referee.
 
@@ -38,16 +38,16 @@ Using this referee standard, every model is evaluated across two stages:
 1. **Step 1 — Unassisted One-Pass Triage (T=1)**: Every model attempts all 300 theorems in a single unassisted pass without external Python execution or multi-agent auditing. Theorems certified at ≥ 0.50 on Turn 1 are locked in immediately as authoritative first-turn wins.
 2. **Step 2 — Multi-Turn Proof Harness Escalation (T ≤ 12)**: Every theorem that fails Step 1 is escalated into the full neuro-symbolic **Proof Harness**, which pairs the model with a stateful Python/SymPy/Z3 execution kernel, an airgapped 7-role cognitive auditor, clean-slate route pivoting, and a bounded overtime horizon.
 
-![The 1.6×–2× Law of Cognitive Scaffolding across Model Scales](../images/tcs_multiplier_bars.png)
+![The Scaffolding Multiplier: Scaling the Model and the Harness across TCS-300](../images/tcs_multiplier_bars.png)
 
 ### Table 1: Canonical TCS-300 Benchmark Scorecard (Step 1 vs. Step 2 Unified v4)
 
-| Model Architecture | Total Params (Est.)* | Active Params / Token* | Step 1: 1-Pass Certified (≥ 0.50) | Step 1: 1-Pass Directional (≥ 0.40) | Step 2: Harness Pass (≥ 0.50) | Harness Multiplier | Unsolved Problems Reduced (Error Cut)** | Multiplicative Decrease in Failures | Step 2: Directionally Sound (≥ 0.40) | Near-Miss Reservoir [0.30, 0.50) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Qwen-3.8-27B** *(Dense)* | **27.0B** *(Dense)* | **27.0B** *(100%)* | 12.67% *(38/300)* | **18.00%** *(54/300)* | **26.67%** *(80/300)* | **2.11×** *(+110.5%)* | **16.03%** *(42 / 262 cut)* | **1.19× fewer unsolved** | **36.33%** *(109/300)* | **56 tasks** *(29 dir + 27 part)* |
-| **Meta Muse 1.3** *(Sparse MoE)* | **~800B–1T** *(MoE, Est.)* | **~45B–55B** *(~6%)* | 22.00% *(66/300)* | **26.00%** *(78/300)* | **46.33%** *(139/300)* | **2.11×** *(+110.6%)* | **31.20%** *(73 / 234 cut)* | **1.45× fewer unsolved** | **50.67%** *(152/300)* | **32 tasks** *(13 dir + 19 part)* |
-| **Gemini 3.8 Flash** *(Sparse MoE)* | **~1.2T** *(MoE, Est.)* | **~35B–45B** *(~3.5%)* | 33.67% *(101/300)* | **39.67%** *(119/300)* | **55.33%** *(166/300)* | **1.64×** *(+64.4%)* | **32.66%** *(65 / 199 cut)* | **1.49× fewer unsolved** | **62.67%** *(188/300)* | **30 tasks** *(22 dir + 8 part)* |
-| **3-Model Oracle Portfolio Union** *(Ensemble)* | — | — | 41.33% *(124/300)* | **48.33%** *(145/300)* | **65.67%** *(197/300)* | **1.59×** *(+58.9%)* | **41.48%** *(73 / 176 cut)* | **1.71× fewer unsolved** | **73.00%** *(219/300)* | — |
+| Model Architecture | Total<br>Params* | Active<br>Params* | Step 1 Pass<br>(≥ 0.50) | Step 1 Dir.<br>(≥ 0.40) | Step 2 Pass<br>(≥ 0.50) | Harness<br>Multiplier | Error Cut<br>(% Rescued)** | Failure<br>Reduction | Step 2 Dir.<br>(≥ 0.40) | Near-Miss<br>Reservoir |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Qwen-3.8-27B** *(Dense)* | **27.0B** | **27.0B** *(100%)* | 12.67% *(38)* | 18.00% *(54)* | **26.67%** *(80)* | **2.11×** *(+110.5%)* | **16.03%** *(42/262)* | **1.19× fewer** | **36.33%** *(109)* | **56 tasks** *(29d + 27p)* |
+| **Meta Muse 1.3** *(Sparse MoE)* | **~800B–1T** | **~45B–55B** *(~6%)* | 22.00% *(66)* | 26.00% *(78)* | **46.33%** *(139)* | **2.11×** *(+110.6%)* | **31.20%** *(73/234)* | **1.45× fewer** | **50.67%** *(152)* | **32 tasks** *(13d + 19p)* |
+| **Gemini 3.8 Flash** *(Sparse MoE)* | **~1.2T** | **~35B–45B** *(~3.5%)* | 33.67% *(101)* | 39.67% *(119)* | **55.33%** *(166)* | **1.64×** *(+64.4%)* | **32.66%** *(65/199)* | **1.49× fewer** | **62.67%** *(188)* | **30 tasks** *(22d + 8p)* |
+| **3-Model Oracle Portfolio Union** | — | — | 41.33% *(124)* | 48.33% *(145)* | **65.67%** *(197)* | **1.59×** *(+58.9%)* | **41.48%** *(73/176)* | **1.71× fewer** | **73.00%** *(219)* | — |
 
 *\*Note: Exact parameter counts and active routing budgets for Meta Muse 1.3 and Gemini 3.8 Flash are proprietary and not publicly disclosed; figures reported represent widely accepted community and architectural estimates based on MoE sizing and latency footprints.*
 *\*\*Note: **Unsolved Problems Reduced (Error Cut)** measures the percentage of Step-1 failures (300 − One-Pass Solved) that the Proof Harness successfully rescues into certified passes (score ≥ 0.50) during Step 2. The **Multiplicative Decrease in Failures** represents the ratio of unsolved problems before vs. after harness deployment (Unsolved_1Pass / Unsolved_Harness).*

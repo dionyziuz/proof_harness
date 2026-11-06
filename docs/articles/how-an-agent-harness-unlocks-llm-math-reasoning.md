@@ -148,7 +148,7 @@ Larger foundation models will continue to push the frontier of raw capability. B
 
 By pairing an open-weight 27B model with a zero-trust execution kernel, continuous heuristic memory, and adaptive search horizons, Proof Harness demonstrates that consumer hardware can tackle problems that previously seemed out of reach.
 
-*For implementation details, evaluation scripts, and the full benchmark harness, check out the [Proof Harness repository on GitHub](https://github.com/dionyziuz/proof_harness). For multi-model scaling comparisons and error-reduction analyses across Qwen, Meta Muse, and Gemini Flash, see our companion article [The 1.6×–2× Law of Cognitive Scaffolding](the-2x-law-of-cognitive-scaffolding.md); for computational leashes and overtime governance, see [Stop Thinking Forever](stop-thinking-forever-the-architecture-of-bounded-mathematical-reasoning.md).*
+*For implementation details, evaluation scripts, and the full benchmark harness, check out the [Proof Harness repository on GitHub](https://github.com/dionyziuz/proof_harness). For multi-model scaling comparisons and error-reduction analyses across Qwen, Meta Muse, and Gemini Flash, see our flagship companion article [Scale the Model, Scale the Harness: Unlocking a 2× Leap in Mathematical Reasoning](the-2x-law-of-cognitive-scaffolding.md); for computational leashes and overtime governance, see [Stop Thinking Forever](stop-thinking-forever-the-architecture-of-bounded-mathematical-reasoning.md).*
 
 ---
 
