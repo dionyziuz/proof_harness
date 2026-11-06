@@ -6,7 +6,7 @@
 
 ## The Long-Horizon Challenge: When Extended Thinking Meets Hard Problems
 
-Long-thinking frontier models have fundamentally transformed automated reasoning. As our own empirical benchmarks on TCS-Bench show, given generous thinking budgets, models like Google Gemini 3.8 Flash, Meta Muse 1.3, and Qwen 2.5-Math can solve an impressive fraction of complex research problems directly in one shot—deriving intricate bounds and complete, publication-grade LaTeX proofs without external assistance.
+Long-thinking frontier models have fundamentally transformed automated reasoning. As our own empirical benchmarks on TCS-Bench show, given generous thinking budgets, models like Google Gemini 3.8 Flash, Meta Muse 1.3, and Qwen-3.8-27B can solve an impressive fraction of complex research problems directly in one shot—deriving intricate bounds and complete, publication-grade LaTeX proofs without external assistance.
 
 However, when an advanced model encounters a truly stubborn mathematical obstruction or an open research conjecture, scaling test-time compute with an open-ended token budget does not always guarantee a breakthrough. In fact, without structural guardrails, it can enter an extended cycle of cognitive perseveration.
 
@@ -17,15 +17,15 @@ Left unconstrained on the hardest problem cohorts, extended reasoning can suffer
 2. **Context Window Degradation**: As exploratory scratchpad reasoning balloons toward context limits, standard token compaction mechanisms can inadvertently compress critical definitions or premises, degrading the downstream derivation.
 3. **The Multi-Day Black Hole**: Without clear bounds and stopping criteria, an autonomous agent exploring open research conjectures can run for days without emitting inspectable interim artifacts or decision gates for human researchers.
 
-With **Proof-Harness (`proof_harness`)**, we built an open-source neuro-symbolic engine designed to tackle research-grade mathematics and scientific discovery across diverse domains—from algebraic combinatorics and graph theory to quantum field theory and general relativity (stress-tested on empirical suites including **TCS-Bench 300** and quantum horizon theorems). In our research, we ground autonomous reasoning in two foundational pillars:
-* **The Deterministic Mathematical Kernel**: Airgapped Python REPL execution using `SymPy`, `Z3`, and 50-digit `mpmath` coupled with an [epistemic state machine](how-an-agent-harness-unlocks-llm-math-reasoning.md) that verifies equations, **enhancing next-token probabilities with deterministic symbolic guarantees** (formalized in our [technical specification](arxiv-prime-math-neuro-symbolic-prover-harness.md)).
-* **The CoALA Continuous Domain Memory**: Distilling verified strategies and failure post-mortems into [second-generation cognitive vector memory](the-second-generation-of-agent-harnesses.md) so the engine compounds domain intelligence over time without weight fine-tuning.
+With **Proof-Harness (`proof_harness`)**, we built an open-source neuro-symbolic engine designed to tackle research-grade mathematics across diverse domains (stress-tested on the **300-problem TCS-Bench suite**). In our research, we ground autonomous reasoning in two foundational pillars:
+* **The Deterministic Mathematical Kernel**: Airgapped Python REPL execution using `SymPy`, `Z3`, and 50-digit `mpmath` coupled with an [epistemic state machine](how-an-agent-harness-unlocks-llm-math-reasoning.md) that verifies equations, **enhancing next-token probabilities with deterministic symbolic guarantees**.
+* **Continuous Domain Vector Memory**: Distilling verified strategies and failure post-mortems into semantic vector memory so the engine compounds domain intelligence over time without weight fine-tuning.
 
 **But those two pillars alone are not enough.** A deterministic execution kernel and vectorized domain memory will still loop if the reasoning harness lacks **configurable constraints**. 
 
 Mathematical problem-solving is not an unconstrained random walk through theorem space; it is a **bounded, adversarial search under resource limits**. 
 
-This article explores the third foundational pillar of Proof-Harness: **The Configurable Bounded Constraint & Human-in-the-Loop (HITL) Governance Engine**. In our [companion benchmark study of frontier reasoning models](taming-the-reasoners-qwen-muse-flash-benchmark.md), we detail the macroeconomic trade-offs between parameter scale, token efficiency, and baseline pass rates across 300 problems; here, we focus on the control architecture that keeps autonomous agents focused, bounded, and converging on valid proofs.
+This article explores the third foundational pillar of Proof-Harness: **The Configurable Bounded Constraint & Human-in-the-Loop (HITL) Governance Engine**. In our [flagship benchmark study](the-2x-law-of-cognitive-scaffolding.md), we detail the trade-offs between parameter scale, token efficiency, and baseline pass rates across 300 problems; here, we focus on the control architecture that keeps autonomous agents focused, bounded, and converging on valid proofs.
 
 ---
 
@@ -144,7 +144,7 @@ Modern reasoning models support 32k, 64k, or 128k context windows, but context d
 Proof-Harness solves this through **externalized spatial compaction** (`compactor.py`) paired with **configurable thinking token budgets** (`llm_client.py`, `core_engine/config.py`). 
 
 > [!TIP]
-> **Tuning to Your Model's Cognitive Persona**: The parameters below are **empirical reference configurations**, not rigid dogmatic truth. For example, a lightweight, concise model (such as Gemini 3.8 Flash) operates effectively with a lean thinking budget of 2,048–4,096 tokens and a 32,000-token context ceiling. Conversely, a large, highly verbose open-weights reasoner (such as Qwen-2.5-32B or DeepSeek-R1) thrives when given a 24k–48k thinking budget and a 64k+ context ceiling. Proof-Harness externalizes every parameter so you can tune them directly to your hardware, API pricing, and model verbosity:
+> **Tuning to Your Model's Cognitive Persona**: The parameters below are **empirical reference configurations**, not rigid dogmatic truth. For example, a lightweight, concise model (such as Gemini 3.8 Flash) operates effectively with a lean thinking budget of 2,048–4,096 tokens and a 32,000-token context ceiling. Conversely, a large, highly verbose open-weights reasoner (such as Qwen-3.8-27B or DeepSeek-R1) thrives when given a 24k–48k thinking budget and a 64k+ context ceiling. Proof-Harness externalizes every parameter so you can tune them directly to your hardware, API pricing, and model verbosity:
 
 ```bash
 # ==============================================================================
@@ -374,7 +374,7 @@ It is the algorithmic equivalent of a senior research advisor walking into a doc
 
 Automated theorem proving is not just for automated benchmarks; it is built for **open research frontiers**. 
 
-When a human mathematician uses Proof-Harness to attack an open conjecture in mathematical physics—such as our autonomous derivations of [modular Hamiltonian flow and quantum null energy bounds on null Cauchy surfaces](from-spacetime-thermodynamics-to-open-quantum-horizons.md)—the human cannot be an afterthought waiting days for an unconstrained script to finish. The human must be an active, high-level collaborator in an iterative research cycle.
+When a human mathematician uses Proof-Harness to attack an open research conjecture across theoretical computer science and mathematics, the human cannot be an afterthought waiting days for an unconstrained script to finish. The human must be an active, high-level collaborator in an iterative research cycle.
 
 In Proof-Harness, the human-in-the-loop workflow is not merely about manual pausing; it is an **iterative problem-refinement flywheel** powered by continuous heuristic memory:
 
@@ -426,7 +426,7 @@ While public discourse often treats fully autonomous runs as the sole benchmark 
 
 ### 3. Compounding Heuristics: Building on Earlier Proofs
 When the human relaunches the harness on the refined problem, the system does not start from zero:
-* **Heuristic Memory Retention**: Through the [second-generation harness memory architecture](the-second-generation-of-agent-harnesses.md), earlier verified sub-lemmas, symbolic invariants from `MathStateMachine`, and post-mortems of refuted dead-ends are retained in vector memory.
+* **Heuristic Memory Retention**: Through the harness's semantic memory architecture, earlier verified sub-lemmas, symbolic invariants from `MathStateMachine`, and post-mortems of refuted dead-ends are retained in vector memory.
 * **Cumulative Acceleration**: The refined run immediately benefits from earlier discoveries and avoids previously refuted routes, allowing subsequent iterations to converge rapidly on the final rigorous proof.
 
 ### 4. Granular Checkpoints & Operational Resilience
@@ -438,7 +438,7 @@ Supporting this iterative cycle are robust operational guarantees:
 
 ## 9. Real-World Case Studies from the Benchmark Trenches
 
-Does this bounded constraint architecture actually work in practice? The empirical data from our 300-problem benchmark evaluation on research-level preprints (exemplified by our TCS-Bench runs) provides a resounding answer. While our [companion empirical benchmark study](taming-the-reasoners-qwen-muse-flash-benchmark.md) provides the macro-level comparisons of model cognitive personalities, token velocities, and cost curves across all 300 tasks, individual problem trajectories highlight the micro-mechanics of bounded constraints in action.
+Does this bounded constraint architecture actually work in practice? The empirical data from our 300-problem benchmark evaluation on research-level preprints (exemplified by our TCS-Bench runs) provides a resounding answer. While our [companion flagship benchmark study](the-2x-law-of-cognitive-scaffolding.md) provides the macro-level comparisons of model cognitive personalities, token velocities, and cost curves across all 300 tasks, individual problem trajectories highlight the micro-mechanics of bounded constraints in action.
 
 ### Case 1: The Overtime Clutch Win — Fault-Tolerant Low-Congestion Graph Spanners
 * **Problem**: Task 299 (*Fault-Tolerant Low-Congestion Graph Spanners*, [arXiv:2601.20718](https://arxiv.org/abs/2601.20718)) — Proving the existence of an $f$-fault-tolerant $(d,\eta)$-low congestion spanner $H'$ with bounded maximum vertex degree $\Delta_{\max}(G)$ across deleted component clusters.
@@ -456,9 +456,9 @@ Does this bounded constraint architecture actually work in practice? The empiric
 * **The Lesson**: Even when a model fails to cross the finish line, the harness **guaranteed termination within 7,040 seconds (~1.9 hrs)** rather than burning 48 hours in a runaway hallucination loop.
 
 ### Case 3: The Overnight Milestone (Gemini Flash on 300 Research Problems)
-As observed during our empirical benchmark evaluation across reasoning models, by enforcing these exact bounded constraints—fast single-pass triage followed by bounded 12-turn multi-turn escalation—Google Gemini 3.8 Flash completed all 300 research problems in 36.8 hours, achieving:
+As observed during our empirical benchmark evaluation across reasoning models, by enforcing these exact bounded constraints—fast single-pass triage followed by bounded 12-turn multi-turn escalation—Google Gemini 3.8 Flash completed all 300 research problems in **143.8 cumulative compute hours** (averaging 28.8 minutes per escalated task with a 12.2-minute median solve time, running in under 37 hours of wall-clock time under 4× parallel evaluation workers), achieving:
 * **Headline Certified Passes ($\ge 0.50$)**: **166 / 300 (55.33%)**
-* **Directionally Sound ($\ge 0.40$)**: **184 / 300 (61.33%)**
+* **Directionally Sound ($\ge 0.40$)**: **188 / 300 (62.67%)**
 * **Parse or Execution Errors**: **0**
 
 ![Per-Task Solve Latency and Cumulative Benchmark Compute Profile](../images/tcs_latency_comparison.png)
@@ -468,12 +468,10 @@ As observed during our empirical benchmark evaluation across reasoning models, b
 ## Companion Articles & Further Reading
 
 To explore different facets of the Proof-Harness neuro-symbolic ecosystem, see our related deep-dives:
-* **The Benchmark Deep-Dive**: [*Taming the Reasoners: Lessons from Benchmarking Qwen-3.8-27B, Meta Muse 1.3, and Gemini 3.8 Flash*](taming-the-reasoners-qwen-muse-flash-benchmark.md) — Comprehensive empirical comparison of model cognitive personalities, token expenditure, and scaling efficiencies on TCS-300.
-* **The Cognitive Architecture**: [*The Second Generation of Agent Harnesses*](the-second-generation-of-agent-harnesses.md) — Why frontier reasoning demands cognitive architecture, the data flywheel, and self-pruning procedural memory.
-* **Frontier Physics Exploration**: [*From Spacetime Thermodynamics to Open Quantum Horizons*](from-spacetime-thermodynamics-to-open-quantum-horizons.md) — Autonomous derivation of Jacobson spacetime thermodynamics and exploring modular Hamiltonian flow on null Cauchy surfaces.
-* **Foundational Architecture**: [*How an Agent Harness Unlocks LLM Math Reasoning*](how-an-agent-harness-unlocks-llm-math-reasoning.md) — Engineering walk-through of the deterministic Python/Lean execution kernel.
-* **Formal Technical Report**: [*ArXiv Technical Report: Prime Math Neuro-Symbolic Prover Harness*](arxiv-prime-math-neuro-symbolic-prover-harness.md) — Full formal system specification and proof verification protocols.
+* **The Flagship Multi-Model Benchmark**: [*The 1.6×–2× Law of Cognitive Scaffolding*](the-2x-law-of-cognitive-scaffolding.md) — Comprehensive empirical comparison of model cognitive personalities, error cuts, token expenditure, and scaling efficiencies across Qwen-3.8-27B, Meta Muse 1.3, and Gemini 3.8 Flash on TCS-300.
+* **Deterministic Kernel Architecture**: [*How an Agent Harness Unlocks LLM Math Reasoning*](how-an-agent-harness-unlocks-llm-math-reasoning.md) — Engineering walk-through of the deterministic Python/SymPy/Z3 execution kernel and local 27B model deployment.
 * **Related Frontier Research**: [*Towards Autonomous Mathematics Research* (Google DeepMind, arXiv:2602.10177)](https://arxiv.org/abs/2602.10177) — Tony Feng, Trieu Trinh, Demis Hassabis, Thang Luong, et al. on agentic harnesses (Aletheia), decoupled verification in natural language, and inference-time scaling for research-level mathematics.
+* **Multi-Agent Exploration**: [*Stellar Colosseum: A Many-Agent Harness for Long-Horizon Research in Mathematics and TCS* (arXiv:2609.15983)](https://arxiv.org/abs/2609.15983).
 
 ---
 

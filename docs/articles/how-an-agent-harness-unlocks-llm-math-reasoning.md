@@ -28,7 +28,7 @@ The results were striking:
 
 | Evaluation Tier | Unassisted One-Pass ($T=1$) | Full Proof Harness (v4) | Multiplier |
 | :--- | :---: | :---: | :---: |
-| **Directionally Sound (Grade C & Up, $\ge 0.40$)** | 18.0% (54 / 300) | **31.0% (93 / 300)** | **1.72× Gain** |
+| **Directionally Sound (Grade C & Up, $\ge 0.40$)** | 18.0% (54 / 300) | **36.33% (109 / 300)** | **2.02× Gain** |
 | **Certified Sound Proofs (Grade B & Up, $\ge 0.50$)** | 12.7% (38 / 300) | **26.7% (80 / 300)** | **2.11× Gain** |
 | **Publication-Grade Proofs (Grade A & Up, $\ge 0.70$)** | 6.7% (20 / 300) | **18.3% (55 / 300)** | **2.75× Gain** |
 
@@ -148,7 +148,7 @@ Larger foundation models will continue to push the frontier of raw capability. B
 
 By pairing an open-weight 27B model with a zero-trust execution kernel, continuous heuristic memory, and adaptive search horizons, Proof Harness demonstrates that consumer hardware can tackle problems that previously seemed out of reach.
 
-*For implementation details, evaluation scripts, and the full benchmark harness, check out the [Proof Harness repository on GitHub](https://github.com/dionyziuz/proof_harness). For theoretical analysis and comprehensive ablation studies, our full technical paper is available in the repository documentation.*
+*For implementation details, evaluation scripts, and the full benchmark harness, check out the [Proof Harness repository on GitHub](https://github.com/dionyziuz/proof_harness). For multi-model scaling comparisons and error-reduction analyses across Qwen, Meta Muse, and Gemini Flash, see our companion article [The 1.6×–2× Law of Cognitive Scaffolding](the-2x-law-of-cognitive-scaffolding.md); for computational leashes and overtime governance, see [Stop Thinking Forever](stop-thinking-forever-the-architecture-of-bounded-mathematical-reasoning.md).*
 
 ---
 
