@@ -38,18 +38,23 @@ We designed a two-stage empirical funnel across all 300 problems in **TCS-Bench*
 
 ### Table 1: Canonical TCS-300 Benchmark Scorecard (Step 1 vs. Step 2 Unified v4)
 
-| Model Architecture | Total Params (Est.)* | Active Params / Token* | Step 1: 1-Pass (T=1) | Step 2: Harness Pass (≥ 0.50) | Harness Multiplier | Failure Recovery Rate** | Directionally Sound (≥ 0.40) | Near-Miss Reservoir $[0.30, 0.50)$ |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Qwen-3.8-27B** *(Dense)* | **27.0B** *(Dense)* | **27.0B** *(100%)* | 12.67% *(38/300)* | **26.67%** *(80/300)* | **2.11×** *(+110.5%)* | **16.03%** *(42/262)* | **36.33%** *(109/300)* | **56 tasks** *(29 dir + 27 part)* |
-| **Meta Muse 1.3** *(Sparse MoE)* | **~800B–1T** *(MoE, Est.)* | **~45B–55B** *(~6%)* | 22.00% *(66/300)* | **46.33%** *(139/300)* | **2.11×** *(+110.6%)* | **31.20%** *(73/234)* | **50.67%** *(152/300)* | **32 tasks** *(13 dir + 19 part)* |
-| **Gemini 3.8 Flash** *(Sparse MoE)* | **~1.2T** *(MoE, Est.)* | **~35B–45B** *(~3.5%)* | 33.67% *(101/300)* | **55.33%** *(166/300)* | **1.64×** *(+64.4%)* | **32.66%** *(65/199)* | **62.67%** *(188/300)* | **30 tasks** *(22 dir + 8 part)* |
-| **3-Model Portfolio Union** *(Ensemble)* | — | — | 41.33% *(124/300)* | **65.67%** *(197/300)* | **1.59×** *(+58.9%)* | **41.48%** *(73/176)* | **73.00%** *(219/300)* | — |
+| Model Architecture | Total Params (Est.)* | Active Params / Token* | Step 1: 1-Pass (T=1) | Step 2: Harness Pass (≥ 0.50) | Harness Multiplier | Unsolved Problems Reduced (Error Cut)** | Multiplicative Decrease in Failures | Directionally Sound (≥ 0.40) | Near-Miss Reservoir [0.30, 0.50) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Qwen-3.8-27B** *(Dense)* | **27.0B** *(Dense)* | **27.0B** *(100%)* | 12.67% *(38/300)* | **26.67%** *(80/300)* | **2.11×** *(+110.5%)* | **16.03%** *(42 / 262 cut)* | **1.19× fewer unsolved** | **36.33%** *(109/300)* | **56 tasks** *(29 dir + 27 part)* |
+| **Meta Muse 1.3** *(Sparse MoE)* | **~800B–1T** *(MoE, Est.)* | **~45B–55B** *(~6%)* | 22.00% *(66/300)* | **46.33%** *(139/300)* | **2.11×** *(+110.6%)* | **31.20%** *(73 / 234 cut)* | **1.45× fewer unsolved** | **50.67%** *(152/300)* | **32 tasks** *(13 dir + 19 part)* |
+| **Gemini 3.8 Flash** *(Sparse MoE)* | **~1.2T** *(MoE, Est.)* | **~35B–45B** *(~3.5%)* | 33.67% *(101/300)* | **55.33%** *(166/300)* | **1.64×** *(+64.4%)* | **32.66%** *(65 / 199 cut)* | **1.49× fewer unsolved** | **62.67%** *(188/300)* | **30 tasks** *(22 dir + 8 part)* |
+| **3-Model Portfolio Union** *(Ensemble)* | — | — | 41.33% *(124/300)* | **65.67%** *(197/300)* | **1.59×** *(+58.9%)* | **41.48%** *(73 / 176 cut)* | **1.71× fewer unsolved** | **73.00%** *(219/300)* | — |
 
 *\*Note: Exact parameter counts and active routing budgets for Meta Muse 1.3 and Gemini 3.8 Flash are proprietary and not publicly disclosed; figures reported represent widely accepted community and architectural estimates based on MoE sizing and latency footprints.*
-*\*\*Note: **Failure Recovery Rate** measures the percentage of failed Step-1 theorems ($300 - \text{Pass}_{T=1}$) that the Proof Harness successfully rescues into certified passes (≥ 0.50) during Step 2.*
+*\*\*Note: **Unsolved Problems Reduced (Error Cut)** measures the percentage of Step-1 failures (300 − One-Pass Solved) that the Proof Harness successfully rescues into certified passes (score ≥ 0.50) during Step 2. The **Multiplicative Decrease in Failures** represents the ratio of unsolved problems before vs. after harness deployment (Unsolved_1Pass / Unsolved_Harness).*
 
-Look closely at the **Failure Recovery Rate** column in Table 1. At first glance, Gemini 3.8 Flash's headline multiplier (**1.64×**) appears smaller than Qwen's (**2.11×**) or Muse's (**2.11×**). That is a mathematical consequence of a higher baseline: because Flash already solves **33.67% (101/300)** of the benchmark on Turn 1, only 199 unsolved theorems remain for Step 2—and they are the hardest 66% of the benchmark. On those 199 failed tasks, Flash + Proof Harness rescues **65 theorems**, achieving the **highest Failure Recovery Rate of any model (32.66%)**, slightly edging out Meta Muse 1.3 (**31.20%**, 73/234 rescued) and doubling Qwen-3.8-27B (**16.03%**, 42/262 rescued).
+Look closely at the **Unsolved Problems Reduced** and **Multiplicative Decrease** columns in Table 1. In standard pass-rate multipliers, Gemini 3.8 Flash's headline multiplier (**1.64×**) appears smaller than Qwen's (**2.11×**) or Muse's (**2.11×**). That is an artifact of ceiling effects: because Flash already solves **33.67% (101/300)** on Turn 1, only 199 unsolved theorems remain for Step 2—and they represent the hardest two-thirds of the entire benchmark.
 
+When evaluated through the lens of **multiplicative decrease in unsolved problems** (the error reduction rate), the true picture emerges:
+* **Gemini 3.8 Flash achieves the highest single-model failure reduction across all three architectures (32.66% error cut, or 1.49× fewer unsolved problems)**, shrinking remaining failures from 199 down to 134.
+* **Meta Muse 1.3** closely follows with a **31.20% error cut (1.45× fewer unsolved problems)**, reducing failures from 234 down to 161.
+* **Qwen-3.8-27B** achieves a **16.03% error cut (1.19× fewer unsolved problems)**, rescuing 42 stubbornly difficult theorems that failed one-pass triage.
+* **The 3-Model Portfolio** achieves a **1.71× multiplicative decrease in unsolved problems (41.48% error cut)**, reducing the total pool of unsolved theorems across the entire graduate TCS benchmark from 176 down to just 103!
 ---
 
 ## 2. How the Proof Harness Works: Turning Linear Guessers into Closed-Loop Provers
