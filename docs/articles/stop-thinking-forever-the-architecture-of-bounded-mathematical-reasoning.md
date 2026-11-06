@@ -62,7 +62,9 @@ To break this cycle, Proof-Harness acts as an external scaffolding layer. By str
 
 ## 2. Pillar III: The Bounded Constraint Architecture
 
-The Proof-Harness governance substrate operates across five deeply integrated control surfaces. 
+The Proof-Harness governance substrate operates across five deeply integrated control surfaces.
+
+![Proof-Harness 7-Role Architecture and Bounded Governance Substrate](../images/tcs_harness_architecture.png)
 
 > [!NOTE]
 > **Empirical Defaults, Not Rigid Dogma**: The numerical thresholds below represent reference calibrations established during our benchmark runs (e.g. across Qwen-27B, Meta Muse, and Gemini Flash on consumer APU and GPU setups). Every boundary in Proof-Harness is externalized and fully tunable—practitioners can and should fine-tune these parameters to match their chosen model's cognitive verbosity, context window, and compute budget.
@@ -215,6 +217,8 @@ PROVER_TIMEOUT_SECONDS=3600.0               # Hard wall-clock timeout ceiling pe
 ```
 
 Solving is structured as a **staged tournament**:
+
+![Cumulative Theorem Discovery Across Turns and The Near-Miss Reservoir](../images/tcs_nearmiss_ceiling.png)
 
 ```text
 [ Problem Ingest ]
@@ -487,10 +491,12 @@ Does this bounded constraint architecture actually work in practice? The empiric
 * **The Lesson**: Even when a model fails to cross the finish line, the harness **guaranteed termination within 7,040 seconds (~1.9 hrs)** rather than burning 48 hours in a runaway hallucination loop.
 
 ### Case 3: The Overnight Milestone (Gemini Flash on 300 Research Problems)
-As observed during our [benchmark evaluation of Google Gemini 3.8 Flash](taming-the-reasoners-qwen-muse-flash-benchmark.md), by enforcing these exact bounded constraints—fast single-pass triage followed by bounded 12-turn multi-turn escalation—Google Gemini 3.8 Flash completed all 300 research problems in 36.8 hours, achieving:
+As observed during our empirical benchmark evaluation across reasoning models, by enforcing these exact bounded constraints—fast single-pass triage followed by bounded 12-turn multi-turn escalation—Google Gemini 3.8 Flash completed all 300 research problems in 36.8 hours, achieving:
 * **Headline Certified Passes ($\ge 0.50$)**: **166 / 300 (55.33%)**
 * **Directionally Sound ($\ge 0.40$)**: **184 / 300 (61.33%)**
 * **Parse or Execution Errors**: **0**
+
+![Per-Task Solve Latency and Cumulative Benchmark Compute Profile](../images/tcs_latency_comparison.png)
 
 ---
 
