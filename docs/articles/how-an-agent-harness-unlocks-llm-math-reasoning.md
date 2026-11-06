@@ -1,6 +1,6 @@
 # How an Agent Harness Unlocks Mathematical Reasoning in a 27B Model
 
-### *Why raw LLMs struggle with research-level math, and how a zero-trust code kernel, vector memory, and adaptive horizons boosted pass rates nearly 6x on consumer hardware.*
+### *Why raw LLMs struggle with research-level math, and how a zero-trust code kernel, vector memory, and adaptive horizons more than doubled certified pass rates (2.11×) to 26.7% on consumer hardware.*
 
 ---
 
@@ -20,28 +20,28 @@ This raised a practical question: **How much reasoning performance can a well-en
 
 To test this, we took an open-weight 27B model (`unsloth/Qwen3.8-27B-NVFP4`) running locally on a single consumer GPU (an NVIDIA RTX 5090 with 32GB VRAM), and evaluated it on **300 research-level problems from TCS-Bench**—spanning spectral graph theory, quantum computing, parameterized complexity, and combinatorial algorithms.
 
-When asked to draft proofs unassisted in a single pass, the model struggled, passing only **4.0%** of problems. 
+When asked to draft proofs unassisted in a single pass, the model struggled, achieving certified sound proofs on only **12.7%** (38 / 300) of problems. 
 
 Then we wrapped that exact same model inside **Proof Harness**—a specialized neuro-symbolic agent architecture. 
 
 The results were striking:
 
-| Evaluation Tier | Unassisted First Draft | Full Proof Harness | Multiplier |
+| Evaluation Tier | Unassisted One-Pass ($T=1$) | Full Proof Harness (v4) | Multiplier |
 | :--- | :---: | :---: | :---: |
-| **All Passing Proofs (Grade C & Up, $\ge 0.40$)** | 4.0% (12 / 300) | **23.7% (71 / 300)** | **5.92× Gain** |
-| **Certified Sound Proofs (Grade B & Up, $\ge 0.50$)** | 3.3% (10 / 300) | **21.0% (63 / 300)** | **6.30× Gain** |
-| **Publication-Grade Proofs (Grade A & Up, $\ge 0.70$)** | 2.3% (7 / 300) | **18.0% (54 / 300)** | **7.71× Gain** |
+| **Directionally Sound (Grade C & Up, $\ge 0.40$)** | 18.0% (54 / 300) | **31.0% (93 / 300)** | **1.72× Gain** |
+| **Certified Sound Proofs (Grade B & Up, $\ge 0.50$)** | 12.7% (38 / 300) | **26.7% (80 / 300)** | **2.11× Gain** |
+| **Publication-Grade Proofs (Grade A & Up, $\ge 0.70$)** | 6.7% (20 / 300) | **18.3% (55 / 300)** | **2.75× Gain** |
 
 ### What Do the Grades Actually Mean?
 
 Because mathematical deduction is not a multiple-choice benchmark, every proof is evaluated by an external calibrated referee across logical rigor, edge-case discharge, and structural completeness:
 
-- **Grade A ($\ge 0.70$ — Publication Grade):** An airtight, journal-quality proof. Every step is rigorously justified, all quantifier regimes and boundary cases ($n=1, 2$, empty graphs, degenerate matrices) are explicitly proved, and preconditions for cited theorems (like Chernoff or Hölder bounds) are verified in full. Over $85\%$ of the harness's certified passes reached this publication-ready tier.
+- **Grade A ($\ge 0.70$ — Publication Grade):** An airtight, journal-quality proof. Every step is rigorously justified, all quantifier regimes and boundary cases ($n=1, 2$, empty graphs, degenerate matrices) are explicitly proved, and preconditions for cited theorems (like Chernoff or Hölder bounds) are verified in full. Nearly $70\%$ of the harness's certified passes reached this publication-ready tier (55 out of 80).
 - **Grade B ($\ge 0.50$ — Certified Sound Pass):** The benchmark's headline pass threshold. The central mathematical reduction and derivations are completely sound, with no logical leaps, false claims, or hallucinated lemmas. Minor routine edge cases may be handled concisely, but the mathematical argument is fundamentally correct.
 - **Grade C ($\ge 0.40$ — Directionally Sound Reduction):** The core proof architecture is correct (e.g., the right inductive invariant, reduction, or probabilistic technique was found), but contains minor technical gaps, an unverified constant, or a loose intermediate inequality that needs patching. This tier captures all proofs with substantive, viable mathematical foundations.
 - **Below Grade C ($< 0.40$ — Refuted / Incomplete):** Fatal logical flaws, inverted inequalities, circular reasoning, illegal property inheritance (e.g., assuming independence after conditioning), or hand-waving prose like *"it obviously follows"*.
 
-Nearly **6x as many passing proofs**, with 18% reaching publication-grade quality—all running on consumer hardware without fine-tuning a single model weight. (While our empirical results were benchmarked on consumer hardware, the harness itself is model-agnostic and can wrap any LLM).
+**More than double the certified sound proofs** (a 2.11× lift from 12.7% to 26.7%), with 18.3% (55 / 300) reaching publication-grade quality—all running on consumer hardware without fine-tuning a single model weight. (While our empirical results were benchmarked on consumer hardware, the harness itself is model-agnostic and can wrap any LLM).
 
 Here is how the harness works, the engineering under the hood, and why it succeeded where one-shot generation failed.
 
@@ -103,7 +103,7 @@ To prevent premature commitment to flawed algebraic paths, Proof Harness orchest
 - **Stateless Blackboard Revisions**: If an internal referee finds a flaw in a draft, the harness doesn't keep a massive, noisy chat history that confuses the model. It collapses the context into a clean, 4-message blackboard: the problem statement, the best draft so far, and the specific surgical repair directive.
 - **The High-Potential Overtime Gate**: Fixed turn limits either waste tokens on lost causes or cut off promising proofs just before completion. At Turn 8 (the nominal horizon), the harness checks if the candidate proof achieved directional validity ($\text{score} \ge 0.35$). If so, it dynamically unlocks an **extra 4 iterations (Turns 9–12)** and $+1,800\text{s}$ wall-clock budget for surgical polishing.
 
-In our 300-problem benchmark, **100% of all passing proofs were discovered through this governed multi-turn process**. Over 84% of wins were achieved in Turn 4 or later, and the **Overtime Gate alone delivered 13 certified passing proofs (over 20% of all wins)** that would have been lost under a rigid 8-turn cutoff.
+In our 300-problem benchmark, the multi-turn harness unlocked **42 additional certified theorems** that completely failed unassisted one-pass triage. Furthermore, the **Overtime Gate alone delivered 10 certified passing proofs (nearly 24% of all multi-turn unlocked wins)** that would have been lost under a rigid 8-turn cutoff.
 
 ---
 
