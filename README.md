@@ -87,7 +87,6 @@ Evaluated across mathematical physics and Algebraic Quantum Field Theory (AQFT) 
 | :--- | :--- | :--- | :---: | :---: | :---: |
 | **`task_gr-qc_9504004_statement_01_01`** | **Jacobson (1995)**: *Thermodynamics of Spacetime* | Derives the Einstein Field Equations $G_{ab} + \Lambda g_{ab} = \frac{8\pi G}{c^4} T_{ab}$ via local Rindler horizon thermal flux, Unruh temperature $\eta = \frac{\hbar \kappa}{2\pi c k_B}$, Raychaudhuri expansion, and Clausius entropy balance $\delta Q = T dS$. | Turn 3<br>(1,204.6s) | **0.86 / 1.00** | **PASS (Publication-Grade)** |
 | **`task_2510.24491_statement_01_01`** | **Dorau & Much (2026)**: *Modular Flow on Null Hypersurfaces* | Proves that the modular Hamiltonian on null Cauchy surfaces generates local geometric translations $K_V = 2\pi \int H_V(x) T_{uu}(x) d\Sigma$ under local algebra inclusions. | Turn 8<br>(2,816.8s) | **0.76 / 1.00** | **PASS (Certified Sound)** |
-| **`task_2510.24491_open_01_01`** | **Open Frontier Problem**: *General Hadamard Modular Invariance* | Deep autonomous 50-turn exploration of the modular obstruction across general Hadamard states, deriving iso-entropic conditions ($\Delta S_{\mathrm{ent}} = 0$) and integrating Quantum Null Energy Condition (QNEC) boundary tensor corrections. | 50-turn deep search | Checkpointed | **Active Exploration** |
 
 - **Physics Suite Baseline Pass Rate:** **2 / 2 (100.0%)** recorded in `archive/eval_results_archive/physics_qwen_solved_v1/pipeline_metrics.json`.
 - **Domain Memory Specialization:** Evaluated using dedicated `physics_procedural` memory partition (`--domain physics`), harvesting frontier heuristics from Casini (2008), Faulkner et al. (2014), Wall (2012), Bousso et al. (2014), and Ciolli–Longo–Ruzzi (2021).
@@ -500,15 +499,13 @@ Run the 2-problem solved physics baseline suite with local Qwen 27B and domain-i
   --prove-dir data/eval_results/physics_qwen_solved_v1
 ```
 
-#### Open Problem Exploration (Up to 100 Deep Iterations)
-Run deep open-conjecture exploration on frontier physics problems (e.g. 50 turns on the general Hadamard modular obstruction):
+#### Open Problem Deep Exploration
+Run deep open-conjecture exploration on frontier open problems (e.g. 50 turns with literature search and adversarial auditing):
 ```bash
-.venv/bin/python scripts/run_tcs_continuous_pipeline.py \
-  --env-file .env.physics_qwen \
-  --tasks-file data/physics/tasks/task_2510.24491_open_01_01.json \
-  --domain physics \
+.venv/bin/python scripts/run_open_problems_prove.py \
+  --problem-id baillie-psw \
   --max-iterations 50 \
-  --prove-dir data/eval_results/physics_open_50turns_v1
+  --workers 2
 ```
 
 #### Canonical 2-Step Autonomous TCS-Bench Pipeline (Shared Directory)
