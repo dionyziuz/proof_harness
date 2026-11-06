@@ -494,10 +494,24 @@ class TunnelThinkingClient:
                     logger.error(f"Exhausted all {max_retries} stream retries on tunnel LLM request: {exc}")
                     raise
                 wait = compute_backoff(attempt)
-                logger.warning(
-                    f"Tunnel LLM stream request hit {type(exc).__name__} ({exc}); "
-                    f"retrying with exponential backoff in {wait:.1f}s (attempt {attempt + 1}/{max_retries})..."
-                )
+                old_effort = payload.get("reasoning_effort")
+                new_effort = self._step_down_effort(old_effort)
+                if old_effort and old_effort != new_effort:
+                    logger.warning(
+                        f"Tunnel LLM stream request hit {type(exc).__name__} ({exc}); "
+                        f"stepping down reasoning_effort from {old_effort!r} to {new_effort!r} "
+                        f"and retrying with backoff in {wait:.1f}s (attempt {attempt + 1}/{max_retries})..."
+                    )
+                    payload["reasoning_effort"] = new_effort
+                    if "chat_template_kwargs" in payload and "thinking_budget" in payload["chat_template_kwargs"]:
+                        payload["chat_template_kwargs"]["thinking_budget"] = max(4096, payload["chat_template_kwargs"]["thinking_budget"] // 2)
+                    if "thinking_budget_tokens" in payload and payload["thinking_budget_tokens"]:
+                        payload["thinking_budget_tokens"] = max(4096, payload["thinking_budget_tokens"] // 2)
+                else:
+                    logger.warning(
+                        f"Tunnel LLM stream request hit {type(exc).__name__} ({exc}); "
+                        f"retrying with exponential backoff in {wait:.1f}s (attempt {attempt + 1}/{max_retries})..."
+                    )
                 time.sleep(wait)
 
     async def _astream_events(
@@ -534,10 +548,24 @@ class TunnelThinkingClient:
                     logger.error(f"Exhausted all {max_retries} async stream retries on tunnel LLM request: {exc}")
                     raise
                 wait = compute_backoff(attempt)
-                logger.warning(
-                    f"Async tunnel LLM stream request hit {type(exc).__name__} ({exc}); "
-                    f"retrying with exponential backoff in {wait:.1f}s (attempt {attempt + 1}/{max_retries})..."
-                )
+                old_effort = payload.get("reasoning_effort")
+                new_effort = self._step_down_effort(old_effort)
+                if old_effort and old_effort != new_effort:
+                    logger.warning(
+                        f"Async tunnel LLM stream request hit {type(exc).__name__} ({exc}); "
+                        f"stepping down reasoning_effort from {old_effort!r} to {new_effort!r} "
+                        f"and retrying with backoff in {wait:.1f}s (attempt {attempt + 1}/{max_retries})..."
+                    )
+                    payload["reasoning_effort"] = new_effort
+                    if "chat_template_kwargs" in payload and "thinking_budget" in payload["chat_template_kwargs"]:
+                        payload["chat_template_kwargs"]["thinking_budget"] = max(4096, payload["chat_template_kwargs"]["thinking_budget"] // 2)
+                    if "thinking_budget_tokens" in payload and payload["thinking_budget_tokens"]:
+                        payload["thinking_budget_tokens"] = max(4096, payload["thinking_budget_tokens"] // 2)
+                else:
+                    logger.warning(
+                        f"Async tunnel LLM stream request hit {type(exc).__name__} ({exc}); "
+                        f"retrying with exponential backoff in {wait:.1f}s (attempt {attempt + 1}/{max_retries})..."
+                    )
                 await asyncio.sleep(wait)
 
     def _response_from_stream(self, reasoning_chunks: List[str], content_chunks: List[str],
@@ -620,10 +648,20 @@ class TunnelThinkingClient:
                         logger.error(f"Exhausted all {max_retries} retries on stream_collect in complete: {exc}")
                         raise
                     wait = compute_backoff(attempt)
-                    logger.warning(
-                        f"Stream collection in complete hit {type(exc).__name__} ({exc}); "
-                        f"retrying in {wait:.1f}s (attempt {attempt + 1}/{max_retries})..."
-                    )
+                    old_effort = payload.get("reasoning_effort")
+                    new_effort = self._step_down_effort(old_effort)
+                    if old_effort and old_effort != new_effort:
+                        logger.warning(
+                            f"Stream collection in complete hit {type(exc).__name__} ({exc}); "
+                            f"stepping down reasoning_effort from {old_effort!r} to {new_effort!r} "
+                            f"and retrying in {wait:.1f}s (attempt {attempt + 1}/{max_retries})..."
+                        )
+                        payload["reasoning_effort"] = new_effort
+                    else:
+                        logger.warning(
+                            f"Stream collection in complete hit {type(exc).__name__} ({exc}); "
+                            f"retrying in {wait:.1f}s (attempt {attempt + 1}/{max_retries})..."
+                        )
                     time.sleep(wait)
             raise RuntimeError("Unexpected exit from retry loop in complete (stream_collect)")
 
@@ -698,10 +736,20 @@ class TunnelThinkingClient:
                     logger.error(f"Exhausted all {max_retries} retries on async tunnel LLM request: {exc}")
                     raise
                 wait = compute_backoff(attempt)
-                logger.warning(
-                    f"Async tunnel LLM request hit {type(exc).__name__} ({exc}); "
-                    f"retrying with exponential backoff in {wait:.1f}s (attempt {attempt + 1}/{max_retries})..."
-                )
+                old_effort = payload.get("reasoning_effort")
+                new_effort = self._step_down_effort(old_effort)
+                if old_effort and old_effort != new_effort:
+                    logger.warning(
+                        f"Async tunnel LLM request hit {type(exc).__name__} ({exc}); "
+                        f"stepping down reasoning_effort from {old_effort!r} to {new_effort!r} "
+                        f"and retrying with exponential backoff in {wait:.1f}s (attempt {attempt + 1}/{max_retries})..."
+                    )
+                    payload["reasoning_effort"] = new_effort
+                else:
+                    logger.warning(
+                        f"Async tunnel LLM request hit {type(exc).__name__} ({exc}); "
+                        f"retrying with exponential backoff in {wait:.1f}s (attempt {attempt + 1}/{max_retries})..."
+                    )
                 await asyncio.sleep(wait)
         raise RuntimeError("Unexpected exit from retry loop in acomplete")
 
