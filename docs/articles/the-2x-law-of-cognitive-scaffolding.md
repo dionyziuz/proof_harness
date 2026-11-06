@@ -113,23 +113,18 @@ Look at Qwen-3.8-27B's numbers:
 
 ---
 
-## 4. Three Models, Three Specialties: Domain Competency, Case Studies & Pound-for-Pound Efficiency
+## 4. Three Models, Three Specialties: Domain Competency and Forensic Case Studies
 
-Where does each architecture shine, where does it struggle, and how do the three models compare when we normalize by **active compute per token**?
+Where does each architecture shine, and where does it encounter mathematical obstructions?
 
 We classified all 300 TCS-Bench theorems into five core mathematical subfields: **Algorithms & Complexity ($N=32$)**, **Graph Theory & Networks ($N=183$)**, **Probability & Combinatorics ($N=31$)**, **Algebra, Matrices & Polynomials ($N=37$)**, and **Quantum & Information Theory ($N=15$)**.
 
-![Raw Pass Rate by Subfield vs. Active-Compute Normalized Efficiency](../images/tcs_domain_competency.png)
+![Pass Rate Across Five Core TCS Subfields](../images/tcs_domain_competency.png)
 
-### Panel A vs. Panel B: Raw Dominance vs. Active-FLOP Efficiency
-As shown in **Figure 4 (Panel A)**, in raw unnormalized pass rate, total parameter scale establishes a clear hierarchy across every subfield. However, when we normalize by active compute per token (**Pass Rate % per 10B Active Parameters**, **Figure 4 Panel B**), a remarkable architectural inversion emerges:
-
-1. **Overall Active-Compute Efficiency**:
-   * **Gemini 3.8 Flash** (~40B active) leads in pound-for-pound efficiency at **13.83% pass rate per 10B active parameters** (41.5 passes per 10B active params).
-   * **Qwen-3.8-27B** (27.0B active) takes **second place overall at 9.88% pass rate per 10B active parameters** (29.6 passes per 10B active params)—**outperforming Meta Muse 1.3** (~50B active, **9.27% per 10B active params**, or 27.8 passes per 10B active params)!
-2. **Algorithms & Graph Theory Inversion**:
-   * In **Algorithms & Complexity**, Qwen-3.8-27B achieves **11.56% pass rate per 10B active params** versus Meta Muse 1.3's **8.12%** (+42% higher active-compute yield).
-   * In **Graph Theory & Networks**, Qwen-3.8-27B achieves **10.52% pass rate per 10B active params** versus Meta Muse 1.3's **8.86%** (+19% higher active-compute yield).
+As shown in **Figure 4**, each model exhibits a distinct mathematical signature across domains:
+* **Gemini 3.8 Flash** leads broadly across **Algebra & Matrices (64.9%)**, **Probability & Combinatorics (61.3%)**, and **Algorithms & Complexity (59.4%)**.
+* **Meta Muse 1.3** demonstrates exceptional strength in **Algebra, Matrices & Polynomials (62.2%)**, nearly matching Flash through deep structural search.
+* **Qwen-3.8-27B** performs strongest in **Algorithms & Complexity (31.2%)** and **Graph Theory & Networks (28.4%)**, where inductive invariant checks and constructive discrete steps dominate, but encounters steep challenges in **Algebra (21.6%)** and **Quantum (13.3%)** due to the latent lemma deficit.
 
 Why does each model exhibit such a distinct domain signature? Let us examine the forensic log evidence for all three models.
 
@@ -263,7 +258,7 @@ Rather than running a single model on every theorem—or running all three model
 1. **Tier 0 — Turn-1 Vector Database (`TurboVec`) Heuristic & Lemma Injection**:
    Before any model generates a token, query the **Proof Harness Vector Database (`TurboVec`)** for the theorem's mathematical subfield, retrieving canonical proof templates, spectral/algebraic identities, and known boundary traps. This immediately bridges the "Latent Library Gap" for smaller dense models and prevents false starts for large MoEs.
 2. **Tier 1 — High-Efficiency Dense Filter & Inductive Grinder (Qwen-3.8-27B + Proof Harness)**:
-   Run **Qwen-3.8-27B** first, particularly on **Algorithms, Graph Theory, and inductive state-machine verification**, where Qwen achieves **10.5–11.6% pass rate per 10B active parameters** and catches factor-of-2 and boundary-index errors that trip up giant models.
+   Run **Qwen-3.8-27B** first, particularly on **Algorithms, Graph Theory, and inductive state-machine verification**, where Qwen excels at discrete combinatorial steps and catches factor-of-2 and boundary-index errors that trip up giant models.
 3. **Tier 2 — Primary High-Velocity Cloud Prover (Gemini 3.8 Flash + Proof Harness)**:
    Route remaining unsolved theorems to **Gemini 3.8 Flash** under the 2-Step Proof Harness. With a **12.2-minute median solve time** and a **55.3% standalone pass rate** (61.3% in Probability & Combinatorics, 59.4% in Algorithms), Flash clears the vast majority of solvable theorems at **3.1× lower latency** than deep-search alternatives.
 4. **Tier 3 — Deep Algebraic Specialist Escalation (Meta Muse 1.3 + Proof Harness)**:
