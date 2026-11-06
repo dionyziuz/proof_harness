@@ -81,19 +81,21 @@ To understand why, we must decompose a model's mathematical capability into **th
 
 ![The Three Forces Governing Mathematical Proving and The Verbosity Paradox](../images/tcs_three_forces_triad.png)
 
-### Force 1: Total Parameters = The Latent Theorem Library (Governs Step-1 Floor)
-In a Mixture-of-Experts (MoE) model like **Gemini 3.8 Flash (estimated at ~1.2T total)** or **Meta Muse 1.3 (estimated at ~800B total)**, the vast majority of parameters are inactive on any single token, serving as a **massive distributed memory bank** of specialized mathematical literature. (While proprietary providers do not disclose exact parameter counts, empirical FLOP-latency and expert routing analyses consistently point to trillion-parameter class architectures). When presented with a theorem on multilinear algebraic circuits or quantum channel fidelity on Turn 1, a massive MoE has likely encoded the exact canonical reduction template during pretraining. Consequently, **Total Parameters govern the Step-1 Zero-Shot Floor**:
+### Force 1: Total Parameters = Stored Knowledge Bank (Governs Step-1 Floor)
+In a Mixture-of-Experts (MoE) architecture like **Gemini 3.8 Flash (estimated at ~1.2T total)** or **Meta Muse 1.3 (estimated at ~800B total)**, the vast majority of parameters serve as a **massive distributed library of specialized mathematical literature**. While only a small subset of experts activate on any given token, the router draws from hundreds of billions of stored weights. When presented with a niche theorem on Turn 1—such as an obscure operator inequality or parameterized graph reduction—a trillion-parameter MoE is far more likely to have memorized the exact canonical template during pretraining. Consequently, **Total Parameters govern the Step-1 Zero-Shot Floor**:
 * **Gemini 3.8 Flash (~1.2T MoE, Est.)**: **33.67%** one-pass accuracy (101/300).
 * **Meta Muse 1.3 (~800B MoE, Est.)**: **22.00%** one-pass accuracy (66/300).
 * **Qwen-3.8-27B (27B Dense)**: **12.67%** one-pass accuracy (38/300).
 
-### Force 2: Active Parameters per Token = The Per-Step Deductive Engine (Governs Step-2 Lift)
-Once a problem fails Step 1 and enters the multi-turn **Proof Harness**, the game changes from *memorized template recall* to *iterative symbolic deduction*. Here, the relevant metric is no longer total stored weights, but **Active Parameters executed per token**:
-* **Gemini 3.8 Flash**: ~35B–45B estimated active parameters per token.
-* **Meta Muse 1.3**: ~45B–55B estimated active parameters per token.
-* **Qwen-3.8-27B**: **27.0B active parameters per token** (100% dense activation).
+### Force 2: Active Parameters per Token + External Tooling (Governs Step-2 Harness Lift)
+Crucially, on every single token—in both Step 1 and Step 2—MoE models only activate a fraction of their total weights (estimated at **~35B–45B active parameters** for Flash and **~45B–55B active parameters** for Muse). Meanwhile, **Qwen-3.8-27B** activates all **27.0B dense parameters** on every generated token.
 
-Despite being ~30× to 45× smaller in *total* parameter count, Qwen-3.8-27B operates at **~55% to 65% active-compute parity** with the cloud MoE giants on every generated token! When the Proof Harness offloads symbolic grinding to SymPy/Z3 and enforces step-by-step invariant checking, 27 billion dense active parameters are more than sufficient to execute rigorous multi-turn deductive chains.
+This reveals a profound architectural reality: **on a per-token basis, a 27B dense model operates at near-compute parity (~55% to 75% active FLOPs) with trillion-parameter MoE giants!**
+
+In unassisted Step 1, Qwen was hobbled not because its per-token reasoning was weak, but because its 27B parameter library had never memorized the niche mathematical templates needed to solve graduate theorems in a single blind shot. But once escalated into **Proof Harness (Step 2)**, the playing field levels:
+1. **The Harness Offloads Verification**: Brute-force symbolic algebra, boundary checks, and counterexample searches are delegated to the Python/SymPy/Z3 kernel rather than carried out in vulnerable token arithmetic.
+2. **The Harness Structures the Deduction**: The 7-role cognitive pipeline breaks proof discovery into incremental, auditor-verified steps.
+3. **The Active Core Drives the Logic**: Freed from the need to have memorized every lemma in advance, Qwen's 27 billion active parameters are more than sufficient to execute rigorous logical steps—allowing it to match the exact same **2.11× harness multiplier** as the 800B MoE.
 
 ### Force 3: Thinking Dynamics & The Verbosity Paradox (Sprawl vs. Scribe Compression)
 When we audited the character lengths of every candidate proof across Step 1 and Step 2 (shown in the right panel of **Figure 3**), we uncovered a counterintuitive law—**The Verbosity Paradox**:
