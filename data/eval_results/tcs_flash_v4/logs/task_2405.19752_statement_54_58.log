@@ -1,0 +1,599 @@
+================================================================================
+[2026-11-02 05:08:23] TCS-BENCH UNASSISTED ONE-PASS SESSION: task_2405.19752_statement_54_58
+Model: gemini-3.8-flash-high | Duration: 136.09s | Prompt Tokens: 14004 | Completion Tokens: 41653
+================================================================================
+
+--- [TURN 1/1] INNER THINKING ---
+(none)
+
+--- [TURN 1/1] MODEL GENERATED OUTPUT ---
+\begin{proof}
+We divide the proof into four main parts:
+\begin{enumerate}
+    \item Analysis of the subroutines $\Call{FindBest}{}$ and $\Call{BAI}{}$, including verification of their preconditions and the quality of the maintained benchmark arms;
+    \item Inductive bound on the suboptimality gap $\E{\mu_{\a^*} - \mu_{\k_p}}$ for each pass $p \in [P]$;
+    \item Rigorous derivation of the expected regret incurred in pass $p$;
+    \item Derivation of the total expected regret $R(T)$ across both the exploration and exploitation phases.
+\end{enumerate}
+
+Throughout the proof, let $\a^*$ denote the global optimal arm in $[n]$, with mean $\mu_{\a^*} = \max_{i\in[n]} \mu_i$. For convenience, define 
+\[
+    B \coloneqq (n+1)\cdot \-{ilog}^{(m-1)}(n+1).
+\]
+Since $2 \leq m < \frac{8n}{9}$, we have $n \ge 3$. Thus $n+1 \le \frac{4}{3}n$, and for any $k \ge 0$, $\-{ilog}^{(k)}(n+1) = \Theta(\-{ilog}^{(k)}(n))$. Consequently, $B = \Theta\tp{n \cdot \-{ilog}^{(m-1)}(n)}$.
+
+Furthermore, under the assumption $T \ge (n+1)^2$, we have $\frac{B}{T} \le \frac{\-{ilog}^{(m-1)}(n+1)}{n+1} \le 1$. Hence, for every $p \in [P]$, the parameter $\eps_p = 2^{P-p+1}\tp{\frac{B}{T}}^{\frac{1-\lambda_p}{2}}$ is well-defined, positive, and satisfies $\eps_p \le \eps_{p-1}$.
+
+\medskip
+\noindent\textbf{Part 1: Analysis of Subroutines and Preconditions.}
+
+\smallskip
+\noindent\emph{1.1. Sample Complexity of $\Call{FindBest}{}$.}
+In pass $p \in [P]$, the sample size for $\Call{FindBest}{}$ is set to
+\[
+    s^{(p)} = \left\lceil\frac{2^5}{\eps_p^2}\tp{\log \frac{2^3\cdot\-{ilog}^{(r-1)}(n+1)}{\delta}}\right\rceil,
+\]
+where $\delta = \frac{1}{4}$ and $r = \min\set{\lfloor\log^*(n+1)\rfloor, m-1}$.
+We evaluate the term $\log \tp{\frac{2^3\cdot\-{ilog}^{(r-1)}(n+1)}{\delta}} = \log\tp{32 \cdot \-{ilog}^{(r-1)}(n+1)} = \log(32) + \log\tp{\-{ilog}^{(r-1)}(n+1)}$:
+\begin{itemize}
+    \item If $m - 1 \le \lfloor\log^*(n+1)\rfloor$, then $r = m - 1$. By the definition of the iterated logarithm, $\-{ilog}^{(k)}(a) = \max\set{\log(\-{ilog}^{(k-1)}(a)), 1}$, we have
+    \[
+        \log\tp{\-{ilog}^{(r-1)}(n+1)} \le \-{ilog}^{(r)}(n+1) = \-{ilog}^{(m-1)}(n+1).
+    \]
+    \item If $m - 1 > \lfloor\log^*(n+1)\rfloor$, then $r = \lfloor\log^*(n+1)\rfloor$. By definition of $\log^*$, the iterated logarithm stabilizes at $1$ after $\lfloor\log^*(n+1)\rfloor$ iterations, which implies $\-{ilog}^{(r)}(n+1) = \-{ilog}^{(m-1)}(n+1) = 1$. Thus, $\log\tp{\-{ilog}^{(r-1)}(n+1)} \le \-{ilog}^{(r)}(n+1) = \-{ilog}^{(m-1)}(n+1) = 1$.
+\end{itemize}
+In both cases, $\log\tp{\frac{2^3\cdot\-{ilog}^{(r-1)}(n+1)}{\delta}} \le \log(32) + \-{ilog}^{(m-1)}(n+1) = O\tp{\-{ilog}^{(m-1)}(n+1)}$. 
+
+Because $\-{ilog}^{(m-1)}(n+1) \ge 1$ and $\log(32) \ge 3$, we have the explicit lower bound
+\[
+    s^{(p)} \ge \frac{32 \times 3}{\eps_p^2} = \frac{96}{\eps_p^2}.
+\]
+Therefore,
+\[
+    \sqrt{\frac{4}{s^{(p)}}} \le \frac{2}{\sqrt{96/\eps_p^2}} = \frac{2}{\sqrt{96}}\eps_p < \frac{\eps_p}{4}.
+\]
+
+\smallskip
+\noindent\emph{1.2. Accuracy of $\Call{FindBest}{}$.}
+When $\Call{FindBest}{\set{\a^*_{\!{max}}, \a_i}, s^{(p)}}$ is invoked on the two-arm set $\+S = \set{\a^*_{\!{max}}, \a_i}$ with $|\+S| = 2$, \Cref{lem:findbest-perform} ensures that the returned arm $a_i^{(p)}$ satisfies
+\begin{equation}\label{eq:findbest-error}
+    \E{\max\set{\mu_{\a^*_{\!{max}}}, \mu_{\a_i}} - \mu_{a_i^{(p)}}} \le \sqrt{\frac{2|\+S|}{s^{(p)}}} = \sqrt{\frac{4}{s^{(p)}}} < \frac{\eps_p}{4}.
+\end{equation}
+Furthermore, the arm $a_i^{(p)}$ is sampled with probability $\Pr{a_i^{(p)} = \a} = \frac{T_{\a}}{s^{(p)}}$ for each $\a \in \+S$, where $T_{\a}$ is the number of times $\a$ was pulled in the mirror descent subroutine. Therefore, the expected regret incurred during the $s^{(p)}$ rounds of this subroutine is:
+\begin{align}\label{eq:findbest-regret-per-call}
+    \E{\sum_{t=1}^{s^{(p)}} \tp{\mu_{\a^*} - \mu_{A_t}}} 
+    &= s^{(p)}\mu_{\a^*} - \E{\sum_{\a \in \+S} T_{\a} \mu_{\a}} \nonumber\\
+    &= s^{(p)}\tp{\mu_{\a^*} - \E{\mu_{a_i^{(p)}}}} \nonumber\\
+    &= s^{(p)}\tp{\E{\mu_{\a^*} - \mu_{\a^*_{\!{max}}}} + \E{\mu_{\a^*_{\!{max}}} - \mu_{a_i^{(p)}}}}.
+\end{align}
+Since $\mu_{\a^*_{\!{max}}} \le \max\set{\mu_{\a^*_{\!{max}}}, \mu_{\a_i}}$, \eqref{eq:findbest-error} implies
+\begin{equation}\label{eq:findbest-diff}
+    \E{\mu_{\a^*_{\!{max}}} - \mu_{a_i^{(p)}}} \le \E{\max\set{\mu_{\a^*_{\!{max}}}, \mu_{\a_i}} - \mu_{a_i^{(p)}}} < \frac{\eps_p}{4}.
+\end{equation}
+
+\medskip
+\noindent\textbf{Part 2: Induction on the Quality of Arms $\k_p$.}
+
+We prove by induction on $p \in [P]$ that:
+\begin{enumerate}
+    \item[(i)] $\mu_{\a^*} - \E{\mu_{\k_p}} \le 2\eps_p$;
+    \item[(ii)] At any point during pass $p$, the benchmark arm $\a^*_{\!{max}}$ maintained by $\Call{BAI}{\eps_p, \delta}$ satisfies
+    \[
+        \mu_{\a^*} - \E{\mu_{\a^*_{\!{max}}}} \le \eps_{p-1} + \eps_p.
+    \]
+\end{enumerate}
+
+\smallskip
+\noindent\emph{Base case ($p = 0$).}
+We set $\eps_0 = 1$. Since all arm rewards lie in $[0, 1]$, for the initial arm $\k_0$ (the first arm in pass $1$), we trivially have
+\[
+    \mu_{\a^*} - \E{\mu_{\k_0}} \le 1 = \eps_0.
+\]
+
+\smallskip
+\noindent\emph{Inductive step.}
+Assume that $\mu_{\a^*} - \E{\mu_{\k_{p-1}}} \le 2\eps_{p-1}$ holds for pass $p-1$ (with $\mu_{\a^*} - \E{\mu_{\k_0}} \le \eps_0$ for $p=1$). At the start of pass $p$, $\k_{p-1}$ is fed into $\Call{BAI}{\eps_p, \delta}$ as its first arm ($k_1 = \k_{p-1}$). 
+
+By \Cref{prop:BAIblackbox} (Item 3, Benchmark arm), $\Call{BAI}{\eps_p, \delta}$ maintains an arm $\a^*_{\!{max}}$ in memory throughout pass $p$ satisfying
+\[
+    \E{\mu_{\k_{p-1}} - \mu_{\a^*_{\!{max}}}} \le \eps_p.
+\]
+By linearity of expectation, at any round during pass $p$:
+\begin{equation}\label{eq:amax-bound}
+    \mu_{\a^*} - \E{\mu_{\a^*_{\!{max}}}} = \tp{\mu_{\a^*} - \E{\mu_{\k_{p-1}}}} + \E{\mu_{\k_{p-1}} - \mu_{\a^*_{\!{max}}}} \le \eps_{p-1} + \eps_p,
+\end{equation}
+which establishes statement (ii) for pass $p$.
+
+Now, let $\+S_p$ denote the set of arms fed into $\Call{BAI}{\eps_p, \delta}$ during pass $p$. Note that $\k_{p-1} \in \+S_p$. Let $\a^*_{\+S_p} \coloneqq \arg\max_{\a \in \+S_p} \mu_{\a}$ be the optimal arm in $\+S_p$. 
+
+Consider the arrival of the optimal arm $\a^*$ in pass $p$. At Line~\ref{line:callfindbest} of \Cref{algo:small-m}, the algorithm runs $a^{*(p)} \gets \Call{FindBest}{\set{\a^*_{\!{max}}, \a^*}, s^{(p)}}$.
+\begin{itemize}
+    \item \textbf{Case A:} $a^{*(p)} = \a^*$. In this case, the condition $a^{*(p)} = \a^*$ is met, so $\a^*$ is fed into $\Call{BAI}{\eps_p, \delta}$. Thus $\a^* \in \+S_p$, which implies $\a^*_{\+S_p} = \a^*$ and $\mu_{\a^*} - \mu_{\a^*_{\+S_p}} = 0$.
+    \item \textbf{Case B:} $a^{*(p)} \neq \a^*$. Since the input set to $\Call{FindBest}{}$ is $\set{\a^*_{\!{max}}, \a^*}$, it must be that $a^{*(p)} = \a^*_{\!{max}}$. Notice that $\a^*_{\!{max}}$ is the benchmark arm maintained by BAI; by \Cref{algo:small-m}, $\a^*_{\!{max}}$ was either the initial arm $\k_{p-1}$ or an arm previously fed into BAI. Hence, $\a^*_{\!{max}} \in \+S_p$, which implies $\mu_{\a^*_{\+S_p}} \ge \mu_{\a^*_{\!{max}}} = \mu_{a^{*(p)}}$. Therefore,
+    \[
+        \mu_{\a^*} - \mu_{\a^*_{\+S_p}} \le \mu_{\a^*} - \mu_{\a^*_{\!{max}}} = \mu_{\a^*} - \mu_{a^{*(p)}}.
+    \]
+\end{itemize}
+Combining both cases, the inequality $\mu_{\a^*} - \mu_{\a^*_{\+S_p}} \le \mu_{\a^*} - \mu_{a^{*(p)}}$ holds deterministically. Taking the expectation and applying \Cref{lem:findbest-perform} with $\+S = \set{\a^*_{\!{max}}, \a^*}$ and optimal arm $\a^*$:
+\begin{equation}\label{eq:opt-in-Sp}
+    \E{\mu_{\a^*} - \mu_{\a^*_{\+S_p}}} \le \E{\mu_{\a^*} - \mu_{a^{*(p)}}} \le \sqrt{\frac{4}{s^{(p)}}} < \frac{\eps_p}{4} \le \eps_p.
+\end{equation}
+
+At the end of pass $p$, $\Call{BAI}{\eps_p, \delta}$ returns arm $\k_p$. By \Cref{prop:BAIblackbox} (Item 1, Correctness),
+\begin{equation}\label{eq:bai-correctness}
+    \E{\mu_{\a^*_{\+S_p}} - \mu_{\k_p}} \le \eps_p.
+\end{equation}
+Combining \eqref{eq:opt-in-Sp} and \eqref{eq:bai-correctness} via the triangle inequality yields:
+\[
+    \mu_{\a^*} - \E{\mu_{\k_p}} = \E{\mu_{\a^*} - \mu_{\a^*_{\+S_p}}} + \E{\mu_{\a^*_{\+S_p}} - \mu_{\k_p}} \le \eps_p + \eps_p = 2\eps_p.
+\]
+This completes the induction for statement (i).
+
+\medskip
+\noindent\textbf{Part 3: Expected Regret in Pass $p$.}
+
+In pass $p$, rounds are consumed by two components: the calls to $\Call{FindBest}{}$ and the execution of $\Call{BAI}{\eps_p, \delta}$.
+
+\smallskip
+\noindent\emph{3.1. Regret from $\Call{FindBest}{}$.}
+There are $n$ arriving arms in pass $p$, so $\Call{FindBest}{}$ is invoked exactly $n$ times. For each arriving arm $\a_i$, by \eqref{eq:findbest-regret-per-call}, \eqref{eq:findbest-diff}, and \eqref{eq:amax-bound}:
+\begin{align*}
+    \E{\sum_{t=1}^{s^{(p)}} \tp{\mu_{\a^*} - \mu_{A_t}}} 
+    &= s^{(p)}\tp{\E{\mu_{\a^*} - \mu_{\a^*_{\!{max}}}} + \E{\mu_{\a^*_{\!{max}}} - \mu_{a_i^{(p)}}}} \\
+    &\le s^{(p)}\tp{\eps_{p-1} + \eps_p + \frac{\eps_p}{4}} \\
+    &\le s^{(p)}\tp{\eps_{p-1} + 2\eps_p} \\
+    &\le 3 s^{(p)}\eps_{p-1},
+\end{align*}
+where the last inequality uses $\eps_p \le \eps_{p-1}$.
+Summing over all $n$ calls to $\Call{FindBest}{}$, the expected regret incurred by $\Call{FindBest}{}$ during pass $p$ is bounded by
+\begin{equation}\label{eq:regret-fb}
+    R_{\mathrm{FB}}^{(p)} \le 3 n s^{(p)} \eps_{p-1} = O\tp{\frac{n\eps_{p-1}}{\eps_p^2}\tp{\log\tp{\frac{1}{\delta}} + \-{ilog}^{(m-1)}(n)}}.
+\end{equation}
+
+\smallskip
+\noindent\emph{3.2. Regret from $\Call{BAI}{\eps_p, \delta}$.}
+We verify the precondition of \Cref{prop:BAIblackbox} (Item 4, Regret guarantee). 
+Let $k_j$ denote the $j$-th arm fed into $\Call{BAI}{\eps_p, \delta}$:
+\begin{itemize}
+    \item For the first arm $k_1 = \k_{p-1}$, we have $\mu_{\a^*} - \E{\mu_{\k_{p-1}}} \le \eps_{p-1}$ by the induction hypothesis.
+    \item For any subsequent arm $k_j$ fed into BAI ($j \ge 2$), $k_j$ was an arriving arm $\a_i$ that satisfied $a_i^{(p)} = \a_i$. Thus, at the moment $\a_i$ was fed, $k_j = a_i^{(p)}$. By \eqref{eq:amax-bound} and \eqref{eq:findbest-diff}:
+    \[
+        \mu_{\a^*} - \E{\mu_{k_j}} = \tp{\mu_{\a^*} - \E{\mu_{\a^*_{\!{max}}}}} + \E{\mu_{\a^*_{\!{max}}} - \mu_{a_i^{(p)}}} \le \tp{\eps_{p-1} + \eps_p} + \frac{\eps_p}{4} \le \eps_{p-1} + 2\eps_p.
+    \]
+\end{itemize}
+Setting $\mu = \mu_{\a^*}$ and $\eps' \coloneqq \eps_{p-1} + 2\eps_p$, we have $\eps' \in (\eps_p, 1)$ (since $\eps_p < \eps_{p-1}$ and $\eps_{p-1} \le 1$), and $\mu_{\a^*} - \E{\mu_{k_j}} \le \eps'$ holds for every arm $k_j$ fed into $\Call{BAI}{\eps_p, \delta}$. 
+
+Therefore, by \Cref{prop:BAIblackbox} (Item 4), the expected regret generated by the $\Call{BAI}{\eps_p, \delta}$ process with regard to $\a^*$ is bounded by
+\begin{equation}\label{eq:regret-bai}
+    R_{\mathrm{BAI}}^{(p)} = O\tp{\frac{n\eps'}{\eps_p^2}\tp{\log\tp{\frac{1}{\delta}} + \-{ilog}^{(m-1)}(n)}} = O\tp{\frac{n\eps_{p-1}}{\eps_p^2}\tp{\log\tp{\frac{1}{\delta}} + \-{ilog}^{(m-1)}(n)}}.
+\end{equation}
+
+\smallskip
+\noindent\emph{3.3. Total Expected Regret in Pass $p$.}
+Combining \eqref{eq:regret-fb} and \eqref{eq:regret-bai}, and using $\delta = \frac{1}{4}$ so that $\log(1/\delta) = \log 4 \le O(\-{ilog}^{(m-1)}(n))$, the expected regret of \Cref{algo:small-m} in pass $p$ is
+\begin{equation}\label{eq:regret-pass-general}
+    R^{(p)} = R_{\mathrm{FB}}^{(p)} + R_{\mathrm{BAI}}^{(p)} = O\tp{\frac{n \eps_{p-1}}{\eps_p^2} \cdot \-{ilog}^{(m-1)}(n)} = O\tp{\frac{B \eps_{p-1}}{\eps_p^2}}.
+\end{equation}
+
+We now evaluate $\frac{B \eps_{p-1}}{\eps_p^2}$ algebraically:
+
+\begin{itemize}
+    \item \textbf{Case $p = 1$:} Here $\eps_0 = 1$ and $\lambda_1 = \frac{2^{P-1+1}-1}{2^{P+1}-1} = \frac{2^P-1}{2^{P+1}-1}$, so $1 - \lambda_1 = \frac{2^P}{2^{P+1}-1}$. Then
+    \[
+        \eps_1 = 2^P \tp{\frac{B}{T}}^{\frac{1-\lambda_1}{2}} \implies \eps_1^2 = 2^{2P}\tp{\frac{B}{T}}^{1-\lambda_1}.
+    \]
+    Substituting into \eqref{eq:regret-pass-general}:
+    \begin{align*}
+        \frac{B\eps_0}{\eps_1^2} 
+        = \frac{B}{2^{2P}\tp{\frac{B}{T}}^{1-\lambda_1}} 
+        &= 2^{-2P} B^{\lambda_1} T^{1-\lambda_1} \\
+        &= 2^{-2P} B^{\frac{2^P-1}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}}.
+    \end{align*}
+    Since $P \ge 1$, we have $-2P \le -P - 1 < -P + 1$, which implies $2^{-2P} \le 2^{-P+1}$. Thus, for $p = 1$:
+    \[
+        R^{(1)} = O\tp{2^{-P+1} \cdot n^{\frac{2^P-1}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}} \cdot \tp{\-{ilog}^{(m-1)}(n)}^{\frac{2^P-1}{2^{P+1}-1}}}.
+    \]
+
+    \item \textbf{Case $p \in \{2, 3, \dots, P\}$:} By the definitions of $\eps_{p-1}$ and $\eps_p$:
+    \[
+        \eps_{p-1} = 2^{P-(p-1)+1} \tp{\frac{B}{T}}^{\frac{1-\lambda_{p-1}}{2}} = 2^{P-p+2}\tp{\frac{B}{T}}^{\frac{1-\lambda_{p-1}}{2}},
+    \]
+    and
+    \[
+        \eps_p^2 = \tp{2^{P-p+1}\tp{\frac{B}{T}}^{\frac{1-\lambda_p}{2}}}^2 = 2^{2(P-p+1)}\tp{\frac{B}{T}}^{1-\lambda_p} = 2^{2P-2p+2}\tp{\frac{B}{T}}^{1-\lambda_p}.
+    \]
+    The constant prefactor in $\frac{B\eps_{p-1}}{\eps_p^2}$ is
+    \[
+        \frac{2^{P-p+2}}{2^{2P-2p+2}} = 2^{(P-p+2) - (2P-2p+2)} = 2^{-P+p}.
+    \]
+    Now we calculate the exponent of $\frac{B}{T}$ in $\frac{\eps_{p-1}}{\eps_p^2}$:
+    \[
+        \Delta_p \coloneqq \frac{1-\lambda_{p-1}}{2} - (1-\lambda_p).
+    \]
+    Let $D \coloneqq 2^{P+1}-1$. Recalling $\lambda_p = \frac{2^{P-p+1}-1}{D}$, we express $1-\lambda_p$ and $1-\lambda_{p-1}$ as:
+    \[
+        1-\lambda_p = \frac{D - 2^{P-p+1} + 1}{D}, \qquad 1-\lambda_{p-1} = \frac{D - 2^{P-p+2} + 1}{D}.
+    \]
+    Substituting these into $\Delta_p$:
+    \begin{align*}
+        \Delta_p 
+        &= \frac{D - 2^{P-p+2} + 1}{2D} - \frac{D - 2^{P-p+1} + 1}{D} \\
+        &= \frac{\tp{D - 2 \cdot 2^{P-p+1} + 1} - 2\tp{D - 2^{P-p+1} + 1}}{2D} \\
+        &= \frac{D - 2 \cdot 2^{P-p+1} + 1 - 2D + 2 \cdot 2^{P-p+1} - 2}{2D} \\
+        &= \frac{-D - 1}{2D}.
+    \end{align*}
+    Notice that the dependence on $p$ cancels completely. Since $D = 2^{P+1}-1$,
+    \[
+        \Delta_p = \frac{-(2^{P+1}-1) - 1}{2(2^{P+1}-1)} = \frac{-2^{P+1}}{2(2^{P+1}-1)} = -\frac{2^P}{2^{P+1}-1}.
+    \]
+    Consequently,
+    \begin{align*}
+        B \cdot \tp{\frac{B}{T}}^{\Delta_p} 
+        = B \cdot \tp{\frac{B}{T}}^{-\frac{2^P}{2^{P+1}-1}} 
+        &= B^{1 - \frac{2^P}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}} \\
+        &= B^{\frac{2^{P+1}-1 - 2^P}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}} \\
+        &= B^{\frac{2^P-1}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}}.
+    \end{align*}
+    Multiplying by the constant prefactor $2^{-P+p}$, we obtain
+    \[
+        \frac{B\eps_{p-1}}{\eps_p^2} = 2^{-P+p} \cdot B^{\frac{2^P-1}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}}.
+    \]
+    Recalling $B = \Theta\tp{n\cdot \-{ilog}^{(m-1)}(n)}$, this gives for all $p \in [P]$:
+    \[
+        R^{(p)} = O\tp{2^{-P+p}\cdot n^{\frac{2^P-1}{2^{P+1}-1}}T^{\frac{2^P}{2^{P+1}-1}} \cdot \tp{\-{ilog}^{(m-1)}(n)}^{\frac{2^P-1}{2^{P+1}-1}}}.
+    \]
+\end{itemize}
+This concludes the proof of the first statement for each pass $p \in [P]$.
+
+\medskip
+\noindent\textbf{Part 4: Total Expected Regret $R(T)$.}
+
+The total time horizon $T$ is divided into the exploration phase (the $P$ streaming passes) and the exploitation phase (pulling arm $\k_P$ until round $T$). Let $T_{\mathrm{exploit}}$ be the number of rounds in the exploitation phase, with $T_{\mathrm{exploit}} \le T$.
+
+The total regret $R(T)$ satisfies
+\[
+    R(T) \le \sum_{p=1}^P R^{(p)} + \E{T_{\mathrm{exploit}}\tp{\mu_{\a^*} - \mu_{\k_P}}} \le \sum_{p=1}^P R^{(p)} + T \cdot \E{\mu_{\a^*} - \mu_{\k_P}}.
+\]
+
+\smallskip
+\noindent\emph{4.1. Sum of Exploration Regrets.}
+Summing the regrets across passes $p = 1, \dots, P$:
+\begin{align*}
+    \sum_{p=1}^P R^{(p)} 
+    &= O\tp{n^{\frac{2^P-1}{2^{P+1}-1}}T^{\frac{2^P}{2^{P+1}-1}} \cdot \tp{\-{ilog}^{(m-1)}(n)}^{\frac{2^P-1}{2^{P+1}-1}}} \cdot \sum_{p=1}^P 2^{-P+p}.
+\end{align*}
+Substituting the index $j = P - p$, the geometric sum is
+\[
+    \sum_{p=1}^P 2^{-P+p} = \sum_{j=0}^{P-1} 2^{-j} = 2 - 2^{-(P-1)} < 2 = O(1).
+\]
+Therefore,
+\[
+    \sum_{p=1}^P R^{(p)} = O\tp{n^{\frac{2^P-1}{2^{P+1}-1}}T^{\frac{2^P}{2^{P+1}-1}} \cdot \tp{\-{ilog}^{(m-1)}(n)}^{\frac{2^P-1}{2^{P+1}-1}}}.
+\]
+
+\smallskip
+\noindent\emph{4.2. Exploitation Regret.}
+From Part 2, the arm $\k_P$ returned by the final pass $P$ satisfies
+\[
+    \mu_{\a^*} - \E{\mu_{\k_P}} \le 2\eps_P.
+\]
+By definition of $\eps_P$, with $\lambda_P = \frac{2^{P-P+1}-1}{2^{P+1}-1} = \frac{1}{2^{P+1}-1}$, we have
+\[
+    \frac{1-\lambda_P}{2} = \frac{1}{2}\tp{1 - \frac{1}{2^{P+1}-1}} = \frac{2^{P+1}-2}{2(2^{P+1}-1)} = \frac{2^P-1}{2^{P+1}-1}.
+\]
+Thus,
+\[
+    \eps_P = 2^{P-P+1}\tp{\frac{B}{T}}^{\frac{1-\lambda_P}{2}} = 2\tp{\frac{B}{T}}^{\frac{2^P-1}{2^{P+1}-1}} = 2 \cdot \frac{B^{\frac{2^P-1}{2^{P+1}-1}}}{T^{\frac{2^P-1}{2^{P+1}-1}}}.
+\]
+Multiplying by $T$:
+\begin{align*}
+    T \cdot \E{\mu_{\a^*} - \mu_{\k_P}} 
+    &\le 2 T \eps_P \\
+    &= 4 \cdot B^{\frac{2^P-1}{2^{P+1}-1}} \cdot T^{1 - \frac{2^P-1}{2^{P+1}-1}} \\
+    &= 4 \cdot B^{\frac{2^P-1}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}} \\
+    &= O\tp{n^{\frac{2^P-1}{2^{P+1}-1}}T^{\frac{2^P}{2^{P+1}-1}} \cdot \tp{\-{ilog}^{(m-1)}(n)}^{\frac{2^P-1}{2^{P+1}-1}}}.
+\end{align*}
+
+Adding the regret bounds for the exploration phase and the exploitation phase yields:
+\[
+    R(T) \le O\tp{n^{\frac{2^P-1}{2^{P+1}-1}}T^{\frac{2^P}{2^{P+1}-1}} \cdot \tp{\-{ilog}^{(m-1)}(n)}^{\frac{2^P-1}{2^{P+1}-1}}},
+\]
+which completes the proof of the theorem.
+\end{proof}
+
+--- [EXTRACTED CANDIDATE PROOF] ---
+Length: 17347 chars
+\begin{proof}
+We divide the proof into four main parts:
+\begin{enumerate}
+    \item Analysis of the subroutines $\Call{FindBest}{}$ and $\Call{BAI}{}$, including verification of their preconditions and the quality of the maintained benchmark arms;
+    \item Inductive bound on the suboptimality gap $\E{\mu_{\a^*} - \mu_{\k_p}}$ for each pass $p \in [P]$;
+    \item Rigorous derivation of the expected regret incurred in pass $p$;
+    \item Derivation of the total expected regret $R(T)$ across both the exploration and exploitation phases.
+\end{enumerate}
+
+Throughout the proof, let $\a^*$ denote the global optimal arm in $[n]$, with mean $\mu_{\a^*} = \max_{i\in[n]} \mu_i$. For convenience, define 
+\[
+    B \coloneqq (n+1)\cdot \-{ilog}^{(m-1)}(n+1).
+\]
+Since $2 \leq m < \frac{8n}{9}$, we have $n \ge 3$. Thus $n+1 \le \frac{4}{3}n$, and for any $k \ge 0$, $\-{ilog}^{(k)}(n+1) = \Theta(\-{ilog}^{(k)}(n))$. Consequently, $B = \Theta\tp{n \cdot \-{ilog}^{(m-1)}(n)}$.
+
+Furthermore, under the assumption $T \ge (n+1)^2$, we have $\frac{B}{T} \le \frac{\-{ilog}^{(m-1)}(n+1)}{n+1} \le 1$. Hence, for every $p \in [P]$, the parameter $\eps_p = 2^{P-p+1}\tp{\frac{B}{T}}^{\frac{1-\lambda_p}{2}}$ is well-defined, positive, and satisfies $\eps_p \le \eps_{p-1}$.
+
+\medskip
+\noindent\textbf{Part 1: Analysis of Subroutines and Preconditions.}
+
+\smallskip
+\noindent\emph{1.1. Sample Complexity of $\Call{FindBest}{}$.}
+In pass $p \in [P]$, the sample size for $\Call{FindBest}{}$ is set to
+\[
+    s^{(p)} = \left\lceil\frac{2^5}{\eps_p^2}\tp{\log \frac{2^3\cdot\-{ilog}^{(r-1)}(n+1)}{\delta}}\right\rceil,
+\]
+where $\delta = \frac{1}{4}$ and $r = \min\set{\lfloor\log^*(n+1)\rfloor, m-1}$.
+We evaluate the term $\log \tp{\frac{2^3\cdot\-{ilog}^{(r-1)}(n+1)}{\delta}} = \log\tp{32 \cdot \-{ilog}^{(r-1)}(n+1)} = \log(32) + \log\tp{\-{ilog}^{(r-1)}(n+1)}$:
+\begin{itemize}
+    \item If $m - 1 \le \lfloor\log^*(n+1)\rfloor$, then $r = m - 1$. By the definition of the iterated logarithm, $\-{ilog}^{(k)}(a) = \max\set{\log(\-{ilog}^{(k-1)}(a)), 1}$, we have
+    \[
+        \log\tp{\-{ilog}^{(r-1)}(n+1)} \le \-{ilog}^{(r)}(n+1) = \-{ilog}^{(m-1)}(n+1).
+    \]
+    \item If $m - 1 > \lfloor\log^*(n+1)\rfloor$, then $r = \lfloor\log^*(n+1)\rfloor$. By definition of $\log^*$, the iterated logarithm stabilizes at $1$ after $\lfloor\log^*(n+1)\rfloor$ iterations, which implies $\-{ilog}^{(r)}(n+1) = \-{ilog}^{(m-1)}(n+1) = 1$. Thus, $\log\tp{\-{ilog}^{(r-1)}(n+1)} \le \-{ilog}^{(r)}(n+1) = \-{ilog}^{(m-1)}(n+1) = 1$.
+\end{itemize}
+In both cases, $\log\tp{\frac{2^3\cdot\-{ilog}^{(r-1)}(n+1)}{\delta}} \le \log(32) + \-{ilog}^{(m-1)}(n+1) = O\tp{\-{ilog}^{(m-1)}(n+1)}$. 
+
+Because $\-{ilog}^{(m-1)}(n+1) \ge 1$ and $\log(32) \ge 3$, we have the explicit lower bound
+\[
+    s^{(p)} \ge \frac{32 \times 3}{\eps_p^2} = \frac{96}{\eps_p^2}.
+\]
+Therefore,
+\[
+    \sqrt{\frac{4}{s^{(p)}}} \le \frac{2}{\sqrt{96/\eps_p^2}} = \frac{2}{\sqrt{96}}\eps_p < \frac{\eps_p}{4}.
+\]
+
+\smallskip
+\noindent\emph{1.2. Accuracy of $\Call{FindBest}{}$.}
+When $\Call{FindBest}{\set{\a^*_{\!{max}}, \a_i}, s^{(p)}}$ is invoked on the two-arm set $\+S = \set{\a^*_{\!{max}}, \a_i}$ with $|\+S| = 2$, \Cref{lem:findbest-perform} ensures that the returned arm $a_i^{(p)}$ satisfies
+\begin{equation}\label{eq:findbest-error}
+    \E{\max\set{\mu_{\a^*_{\!{max}}}, \mu_{\a_i}} - \mu_{a_i^{(p)}}} \le \sqrt{\frac{2|\+S|}{s^{(p)}}} = \sqrt{\frac{4}{s^{(p)}}} < \frac{\eps_p}{4}.
+\end{equation}
+Furthermore, the arm $a_i^{(p)}$ is sampled with probability $\Pr{a_i^{(p)} = \a} = \frac{T_{\a}}{s^{(p)}}$ for each $\a \in \+S$, where $T_{\a}$ is the number of times $\a$ was pulled in the mirror descent subroutine. Therefore, the expected regret incurred during the $s^{(p)}$ rounds of this subroutine is:
+\begin{align}\label{eq:findbest-regret-per-call}
+    \E{\sum_{t=1}^{s^{(p)}} \tp{\mu_{\a^*} - \mu_{A_t}}} 
+    &= s^{(p)}\mu_{\a^*} - \E{\sum_{\a \in \+S} T_{\a} \mu_{\a}} \nonumber\\
+    &= s^{(p)}\tp{\mu_{\a^*} - \E{\mu_{a_i^{(p)}}}} \nonumber\\
+    &= s^{(p)}\tp{\E{\mu_{\a^*} - \mu_{\a^*_{\!{max}}}} + \E{\mu_{\a^*_{\!{max}}} - \mu_{a_i^{(p)}}}}.
+\end{align}
+Since $\mu_{\a^*_{\!{max}}} \le \max\set{\mu_{\a^*_{\!{max}}}, \mu_{\a_i}}$, \eqref{eq:findbest-error} implies
+\begin{equation}\label{eq:findbest-diff}
+    \E{\mu_{\a^*_{\!{max}}} - \mu_{a_i^{(p)}}} \le \E{\max\set{\mu_{\a^*_{\!{max}}}, \mu_{\a_i}} - \mu_{a_i^{(p)}}} < \frac{\eps_p}{4}.
+\end{equation}
+
+\medskip
+\noindent\textbf{Part 2: Induction on the Quality of Arms $\k_p$.}
+
+We prove by induction on $p \in [P]$ that:
+\begin{enumerate}
+    \item[(i)] $\mu_{\a^*} - \E{\mu_{\k_p}} \le 2\eps_p$;
+    \item[(ii)] At any point during pass $p$, the benchmark arm $\a^*_{\!{max}}$ maintained by $\Call{BAI}{\eps_p, \delta}$ satisfies
+    \[
+        \mu_{\a^*} - \E{\mu_{\a^*_{\!{max}}}} \le \eps_{p-1} + \eps_p.
+    \]
+\end{enumerate}
+
+\smallskip
+\noindent\emph{Base case ($p = 0$).}
+We set $\eps_0 = 1$. Since all arm rewards lie in $[0, 1]$, for the initial arm $\k_0$ (the first arm in pass $1$), we trivially have
+\[
+    \mu_{\a^*} - \E{\mu_{\k_0}} \le 1 = \eps_0.
+\]
+
+\smallskip
+\noindent\emph{Inductive step.}
+Assume that $\mu_{\a^*} - \E{\mu_{\k_{p-1}}} \le 2\eps_{p-1}$ holds for pass $p-1$ (with $\mu_{\a^*} - \E{\mu_{\k_0}} \le \eps_0$ for $p=1$). At the start of pass $p$, $\k_{p-1}$ is fed into $\Call{BAI}{\eps_p, \delta}$ as its first arm ($k_1 = \k_{p-1}$). 
+
+By \Cref{prop:BAIblackbox} (Item 3, Benchmark arm), $\Call{BAI}{\eps_p, \delta}$ maintains an arm $\a^*_{\!{max}}$ in memory throughout pass $p$ satisfying
+\[
+    \E{\mu_{\k_{p-1}} - \mu_{\a^*_{\!{max}}}} \le \eps_p.
+\]
+By linearity of expectation, at any round during pass $p$:
+\begin{equation}\label{eq:amax-bound}
+    \mu_{\a^*} - \E{\mu_{\a^*_{\!{max}}}} = \tp{\mu_{\a^*} - \E{\mu_{\k_{p-1}}}} + \E{\mu_{\k_{p-1}} - \mu_{\a^*_{\!{max}}}} \le \eps_{p-1} + \eps_p,
+\end{equation}
+which establishes statement (ii) for pass $p$.
+
+Now, let $\+S_p$ denote the set of arms fed into $\Call{BAI}{\eps_p, \delta}$ during pass $p$. Note that $\k_{p-1} \in \+S_p$. Let $\a^*_{\+S_p} \coloneqq \arg\max_{\a \in \+S_p} \mu_{\a}$ be the optimal arm in $\+S_p$. 
+
+Consider the arrival of the optimal arm $\a^*$ in pass $p$. At Line~\ref{line:callfindbest} of \Cref{algo:small-m}, the algorithm runs $a^{*(p)} \gets \Call{FindBest}{\set{\a^*_{\!{max}}, \a^*}, s^{(p)}}$.
+\begin{itemize}
+    \item \textbf{Case A:} $a^{*(p)} = \a^*$. In this case, the condition $a^{*(p)} = \a^*$ is met, so $\a^*$ is fed into $\Call{BAI}{\eps_p, \delta}$. Thus $\a^* \in \+S_p$, which implies $\a^*_{\+S_p} = \a^*$ and $\mu_{\a^*} - \mu_{\a^*_{\+S_p}} = 0$.
+    \item \textbf{Case B:} $a^{*(p)} \neq \a^*$. Since the input set to $\Call{FindBest}{}$ is $\set{\a^*_{\!{max}}, \a^*}$, it must be that $a^{*(p)} = \a^*_{\!{max}}$. Notice that $\a^*_{\!{max}}$ is the benchmark arm maintained by BAI; by \Cref{algo:small-m}, $\a^*_{\!{max}}$ was either the initial arm $\k_{p-1}$ or an arm previously fed into BAI. Hence, $\a^*_{\!{max}} \in \+S_p$, which implies $\mu_{\a^*_{\+S_p}} \ge \mu_{\a^*_{\!{max}}} = \mu_{a^{*(p)}}$. Therefore,
+    \[
+        \mu_{\a^*} - \mu_{\a^*_{\+S_p}} \le \mu_{\a^*} - \mu_{\a^*_{\!{max}}} = \mu_{\a^*} - \mu_{a^{*(p)}}.
+    \]
+\end{itemize}
+Combining both cases, the inequality $\mu_{\a^*} - \mu_{\a^*_{\+S_p}} \le \mu_{\a^*} - \mu_{a^{*(p)}}$ holds deterministically. Taking the expectation and applying \Cref{lem:findbest-perform} with $\+S = \set{\a^*_{\!{max}}, \a^*}$ and optimal arm $\a^*$:
+\begin{equation}\label{eq:opt-in-Sp}
+    \E{\mu_{\a^*} - \mu_{\a^*_{\+S_p}}} \le \E{\mu_{\a^*} - \mu_{a^{*(p)}}} \le \sqrt{\frac{4}{s^{(p)}}} < \frac{\eps_p}{4} \le \eps_p.
+\end{equation}
+
+At the end of pass $p$, $\Call{BAI}{\eps_p, \delta}$ returns arm $\k_p$. By \Cref{prop:BAIblackbox} (Item 1, Correctness),
+\begin{equation}\label{eq:bai-correctness}
+    \E{\mu_{\a^*_{\+S_p}} - \mu_{\k_p}} \le \eps_p.
+\end{equation}
+Combining \eqref{eq:opt-in-Sp} and \eqref{eq:bai-correctness} via the triangle inequality yields:
+\[
+    \mu_{\a^*} - \E{\mu_{\k_p}} = \E{\mu_{\a^*} - \mu_{\a^*_{\+S_p}}} + \E{\mu_{\a^*_{\+S_p}} - \mu_{\k_p}} \le \eps_p + \eps_p = 2\eps_p.
+\]
+This completes the induction for statement (i).
+
+\medskip
+\noindent\textbf{Part 3: Expected Regret in Pass $p$.}
+
+In pass $p$, rounds are consumed by two components: the calls to $\Call{FindBest}{}$ and the execution of $\Call{BAI}{\eps_p, \delta}$.
+
+\smallskip
+\noindent\emph{3.1. Regret from $\Call{FindBest}{}$.}
+There are $n$ arriving arms in pass $p$, so $\Call{FindBest}{}$ is invoked exactly $n$ times. For each arriving arm $\a_i$, by \eqref{eq:findbest-regret-per-call}, \eqref{eq:findbest-diff}, and \eqref{eq:amax-bound}:
+\begin{align*}
+    \E{\sum_{t=1}^{s^{(p)}} \tp{\mu_{\a^*} - \mu_{A_t}}} 
+    &= s^{(p)}\tp{\E{\mu_{\a^*} - \mu_{\a^*_{\!{max}}}} + \E{\mu_{\a^*_{\!{max}}} - \mu_{a_i^{(p)}}}} \\
+    &\le s^{(p)}\tp{\eps_{p-1} + \eps_p + \frac{\eps_p}{4}} \\
+    &\le s^{(p)}\tp{\eps_{p-1} + 2\eps_p} \\
+    &\le 3 s^{(p)}\eps_{p-1},
+\end{align*}
+where the last inequality uses $\eps_p \le \eps_{p-1}$.
+Summing over all $n$ calls to $\Call{FindBest}{}$, the expected regret incurred by $\Call{FindBest}{}$ during pass $p$ is bounded by
+\begin{equation}\label{eq:regret-fb}
+    R_{\mathrm{FB}}^{(p)} \le 3 n s^{(p)} \eps_{p-1} = O\tp{\frac{n\eps_{p-1}}{\eps_p^2}\tp{\log\tp{\frac{1}{\delta}} + \-{ilog}^{(m-1)}(n)}}.
+\end{equation}
+
+\smallskip
+\noindent\emph{3.2. Regret from $\Call{BAI}{\eps_p, \delta}$.}
+We verify the precondition of \Cref{prop:BAIblackbox} (Item 4, Regret guarantee). 
+Let $k_j$ denote the $j$-th arm fed into $\Call{BAI}{\eps_p, \delta}$:
+\begin{itemize}
+    \item For the first arm $k_1 = \k_{p-1}$, we have $\mu_{\a^*} - \E{\mu_{\k_{p-1}}} \le \eps_{p-1}$ by the induction hypothesis.
+    \item For any subsequent arm $k_j$ fed into BAI ($j \ge 2$), $k_j$ was an arriving arm $\a_i$ that satisfied $a_i^{(p)} = \a_i$. Thus, at the moment $\a_i$ was fed, $k_j = a_i^{(p)}$. By \eqref{eq:amax-bound} and \eqref{eq:findbest-diff}:
+    \[
+        \mu_{\a^*} - \E{\mu_{k_j}} = \tp{\mu_{\a^*} - \E{\mu_{\a^*_{\!{max}}}}} + \E{\mu_{\a^*_{\!{max}}} - \mu_{a_i^{(p)}}} \le \tp{\eps_{p-1} + \eps_p} + \frac{\eps_p}{4} \le \eps_{p-1} + 2\eps_p.
+    \]
+\end{itemize}
+Setting $\mu = \mu_{\a^*}$ and $\eps' \coloneqq \eps_{p-1} + 2\eps_p$, we have $\eps' \in (\eps_p, 1)$ (since $\eps_p < \eps_{p-1}$ and $\eps_{p-1} \le 1$), and $\mu_{\a^*} - \E{\mu_{k_j}} \le \eps'$ holds for every arm $k_j$ fed into $\Call{BAI}{\eps_p, \delta}$. 
+
+Therefore, by \Cref{prop:BAIblackbox} (Item 4), the expected regret generated by the $\Call{BAI}{\eps_p, \delta}$ process with regard to $\a^*$ is bounded by
+\begin{equation}\label{eq:regret-bai}
+    R_{\mathrm{BAI}}^{(p)} = O\tp{\frac{n\eps'}{\eps_p^2}\tp{\log\tp{\frac{1}{\delta}} + \-{ilog}^{(m-1)}(n)}} = O\tp{\frac{n\eps_{p-1}}{\eps_p^2}\tp{\log\tp{\frac{1}{\delta}} + \-{ilog}^{(m-1)}(n)}}.
+\end{equation}
+
+\smallskip
+\noindent\emph{3.3. Total Expected Regret in Pass $p$.}
+Combining \eqref{eq:regret-fb} and \eqref{eq:regret-bai}, and using $\delta = \frac{1}{4}$ so that $\log(1/\delta) = \log 4 \le O(\-{ilog}^{(m-1)}(n))$, the expected regret of \Cref{algo:small-m} in pass $p$ is
+\begin{equation}\label{eq:regret-pass-general}
+    R^{(p)} = R_{\mathrm{FB}}^{(p)} + R_{\mathrm{BAI}}^{(p)} = O\tp{\frac{n \eps_{p-1}}{\eps_p^2} \cdot \-{ilog}^{(m-1)}(n)} = O\tp{\frac{B \eps_{p-1}}{\eps_p^2}}.
+\end{equation}
+
+We now evaluate $\frac{B \eps_{p-1}}{\eps_p^2}$ algebraically:
+
+\begin{itemize}
+    \item \textbf{Case $p = 1$:} Here $\eps_0 = 1$ and $\lambda_1 = \frac{2^{P-1+1}-1}{2^{P+1}-1} = \frac{2^P-1}{2^{P+1}-1}$, so $1 - \lambda_1 = \frac{2^P}{2^{P+1}-1}$. Then
+    \[
+        \eps_1 = 2^P \tp{\frac{B}{T}}^{\frac{1-\lambda_1}{2}} \implies \eps_1^2 = 2^{2P}\tp{\frac{B}{T}}^{1-\lambda_1}.
+    \]
+    Substituting into \eqref{eq:regret-pass-general}:
+    \begin{align*}
+        \frac{B\eps_0}{\eps_1^2} 
+        = \frac{B}{2^{2P}\tp{\frac{B}{T}}^{1-\lambda_1}} 
+        &= 2^{-2P} B^{\lambda_1} T^{1-\lambda_1} \\
+        &= 2^{-2P} B^{\frac{2^P-1}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}}.
+    \end{align*}
+    Since $P \ge 1$, we have $-2P \le -P - 1 < -P + 1$, which implies $2^{-2P} \le 2^{-P+1}$. Thus, for $p = 1$:
+    \[
+        R^{(1)} = O\tp{2^{-P+1} \cdot n^{\frac{2^P-1}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}} \cdot \tp{\-{ilog}^{(m-1)}(n)}^{\frac{2^P-1}{2^{P+1}-1}}}.
+    \]
+
+    \item \textbf{Case $p \in \{2, 3, \dots, P\}$:} By the definitions of $\eps_{p-1}$ and $\eps_p$:
+    \[
+        \eps_{p-1} = 2^{P-(p-1)+1} \tp{\frac{B}{T}}^{\frac{1-\lambda_{p-1}}{2}} = 2^{P-p+2}\tp{\frac{B}{T}}^{\frac{1-\lambda_{p-1}}{2}},
+    \]
+    and
+    \[
+        \eps_p^2 = \tp{2^{P-p+1}\tp{\frac{B}{T}}^{\frac{1-\lambda_p}{2}}}^2 = 2^{2(P-p+1)}\tp{\frac{B}{T}}^{1-\lambda_p} = 2^{2P-2p+2}\tp{\frac{B}{T}}^{1-\lambda_p}.
+    \]
+    The constant prefactor in $\frac{B\eps_{p-1}}{\eps_p^2}$ is
+    \[
+        \frac{2^{P-p+2}}{2^{2P-2p+2}} = 2^{(P-p+2) - (2P-2p+2)} = 2^{-P+p}.
+    \]
+    Now we calculate the exponent of $\frac{B}{T}$ in $\frac{\eps_{p-1}}{\eps_p^2}$:
+    \[
+        \Delta_p \coloneqq \frac{1-\lambda_{p-1}}{2} - (1-\lambda_p).
+    \]
+    Let $D \coloneqq 2^{P+1}-1$. Recalling $\lambda_p = \frac{2^{P-p+1}-1}{D}$, we express $1-\lambda_p$ and $1-\lambda_{p-1}$ as:
+    \[
+        1-\lambda_p = \frac{D - 2^{P-p+1} + 1}{D}, \qquad 1-\lambda_{p-1} = \frac{D - 2^{P-p+2} + 1}{D}.
+    \]
+    Substituting these into $\Delta_p$:
+    \begin{align*}
+        \Delta_p 
+        &= \frac{D - 2^{P-p+2} + 1}{2D} - \frac{D - 2^{P-p+1} + 1}{D} \\
+        &= \frac{\tp{D - 2 \cdot 2^{P-p+1} + 1} - 2\tp{D - 2^{P-p+1} + 1}}{2D} \\
+        &= \frac{D - 2 \cdot 2^{P-p+1} + 1 - 2D + 2 \cdot 2^{P-p+1} - 2}{2D} \\
+        &= \frac{-D - 1}{2D}.
+    \end{align*}
+    Notice that the dependence on $p$ cancels completely. Since $D = 2^{P+1}-1$,
+    \[
+        \Delta_p = \frac{-(2^{P+1}-1) - 1}{2(2^{P+1}-1)} = \frac{-2^{P+1}}{2(2^{P+1}-1)} = -\frac{2^P}{2^{P+1}-1}.
+    \]
+    Consequently,
+    \begin{align*}
+        B \cdot \tp{\frac{B}{T}}^{\Delta_p} 
+        = B \cdot \tp{\frac{B}{T}}^{-\frac{2^P}{2^{P+1}-1}} 
+        &= B^{1 - \frac{2^P}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}} \\
+        &= B^{\frac{2^{P+1}-1 - 2^P}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}} \\
+        &= B^{\frac{2^P-1}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}}.
+    \end{align*}
+    Multiplying by the constant prefactor $2^{-P+p}$, we obtain
+    \[
+        \frac{B\eps_{p-1}}{\eps_p^2} = 2^{-P+p} \cdot B^{\frac{2^P-1}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}}.
+    \]
+    Recalling $B = \Theta\tp{n\cdot \-{ilog}^{(m-1)}(n)}$, this gives for all $p \in [P]$:
+    \[
+        R^{(p)} = O\tp{2^{-P+p}\cdot n^{\frac{2^P-1}{2^{P+1}-1}}T^{\frac{2^P}{2^{P+1}-1}} \cdot \tp{\-{ilog}^{(m-1)}(n)}^{\frac{2^P-1}{2^{P+1}-1}}}.
+    \]
+\end{itemize}
+This concludes the proof of the first statement for each pass $p \in [P]$.
+
+\medskip
+\noindent\textbf{Part 4: Total Expected Regret $R(T)$.}
+
+The total time horizon $T$ is divided into the exploration phase (the $P$ streaming passes) and the exploitation phase (pulling arm $\k_P$ until round $T$). Let $T_{\mathrm{exploit}}$ be the number of rounds in the exploitation phase, with $T_{\mathrm{exploit}} \le T$.
+
+The total regret $R(T)$ satisfies
+\[
+    R(T) \le \sum_{p=1}^P R^{(p)} + \E{T_{\mathrm{exploit}}\tp{\mu_{\a^*} - \mu_{\k_P}}} \le \sum_{p=1}^P R^{(p)} + T \cdot \E{\mu_{\a^*} - \mu_{\k_P}}.
+\]
+
+\smallskip
+\noindent\emph{4.1. Sum of Exploration Regrets.}
+Summing the regrets across passes $p = 1, \dots, P$:
+\begin{align*}
+    \sum_{p=1}^P R^{(p)} 
+    &= O\tp{n^{\frac{2^P-1}{2^{P+1}-1}}T^{\frac{2^P}{2^{P+1}-1}} \cdot \tp{\-{ilog}^{(m-1)}(n)}^{\frac{2^P-1}{2^{P+1}-1}}} \cdot \sum_{p=1}^P 2^{-P+p}.
+\end{align*}
+Substituting the index $j = P - p$, the geometric sum is
+\[
+    \sum_{p=1}^P 2^{-P+p} = \sum_{j=0}^{P-1} 2^{-j} = 2 - 2^{-(P-1)} < 2 = O(1).
+\]
+Therefore,
+\[
+    \sum_{p=1}^P R^{(p)} = O\tp{n^{\frac{2^P-1}{2^{P+1}-1}}T^{\frac{2^P}{2^{P+1}-1}} \cdot \tp{\-{ilog}^{(m-1)}(n)}^{\frac{2^P-1}{2^{P+1}-1}}}.
+\]
+
+\smallskip
+\noindent\emph{4.2. Exploitation Regret.}
+From Part 2, the arm $\k_P$ returned by the final pass $P$ satisfies
+\[
+    \mu_{\a^*} - \E{\mu_{\k_P}} \le 2\eps_P.
+\]
+By definition of $\eps_P$, with $\lambda_P = \frac{2^{P-P+1}-1}{2^{P+1}-1} = \frac{1}{2^{P+1}-1}$, we have
+\[
+    \frac{1-\lambda_P}{2} = \frac{1}{2}\tp{1 - \frac{1}{2^{P+1}-1}} = \frac{2^{P+1}-2}{2(2^{P+1}-1)} = \frac{2^P-1}{2^{P+1}-1}.
+\]
+Thus,
+\[
+    \eps_P = 2^{P-P+1}\tp{\frac{B}{T}}^{\frac{1-\lambda_P}{2}} = 2\tp{\frac{B}{T}}^{\frac{2^P-1}{2^{P+1}-1}} = 2 \cdot \frac{B^{\frac{2^P-1}{2^{P+1}-1}}}{T^{\frac{2^P-1}{2^{P+1}-1}}}.
+\]
+Multiplying by $T$:
+\begin{align*}
+    T \cdot \E{\mu_{\a^*} - \mu_{\k_P}} 
+    &\le 2 T \eps_P \\
+    &= 4 \cdot B^{\frac{2^P-1}{2^{P+1}-1}} \cdot T^{1 - \frac{2^P-1}{2^{P+1}-1}} \\
+    &= 4 \cdot B^{\frac{2^P-1}{2^{P+1}-1}} T^{\frac{2^P}{2^{P+1}-1}} \\
+    &= O\tp{n^{\frac{2^P-1}{2^{P+1}-1}}T^{\frac{2^P}{2^{P+1}-1}} \cdot \tp{\-{ilog}^{(m-1)}(n)}^{\frac{2^P-1}{2^{P+1}-1}}}.
+\end{align*}
+
+Adding the regret bounds for the exploration phase and the exploitation phase yields:
+\[
+    R(T) \le O\tp{n^{\frac{2^P-1}{2^{P+1}-1}}T^{\frac{2^P}{2^{P+1}-1}} \cdot \tp{\-{ilog}^{(m-1)}(n)}^{\frac{2^P-1}{2^{P+1}-1}}},
+\]
+which completes the proof of the theorem.
+\end{proof}
+================================================================================

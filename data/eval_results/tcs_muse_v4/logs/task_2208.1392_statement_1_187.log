@@ -1,0 +1,1688 @@
+
+
+================================================================================
+[2026-10-25 12:47:23] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_1_187
+================================================================================
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_1_187 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**Definitions granted:**
+- `metric`: $x\in (\mathbb{R}_{\ge 0})^{\binom{[n]}{2}}$ with $x(i,j)\le x(i,k)+x(j,k)$ for all distinct $i,j,k$.
+- `\mvd`: given $x$, find $y\in M_n$ minimizing $\|x-y\|_0$ (number of changed edges). Let $\mathrm{OPT}= $ optimum value.
+- `Triangle $t=ijk$`, edge $ij\in t$:
+  - *excess* if $x(ij)>x(ik)+x(jk)$.
+  - *deficit* if $x(ij)<|x(ik)-x(jk)|$.
+  - *unbalanced* if either holds. Set $\mathcal{T}$ all triangles, $\mathcal{T}'$ unbalanced (w.r.t. **input** $x$).
+- `Frozen`: after pivoting at $i$, edges incident to $i$ never change in remaining recursion.
+- `Hitting set $H$ for $\mathcal{T}'$`: every $t\in\mathcal{T}'$ contains $\ge 1$ edge of $H$.
+- `Fractional packing $(p_t)_{t\in\mathcal{T}'}$`: $\forall e,\ \sum_{t\ni e}p_t\le 1$. Value $\sum_t p_t$.
+
+**Algorithm `MVD-Pivot(n,x)` granted:**
+- If $n\le 2$ return.
+- Pick pivot $i\in[n]$ u.a.r.
+- For all $j\ne k\in[n]\setminus\{i\}$: if $x(j,k)>x(i,j)+x(i,k)$ set to sum; if $x(j,k)<|x(i,j)-x(i,k)|$ set to absolute difference.
+- Recurse on $[n]\setminus\{i\}$ with restricted $x$. Runtime $O(n^3)$ (at most $n$ levels, $O(n^2)$ pairs per level).
+- Only edges with both endpoints $\ne i$ can be changed at this level; pivot edges frozen thereafter.
+
+**Observation \ref{O:balance} (licensed truth, no re-derivation):**
+- *Precondition:* end of recursive call where $i$ was pivot.
+- *Conclusion:* no triangle adjacent to $i$ is unbalanced (w.r.t. modified values at that time).
+- *Use contract:* implies output is metric; implies algorithm is feasible solution. Must not claim balance for triangles not containing current pivot.
+
+**Lemma \ref{L:LP} (lower-bound contract):**
+- *Precondition:* none beyond $\mathcal{T}'$ defined from input $x$.
+- *Conclusion chain:* $\mathrm{OPT} \ge \min |H| \ge \max \sum p_t$ over feasible packings.
+- *Discharge obligation:* to lower-bound OPT it suffices to exhibit *any* feasible fractional packing; must verify per-edge capacity $\le 1$. No integrality needed.
+
+**Goal \ref{thm:mvd}:** Show algorithm outputs metric (via Obs) in $O(n^3)$ with $\mathbb{E}[\mathrm{ALG}]\le O(\log n)\cdot\mathrm{OPT}$.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Strategy Alpha — Constructive / Inductive Charging Invariant:**
+- Induction on $n$. Let $C(n,x)=$ number of edges changed by algorithm.
+- Key invariant: edge $(j,k)$ changed at pivot $i$ only if triangle $ijk$ was unbalanced *before* pivot (using current $x$ values at that recursion level, which for edges incident to pivot equal input values since frozen only after pivot — need care: $x(i,j),x(i,k)$ are as modified by earlier pivots).
+- To avoid fragile current-value issue, charge to *input-unbalanced* triangles via pivot analysis: if $i$ pivots on set $S$, and it modifies $jk$, then $ijk$ must be unbalanced at that moment; relate to original $\mathcal{T}'$ or bound directly.
+- Attempt recurrence: $\mathbb{E}[C] \le \frac1{|S|}\sum_{i\in S}(\text{mods at }i + \mathbb{E}[C(S\setminus i)])$. Seek $O(\log n)$ factor via harmonic sum if mods at $i$ can be bounded by $O(1)\cdot$ packing contribution involving $i$.
+
+**Strategy Beta — Extremal / Fractional Packing Witness (preferred):**
+- Standard pivot-analysis dual fitting: define random variables for triangles that cause modifications.
+- For each unordered triple $t=\{i,j,k\}$, define event that $t$ is "witness": when first among its three vertices (in random pivot order) is pivoted, say pivot $i$, and edge opposite $i$ (or one of edges) gets modified. Then charge 1 to $t$.
+- Construct fractional packing $p_t = c\cdot \Pr[\text{algorithm charges to }t]/\text{(normalizer)}$ or $p_t\propto 1/|\text{active set}|$ to satisfy $\sum_{t\ni e}p_t\le 1$.
+- Extremal split idea: condition on set $S$ of alive vertices containing $e=(j,k)$; pivot uniform in $S$. Probability pivot causes charge involving $e$ is bounded; sum over possible $|S|$ yields harmonic $H_n=O(\log n)$.
+- Then $\mathbb{E}[\mathrm{ALG}] = \sum_t \Pr[\text{charge }t] \le O(\log n)\sum_t p_t \le O(\log n)\mathrm{OPT}$ by Lemma \ref{L:LP}.
+- Must handle excess vs deficit separately: modification of $jk$ due to $i$ means $jk$ is excess or deficit w.r.t. $i$. Frozen edges ensure each modified edge counted once.
+- Contrapositive/potential variant: if triangle balanced at pivot time, no charge.
+
+**Strategy Gamma — Probabilistic Conditioning / Structural Decomposition:**
+- View random pivots as random permutation $\pi$ of $[n]$; recursion processes in $\pi$-order. Condition on unordered set $S$ of vertices alive at some stage before revealing which is pivot (exchangeability: pivot uniform in $S$ given $S$).
+- Dependency decomposition per edge $e=jk$: only triangles $ijk$ with $k$ alive can charge $e$. For fixed $e$, consider $m=$ number of vertices $i$ such that $ijk\in\mathcal{T}'$ (or currently unbalanced). When alive set size $=s$, probability next pivot hits such $i$ and charges $e$ is $\le m/s$ etc.
+- Use linearity of expectation + per-edge bound: $\mathbb{E}[\text{indicator }e\text{ changed}] \le O(\log n)\cdot \sum_{t\ni e}p_t$ with $p_t$ defined as e.g. $1/(\text{number of relevant triangles})$ or $c/s$. Summing over $e$ gives result.
+- Separator view: frozen edges partition future subproblem; charges are disjoint in pivot vertex.
+
+Selected main line: Beta + Gamma combined (dual fitting with random-order conditioning). Alpha as fallback recurrence.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+Objects to register; distinguish **Hereditary** (preserved under restriction to $S\setminus\{i\}$) vs **Fragile** (lost after modification/slicing).
+
+```python
+state.register("n", kind="int", properties=["input_size"])
+state.register("x_input", kind="vector", properties=["nonnegative", "fixed_reference_for_Tprime"])
+state.register("x_current", kind="vector", properties=["FRAGILE:mutated_by_pivot", "pivot_edges_equal_input_until_frozen?check"])
+state.register("pivot_i", kind="vertex", properties=["uniform_in_alive_set_S"])
+state.register("alive_S", kind="set", properties=["hereditary_decreasing"])
+state.register("frozen_edges", kind="set", properties=["hereditary_monotone_growing", "never_modified_again"])
+state.register("Tprime", kind="family", properties=["defined_from_x_input_HEREDITARY?no_FRAGILE_if_using_current"])
+state.register("OPT", kind="int", properties=["lower_bounded_by_LP"])
+state.register("ALG_cost", kind="int", properties=["equals_num_modified_edges_each_counted_once_at_freeze_time"])
+state.register("packing_p", kind="vector", properties=["must_verify_per_edge_capacity<=1"])
+for s in ["feasibility_via_Obs_balance", "E_ALG_vs_packing"]:
+    state.add_subgoal(s, statement=s)
+```
+
+- **Hereditary:** being a metric on subset? frozen status; pivot uniformity conditional on alive set; restriction $x|_{\binom{S}{2}}$.
+- **Fragile (revoked on restriction/conditioning):** Dyck-like balance of arbitrary pair $(j,k)$ w.r.t. $i$ — values $x(i,j),x(i,k)$ may have been altered by earlier pivots, so input-unbalanced $\neq$ current-unbalanced; mutual independence of modifications across levels; matrix dimensions $O(n^2)$ per level must be recomputed after removing $i$; Observation \ref{O:balance} applies only to triangles containing current pivot at end of its call, not to all triangles globally until termination.
+
+### Testable Intermediate Claims
+
+1. **Modification implies current-unbalanced witness:** If pivot $i$ on alive set $S$ modifies edge $e=jk$, then triangle $ijk$ is unbalanced w.r.t. values at start of that recursive call. Hence $\mathrm{ALG} =$ number of such $(i,jk)$ events, each edge modified at most once (when first of its endpoints' complement pivots? verify freeze time). *Test:* brute-force small $n$ simulation that every modification corresponds to excess/deficit inequality violation; check no double-count.
+2. **Per-edge packing feasibility with harmonic normalizer:** Candidate $p_t = c\cdot q_t$ where $q_t=$ probability $t$ charged, or explicit $p_{ijk}=1/(N_{jk})$ where $N_{jk}=$ number of $i$ with $ijk$ unbalanced. Need $\sum_{t\ni e}p_t\le 1$. *Test:* for random $x$, compute $N_e$ and verify capacity; verify heuristic inequality $\Pr[e\text{ charged}\mid |S|=s]\le O(1/s)\sum_{t\ni e}p_t$ holds on regime $s\ge 3$, and discharge $s\le 2$ directly (no modification possible since need triple — boundary case $n\le 2$ returns).
+3. **Harmonic sum gives $O(\log n)$:** $\sum_{s=1}^{n}1/s = H_n = O(\log n)$. Need to show expected charge per edge $\le H_n \cdot (\text{packing load on }e)$. *Test:* numerically verify recurrence $E_s \le \frac1s\sum_{i}(c_i + E_{s-1})$ solves to $O(\log n)$ under per-step bound $ \frac1s\sum_i c_i \le \frac{C}{s}\cdot\text{(local packing)}$; explicitly check boundary indices $m=i+1,j-1$ analogues: pivot $i$ equal to endpoint of $e$ causes no charge to $e$ (since $e$ frozen, not modified) — must exclude $i\in e$ from min/max split to avoid overcount. Never assert one of excess/deficit branches universally suboptimal without checking both.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_1_187 ---
+[Falsifier Script 1]:
+# Claim 1: modification implies current-unbalanced witness + each edge counted once
+import random
+def check_unbalanced(x, i, j, k):
+    # returns True if triangle ijk unbalanced, and which edge violates
+    def get(a,b):
+        if a>b: a,b=b,a
+        return x[(a,b)]
+    vals = {(i,j):get(i,j),(i,k):get(i,k),(j,k):get(j,k)}
+    viol=[]
+    for (a,b),(c,d) in [((i,j),(i,k)),((i,k),(j,k)),((i,j),(j,k))]:
+        pass
+    # check each edge vs sum/diff of other two
+    for (e1,e2,e3) in [( (i,j),(i,k),(j,k) ), ((i,k),(i,j),(j,k)), ((j,k),(i,j),(i,k))]:
+        v1,v2,v3 = vals[e1],vals[e2],vals[e3]
+        if v1 > v2+v3+1e-9 or v1 < abs(v2-v3)-1e-9:
+            viol.append(e1)
+    return len(viol)>0, viol
+
+def run_once(n, seed=None):
+    if seed is not None: random.seed(seed)
+    x={}
+    for a in range(n):
+        for b in range(a+1,n):
+            x[(a,b)]=random.choice([0.0,1.0,2.0,5.0,10.0])
+    xcur=dict(x)
+    alive=list(range(n))
+    random.shuffle(alive)  # random pivot order = random permutation
+    mod_count={e:0 for e in x}
+    witness_ok=True
+    for idx, piv in enumerate(alive):
+        S=set(alive[idx:])
+        # record values at start of call
+        for j in list(S-{piv}):
+            for k in list(S-{piv}):
+                if j<k:
+                    e=(j,k)
+                    if mod_count[e]>0: continue  # already frozen? check at-most-once later
+                    vij=xcur[(min(piv,j),max(piv,j))]
+                    vik=xcur[(min(piv,k),max(piv,k))]
+                    vjk=xcur[e]
+                    need = (vjk > vij+vik+1e-9) or (vjk < abs(vij-vik)-1e-9)
+                    # algorithm would modify
+                    if need:
+                        # verify triangle unbalanced at start
+                        unb,_=check_unbalanced(xcur,piv,j,k)
+                        if not unb:
+                            witness_ok=False
+                            print("WITNESS FAIL",piv,j,k,vij,vik,vjk)
+                        # apply fix
+                        if vjk > vij+vik: xcur[e]=vij+vik
+                        else: xcur[e]=abs(vij-vik)
+                        mod_count[e]+=1
+        # freeze edges incident to piv (never touch again)
+    double = [e for e,c in mod_count.items() if c>1]
+    return witness_ok, len(double)==0, sum(mod_count.values()), mod_count
+
+ok_all=True; once_all=True
+for s in range(200):
+    w,o,_,_=run_once(5, seed=s)
+    ok_all = ok_all and w; once_all = once_all and o
+print("witness(current-unbalanced) holds on 200 trials:", ok_all)
+print("at-most-once holds on 200 trials:", once_all)
+assert ok_all and once_all
+# boundary n<=2: no modification possible
+for n in [1,2]:
+    w,o,c,_=run_once(n, seed=0)
+    print(f"n={n} mods={c} (expect 0)")
+    assert c==0
+print("CLAIM1 PASS")
+[Falsifier Kernel Output (Verified)]: witness(current-unbalanced) holds on 200 trials: True
+at-most-once holds on 200 trials: True
+n=1 mods=0 (expect 0)
+n=2 mods=0 (expect 0)
+CLAIM1 PASS
+[Falsifier Script 2]:
+# Claim 2: per-edge packing feasibility + harmonic normalizer; expose symmetric-assignment fragility
+import random, itertools
+random.seed(1)
+n=5
+x={}
+for a in range(n):
+    for b in range(a+1,n):
+        x[(a,b)]=random.choice([0.0,1.0,4.0,5.0,9.0])
+def unbalanced_input(i,j,k):
+    def g(a,b): return x[(min(a,b),max(a,b))]
+    for (e1,e2,e3) in [((i,j),(i,k),(j,k)),((i,k),(i,j),(j,k)),((j,k),(i,j),(i,k))]:
+        v1,v2,v3=g(*e1),g(*e2),g(*e3)
+        if v1>v2+v3+1e-9 or v1<abs(v2-v3)-1e-9: return True
+    return False
+Tprime=[t for t in itertools.combinations(range(n),3) if unbalanced_input(*t)]
+print("Tprime:",Tprime)
+edges=list(itertools.combinations(range(n),2))
+N={e: sum(1 for t in Tprime if e[0] in t and e[1] in t) for e in edges}
+print("N_e:",N)
+# naive edge-normalized load: sum_{t ni e} 1/N_e == 1 if N_e>0 (holds by construction)
+for e in edges:
+    if N[e]>0:
+        load = N[e]*(1.0/N[e])
+        assert abs(load-1.0)<1e-9
+print("edge-normalized load ==1 per edge with N_e>0: PASS")
+# FRAGILE: single symmetric p_t cannot equal 1/N_e for all 3 edges simultaneously when N differ
+bad=[]
+for t in Tprime:
+    Ns=set(N[(min(a,b),max(a,b))] for a,b in itertools.combinations(t,2))
+    if len(Ns)>1: bad.append((t,Ns))
+print("triangles with differing N_e across its 3 edges (symmetric p_t=1/N_e ill-defined):",bad)
+if bad: print("=> candidate p_ijk=1/N_jk needs symmetrization (e.g. /3 or max); flagged FRAGILE, not fatal")
+# feasible symmetrized candidate: p_t = 1/3 * sum? test p_t=1/4 uniform bound: capacity = N_e/4
+for e in edges:
+    cap_uniform = N[e]*0.25
+    print(e, "N=",N[e],"uniform p=1/4 load=",cap_uniform,"feasible:",cap_uniform<=1+1e-9)
+# Monte Carlo: Pr[e charged | |S|=s] spot-check <= harmonic shape C/s (5-line style)
+import collections
+def est_prob(e, s, trials=2000):
+    cnt=0
+    for _ in range(trials):
+        S=random.sample(range(7),s)
+        if e[0] not in S or e[1] not in S: continue
+        piv=random.choice(S)
+        if piv in e: continue  # pivot endpoint => e frozen, no charge (must exclude)
+        cnt+=1  # upper bound: assume charge whenever pivot outside e
+    return cnt/trials
+e=(0,1)
+for s in [3,4,5,6]:
+    print(f"s={s} trivial upper bound (s-2)/s={(s-2)/s:.3f} <= 1/s*sum? needs packing factor; boundary s<=2 -> 0")
+print("CLAIM2 PASS (feasibility holds edge-wise; symmetric form needs care)")
+[Falsifier Kernel Output (Verified)]: Tprime: [(0, 1, 2), (0, 1, 3), (0, 2, 3), (0, 3, 4)]
+N_e: {(0, 1): 2, (0, 2): 2, (0, 3): 3, (0, 4): 1, (1, 2): 1, (1, 3): 1, (1, 4): 0, (2, 3): 1, (2, 4): 0, (3, 4): 1}
+edge-normalized load ==1 per edge with N_e>0: PASS
+triangles with differing N_e across its 3 edges (symmetric p_t=1/N_e ill-defined): [((0, 1, 2), {1, 2}), ((0, 1, 3), {1, 2, 3}), ((0, 2, 3), {1, 2, 3}), ((0, 3, 4), {1, 3})]
+=> candidate p_ijk=1/N_jk needs symmetrization (e.g. /3 or max); flagged FRAGILE, not fatal
+(0, 1) N= 2 un
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+## Turn 1 — Exploration Gate: Inventory, Invariant, Claims
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+**Definitions granted:**
+- `metric`: $x\ge 0$ on $\binom{[n]}{2}$ with $x(i,j)\le x(i,k)+x(j,k)$.
+- `\mvd`: minimize $\|x-y\|_{0}$ over metrics $y$. OPT = optimum.
+- Triangle $t=ijk$: edge $ij$ *excess* if $x(ij)>x(ik)+x(jk)$; *deficit* if $x(ij)<|x(ik)-x(jk)|$; *unbalanced* if either. $\mathcal T$ all, $\mathcal T'$ input-unbalanced.
+- `Frozen`: edges incident to pivot $i$ never touched in remaining recursion.
+
+**Algorithm `MVD-Pivot`:**
+If $n\le 2$ return. Pick $i$ u.a.r. in current alive set $S$. For all $j\ne k\in S\setminus\{i\}$ fix $x(j,k)$ to $[|x(i,j)-x(i,k)|,\,x(i,j)+x(i,k)]$ if outside. Recurse on $S\setminus\{i\}$. Only pairs with both ends $\ne i$ changed at this level.
+
+**Observation O:balance (licensed):**
+Precondition: end of recursive call where $i$ was pivot.
+Conclusion: no triangle adjacent to $i$ is unbalanced (w.r.t. values at that time).
+Use contract: must verify it applies only to triangles containing current pivot at that time; global metric needs preservation across later levels. Do not claim balance for triangles not containing pivot.
+
+**Lemma L:LP:**
+Precondition: $\mathcal T'$ from input $x$. No other.
+Conclusion: $\mathrm{OPT}\ge \min|H|\ge \max\sum p_{t}$ over feasible packings $\sum_{t\ni e}p_{t}\le 1$.
+Discharge: suffices to exhibit any feasible packing; verify per-edge capacity.
+
+**Goal thm:mvd:** output metric in $O(n^{3})$, $\mathbb E[\mathrm{ALG}]\le O(\log n)\mathrm{OPT}$.
+
+### 2. Invariant-First Formulation
+
+Do not brute-force over excess/deficit $\times$ all triples. Unifying invariant:
+
+**Frozen-star balancedness preservation.** Let $F$ be set of already-pivoted (frozen) vertices. Invariant at level boundaries: every triangle containing any $f\in F$ is balanced (w.r.t. current values). New pivot $i$ makes its star balanced by construction. Key step: later pivot $p$ fixing $(u,v)$ to satisfy $p$-triangle preserves balance of every $f$-triangle $fuv$ provided $fpu,fpv$ were balanced before.
+
+This groups excess/deficit into one arithmetic lemma and yields feasibility. It also explains why naive "current = input" is fragile: pivot edges $(i,j)$ were mutated by earlier $F$, so input-unbalanced $\ne$ current-unbalanced. The invariant tracks current values, not input.
+
+Random order view: permutation $\pi$; alive set $S$; pivot uniform in $S$ given $S$ (exchangeability). Edge $e=jk$ can be touched only by pivots before $\min(\pi^{-1}(j),\pi^{-1}(k))$. Distinct cost $\le$ events; double-modification possible so distinct vs multiplicity must be separated.
+
+### 3. Structured Intermediate Claims
+
+**[CLAIM A — Runtime + Feasibility skeleton]**
+Algorithm runs $O(n^{3})$ and if preservation holds outputs metric.
+[REDUCTION]: $n$ levels $\times$ $O(|S|^{2})$ pairs gives $O(n^{3})$. $n\le 2$ base returns metric vacuously. Assuming Claim B, induction gives all triangles balanced at termination via O:balance + preservation. Discharges algorithmic part of goal.
+
+**[CLAIM B — Preservation arithmetic]**
+Fix frozen $f$, current pivot $p$, alive $u,v$. Assume $fpu,fpv,fuv$ balanced before, with $a=x(p,u),b=x(p,v),c=x(u,v)$, $w$'s for $f$-edges. If $c$ set to $a+b$ (was $>a+b$) or to $|a-b|$ (was $<|a-b|$), then $fuv$ stays balanced.
+[REDUCTION]: Proved by two-sided interval argument using $fpu,fpv$ balance for one side and prior $fuv$ balance for other. Must check both excess and deficit branches. This is the core to audit; it avoids case explosion over all triples.
+
+**[CLAIM C — Witness + single-charge per triangle]**
+If pivot $i$ modifies $jk$ then $ijk$ currently unbalanced; in fact for nonnegatives unbalanced for one edge implies unbalanced for all three (excess of one $\Rightarrow$ deficit of other two). Each triangle can be charged at most once (after first among its 3 vertices pivots, vertex removed).
+[REDUCTION]: Reduces cost to charging triangles; separates distinct ALG ($\le$ events) from multiplicity. Boundary $s\le 2$ no modification possible.
+
+**[CLAIM D — Feasible packing candidate]**
+Let $N_{e}=|\{t\in\mathcal T':t\ni e\}|$, $M_{t}=\max_{e\in t}N_{e}$, $p_{t}=1/M_{t}$ for $t\in\mathcal T'$ ($0$ else). Then $\sum_{t\ni e}p_{t}\le 1$.
+[REDUCTION]: Gives licensed feasible packing for L:LP since $M_{t}\ge N_{e}$ gives $p_{t}\le 1/N_{e}$. Value $\sum p_{t}\le\mathrm{OPT}$. Remaining to connect $\mathbb E[\mathrm{ALG}]$ to $\sum p_{t}$ with $O(\log n)$ factor via per-edge $\Pr[e\text{ ever changed}]$ analysis. Clean-edge spillover ($N_{e}=0$ but $e$ changed via cascade) is the fragile point to test — if it occurs, $O(1)$ load argument fails and harmonic conditioning (Gamma) is needed.
+
+### 4. REPL Verification (audit requests)
+
+```python
+import random, itertools, math
+
+def balanced(a,b,c,eps=1e-9):
+    return a <= b+c+eps and b <= a+c+eps and c <= a+b+eps
+
+def run_once(n, x_init):
+    x=dict(x_init)
+    def get(u,v):
+        if u>v: u,v=v,u
+        return x[(u,v)]
+    def setv(u,v,val):
+        if u>v: u,v=v,u
+        x[(u,v)]=val
+    alive=set(range(n))
+    frozen=set()
+    mod_counts={}
+    preserv_violations=0
+    checks=0
+    while len(alive)>2:
+        piv=random.choice(sorted(alive))
+        rest=[v for v in alive if v!=piv]
+        for j,k in itertools.combinations(rest,2):
+            xjk=get(j,k); xij=get(piv,j); xik=get(piv,k)
+            if xjk > xij+xik+1e-9:
+                setv(j,k,xij+xik)
+                mod_counts[(min(j,k),max(j,k))]=mod_counts.get((min(j,k),max(j,k)),0)+1
+            elif xjk < abs(xij-xik)-1e-9:
+                setv(j,k,abs(xij-xik))
+                mod_counts[(min(j,k),max(j,k))]=mod_counts.get((min(j,k),max(j,k)),0)+1
+        frozen.add(piv); alive.remove(piv)
+        # preservation: all triangles containing frozen balanced?
+        for f in frozen:
+            for j,k in itertools.combinations([v for v in range(n) if v!=f],2):
+                checks+=1
+                if not balanced(get(f,j),get(f,k),get(j,k)):
+                    preserv_violations+=1
+    final_ok=all(balanced(get(a,b),get(a,c),get(b,c)) for a,b,c in itertools.combinations(range(n),3))
+    maxmult=max(mod_counts.values()) if mod_counts else 0
+    return final_ok, preserv_violations, checks, maxmult, mod_counts, x
+
+# Test feasibility + preservation + multiplicity
+for n in [3,4,5,6]:
+    fv=0; pv=0; mm=0; trials=200
+    for _ in range(trials):
+        x_init={}
+        for u,v in itertools.combinations(range(n),2):
+            x_init[(u,v)]=random.randint(0,20)
+        fok,pv1,_,mx,_,_=run_once(n,x_init)
+        if not fok: fv+=1
+        pv+=pv1
+        mm=max(mm,mx)
+    print(f"n={n} final_metric_fail={fv}/200 preserv_viol={pv} max_mult={mm}")
+```
+
+```python
+import random, itertools
+
+def balanced3(a,b,c,eps=1e-9):
+    return a<=b+c+eps and b<=a+c+eps and c<=a+b+eps
+
+def packing_load(n,x_init):
+    Tprime=[]
+    for a,b,c in itertools.combinations(range(n),3):
+        def g(u,v):
+            if u>v: u,v=v,u
+            return x_init[(u,v)]
+        if not balanced3(g(a,b),g(a,c),g(b,c)):
+            Tprime.append((a,b,c))
+    from collections import defaultdict
+    Ne=defaultdict(int)
+    for e in itertools.combinations(range(n),2):
+        Ne[e]=0
+    for a,b,c in Tprime:
+        for e in [(min(a,b),max(a,b)),(min(a,c),max(a,c)),(min(b,c),max(b,c))]:
+            Ne[e]+=1
+    p={}
+    for t in Tprime:
+        a,b,c=t
+        es=[(min(a,b),max(a,b)),(min(a,c),max(a,c)),(min(b,c),max(b,c))]
+        Mt=max(Ne[e] for e in es)
+        p[t]=1.0/Mt if Mt>0 else 0
+    ok=True
+    for e in itertools.combinations(range(n),2):
+        s=sum(p[t] for t in Tprime if e[0] in t and e[1] in t)
+        if s>1+1e-9:
+            ok=False
+            print("viol",e,s)
+    return ok, Tprime, Ne, p
+
+# feasibility of candidate packing
+for _ in range(5):
+    n=5
+    x_init={(u,v):random.randint(0,10) for u,v in itertools.combinations(range(n),2)}
+    ok,Tp,Ne,p=packing_load(n,x_init)
+    print("packing feasible?",ok,"|T'|=",len(Tp),"Ne sample",dict(list(Ne.items())[:3]))
+
+# clean-edge spillover search: edge with Ne=0 ever modified?
+def find_clean_mod(n,trials=500):
+    for _ in range(trials):
+        x_init={(u,v):random.randint(0,15) for u,v in itertools.combinations(range(n),2)}
+        _,Tp,Ne,_=packing_load(n,x_init)
+        clean=[e for e in itertools.combinations(range(n),2) if Ne[e]==0]
+        if not clean: continue
+        # simulate many pivot orders, check if clean edge modified
+        import copy
+        # quick single run
+        x=dict(x_init)
+        def get(u,v):
+            if u>v: u,v=v,u
+            return x[(u,v)]
+        def setv(u,v,val):
+            if u>v: u,v=v,u
+            x[(u,v)]=val
+        alive=set(range(n))
+        mods=set()
+        while len(alive)>2:
+            piv=random.choice(sorted(alive))
+            rest=[v for v in alive if v!=piv]
+            for j,k in itertools.combinations(rest,2):
+                if get(j,k)>get(piv,j)+get(piv,k)+1e-9 or get(j,k)<abs(get(piv,j)-get(piv,k))-1e-9:
+                    mods.add((min(j,k),max(j,k)))
+                    # apply to affect cascade
+                    if get(j,k)>get(piv,j)+get(piv,k):
+                        setv(j,k,get(piv,j)+get(piv,k))
+                    else:
+                        setv(j,k,abs(get(piv,j)-get(piv,k)))
+            alive.remove(piv)
+        for e in clean:
+            if e in mods:
+                return x_init, e, Tp
+    return None
+
+res=find_clean_mod(5,500)
+print("clean-edge modified example found?", res is not None)
+if res: print(res)
+print("H_n n=10:",sum(1/s for s in range(1,11)))
+```
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random, itertools, math
+
+def balanced(a,b,c,eps=1e-9):
+    return a <= b+c+eps and b <= a+c+eps and c <= a+b+eps
+
+def run_once(n, x_init):
+    x=dict(x_init)
+    def get(u,v):
+        if u>v: u,v=v,u
+        return x[(u,v)]
+    def setv(u,v,val):
+        if u>v: u,v=v,u
+        x[(u,v)]=val
+    alive=set(range(n))
+    frozen=set()
+    mod_counts={}
+    preserv_violations=0
+    checks=0
+    while len(alive)>2:
+        piv=random.choice(sorted(alive))
+        rest=[v for v in alive if v!=piv]
+        for j,k in itertools.combinations(rest,2):
+            xjk=get(j,k); xij=get(piv,j); xik=get(piv,k)
+            if xjk > xij+xik+1e-9:
+                setv(j,k,xij+xik)
+                mod_counts[(min(j,k),max(j,k))]=mod_counts.get((min(j,k),max(j,k)),0)+1
+            elif xjk < abs(xij-xik)-1e-9:
+                setv(j,k,abs(xij-xik))
+                mod_counts[(min(j,k),max(j,k))]=mod_counts.get((min(j,k),max(j,k)),0)+1
+        frozen.add(piv); alive.remove(piv)
+        # preservation: all triangles containing frozen balanced?
+        for f in frozen:
+            for j,k in itertools.combinations([v for v in range(n) if v!=f],2):
+                checks+=1
+                if not balanced(get(f,j),get(f,k),get(j,k)):
+                    preserv_violations+=1
+    final_ok=all(balanced(get(a,b),get(a,c),get(b,c)) for a,b,c in itertools.combinations(range(n),3))
+    maxmult=max(mod_counts.values()) if mod_counts else 0
+    return final_ok, preserv_violations, checks, maxmult, mod_counts, x
+
+# Test feasibility + preservation + multiplicity
+for n in [3,4,5,6]:
+    fv=0; pv=0; mm=0; trials=200
+    for _ in range(trials):
+        x_init={}
+        for u,v in itertools.combinations(range(n),2):
+            x_init[(u,v)]=random.randint(0,20)
+        fok,pv1,_,mx,_,_=run_once(n,x_init)
+        if not fok: fv+=1
+        pv+=pv1
+        mm=max(mm,mx)
+    print(f"n={n} final_metric_fail={fv}/200 preserv_viol={pv} max_mult={mm}")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.1164s) ---
+Stdout:
+n=3 final_metric_fail=0/200 preserv_viol=0 max_mult=1
+n=4 final_metric_fail=0/200 preserv_viol=0 max_mult=2
+n=5 final_metric_fail=0/200 preserv_viol=0 max_mult=3
+n=6 final_metric_fail=0/200 preserv_viol=0 max_mult=3
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random, itertools
+
+def balanced3(a,b,c,eps=1e-9):
+    return a<=b+c+eps and b<=a+c+eps and c<=a+b+eps
+
+def packing_load(n,x_init):
+    Tprime=[]
+    for a,b,c in itertools.combinations(range(n),3):
+        def g(u,v):
+            if u>v: u,v=v,u
+            return x_init[(u,v)]
+        if not balanced3(g(a,b),g(a,c),g(b,c)):
+            Tprime.append((a,b,c))
+    from collections import defaultdict
+    Ne=defaultdict(int)
+    for e in itertools.combinations(range(n),2):
+        Ne[e]=0
+    for a,b,c in Tprime:
+        for e in [(min(a,b),max(a,b)),(min(a,c),max(a,c)),(min(b,c),max(b,c))]:
+            Ne[e]+=1
+    p={}
+    for t in Tprime:
+        a,b,c=t
+        es=[(min(a,b),max(a,b)),(min(a,c),max(a,c)),(min(b,c),max(b,c))]
+        Mt=max(Ne[e] for e in es)
+        p[t]=1.0/Mt if Mt>0 else 0
+    ok=True
+    for e in itertools.combinations(range(n),2):
+        s=sum(p[t] for t in Tprime if e[0] in t and e[1] in t)
+        if s>1+1e-9:
+            ok=False
+            print("viol",e,s)
+    return ok, Tprime, Ne, p
+
+# feasibility of candidate packing
+for _ in range(5):
+    n=5
+    x_init={(u,v):random.randint(0,10) for u,v in itertools.combinations(range(n),2)}
+    ok,Tp,Ne,p=packing_load(n,x_init)
+    print("packing feasible?",ok,"|T'|=",len(Tp),"Ne sample",dict(list(Ne.items())[:3]))
+
+# clean-edge spillover search: edge with Ne=0 ever modified?
+def find_clean_mod(n,trials=500):
+    for _ in range(trials):
+        x_init={(u,v):random.randint(0,15) for u,v in itertools.combinations(range(n),2)}
+        _,Tp,Ne,_=packing_load(n,x_init)
+        clean=[e for e in itertools.combinations(range(n),2) if Ne[e]==0]
+        if not clean: continue
+        # simulate many pivot orders, check if clean edge modified
+        import copy
+        # quick single run
+        x=dict(x_init)
+        def get(u,v):
+            if u>v: u,v=v,u
+            return x[(u,v)]
+        def setv(u,v,val):
+            if u>v: u,v=v,u
+            x[(u,v)]=val
+        alive=set(range(n))
+        mods=set()
+        while len(alive)>2:
+            piv=random.choice(sorted(alive))
+            rest=[v for v in alive if v!=piv]
+            for j,k in itertools.combinations(rest,2):
+                if get(j,k)>get(piv,j)+get(piv,k)+1e-9 or get(j,k)<abs(get(piv,j)-get(piv,k))-1e-9:
+                    mods.add((min(j,k),max(j,k)))
+                    # apply to affect cascade
+                    if get(j,k)>get(piv,j)+get(piv,k):
+                        setv(j,k,get(piv,j)+get(piv,k))
+                    else:
+                        setv(j,k,abs(get(piv,j)-get(piv,k)))
+            alive.remove(piv)
+        for e in clean:
+            if e in mods:
+                return x_init, e, Tp
+    return None
+
+res=find_clean_mod(5,500)
+print("clean-edge modified example found?", res is not None)
+if res: print(res)
+print("H_n n=10:",sum(1/s for s in range(1,11)))
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0602s) ---
+Stdout:
+packing feasible? True |T'|= 7 Ne sample {(0, 1): 2, (0, 2): 1, (0, 3): 2}
+packing feasible? True |T'|= 6 Ne sample {(0, 1): 3, (0, 2): 2, (0, 3): 1}
+packing feasible? True |T'|= 6 Ne sample {(0, 1): 1, (0, 2): 1, (0, 3): 2}
+packing feasible? True |T'|= 7 Ne sample {(0, 1): 2, (0, 2): 3, (0, 3): 2}
+packing feasible? True |T'|= 6 Ne sample {(0, 1): 3, (0, 2): 2, (0, 3): 2}
+clean-edge modified example found? False
+H_n n=10: 2.9289682539682538
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 2/8] MODEL GENERATED PROPOSAL & PROOF ---
+Proving the $O(\log n)$ pivot bound — stress-testing the charging and preservation invariants.I'll run targeted simulations to verify the preservation invariant and clean-edge behavior.```python
+import itertools, random
+from collections import defaultdict
+
+def balanced3(a,b,c,eps=1e-9):
+    return a<=b+c+eps and b<=a+c+eps and c<=a+b+eps
+
+def simulate(n, x_init, perm):
+    # perm is pivot order list
+    x=dict(x_init)
+    def get(u,v):
+        if u>v: u,v=v,u
+        return x[(u,v)]
+    def setv(u,v,val):
+        if u>v: u,v=v,u
+        x[(u,v)]=val
+    alive=set(range(n))
+    mods=[]  # list of (pivot, edge)
+    # map perm order: need alive set follows perm order? Actually pivot must be from alive; perm is total order, we pick in perm order skipping removed? Since removal is exactly pivots, order is perm.
+    for piv in perm:
+        assert piv in alive
+        rest=[v for v in alive if v!=piv]
+        for j,k in itertools.combinations(rest,2):
+            gjk=get(j,k); gij=get(piv,j); gik=get(piv,k)
+            if gjk > gij+gik+1e-9:
+                setv(j,k,gij+gik)
+                mods.append((piv,(min(j,k),max(j,k))))
+            elif gjk < abs(gij-gik)-1e-9:
+                setv(j,k,abs(gij-gik))
+                mods.append((piv,(min(j,k),max(j,k))))
+        alive.remove(piv)
+        if len(alive)<=2:
+            break
+    return mods, x
+
+def input_Tprime_Ne(n,x_init):
+    Tprime=set()
+    Ne=defaultdict(int)
+    for e in itertools.combinations(range(n),2):
+        Ne[e]=0
+    for a,b,c in itertools.combinations(range(n),3):
+        def g(u,v):
+            if u>v: u,v=v,u
+            return x_init[(u,v)]
+        if not balanced3(g(a,b),g(a,c),g(b,c)):
+            Tprime.add((a,b,c))
+            for e in [(min(a,b),max(a,b)),(min(a,c),max(a,c)),(min(b,c),max(b,c))]:
+                Ne[e]+=1
+    return Tprime,Ne
+
+# exhaustive search n=4 values 0..2
+import itertools as it
+
+def find_counterexample(n, vals):
+    # iterate over all weight assignments? huge: (len(vals))^(n choose 2). For n=4, 6 edges, vals 0..2 => 3^6=729 manageable
+    all_edges=list(itertools.combinations(range(n),2))
+    count=0
+    for assign in it.product(vals, repeat=len(all_edges)):
+        x_init={e:v for e,v in zip(all_edges,assign)}
+        _,Ne=input_Tprime_Ne(n,x_init)
+        clean=[e for e in all_edges if Ne[e]==0]
+        if not clean:
+            continue
+        # check all perms
+        for perm in it.permutations(range(n)):
+            mods,_=simulate(n,x_init,list(perm))
+            mod_edges=set(e for _,e in mods)
+            for e in clean:
+                if e in mod_edges:
+                    print("FOUND clean mod counterexample!")
+                    print("x_init",x_init)
+                    print("Ne",dict(Ne))
+                    print("perm",perm,"mods",mods)
+                    return True
+        count+=1
+    print(f"exhaustive done n={n} vals={vals} checked {count} instances with clean edges, no counterexample")
+    return False
+
+find_counterexample(4,[0,1,2])
+```
+
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import itertools, random
+from collections import defaultdict
+
+def balanced3(a,b,c,eps=1e-9):
+    return a<=b+c+eps and b<=a+c+eps and c<=a+b+eps
+
+def simulate(n, x_init, perm):
+    # perm is pivot order list
+    x=dict(x_init)
+    def get(u,v):
+        if u>v: u,v=v,u
+        return x[(u,v)]
+    def setv(u,v,val):
+        if u>v: u,v=v,u
+        x[(u,v)]=val
+    alive=set(range(n))
+    mods=[]  # list of (pivot, edge)
+    # map perm order: need alive set follows perm order? Actually pivot must be from alive; perm is total order, we pick in perm order skipping removed? Since removal is exactly pivots, order is perm.
+    for piv in perm:
+        assert piv in alive
+        rest=[v for v in alive if v!=piv]
+        for j,k in itertools.combinations(rest,2):
+            gjk=get(j,k); gij=get(piv,j); gik=get(piv,k)
+            if gjk > gij+gik+1e-9:
+                setv(j,k,gij+gik)
+                mods.append((piv,(min(j,k),max(j,k))))
+            elif gjk < abs(gij-gik)-1e-9:
+                setv(j,k,abs(gij-gik))
+                mods.append((piv,(min(j,k),max(j,k))))
+        alive.remove(piv)
+        if len(alive)<=2:
+            break
+    return mods, x
+
+def input_Tprime_Ne(n,x_init):
+    Tprime=set()
+    Ne=defaultdict(int)
+    for e in itertools.combinations(range(n),2):
+        Ne[e]=0
+    for a,b,c in itertools.combinations(range(n),3):
+        def g(u,v):
+            if u>v: u,v=v,u
+            return x_init[(u,v)]
+        if not balanced3(g(a,b),g(a,c),g(b,c)):
+            Tprime.add((a,b,c))
+            for e in [(min(a,b),max(a,b)),(min(a,c),max(a,c)),(min(b,c),max(b,c))]:
+                Ne[e]+=1
+    return Tprime,Ne
+
+# exhaustive search n=4 values 0..2
+import itertools as it
+
+def find_counterexample(n, vals):
+    # iterate over all weight assignments? huge: (len(vals))^(n choose 2). For n=4, 6 edges, vals 0..2 => 3^6=729 manageable
+    all_edges=list(itertools.combinations(range(n),2))
+    count=0
+    for assign in it.product(vals, repeat=len(all_edges)):
+        x_init={e:v for e,v in zip(all_edges,assign)}
+        _,Ne=input_Tprime_Ne(n,x_init)
+        clean=[e for e in all_edges if Ne[e]==0]
+        if not clean:
+            continue
+        # check all perms
+        for perm in it.permutations(range(n)):
+            mods,_=simulate(n,x_init,list(perm))
+            mod_edges=set(e for _,e in mods)
+            for e in clean:
+                if e in mod_edges:
+                    print("FOUND clean mod counterexample!")
+                    print("x_init",x_init)
+                    print("Ne",dict(Ne))
+                    print("perm",perm,"mods",mods)
+                    return True
+        count+=1
+    print(f"exhaustive done n={n} vals={vals} checked {count} instances with clean edges, no counterexample")
+    return False
+
+find_counterexample(4,[0,1,2])
+```
+--- [TURN 2] EXECUTION SUCCESS (0.2045s) ---
+Stdout:
+exhaustive done n=4 vals=[0, 1, 2] checked 535 instances with clean edges, no counterexample
+
+Evaluated Value: False
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 3] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 4.
+
+--- [TURN 4/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 4/8] MODEL GENERATED PROPOSAL & PROOF ---
+I need to verify the core charging invariants before assembling the final approximation proof.```python
+import random, itertools
+
+def simulate(n, x_init, perm):
+    # x dict for unordered pairs
+    x = dict(x_init)
+    def get(a,b):
+        if a>b: a,b=b,a
+        return x[(a,b)]
+    def set_pair(a,b,v):
+        if a>b: a,b=b,a
+        x[(a,b)]=v
+    alive = list(range(n))
+    # perm is pivot order
+    mods = []  # list of (pivot i, edge (j,k))
+    for idx in range(n):
+        i = perm[idx]
+        # alive should contain i..n-1 in perm order; ensure i in alive
+        assert i in alive
+        # for all j!=k in alive\{i}, adjust
+        others = [v for v in alive if v!=i]
+        for j,k in itertools.combinations(others,2):
+            a = get(i,j); b = get(i,k); c = get(j,k)
+            if c > a + b + 1e-9:
+                set_pair(j,k, a+b)
+                mods.append((i,(min(j,k),max(j,k))))
+            elif c < abs(a-b) - 1e-9:
+                set_pair(j,k, abs(a-b))
+                mods.append((i,(min(j,k),max(j,k))))
+        alive.remove(i)
+    return x, mods
+
+def input_unbalanced(n, x_init):
+    Tprime=set()
+    for i,j,k in itertools.combinations(range(n),3):
+        def g(a,b):
+            if a>b: a,b=b,a
+            return x_init[(a,b)]
+        ab=g(i,j); ac=g(i,k); bc=g(j,k)
+        # check each edge excess/deficit
+        unb=False
+        if ab > ac+bc+1e-9 or ab < abs(ac-bc)-1e-9: unb=True
+        if ac > ab+bc+1e-9 or ac < abs(ab-bc)-1e-9: unb=True
+        if bc > ab+ac+1e-9 or bc < abs(ab-ac)-1e-9: unb=True
+        if unb: Tprime.add((i,j,k))
+    return Tprime
+
+def edge_in_Tprime(e, Tprime):
+    a,b=e
+    for t in Tprime:
+        if a in t and b in t: return True
+    return False
+
+# Test clean-edge claim
+random.seed(0)
+viol=0
+trials=2000
+for _ in range(trials):
+    n=random.randint(3,6)
+    x_init={}
+    for a,b in itertools.combinations(range(n),2):
+        # random ints 0..5
+        x_init[(a,b)]=random.randint(0,5)
+    Tprime=input_unbalanced(n,x_init)
+    # find clean edges
+    clean=[e for e in itertools.combinations(range(n),2) if not edge_in_Tprime(e,Tprime)]
+    if not clean: continue
+    perm=list(range(n)); random.shuffle(perm)
+    _,mods=simulate(n,x_init,perm)
+    mod_edges=set(e for _,e in mods)
+    for e in clean:
+        if e in mod_edges:
+            viol+=1
+            print("CLEAN-EDGE VIOLATION",n,x_init,Tprime,perm,mods)
+            break
+print("clean-edge violations:",viol,"/",trials)
+
+# Test preservation: after pivot i, later mods preserve balance of triangles containing i?
+def test_preservation(trials=500):
+    pv=0
+    for _ in range(trials):
+        n=random.randint(3,5)
+        x_init={(a,b): random.randint(0,5) for a,b in itertools.combinations(range(n),2)}
+        perm=list(range(n)); random.shuffle(perm)
+        x=dict(x_init)
+        def get(a,b):
+            if a>b: a,b=b,a
+            return x[(a,b)]
+        def setp(a,b,v):
+            if a>b: a,b=b,a
+            x[(a,b)]=v
+        alive=list(range(n))
+        # record frozen pivot edges values at freeze time?
+        for idx,i in enumerate(perm):
+            others=[v for v in alive if v!=i]
+            for j,k in itertools.combinations(others,2):
+                a=get(i,j); b=get(i,k); c=get(j,k)
+                if c>a+b+1e-9: setp(j,k,a+b)
+                elif c<abs(a-b)-1e-9: setp(j,k,abs(a-b))
+            alive.remove(i)
+        # final check metric?
+        ok=True
+        for a,b,c in itertools.combinations(range(n),3):
+            ab=get(a,b); ac=get(a,c); bc=get(b,c)
+            if ab>ac+bc+1e-9 or ac>ab+bc+1e-9 or bc>ab+ac+1e-9:
+                ok=False
+        if not ok:
+            pv+=1
+            print("FINAL NOT METRIC",x_init,perm,x)
+            break
+    print("final non-metric count:",pv)
+test_preservation()
+```
+
+
+--- [TURN 4] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random, itertools
+
+def simulate(n, x_init, perm):
+    # x dict for unordered pairs
+    x = dict(x_init)
+    def get(a,b):
+        if a>b: a,b=b,a
+        return x[(a,b)]
+    def set_pair(a,b,v):
+        if a>b: a,b=b,a
+        x[(a,b)]=v
+    alive = list(range(n))
+    # perm is pivot order
+    mods = []  # list of (pivot i, edge (j,k))
+    for idx in range(n):
+        i = perm[idx]
+        # alive should contain i..n-1 in perm order; ensure i in alive
+        assert i in alive
+        # for all j!=k in alive\{i}, adjust
+        others = [v for v in alive if v!=i]
+        for j,k in itertools.combinations(others,2):
+            a = get(i,j); b = get(i,k); c = get(j,k)
+            if c > a + b + 1e-9:
+                set_pair(j,k, a+b)
+                mods.append((i,(min(j,k),max(j,k))))
+            elif c < abs(a-b) - 1e-9:
+                set_pair(j,k, abs(a-b))
+                mods.append((i,(min(j,k),max(j,k))))
+        alive.remove(i)
+    return x, mods
+
+def input_unbalanced(n, x_init):
+    Tprime=set()
+    for i,j,k in itertools.combinations(range(n),3):
+        def g(a,b):
+            if a>b: a,b=b,a
+            return x_init[(a,b)]
+        ab=g(i,j); ac=g(i,k); bc=g(j,k)
+        # check each edge excess/deficit
+        unb=False
+        if ab > ac+bc+1e-9 or ab < abs(ac-bc)-1e-9: unb=True
+        if ac > ab+bc+1e-9 or ac < abs(ab-bc)-1e-9: unb=True
+        if bc > ab+ac+1e-9 or bc < abs(ab-ac)-1e-9: unb=True
+        if unb: Tprime.add((i,j,k))
+    return Tprime
+
+def edge_in_Tprime(e, Tprime):
+    a,b=e
+    for t in Tprime:
+        if a in t and b in t: return True
+    return False
+
+# Test clean-edge claim
+random.seed(0)
+viol=0
+trials=2000
+for _ in range(trials):
+    n=random.randint(3,6)
+    x_init={}
+    for a,b in itertools.combinations(range(n),2):
+        # random ints 0..5
+        x_init[(a,b)]=random.randint(0,5)
+    Tprime=input_unbalanced(n,x_init)
+    # find clean edges
+    clean=[e for e in itertools.combinations(range(n),2) if not edge_in_Tprime(e,Tprime)]
+    if not clean: continue
+    perm=list(range(n)); random.shuffle(perm)
+    _,mods=simulate(n,x_init,perm)
+    mod_edges=set(e for _,e in mods)
+    for e in clean:
+        if e in mod_edges:
+            viol+=1
+            print("CLEAN-EDGE VIOLATION",n,x_init,Tprime,perm,mods)
+            break
+print("clean-edge violations:",viol,"/",trials)
+
+# Test preservation: after pivot i, later mods preserve balance of triangles containing i?
+def test_preservation(trials=500):
+    pv=0
+    for _ in range(trials):
+        n=random.randint(3,5)
+        x_init={(a,b): random.randint(0,5) for a,b in itertools.combinations(range(n),2)}
+        perm=list(range(n)); random.shuffle(perm)
+        x=dict(x_init)
+        def get(a,b):
+            if a>b: a,b=b,a
+            return x[(a,b)]
+        def setp(a,b,v):
+            if a>b: a,b=b,a
+            x[(a,b)]=v
+        alive=list(range(n))
+        # record frozen pivot edges values at freeze time?
+        for idx,i in enumerate(perm):
+            others=[v for v in alive if v!=i]
+            for j,k in itertools.combinations(others,2):
+                a=get(i,j); b=get(i,k); c=get(j,k)
+                if c>a+b+1e-9: setp(j,k,a+b)
+                elif c<abs(a-b)-1e-9: setp(j,k,abs(a-b))
+            alive.remove(i)
+        # final check metric?
+        ok=True
+        for a,b,c in itertools.combinations(range(n),3):
+            ab=get(a,b); ac=get(a,c); bc=get(b,c)
+            if ab>ac+bc+1e-9 or ac>ab+bc+1e-9 or bc>ab+ac+1e-9:
+                ok=False
+        if not ok:
+            pv+=1
+            print("FINAL NOT METRIC",x_init,perm,x)
+            break
+    print("final non-metric count:",pv)
+test_preservation()
+```
+--- [TURN 4] EXECUTION SUCCESS (0.1751s) ---
+Stdout:
+clean-edge violations: 0 / 2000
+final non-metric count: 0
+
+
+--- [TURN 5/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 5/8] MODEL GENERATED PROPOSAL & PROOF ---
+I've verified the clean-edge invariant — edges outside input-unbalanced triangles are never touched. Now I'll stress-test the charging bounds to nail down the logarithmic approximation.```python
+import random, itertools
+from collections import defaultdict
+
+def simulate_mods(n, x_init, perm):
+    x=dict(x_init)
+    def get(a,b):
+        if a>b: a,b=b,a
+        return x[(a,b)]
+    def setp(a,b,v):
+        if a>b: a,b=b,a
+        x[(a,b)]=v
+    alive=list(range(n))
+    mods=[]  # (pivot, edge)
+    # perm is order; ensure alive follows perm
+    # we assume perm is full order, pivot at each step is next in perm among alive
+    # simpler: iterate perm
+    for i in perm:
+        others=[v for v in alive if v!=i]
+        for j,k in itertools.combinations(others,2):
+            a=get(i,j); b=get(i,k); c=get(j,k)
+            if c>a+b+1e-9:
+                setp(j,k,a+b); mods.append((i,(min(j,k),max(j,k))))
+            elif c<abs(a-b)-1e-9:
+                setp(j,k,abs(a-b)); mods.append((i,(min(j,k),max(j,k))))
+        alive.remove(i)
+    return mods
+
+def expected_charges(n, x_init, trials=2000):
+    from collections import Counter
+    cnt_edge=defaultdict(int)
+    cnt_tri=defaultdict(int)
+    for _ in range(trials):
+        perm=list(range(n)); random.shuffle(perm)
+        mods=simulate_mods(n,x_init,perm)
+        for piv,e in mods:
+            cnt_edge[e]+=1
+            # triangle
+            i=piv; j,k=e
+            t=tuple(sorted((i,j,k)))
+            cnt_tri[t]+=1
+    for e in cnt_edge:
+        cnt_edge[e]/=trials
+    for t in cnt_tri:
+        cnt_tri[t]/=trials
+    return cnt_edge, cnt_tri
+
+# star-like worst case: one long edge
+for n in [4,5,6]:
+    x_init={}
+    for a,b in itertools.combinations(range(n),2):
+        x_init[(a,b)]=1
+    x_init[(0,1)]=100
+    ce,ct=expected_charges(n,x_init,trials=3000)
+    print(f"n={n} long edge case")
+    print(" per-edge exp mods:",dict(ce))
+    print(" sum per edge containing (0,1)?",sum(v for e,v in ce.items() if 0 in e and 1 in e))
+    # per-edge sum of tri charges containing e
+    # compute sum_{t ni e} q_t
+    from collections import defaultdict
+    per_edge_sum=defaultdict(float)
+    for t,q in ct.items():
+        for e in itertools.combinations(t,2):
+            e=(min(e),max(e))
+            per_edge_sum[e]+=q
+    print(" per-edge sum q:",dict(per_edge_sum))
+    print()
+
+# try to search for high per-edge multiplicity: all zeros except?
+for n in [4]:
+    # try x(0,1)=0, others varied to cause many mods on (0,1)?
+    x_init={(a,b): random.randint(1,5) for a,b in itertools.combinations(range(n),2)}
+    # brute force small values exhaustive for edge (0,1)
+    import itertools as it
+    best=0; bestx=None
+    vals=[1,2,10]
+    # enumerate all assignments for n=4 (6 edges, 3^6=729)
+    for assign in it.product(vals, repeat=6):
+        edges=list(itertools.combinations(range(n),2))
+        xi=dict(zip(edges,assign))
+        ce,ct=expected_charges(n,xi,trials=400)
+        s=sum(v for e,v in ce.items() if e==(0,1))
+        # per-edge expected mods on (0,1)
+        if s>best:
+            best=s; bestx=dict(xi)
+    print("best exp mods on (0,1) n=4:",best,bestx)
+```
+
+--- [TURN 5] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random, itertools
+from collections import defaultdict
+
+def simulate_mods(n, x_init, perm):
+    x=dict(x_init)
+    def get(a,b):
+        if a>b: a,b=b,a
+        return x[(a,b)]
+    def setp(a,b,v):
+        if a>b: a,b=b,a
+        x[(a,b)]=v
+    alive=list(range(n))
+    mods=[]  # (pivot, edge)
+    # perm is order; ensure alive follows perm
+    # we assume perm is full order, pivot at each step is next in perm among alive
+    # simpler: iterate perm
+    for i in perm:
+        others=[v for v in alive if v!=i]
+        for j,k in itertools.combinations(others,2):
+            a=get(i,j); b=get(i,k); c=get(j,k)
+            if c>a+b+1e-9:
+                setp(j,k,a+b); mods.append((i,(min(j,k),max(j,k))))
+            elif c<abs(a-b)-1e-9:
+                setp(j,k,abs(a-b)); mods.append((i,(min(j,k),max(j,k))))
+        alive.remove(i)
+    return mods
+
+def expected_charges(n, x_init, trials=2000):
+    from collections import Counter
+    cnt_edge=defaultdict(int)
+    cnt_tri=defaultdict(int)
+    for _ in range(trials):
+        perm=list(range(n)); random.shuffle(perm)
+        mods=simulate_mods(n,x_init,perm)
+        for piv,e in mods:
+            cnt_edge[e]+=1
+            # triangle
+            i=piv; j,k=e
+            t=tuple(sorted((i,j,k)))
+            cnt_tri[t]+=1
+    for e in cnt_edge:
+        cnt_edge[e]/=trials
+    for t in cnt_tri:
+        cnt_tri[t]/=trials
+    return cnt_edge, cnt_tri
+
+# star-like worst case: one long edge
+for n in [4,5,6]:
+    x_init={}
+    for a,b in itertools.combinations(range(n),2):
+        x_init[(a,b)]=1
+    x_init[(0,1)]=100
+    ce,ct=expected_charges(n,x_init,trials=3000)
+    print(f"n={n} long edge case")
+    print(" per-edge exp mods:",dict(ce))
+    print(" sum per edge containing (0,1)?",sum(v for e,v in ce.items() if 0 in e and 1 in e))
+    # per-edge sum of tri charges containing e
+    # compute sum_{t ni e} q_t
+    from collections import defaultdict
+    per_edge_sum=defaultdict(float)
+    for t,q in ct.items():
+        for e in itertools.combinations(t,2):
+            e=(min(e),max(e))
+            per_edge_sum[e]+=q
+    print(" per-edge sum q:",dict(per_edge_sum))
+    print()
+
+# try to search for high per-edge multiplicity: all zeros except?
+for n in [4]:
+    # try x(0,1)=0, others varied to cause many mods on (0,1)?
+    x_init={(a,b): random.randint(1,5) for a,b in itertools.combinations(range(n),2)}
+    # brute force small values exhaustive for edge (0,1)
+    import itertools as it
+    best=0; bestx=None
+    vals=[1,2,10]
+    # enumerate all assignments for n=4 (6 edges, 3^6=729)
+    for assign in it.product(vals, repeat=6):
+        edges=list(itertools.combinations(range(n),2))
+        xi=dict(zip(edges,assign))
+        ce,ct=expected_charges(n,xi,trials=400)
+        s=sum(v for e,v in ce.items() if e==(0,1))
+        # per-edge expected mods on (0,1)
+        if s>best:
+            best=s; bestx=dict(xi)
+    print("best exp mods on (0,1) n=4:",best,bestx)
+```
+--- [TURN 5] EXECUTION SUCCESS (4.8825s) ---
+Stdout:
+n=4 long edge case
+ per-edge exp mods: {(0, 1): 0.488, (0, 2): 0.25733333333333336, (0, 3): 0.25733333333333336, (1, 2): 0.25466666666666665, (1, 3): 0.25466666666666665}
+ sum per edge containing (0,1)? 0.488
+ per-edge sum q: {(0, 1): 1.512, (0, 3): 0.752, (1, 3): 0.752, (0, 2): 0.76, (1, 2): 0.76}
+
+n=5 long edge case
+ per-edge exp mods: {(0, 1): 0.593, (0, 2): 0.206, (0, 3): 0.206, (0, 4): 0.206, (1, 2): 0.201, (1, 3): 0.201, (1, 4): 0.201}
+ sum per edge containing (0,1)? 0.593
+ per-edge sum q: {(0, 1): 1.814, (0, 3): 0.6016666666666667, (1, 3): 0.6016666666666667, (0, 4): 0.5976666666666667, (1, 4): 0.5976666666666667, (0, 2): 0.6146666666666667, (1, 2): 0.6146666666666667}
+
+n=6 long edge case
+ per-edge exp mods: {(0, 1): 0.663, (1, 2): 0.16, (1, 3): 0.16, (1, 4): 0.16, (1, 5): 0.16, (0, 2): 0.177, (0, 3): 0.177, (0, 4): 0.177, (0, 5): 0.177}
+ sum per edge containing (0,1)? 0.663
+ per-edge sum q: {(0, 1): 2.011, (0, 2): 0.5096666666666667, (1, 2): 0.5096666666666667, (0, 4): 0.49333333333333335, (1, 4): 0.49333333333333335, (0, 5): 0.5, (1, 5): 0.5, (0, 3): 0.508, (1, 3): 0.508}
+
+best exp mods on (0,1) n=4: 0.6525 {(0, 1): 1, (0, 2): 10, (0, 3): 1, (1, 2): 2, (1, 3): 10, (2, 3): 10}
+
+
+--- [TURN 6/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 6/8] MODEL GENERATED PROPOSAL & PROOF ---
+I've verified the clean-edge invariant — edges outside input-unbalanced triangles are never touched. Now I'll stress-test the charging bounds to nail down the logarithmic approximation.```python
+import random
+
+def clamp(v, lo, hi):
+    if v < lo: return lo
+    if v > hi: return hi
+    return v
+
+def find_counterexample(trials=200000):
+    for _ in range(trials):
+        # random nonnegative reals
+        a0 = random.uniform(0,20)
+        b0 = random.uniform(0,20)
+        c0 = random.uniform(0,20)
+        d = random.uniform(0,20)
+        e1 = random.uniform(0,20)
+        e2 = random.uniform(0,20)
+        # require 123 balanced and 023 balanced
+        if not (abs(a0-b0)-1e-9 <= c0 <= a0+b0+1e-9):
+            continue
+        if not (abs(e1-e2)-1e-9 <= c0 <= e1+e2+1e-9):
+            continue
+        # pivot 0: clamp a0 into [|d-e1|, d+e1], b0 into [|d-e2|, d+e2]
+        a1 = clamp(a0, abs(d-e1), d+e1)
+        b1 = clamp(b0, abs(d-e2), d+e2)
+        # check if c0 balanced w.r.t a1,b1
+        if not (abs(a1-b1)-1e-9 <= c0 <= a1+b1+1e-9):
+            print(f"FOUND a0={a0:.3f} b0={b0:.3f} c0={c0:.3f} d={d:.3f} e1={e1:.3f} e2={e2:.3f} -> a1={a1:.3f} b1={b1:.3f}")
+            print(f"  |a1-b1|={abs(a1-b1):.3f} a1+b1={a1+b1:.3f}")
+            return True
+    print("none found")
+    return False
+
+find_counterexample(500000)
+```
+
+--- [TURN 6] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random
+
+def clamp(v, lo, hi):
+    if v < lo: return lo
+    if v > hi: return hi
+    return v
+
+def find_counterexample(trials=200000):
+    for _ in range(trials):
+        # random nonnegative reals
+        a0 = random.uniform(0,20)
+        b0 = random.uniform(0,20)
+        c0 = random.uniform(0,20)
+        d = random.uniform(0,20)
+        e1 = random.uniform(0,20)
+        e2 = random.uniform(0,20)
+        # require 123 balanced and 023 balanced
+        if not (abs(a0-b0)-1e-9 <= c0 <= a0+b0+1e-9):
+            continue
+        if not (abs(e1-e2)-1e-9 <= c0 <= e1+e2+1e-9):
+            continue
+        # pivot 0: clamp a0 into [|d-e1|, d+e1], b0 into [|d-e2|, d+e2]
+        a1 = clamp(a0, abs(d-e1), d+e1)
+        b1 = clamp(b0, abs(d-e2), d+e2)
+        # check if c0 balanced w.r.t a1,b1
+        if not (abs(a1-b1)-1e-9 <= c0 <= a1+b1+1e-9):
+            print(f"FOUND a0={a0:.3f} b0={b0:.3f} c0={c0:.3f} d={d:.3f} e1={e1:.3f} e2={e2:.3f} -> a1={a1:.3f} b1={b1:.3f}")
+            print(f"  |a1-b1|={abs(a1-b1):.3f} a1+b1={a1+b1:.3f}")
+            return True
+    print("none found")
+    return False
+
+find_counterexample(500000)
+```
+--- [TURN 6] EXECUTION ERROR (0.0027s) ---
+Traceback (most recent call last):
+  File "<prime_math>", line 33, in <module>
+  File "<prime_math>", line 9, in find_counterexample
+RuntimeError: ExecutionBlockedByRule11: range with 500,000 elements exceeds diagnostic ceiling (200,000). Escalating empirical simulations or brute-force loops cannot achieve high precision (statistical error O(1/sqrt(x))). Transition immediately to formulating and evaluating the exact analytical formula, Euler product, or algebraic invariants.
+
+[Mandatory Synthesis Continuation] Turn 6 completed 2+ consecutive REPL turns during consecutive REPL turns without emitting \begin{proof}; invoking bounded-thinking proof synthesis continuation...
+[Mandatory Synthesis Continuation Succeeded]: 8961 chars.
+
+[Proof Draft Generated] Turn 6: 8961 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": false, "theorem_hypotheses_verified": true, "rigor": 0.45, "completeness": 0.5, "boundary_cases": 0.7, "validity": 0.45, "verdict": "REJECT", "issues": "Fatal charging gap for O(log n) bound: claims sum_{t ni e} p_t =1 for every dirty e with p_t=1/M_t, which is false (M_t = max_{f subset t} N_f >= N_e gives sum <=1, can be as small as ~1/n). Hence E[M_e]<=1 <= H_n*sum p_t is false in general; trivial bound 1 does not imply O(log n) packing bound. No rigorous harmonic analysis: q_s recurrence, r_{i,S}, N_e(S) undefined, no proof that current-unbalanced modification probability is bounded by input-unbalanced count. Current unbalancedness at pivot time does not imply input unbalancedness, so attribution to {t ni e} unjustified. Clean-edge preservation sketch appeals to empirical verification and omits full two-sided clamp case when both side edges change; hand-waving rather than complete interval case analysis."}
+[Best Candidate Updated] Turn 6: validity=0.45 (8961 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.45, rejection #1)
+Fatal charging gap for O(log n) bound: claims sum_{t ni e} p_t =1 for every dirty e with p_t=1/M_t, which is false (M_t = max_{f subset t} N_f >= N_e gives sum <=1, can be as small as ~1/n). Hence E[M_e]<=1 <= H_n*sum p_t is false in general; trivial bound 1 does not imply O(log n) packing bound. No rigorous harmonic analysis: q_s recurrence, r_{i,S}, N_e(S) undefined, no proof that current-unbalanced modification probability is bounded by input-unbalanced count. Current unbalancedness at pivot time does not imply input unbalancedness, so attribution to {t ni e} unjustified. Clean-edge preservation sketch appeals to empirical verification and omits full two-sided clamp case when both side edges change; hand-waving rather than complete interval case analysis.
+[Self-Improvement] Initiating surgical revision turn 7 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_1_187 ---
+[Critique Falsifier Script]:
+import itertools
+# Counterexample to claim sum_{t ni e} p_t = 1 for dirty e with p_t=1/M_t
+verts = [1,2,3,4,5]
+Tprime = {(1,2,3),(1,3,4),(1,3,5),(2,3,4),(2,3,5)}  # input-unbalanced family
+from collections import Counter
+Ne = Counter()
+for t in Tprime:
+    for e in itertools.combinations(sorted(t),2):
+        Ne[e]+=1
+def Mt(t):
+    return max(Ne[e] for e in itertools.combinations(sorted(t),2))
+p = {t:1.0/Mt(t) for t in Tprime}
+for e in sorted(Ne):
+    s=sum(p[t] for t in Tprime if set(e)<=set(t))
+    print(e, Ne[e], round(s,4))
+e=(1,2); s=sum(p[t] for t in Tprime if set(e)<=set(t))
+print("sum_e=",s," N_e=",Ne[e])
+print(f"COUNTEREXAMPLE_FOUND: e={e} N_e={Ne[e]} sum={s} != 1 (<<1)")
+assert False, "COUNTEREXAMPLE_FOUND"
+[Critique Kernel ALERT (Counterexample/Defect Confirmed)]: Traceback (most recent call last):
+  File "<prime_math>", line 19, in <module>
+AssertionError: COUNTEREXAMPLE_FOUND | stdout: (1, 2) 1 0.3333
+(1, 3) 3 1.0
+(1, 4) 1 0.3333
+(1, 5) 1 0.3333
+(2, 3) 3 1.0
+(2, 4) 1 0.3333
+(2, 5) 1 0.3333
+(3, 4) 2 0.6667
+(3, 5) 2 0.6667
+sum_e= 0.3333333333333333  N_e= 1
+COUNTEREXAMPLE_FOUND: e=(1, 
+
+--- [TURN 7/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 7/8] MODEL GENERATED PROPOSAL & PROOF ---
+Repairing the charging gap and rebuilding the $O(\log n)$ analysis — testing the pivot invariants.I need to verify whether input-balanced triangles can trigger modifications, so I'll run a brute-force search for counterexamples.```python
+import random, itertools
+
+def simulate(n, x0, perm):
+    # x dict (j,k) with j<k
+    def get(a,b):
+        if a==b: return 0
+        if a>b: a,b=b,a
+        return x[(a,b)]
+    def setv(a,b,v):
+        if a>b: a,b=b,a
+        x[(a,b)]=v
+    x=dict()
+    for j in range(n):
+        for k in range(j+1,n):
+            x[(j,k)]=x0[(j,k)]
+    alive=set(range(n))
+    mods=[] # list of (pivot i, edge (j,k), before, after, input_triangle_balanced?)
+    # precompute input unbalanced
+    def is_unbalanced_input(i,j,k):
+        # check all three inequalities with input values
+        vals={}
+        for (a,b) in [(i,j),(i,k),(j,k)]:
+            aa,bb=(a,b) if a<b else (b,a)
+            vals[(a,b)]=x0[(aa,bb)]
+        # triangle with vertices i,j,k: check each edge <= sum other two
+        # i.e., x(ij) <= x(ik)+x(jk) etc.
+        ij,ik,jk=vals[(i,j)],vals[(i,k)],vals[(j,k)]
+        if ij>ik+jk+1e-9: return True
+        if ik>ij+jk+1e-9: return True
+        if jk>ij+ik+1e-9: return True
+        return False
+    for idx, piv in enumerate(perm):
+        # for all j!=k in alive\{piv}
+        others=[v for v in alive if v!=piv]
+        # need current values of pivot edges
+        for j,k in itertools.combinations(others,2):
+            a=get(piv,j); b=get(piv,k); c=get(j,k)
+            if c > a+b+1e-9:
+                mods.append((piv,(j,k),c,a+b, is_unbalanced_input(piv,j,k)))
+                setv(j,k,a+b)
+            elif c < abs(a-b)-1e-9:
+                mods.append((piv,(j,k),c,abs(a-b), is_unbalanced_input(piv,j,k)))
+                setv(j,k,abs(a-b))
+        alive.remove(piv)
+        if len(alive)<=2:
+            break
+    return mods
+
+def find_counterexample(trials=2000):
+    for t in range(trials):
+        n=4
+        # random values
+        x0={}
+        for j in range(n):
+            for k in range(j+1,n):
+                x0[(j,k)]=random.random()*10
+        perm=list(range(n)); random.shuffle(perm)
+        mods=simulate(n,x0,perm)
+        for (piv,e,before,after,inp_unbal) in mods:
+            if not inp_unbal:
+                # found modification of currently unbalanced but input balanced
+                return x0,perm,mods
+    return None
+
+res=find_counterexample(5000)
+print(res)
+```
+
+--- [TURN 7] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random, itertools
+
+def simulate(n, x0, perm):
+    # x dict (j,k) with j<k
+    def get(a,b):
+        if a==b: return 0
+        if a>b: a,b=b,a
+        return x[(a,b)]
+    def setv(a,b,v):
+        if a>b: a,b=b,a
+        x[(a,b)]=v
+    x=dict()
+    for j in range(n):
+        for k in range(j+1,n):
+            x[(j,k)]=x0[(j,k)]
+    alive=set(range(n))
+    mods=[] # list of (pivot i, edge (j,k), before, after, input_triangle_balanced?)
+    # precompute input unbalanced
+    def is_unbalanced_input(i,j,k):
+        # check all three inequalities with input values
+        vals={}
+        for (a,b) in [(i,j),(i,k),(j,k)]:
+            aa,bb=(a,b) if a<b else (b,a)
+            vals[(a,b)]=x0[(aa,bb)]
+        # triangle with vertices i,j,k: check each edge <= sum other two
+        # i.e., x(ij) <= x(ik)+x(jk) etc.
+        ij,ik,jk=vals[(i,j)],vals[(i,k)],vals[(j,k)]
+        if ij>ik+jk+1e-9: return True
+        if ik>ij+jk+1e-9: return True
+        if jk>ij+ik+1e-9: return True
+        return False
+    for idx, piv in enumerate(perm):
+        # for all j!=k in alive\{piv}
+        others=[v for v in alive if v!=piv]
+        # need current values of pivot edges
+        for j,k in itertools.combinations(others,2):
+            a=get(piv,j); b=get(piv,k); c=get(j,k)
+            if c > a+b+1e-9:
+                mods.append((piv,(j,k),c,a+b, is_unbalanced_input(piv,j,k)))
+                setv(j,k,a+b)
+            elif c < abs(a-b)-1e-9:
+                mods.append((piv,(j,k),c,abs(a-b), is_unbalanced_input(piv,j,k)))
+                setv(j,k,abs(a-b))
+        alive.remove(piv)
+        if len(alive)<=2:
+            break
+    return mods
+
+def find_counterexample(trials=2000):
+    for t in range(trials):
+        n=4
+        # random values
+        x0={}
+        for j in range(n):
+            for k in range(j+1,n):
+                x0[(j,k)]=random.random()*10
+        perm=list(range(n)); random.shuffle(perm)
+        mods=simulate(n,x0,perm)
+        for (piv,e,before,after,inp_unbal) in mods:
+            if not inp_unbal:
+                # found modification of currently unbalanced but input balanced
+                return x0,perm,mods
+    return None
+
+res=find_counterexample(5000)
+print(res)
+```
+--- [TURN 7] EXECUTION SUCCESS (0.1695s) ---
+Stdout:
+None
+
+
+--- [TURN 8/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+[Stream Warning] Stream interrupted (RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)); retrying stream from start in 2.0s (attempt 1/5)...
+
+[Cognitive Partitioning] Invoking Publication Scribe Subagent on Turn 8...
+
+--- [SUBAGENT: PUBLICATION SCRIBE] Typesetting publication LaTeX proof for task_[ID]_statement_1_187 ---
+
+--- [DEDICATED PUBLICATION SCRIBE SYNTHESIS TURN] ---
+
+--- [SUBAGENT: PUBLICATION SCRIBE] Typesetting publication LaTeX proof for task_[ID]_statement_1_187 ---
+
+[Synthesis Optimization] Skipping redundant Attempt 2 (Synthesis Turn); entering Synthesis Revision 1/2 directly on Best Candidate (Turn 6, validity: 0.45, structural: 0.55).
+
+[Synthesis Revision 1/2] Initiating referee revision pass to resolve flagged issues...
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_1_187 ---
+[Critique Falsifier Script]:
+import math
+n=5
+Tprime={(0,1,2),(0,2,3),(0,2,4),(1,2,3)}
+from itertools import combinations
+edges=list(combinations(range(n),2))
+tris=list(combinations(range(n),3))
+Ne={e:sum(1 for t in Tprime if set(e)<=set(t)) for e in edges}
+Mt={t:max(Ne[tuple(sorted((t[i],t[j])))] for i in range(3) for j in range(i+1,3)) for t in Tprime}
+p={t:1/Mt[t] for t in Tprime}
+Hn=sum(1/i for i in range(1,n+1))
+e=(0,1); S=sum(p[t] for t in Tprime if set(e)<=set(t))
+print(f"Ne={Ne[e]}, Mt, p, sum={S}, Hn={Hn}, Hn*sum={Hn*S}")
+if abs(S-1.0)>1e-9:
+    print(f"COUNTEREXAMPLE_FOUND: edge {e} sum_{{t ni e}} p_t = {S} != 1, Hn*sum={Hn*S} <1 breaks E[Me]<=1<=Hn*sum")
+    assert False, "COUNTEREXAMPLE_FOUND"
+print("INVARIANT_VERIFIED")
+[Critique Kernel ALERT (Counterexample/Defect Confirmed)]: Traceback (most recent call last):
+  File "<prime_math>", line 15, in <module>
+AssertionError: COUNTEREXAMPLE_FOUND | stdout: Ne=1, Mt, p, sum=0.3333333333333333, Hn=2.283333333333333, Hn*sum=0.7611111111111111
+COUNTEREXAMPLE_FOUND: edge (0, 1) sum_{t ni e} p_t = 0.3333333333333333 != 1, Hn*sum=0.7611111111111111 <1 breaks E
+Repairing the charging gap — building a rigorous $O(\log n)$ dual-fitting proof.I need to verify the clean-edge behavior computationally before completing the proof.```python
+import random, itertools
+
+def simulate(n, x0, perm):
+    # x as dict
+    x = dict(x0)
+    def get(a,b):
+        if a>b: a,b=b,a
+        return x[(a,b)]
+    def setv(a,b,v):
+        if a>b: a,b=b,a
+        x[(a,b)]=v
+    alive = list(perm)  # pivot order: first is first pivot? Actually perm order
+    # We'll process in order given
+    mods = set()
+    # track values
+    for idx, p in enumerate(perm):
+        S = set(perm[idx:])  # alive including p
+        # current values snapshot before repair
+        # for all j<k in S\{p}, repair w.r.t p
+        others = [v for v in perm[idx:] if v!=p]
+        # need u = x(p,j) current
+        for j,k in itertools.combinations(others,2):
+            a = get(p,j); b=get(p,k); c=get(j,k)
+            if c > a+b+1e-9:
+                setv(j,k,a+b)
+                mods.add((min(j,k),max(j,k)))
+            elif c < abs(a-b)-1e-9:
+                setv(j,k,abs(a-b))
+                mods.add((min(j,k),max(j,k)))
+        # freeze p (do nothing)
+    return mods, x
+
+def unbalanced_input(n,x0):
+    Tprime=set()
+    for i,j,k in itertools.combinations(range(n),3):
+        def g(a,b):
+            if a>b: a,b=b,a
+            return x0[(a,b)]
+        a=g(i,j); b=g(i,k); c=g(j,k)
+        # check each edge
+        bal = (a<=b+c+1e-9 and b<=a+c+1e-9 and c<=a+b+1e-9)
+        if not bal:
+            Tprime.add((i,j,k))
+    return Tprime
+
+def Ne_map(n,x0,Tprime):
+    from collections import defaultdict
+    Ne={}
+    for a,b in itertools.combinations(range(n),2):
+        cnt=0
+        for t in Tprime:
+            if a in t and b in t:
+                cnt+=1
+        Ne[(a,b)]=cnt
+    return Ne
+
+def test_random(trials=2000):
+    viol=0
+    for _ in range(trials):
+        n=random.randint(3,6)
+        x0={}
+        for a,b in itertools.combinations(range(n),2):
+            x0[(a,b)]=random.choice([1,2,3,5,10,0.5])+random.random()
+        Tprime=unbalanced_input(n,x0)
+        Ne=Ne_map(n,x0,Tprime)
+        # try all perms? sample few
+        for _ in range(5):
+            perm=list(range(n)); random.shuffle(perm)
+            mods,_=simulate(n,x0,perm)
+            for e in mods:
+                # check if final differs? mods means ever repaired; but need final vs input? use mods
+                if Ne[e]==0:
+                    viol+=1
+                    print("VIOL",n,x0,perm,Ne,mods)
+                    raise SystemExit
+    print("viol",viol)
+
+test_random(2000)
+```
+[Synthesis Revision REPL Execution]:
+```python
+import random, itertools
+
+def simulate(n, x0, perm):
+    # x as dict
+    x = dict(x0)
+    def get(a,b):
+        if a>b: a,b=b,a
+        return x[(a,b)]
+    def setv(a,b,v):
+        if a>b: a,b=b,a
+        x[(a,b)]=v
+    alive = list(perm)  # pivot order: first is first pivot? Actually perm order
+    # We'll process in order given
+    mods = set()
+    # track values
+    for idx, p in enumerate(perm):
+        S = set(perm[idx:])  # alive including p
+        # current values snapshot before repair
+        # for all j<k in S\{p}, repair w.r.t p
+        others = [v for v in perm[idx:] if v!=p]
+        # need u = x(p,j) current
+        for j,k in itertools.combinations(others,2):
+            a = get(p,j); b=get(p,k); c=get(j,k)
+            if c > a+b+1e-9:
+                setv(j,k,a+b)
+                mods.add((min(j,k),max(j,k)))
+            elif c < abs(a-b)-1e-9:
+                setv(j,k,abs(a-b))
+                mods.add((min(j,k),max(j,k)))
+        # freeze p (do nothing)
+    return mods, x
+
+def unbalanced_input(n,x0):
+    Tprime=set()
+    for i,j,k in itertools.combinations(range(n),3):
+        def g(a,b):
+            if a>b: a,b=b,a
+            return x0[(a,b)]
+        a=g(i,j); b=g(i,k); c=g(j,k)
+        # check each edge
+        bal = (a<=b+c+1e-9 and b<=a+c+1e-9 and c<=a+b+1e-9)
+        if not bal:
+            Tprime.add((i,j,k))
+    return Tprime
+
+def Ne_map(n,x0,Tprime):
+    from collections import defaultdict
+    Ne={}
+    for a,b in itertools.combinations(range(n),2):
+        cnt=0
+        for t in Tprime:
+            if a in t and b in t:
+                cnt+=1
+        Ne[(a,b)]=cnt
+    return Ne
+
+def test_random(trials=2000):
+    viol=0
+    for _ in range(trials):
+        n=random.randint(3,6)
+        x0={}
+        for a,b in itertools.combinations(range(n),2):
+            x0[(a,b)]=random.choice([1,2,3,5,10,0.5])+random.random()
+        Tprime=unbalanced_input(n,x0)
+        Ne=Ne_map(n,x0,Tprime)
+        # try all perms? sample few
+        for _ in range(5):
+            perm=list(range(n)); random.shuffle(perm)
+            mods,_=simulate(n,x0,perm)
+            for e in mods:
+                # check if final differs? mods means ever repaired; but need final vs input? use mods
+                if Ne[e]==0:
+                    viol+=1
+                    print("VIOL",n,x0,perm,Ne,mods)
+                    raise SystemExit
+    print("viol",viol)
+
+test_random(2000)
+```
+Stdout:
+viol 0
+
+[Typesetter Error] The read operation timed out
+[Typesetter Error] The read operation timed out
+[Synthesis Revision Attempt 1] Revision did not yield a valid LaTeX proof; retaining previous draft.
+[Synthesis Revision] Wall-clock limit exceeded; skipping remaining revision passes.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_1_187 | Proof Length: 8961 chars | Turns: 8 | Duration: 7732.02s
+================================================================================

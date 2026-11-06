@@ -1,0 +1,387 @@
+================================================================================
+[2026-11-02 02:25:35] TCS-BENCH UNASSISTED ONE-PASS SESSION: task_2308.03075_statement_62_221
+Model: gemini-3.8-flash-high | Duration: 231.03s | Prompt Tokens: 104114 | Completion Tokens: 67928
+================================================================================
+
+--- [TURN 1/1] INNER THINKING ---
+(none)
+
+--- [TURN 1/1] MODEL GENERATED OUTPUT ---
+\begin{proof}
+We provide an algorithm that solves any Bounded Knapsack instance $(w, p, u, W)$ in time $\tOh(n + \wmax^2)$ by constructing an equivalent 0-1-Knapsack instance with $O(\wmax^2)$ items having distinct profit-to-weight ratios.
+
+\paragraph{Step 1: Preprocessing, Sorting, and Greedy Solution.}
+Given the Bounded Knapsack instance $(w, p, u, W)$ with $w, p, u \in \mathbb{N}^n$ and $W \in \mathbb{N}$, where $\wmax = \max_{i \in [n]} w_i$:
+\begin{enumerate}
+  \item If $\sum_{i=1}^n u_i w_i \le W$, then the solution $x = u$ is feasible and achieves the maximum possible profit $\sum_{i=1}^n u_i p_i$. This check and computation take $O(n)$ time.
+  \item Any item $i$ with $w_i > W$ can never be included in any feasible solution; we set $u_i := 0$ for all such items in $O(n)$ time.
+  \item We sort the items according to non-increasing profit-to-weight ratio:
+  \[
+    \frac{p_1}{w_1} \ge \frac{p_2}{w_2} \ge \ldots \ge \frac{p_n}{w_n},
+  \]
+  breaking ties arbitrarily (e.g., by index). This sorting takes $O(n \log n) = \tOh(n)$ time by comparing $p_i w_j$ with $p_j w_i$.
+  \item With this fixed order, we compute the maximal prefix solution $g \in \mathbb{N}_0^n$: let $t \in [n+1]$ be the maximal index such that $\sum_{i=1}^{t-1} u_i w_i \le W$. If $t = n+1$, then all items fit and $g = u$ is optimal. Otherwise, $t \le n$, and we set:
+  \[
+    g_1 := u_1, \;\ldots,\; g_{t-1} := u_{t-1}, \quad g_t := \left\lfloor \frac{W - \sum_{i=1}^{t-1} u_i w_i}{w_t} \right\rfloor, \quad g_{t+1} := \ldots := g_n := 0.
+  \]
+  The solution $g$ is feasible ($0 \le g \le u$ and $w^T g \le W$) and computed in $O(n)$ time.
+  The remaining capacity under $g$ is $R := W - w^T g = (W - \sum_{i=1}^{t-1} u_i w_i) \bmod w_t$, which satisfies $0 \le R < w_t \le \wmax$.
+\end{enumerate}
+
+\paragraph{Step 2: Proximity via a Bounded Walk.}
+Let $X_{\text{opt}}$ denote the set of all optimal integer solutions to the Bounded Knapsack instance. Since the feasible set is finite and non-empty ($g$ is feasible), $X_{\text{opt}} \ne \emptyset$. Choose an optimal solution $x^* \in X_{\text{opt}}$ that minimizes the $\ell_1$-distance to $g$:
+\[
+  x^* \in \arg\min_{x \in X_{\text{opt}}} \|x - g\|_1 = \arg\min_{x \in X_{\text{opt}}} \sum_{i=1}^n |x_i - g_i|.
+\]
+Define the coordinate-wise difference $d := x^* - g \in \mathbb{Z}^n$, and split it into positive and negative parts:
+\[
+  d^+_i := \max(0, x^*_i - g_i) \ge 0, \qquad d^-_i := \max(0, g_i - x^*_i) \ge 0 \quad \text{for each } i \in [n].
+\]
+Then $x^* = g + d^+ - d^-$, and $\|x^* - g\|_1 = \sum_{i=1}^n d^+_i + \sum_{i=1}^n d^-_i$.
+Observe the index ranges of non-zero entries:
+\begin{itemize}
+  \item For $i < t$, $g_i = u_i \ge x^*_i$, so $d^+_i = 0$ and $d^-_i = u_i - x^*_i \ge 0$.
+  \item For $i > t$, $g_i = 0 \le x^*_i$, so $d^-_i = 0$ and $d^+_i = x^*_i \ge 0$.
+  \item For $i = t$, at most one of $d^+_t, d^-_t$ is non-zero.
+\end{itemize}
+Consequently, every item $i$ with $d^-_i > 0$ satisfies $i \le t$, which implies $\frac{p_i}{w_i} \ge \frac{p_t}{w_t}$. Similarly, every item $j$ with $d^+_j > 0$ satisfies $j \ge t$, which implies $\frac{p_j}{w_j} \le \frac{p_t}{w_t}$.
+
+Let $M^-$ be the multiset containing $d^-_i$ copies of item $i$ for each $i \in [n]$ (items removed from $g$), and let $M^+$ be the multiset containing $d^+_j$ copies of item $j$ for each $j \in [n]$ (items added to $g$). 
+Let $W^- := w(M^-) = \sum_{i=1}^n w_i d^-_i$ and $W^+ := w(M^+) = \sum_{j=1}^n w_j d^+_j$. 
+By feasibility of $x^*$:
+\[
+  w^T x^* = w^T g - W^- + W^+ \le W = w^T g + R \implies W^+ - W^- \le R < \wmax.
+\]
+Moreover, by optimality of $x^*$, we have $p^T x^* \ge p^T g$, so $p(M^+) - p(M^-) \ge 0$. Since all items in $M^-$ satisfy $p_i \ge \frac{p_t}{w_t} w_i$ and all items in $M^+$ satisfy $p_j \le \frac{p_t}{w_t} w_j$, we have:
+\[
+  \frac{p_t}{w_t} W^+ \ge p(M^+) \ge p(M^-) \ge \frac{p_t}{w_t} W^-.
+\]
+If $p_t > 0$, this implies $W^+ \ge W^-$. If $p_t = 0$, then $p_i = 0$ for all $i \ge t$, meaning no items after $t$ contribute profit, so $g$ is already optimal and $x^* = g$. Thus we may assume $W^+ \ge W^-$.
+
+\begin{claim}
+There do not exist non-empty sub-multisets $S \subseteq M^-$ and $T \subseteq M^+$ such that $w(S) = w(T)$.
+\end{claim}
+\begin{proof}[Proof of Claim]
+Suppose for contradiction that such non-empty $S \subseteq M^-$ and $T \subseteq M^+$ exist with $w(S) = w(T)$. Define $x' := x^* + \mathbf{1}_S - \mathbf{1}_T$, where $\mathbf{1}_S$ denotes adding one copy of each item in $S$ and $\mathbf{1}_T$ denotes subtracting one copy of each item in $T$.
+\begin{enumerate}
+  \item \emph{Feasibility:} The weight is $w^T x' = w^T x^* + w(S) - w(T) = w^T x^* \le W$. For each item $i$, if $i \in S$, then $d^-_i > 0$, so $x^*_i < g_i \le u_i$, which implies $x'_i \le u_i$. If $i \in T$, then $d^+_i > 0$, so $x^*_i > g_i \ge 0$, which implies $x'_i \ge 0$. For all other coordinates, $x'_i = x^*_i \in [0, u_i]$. Thus $0 \le x' \le u$.
+  \item \emph{Profit:} Since $S \subseteq M^-$, each $i \in S$ has $\frac{p_i}{w_i} \ge \frac{p_t}{w_t}$, so $p(S) \ge \frac{p_t}{w_t} w(S)$. Since $T \subseteq M^+$, each $j \in T$ has $\frac{p_j}{w_j} \le \frac{p_t}{w_t}$, so $p(T) \le \frac{p_t}{w_t} w(T)$. Because $w(S) = w(T)$, we have:
+  \[
+    p(S) \ge \frac{p_t}{w_t} w(S) = \frac{p_t}{w_t} w(T) \ge p(T).
+  \]
+  Thus $p^T x' = p^T x^* + p(S) - p(T) \ge p^T x^*$. By optimality of $x^*$, $x'$ is also an optimal solution ($x' \in X_{\text{opt}}$).
+  \item \emph{Distance to $g$:} For each $i \in S$, $x^*_i < g_i$, so $|x'_i - g_i| = |x^*_i - g_i| - 1$. For each $j \in T$, $x^*_j > g_j$, so $|x'_j - g_j| = |x^*_j - g_j| - 1$. Therefore:
+  \[
+    \|x' - g\|_1 = \|x^* - g\|_1 - |S| - |T| < \|x^* - g\|_1,
+  \]
+  contradicting the minimality of $\|x^* - g\|_1$ in $X_{\text{opt}}$. This proves the claim.
+\end{proof}
+
+Now, consider the following walk process. Let $a_1, \dots, a_{|M^-|}$ be an arbitrary ordering of $M^-$, and let $b_1, \dots, b_{|M^+|}$ be an arbitrary ordering of $M^+$.
+Start at $s_0 := 0$. For each step $\ell \ge 0$:
+\begin{itemize}
+  \item If $s_\ell \le 0$: if there remains an unused item $b \in M^+$, take it and set $s_{\ell+1} := s_\ell + w(b)$.
+  \item If $s_\ell > 0$: if there remains an unused item $a \in M^-$, take it and set $s_{\ell+1} := s_\ell - w(a)$.
+\end{itemize}
+Since each item weight is in $[1, \wmax]$:
+\begin{itemize}
+  \item If $s_\ell \le 0$, then $s_{\ell+1} = s_\ell + w(b) \in [1, \wmax]$.
+  \item If $s_\ell > 0$, then $s_{\ell+1} = s_\ell - w(a) \in [-\wmax + 1, \wmax - 1]$.
+\end{itemize}
+Thus, every state $s_\ell$ produced by this process lies in the integer interval $[-\wmax + 1, \wmax]$, which contains exactly $2\wmax$ distinct integer values.
+
+If the walk were to continue for $2\wmax + 1$ states $s_0, s_1, \dots, s_{2\wmax}$, then by the pigeonhole principle, there would exist two indices $0 \le u < v \le 2\wmax$ such that $s_u = s_v$. The steps between $u$ and $v$ would correspond to a non-empty subset $T \subseteq M^+$ of added items and a non-empty subset $S \subseteq M^-$ of removed items such that $w(T) - w(S) = s_v - s_u = 0$, so $w(S) = w(T)$, directly contradicting the Claim.
+
+Therefore, the walk must terminate in at most $2\wmax$ steps. Termination occurs when either:
+\begin{enumerate}
+  \item $s_L \le 0$ and $M^+$ is fully exhausted: Then $|M^+| \le L \le 2\wmax$. Furthermore, $s_L = w(M^+) - w(M^-_{\text{used}}) \le 0$, which implies $w(M^-_{\text{used}}) \ge w(M^+)$. Since $w(M^+) \ge w(M^-)$, we have $w(M^-_{\text{used}}) \ge w(M^-)$, which is only possible if all items of $M^-$ have also been used ($M^-_{\text{unused}} = \emptyset$). Hence $|M^-| \le L \le 2\wmax$.
+  \item $s_L > 0$ and $M^-$ is fully exhausted: Then $|M^-| \le L \le 2\wmax$. The used items of $M^+$ satisfy $w(M^+_{\text{used}}) \ge w(M^-)$. The remaining unused items of $M^+$ have total weight:
+  \[
+    w(M^+_{\text{unused}}) = w(M^+) - w(M^+_{\text{used}}) \le w(M^+) - w(M^-) \le R < \wmax.
+  \]
+  Since each item has weight at least $1$, the number of unused items is $|M^+_{\text{unused}}| \le w(M^+_{\text{unused}}) \le \wmax - 1$.
+  Therefore, $|M^+| = |M^+_{\text{used}}| + |M^+_{\text{unused}}| \le 2\wmax + (\wmax - 1) < 3\wmax$.
+\end{enumerate}
+In both cases, we conclude:
+\[
+  |M^-| \le 2\wmax \quad \text{and} \quad |M^+| < 3\wmax.
+\]
+
+\paragraph{Step 3: Reduction to $O(\wmax^2)$ Candidate Items.}
+For each weight $w \in [\wmax]$, any optimal solution $x^*$ must select copies of weight $w$ in order of non-increasing profit: if an item of weight $w$ with lower profit were selected while an item of weight $w$ with strictly higher profit had an unselected copy, swapping one copy would strictly increase total profit without changing total weight. The maximal prefix solution $g$ also selects items of weight $w$ in non-increasing profit order. 
+
+Therefore, for each weight $w \in [\wmax]$, $x^*$ and $g$ select prefixes of the same sorted sequence of items of weight $w$. Consequently, the difference between $x^*$ and $g$ on items of weight $w$ is purely unidirectional:
+\begin{itemize}
+  \item If $x^*$ takes fewer copies of weight $w$ than $g$, it drops at most $|M^-| \le 2\wmax$ copies, which must be the \emph{last} copies of weight $w$ included in $g$.
+  \item If $x^*$ takes more copies of weight $w$ than $g$, it adds at most $|M^+| < 3\wmax$ copies, which must be the \emph{first} copies of weight $w$ not included in $g$.
+\end{itemize}
+For each weight $w \in [\wmax]$, define:
+\begin{itemize}
+  \item $C^-_w$: the multiset of the last $\min(2\wmax, \text{number of copies of weight } w \text{ in } g)$ copies of weight $w$ in $g$.
+  \item $C^+_w$: the multiset of the first $\min(3\wmax, \text{number of copies of weight } w \text{ not in } g)$ copies of weight $w$ not in $g$.
+\end{itemize}
+Across all $w \in [\wmax]$, we define the candidate multiset $C := \bigcup_{w=1}^{\wmax} (C^-_w \cup C^+_w)$. 
+Since there are at most $\wmax$ distinct weights, the total number of candidate items is:
+\[
+  |C| \le \sum_{w=1}^{\wmax} (2\wmax + 3\wmax) = 5\wmax^2 = O(\wmax^2).
+\]
+Any copy of an item in $g \setminus \bigcup_{w=1}^{\wmax} C^-_w$ is \emph{mandatory}: it is guaranteed to be chosen by $x^*$. Let $W_{\text{mand}}$ and $P_{\text{mand}}$ be the total weight and total profit of these mandatory copies, respectively.
+Any copy not in $g \cup \bigcup_{w=1}^{\wmax} C^+_w$ is guaranteed to not be chosen by $x^*$, and is discarded.
+
+Every candidate copy $c \in C$ represents a 0-1 decision:
+\begin{itemize}
+  \item For $c \in C^-_w$, choosing $x_c = 1$ means keeping the copy in the knapsack (weight $w_c$, profit $p_c$), while $x_c = 0$ means dropping it.
+  \item For $c \in C^+_w$, choosing $x_c = 1$ means adding the copy to the knapsack (weight $w_c$, profit $p_c$), while $x_c = 0$ means leaving it out.
+\end{itemize}
+The remaining capacity available for the candidate items is $W' := W - W_{\text{mand}}$.
+Thus, finding the optimal completion of $x^*$ is exactly equivalent to solving the 0-1-Knapsack instance on the items in $C$ with weight budget $W'$.
+
+\paragraph{Step 4: Distinct Profit-to-Weight Ratios via Exact Perturbation.}
+Let $N = |C| \le 5\wmax^2$. Index the items in $C$ arbitrarily as $1, 2, \dots, N$.
+To satisfy the precondition of distinct profit-to-weight ratios, we perturb the profits.
+For each $j \in [N]$, we choose an integer tie-breaker $r_j \in [N]$ inductively as follows:
+for each $j = 1, \dots, N$, choose $r_j$ to be the smallest positive integer such that for all $j' < j$ with $\frac{p_j}{w_j} = \frac{p_{j'}}{w_{j'}}$,
+\[
+  r_j \ne \frac{w_j}{w_{j'}} r_{j'}.
+\]
+Since there are at most $j - 1 < N$ previous indices $j'$, there are at most $N-1$ forbidden values for $r_j$. By the pigeonhole principle, an available integer $r_j \in [N]$ always exists and can be found in $O(N)$ time per item, taking $O(N^2) = O(\wmax^4)$ time (or $O(N \log N) = \tOh(\wmax^2)$ time by maintaining the forbidden values in a balanced search tree per ratio class).
+
+Define the scaling factor $M := N^2 + N\wmax + 1$, and define the perturbed profits:
+\[
+  \tilde{p}_j := M \cdot p_j + r_j \in \mathbb{N} \quad \text{for all } j \in [N].
+\]
+We verify the two essential properties:
+\begin{enumerate}
+  \item \emph{Distinct profit-to-weight ratios:} For any two distinct items $j \ne j'$:
+  \[
+    w_{j'} \tilde{p}_j - w_j \tilde{p}_{j'} = M(w_{j'} p_j - w_j p_{j'}) + (w_{j'} r_j - w_j r_{j'}).
+  \]
+  \begin{itemize}
+    \item If $\frac{p_j}{w_j} \ne \frac{p_{j'}}{w_{j'}}$, then $|w_{j'} p_j - w_j p_{j'}| \ge 1$ because the weights and profits are integers. Since $r_j, r_{j'} \in [N]$ and $w_j, w_{j'} \in [\wmax]$, we have $|w_{j'} r_j - w_j r_{j'}| \le N\wmax$. Thus:
+    \[
+      |w_{j'} \tilde{p}_j - w_j \tilde{p}_{j'}| \ge M \cdot 1 - N\wmax = N^2 + 1 > 0.
+    \]
+    \item If $\frac{p_j}{w_j} = \frac{p_{j'}}{w_{j'}}$, then $w_{j'} p_j - w_j p_{j'} = 0$, so $w_{j'} \tilde{p}_j - w_j \tilde{p}_{j'} = w_{j'} r_j - w_j r_{j'} \ne 0$ by our inductive choice of $r_j$.
+  \end{itemize}
+  Hence,
+$\frac{\tilde{p}_j}{w_j} \ne \frac{\tilde{p}_{j'}}{w_{j'}}$ for all $j \ne j'$.
+
+  \item \emph{Preservation of optimality:} For any two feasible candidate selections $x, y \in \{0,1\}^N$:
+  \[
+    \tilde{p}^T (x - y) = M \cdot p^T (x - y) + \sum_{j=1}^N r_j (x_j - y_j).
+  \]
+  Since $p, x, y$ are integer-valued, if $p^T x > p^T y$, then $p^T (x - y) \ge 1$. Because $r_j \in [N]$, we have:
+  \[
+    \left| \sum_{j=1}^N r_j (x_j - y_j) \right| \le \sum_{j=1}^N r_j \le N^2.
+  \]
+  Consequently:
+  \[
+    \tilde{p}^T (x - y) \ge M \cdot 1 - N^2 = (N^2 + N\wmax + 1) - N^2 = N\wmax + 1 > 0.
+  \]
+  Thus, any optimal solution to the 0-1-Knapsack instance $(\tilde{p}, w, W')$ strictly maximizes $p^T x$ over all feasible subsets of $C$, and hence provides an optimal completion to $(p, w, W')$.
+\end{enumerate}
+
+\paragraph{Step 5: Total Algorithm and Time Complexity.}
+The complete reduction algorithm is as follows:
+\begin{enumerate}
+  \item Check degenerate regimes ($\sum_{i=1}^n u_i w_i \le W$ or $w_i > W$) in $O(n)$ time.
+  \item Sort all $n$ items by ratio $\frac{p_i}{w_i}$ in $O(n \log n) = \tOh(n)$ time.
+  \item Compute the maximal prefix solution $g$ and the split index $t$ in $O(n)$ time.
+  \item Identify the candidate multiset $C = \bigcup_{w=1}^{\wmax} (C^-_w \cup C^+_w)$ of size $N \le 5\wmax^2 = O(\wmax^2)$ in $O(n + \wmax^2)$ time by scanning the sorted items and collecting the last $\le 2\wmax$ copies in $g$ and the first $\le 3\wmax$ copies not in $g$ for each weight $w \in [\wmax]$.
+  \item Determine the mandatory items $g \setminus \bigcup_{w=1}^{\wmax} C^-_w$, calculate $W_{\text{mand}} = \sum_{c \in g \setminus C^-} w_c$ in $O(n)$ time, set the remaining budget $W' := W - W_{\text{mand}}$, and construct the perturbed profits $\tilde{p}$ in $O(N \log N) = \tOh(\wmax^2)$ time.
+  \item Solve the resulting 0-1-Knapsack instance on $N = O(\wmax^2)$ items with distinct profit-to-weight ratios in $\tOh(\wmax^2)$ time using the assumed algorithm.
+  \item Reconstruct the optimal bounded knapsack solution $x^*$ by summing the mandatory copies and the selected candidate items in $O(n + N) = O(n + \wmax^2)$ time.
+\end{enumerate}
+The overall runtime is $\tOh(n) + O(n + \wmax^2) + \tOh(\wmax^2) + \tOh(\wmax^2) = \tOh(n + \wmax^2)$, which completes the proof.
+\end{proof}
+
+--- [EXTRACTED CANDIDATE PROOF] ---
+Length: 15291 chars
+\begin{proof}
+We provide an algorithm that solves any Bounded Knapsack instance $(w, p, u, W)$ in time $\tOh(n + \wmax^2)$ by constructing an equivalent 0-1-Knapsack instance with $O(\wmax^2)$ items having distinct profit-to-weight ratios.
+
+\paragraph{Step 1: Preprocessing, Sorting, and Greedy Solution.}
+Given the Bounded Knapsack instance $(w, p, u, W)$ with $w, p, u \in \mathbb{N}^n$ and $W \in \mathbb{N}$, where $\wmax = \max_{i \in [n]} w_i$:
+\begin{enumerate}
+  \item If $\sum_{i=1}^n u_i w_i \le W$, then the solution $x = u$ is feasible and achieves the maximum possible profit $\sum_{i=1}^n u_i p_i$. This check and computation take $O(n)$ time.
+  \item Any item $i$ with $w_i > W$ can never be included in any feasible solution; we set $u_i := 0$ for all such items in $O(n)$ time.
+  \item We sort the items according to non-increasing profit-to-weight ratio:
+  \[
+    \frac{p_1}{w_1} \ge \frac{p_2}{w_2} \ge \ldots \ge \frac{p_n}{w_n},
+  \]
+  breaking ties arbitrarily (e.g., by index). This sorting takes $O(n \log n) = \tOh(n)$ time by comparing $p_i w_j$ with $p_j w_i$.
+  \item With this fixed order, we compute the maximal prefix solution $g \in \mathbb{N}_0^n$: let $t \in [n+1]$ be the maximal index such that $\sum_{i=1}^{t-1} u_i w_i \le W$. If $t = n+1$, then all items fit and $g = u$ is optimal. Otherwise, $t \le n$, and we set:
+  \[
+    g_1 := u_1, \;\ldots,\; g_{t-1} := u_{t-1}, \quad g_t := \left\lfloor \frac{W - \sum_{i=1}^{t-1} u_i w_i}{w_t} \right\rfloor, \quad g_{t+1} := \ldots := g_n := 0.
+  \]
+  The solution $g$ is feasible ($0 \le g \le u$ and $w^T g \le W$) and computed in $O(n)$ time.
+  The remaining capacity under $g$ is $R := W - w^T g = (W - \sum_{i=1}^{t-1} u_i w_i) \bmod w_t$, which satisfies $0 \le R < w_t \le \wmax$.
+\end{enumerate}
+
+\paragraph{Step 2: Proximity via a Bounded Walk.}
+Let $X_{\text{opt}}$ denote the set of all optimal integer solutions to the Bounded Knapsack instance. Since the feasible set is finite and non-empty ($g$ is feasible), $X_{\text{opt}} \ne \emptyset$. Choose an optimal solution $x^* \in X_{\text{opt}}$ that minimizes the $\ell_1$-distance to $g$:
+\[
+  x^* \in \arg\min_{x \in X_{\text{opt}}} \|x - g\|_1 = \arg\min_{x \in X_{\text{opt}}} \sum_{i=1}^n |x_i - g_i|.
+\]
+Define the coordinate-wise difference $d := x^* - g \in \mathbb{Z}^n$, and split it into positive and negative parts:
+\[
+  d^+_i := \max(0, x^*_i - g_i) \ge 0, \qquad d^-_i := \max(0, g_i - x^*_i) \ge 0 \quad \text{for each } i \in [n].
+\]
+Then $x^* = g + d^+ - d^-$, and $\|x^* - g\|_1 = \sum_{i=1}^n d^+_i + \sum_{i=1}^n d^-_i$.
+Observe the index ranges of non-zero entries:
+\begin{itemize}
+  \item For $i < t$, $g_i = u_i \ge x^*_i$, so $d^+_i = 0$ and $d^-_i = u_i - x^*_i \ge 0$.
+  \item For $i > t$, $g_i = 0 \le x^*_i$, so $d^-_i = 0$ and $d^+_i = x^*_i \ge 0$.
+  \item For $i = t$, at most one of $d^+_t, d^-_t$ is non-zero.
+\end{itemize}
+Consequently, every item $i$ with $d^-_i > 0$ satisfies $i \le t$, which implies $\frac{p_i}{w_i} \ge \frac{p_t}{w_t}$. Similarly, every item $j$ with $d^+_j > 0$ satisfies $j \ge t$, which implies $\frac{p_j}{w_j} \le \frac{p_t}{w_t}$.
+
+Let $M^-$ be the multiset containing $d^-_i$ copies of item $i$ for each $i \in [n]$ (items removed from $g$), and let $M^+$ be the multiset containing $d^+_j$ copies of item $j$ for each $j \in [n]$ (items added to $g$). 
+Let $W^- := w(M^-) = \sum_{i=1}^n w_i d^-_i$ and $W^+ := w(M^+) = \sum_{j=1}^n w_j d^+_j$. 
+By feasibility of $x^*$:
+\[
+  w^T x^* = w^T g - W^- + W^+ \le W = w^T g + R \implies W^+ - W^- \le R < \wmax.
+\]
+Moreover, by optimality of $x^*$, we have $p^T x^* \ge p^T g$, so $p(M^+) - p(M^-) \ge 0$. Since all items in $M^-$ satisfy $p_i \ge \frac{p_t}{w_t} w_i$ and all items in $M^+$ satisfy $p_j \le \frac{p_t}{w_t} w_j$, we have:
+\[
+  \frac{p_t}{w_t} W^+ \ge p(M^+) \ge p(M^-) \ge \frac{p_t}{w_t} W^-.
+\]
+If $p_t > 0$, this implies $W^+ \ge W^-$. If $p_t = 0$, then $p_i = 0$ for all $i \ge t$, meaning no items after $t$ contribute profit, so $g$ is already optimal and $x^* = g$. Thus we may assume $W^+ \ge W^-$.
+
+\begin{claim}
+There do not exist non-empty sub-multisets $S \subseteq M^-$ and $T \subseteq M^+$ such that $w(S) = w(T)$.
+\end{claim}
+\begin{proof}[Proof of Claim]
+Suppose for contradiction that such non-empty $S \subseteq M^-$ and $T \subseteq M^+$ exist with $w(S) = w(T)$. Define $x' := x^* + \mathbf{1}_S - \mathbf{1}_T$, where $\mathbf{1}_S$ denotes adding one copy of each item in $S$ and $\mathbf{1}_T$ denotes subtracting one copy of each item in $T$.
+\begin{enumerate}
+  \item \emph{Feasibility:} The weight is $w^T x' = w^T x^* + w(S) - w(T) = w^T x^* \le W$. For each item $i$, if $i \in S$, then $d^-_i > 0$, so $x^*_i < g_i \le u_i$, which implies $x'_i \le u_i$. If $i \in T$, then $d^+_i > 0$, so $x^*_i > g_i \ge 0$, which implies $x'_i \ge 0$. For all other coordinates, $x'_i = x^*_i \in [0, u_i]$. Thus $0 \le x' \le u$.
+  \item \emph{Profit:} Since $S \subseteq M^-$, each $i \in S$ has $\frac{p_i}{w_i} \ge \frac{p_t}{w_t}$, so $p(S) \ge \frac{p_t}{w_t} w(S)$. Since $T \subseteq M^+$, each $j \in T$ has $\frac{p_j}{w_j} \le \frac{p_t}{w_t}$, so $p(T) \le \frac{p_t}{w_t} w(T)$. Because $w(S) = w(T)$, we have:
+  \[
+    p(S) \ge \frac{p_t}{w_t} w(S) = \frac{p_t}{w_t} w(T) \ge p(T).
+  \]
+  Thus $p^T x' = p^T x^* + p(S) - p(T) \ge p^T x^*$. By optimality of $x^*$, $x'$ is also an optimal solution ($x' \in X_{\text{opt}}$).
+  \item \emph{Distance to $g$:} For each $i \in S$, $x^*_i < g_i$, so $|x'_i - g_i| = |x^*_i - g_i| - 1$. For each $j \in T$, $x^*_j > g_j$, so $|x'_j - g_j| = |x^*_j - g_j| - 1$. Therefore:
+  \[
+    \|x' - g\|_1 = \|x^* - g\|_1 - |S| - |T| < \|x^* - g\|_1,
+  \]
+  contradicting the minimality of $\|x^* - g\|_1$ in $X_{\text{opt}}$. This proves the claim.
+\end{proof}
+
+Now, consider the following walk process. Let $a_1, \dots, a_{|M^-|}$ be an arbitrary ordering of $M^-$, and let $b_1, \dots, b_{|M^+|}$ be an arbitrary ordering of $M^+$.
+Start at $s_0 := 0$. For each step $\ell \ge 0$:
+\begin{itemize}
+  \item If $s_\ell \le 0$: if there remains an unused item $b \in M^+$, take it and set $s_{\ell+1} := s_\ell + w(b)$.
+  \item If $s_\ell > 0$: if there remains an unused item $a \in M^-$, take it and set $s_{\ell+1} := s_\ell - w(a)$.
+\end{itemize}
+Since each item weight is in $[1, \wmax]$:
+\begin{itemize}
+  \item If $s_\ell \le 0$, then $s_{\ell+1} = s_\ell + w(b) \in [1, \wmax]$.
+  \item If $s_\ell > 0$, then $s_{\ell+1} = s_\ell - w(a) \in [-\wmax + 1, \wmax - 1]$.
+\end{itemize}
+Thus, every state $s_\ell$ produced by this process lies in the integer interval $[-\wmax + 1, \wmax]$, which contains exactly $2\wmax$ distinct integer values.
+
+If the walk were to continue for $2\wmax + 1$ states $s_0, s_1, \dots, s_{2\wmax}$, then by the pigeonhole principle, there would exist two indices $0 \le u < v \le 2\wmax$ such that $s_u = s_v$. The steps between $u$ and $v$ would correspond to a non-empty subset $T \subseteq M^+$ of added items and a non-empty subset $S \subseteq M^-$ of removed items such that $w(T) - w(S) = s_v - s_u = 0$, so $w(S) = w(T)$, directly contradicting the Claim.
+
+Therefore, the walk must terminate in at most $2\wmax$ steps. Termination occurs when either:
+\begin{enumerate}
+  \item $s_L \le 0$ and $M^+$ is fully exhausted: Then $|M^+| \le L \le 2\wmax$. Furthermore, $s_L = w(M^+) - w(M^-_{\text{used}}) \le 0$, which implies $w(M^-_{\text{used}}) \ge w(M^+)$. Since $w(M^+) \ge w(M^-)$, we have $w(M^-_{\text{used}}) \ge w(M^-)$, which is only possible if all items of $M^-$ have also been used ($M^-_{\text{unused}} = \emptyset$). Hence $|M^-| \le L \le 2\wmax$.
+  \item $s_L > 0$ and $M^-$ is fully exhausted: Then $|M^-| \le L \le 2\wmax$. The used items of $M^+$ satisfy $w(M^+_{\text{used}}) \ge w(M^-)$. The remaining unused items of $M^+$ have total weight:
+  \[
+    w(M^+_{\text{unused}}) = w(M^+) - w(M^+_{\text{used}}) \le w(M^+) - w(M^-) \le R < \wmax.
+  \]
+  Since each item has weight at least $1$, the number of unused items is $|M^+_{\text{unused}}| \le w(M^+_{\text{unused}}) \le \wmax - 1$.
+  Therefore, $|M^+| = |M^+_{\text{used}}| + |M^+_{\text{unused}}| \le 2\wmax + (\wmax - 1) < 3\wmax$.
+\end{enumerate}
+In both cases, we conclude:
+\[
+  |M^-| \le 2\wmax \quad \text{and} \quad |M^+| < 3\wmax.
+\]
+
+\paragraph{Step 3: Reduction to $O(\wmax^2)$ Candidate Items.}
+For each weight $w \in [\wmax]$, any optimal solution $x^*$ must select copies of weight $w$ in order of non-increasing profit: if an item of weight $w$ with lower profit were selected while an item of weight $w$ with strictly higher profit had an unselected copy, swapping one copy would strictly increase total profit without changing total weight. The maximal prefix solution $g$ also selects items of weight $w$ in non-increasing profit order. 
+
+Therefore, for each weight $w \in [\wmax]$, $x^*$ and $g$ select prefixes of the same sorted sequence of items of weight $w$. Consequently, the difference between $x^*$ and $g$ on items of weight $w$ is purely unidirectional:
+\begin{itemize}
+  \item If $x^*$ takes fewer copies of weight $w$ than $g$, it drops at most $|M^-| \le 2\wmax$ copies, which must be the \emph{last} copies of weight $w$ included in $g$.
+  \item If $x^*$ takes more copies of weight $w$ than $g$, it adds at most $|M^+| < 3\wmax$ copies, which must be the \emph{first} copies of weight $w$ not included in $g$.
+\end{itemize}
+For each weight $w \in [\wmax]$, define:
+\begin{itemize}
+  \item $C^-_w$: the multiset of the last $\min(2\wmax, \text{number of copies of weight } w \text{ in } g)$ copies of weight $w$ in $g$.
+  \item $C^+_w$: the multiset of the first $\min(3\wmax, \text{number of copies of weight } w \text{ not in } g)$ copies of weight $w$ not in $g$.
+\end{itemize}
+Across all $w \in [\wmax]$, we define the candidate multiset $C := \bigcup_{w=1}^{\wmax} (C^-_w \cup C^+_w)$. 
+Since there are at most $\wmax$ distinct weights, the total number of candidate items is:
+\[
+  |C| \le \sum_{w=1}^{\wmax} (2\wmax + 3\wmax) = 5\wmax^2 = O(\wmax^2).
+\]
+Any copy of an item in $g \setminus \bigcup_{w=1}^{\wmax} C^-_w$ is \emph{mandatory}: it is guaranteed to be chosen by $x^*$. Let $W_{\text{mand}}$ and $P_{\text{mand}}$ be the total weight and total profit of these mandatory copies, respectively.
+Any copy not in $g \cup \bigcup_{w=1}^{\wmax} C^+_w$ is guaranteed to not be chosen by $x^*$, and is discarded.
+
+Every candidate copy $c \in C$ represents a 0-1 decision:
+\begin{itemize}
+  \item For $c \in C^-_w$, choosing $x_c = 1$ means keeping the copy in the knapsack (weight $w_c$, profit $p_c$), while $x_c = 0$ means dropping it.
+  \item For $c \in C^+_w$, choosing $x_c = 1$ means adding the copy to the knapsack (weight $w_c$, profit $p_c$), while $x_c = 0$ means leaving it out.
+\end{itemize}
+The remaining capacity available for the candidate items is $W' := W - W_{\text{mand}}$.
+Thus, finding the optimal completion of $x^*$ is exactly equivalent to solving the 0-1-Knapsack instance on the items in $C$ with weight budget $W'$.
+
+\paragraph{Step 4: Distinct Profit-to-Weight Ratios via Exact Perturbation.}
+Let $N = |C| \le 5\wmax^2$. Index the items in $C$ arbitrarily as $1, 2, \dots, N$.
+To satisfy the precondition of distinct profit-to-weight ratios, we perturb the profits.
+For each $j \in [N]$, we choose an integer tie-breaker $r_j \in [N]$ inductively as follows:
+for each $j = 1, \dots, N$, choose $r_j$ to be the smallest positive integer such that for all $j' < j$ with $\frac{p_j}{w_j} = \frac{p_{j'}}{w_{j'}}$,
+\[
+  r_j \ne \frac{w_j}{w_{j'}} r_{j'}.
+\]
+Since there are at most $j - 1 < N$ previous indices $j'$, there are at most $N-1$ forbidden values for $r_j$. By the pigeonhole principle, an available integer $r_j \in [N]$ always exists and can be found in $O(N)$ time per item, taking $O(N^2) = O(\wmax^4)$ time (or $O(N \log N) = \tOh(\wmax^2)$ time by maintaining the forbidden values in a balanced search tree per ratio class).
+
+Define the scaling factor $M := N^2 + N\wmax + 1$, and define the perturbed profits:
+\[
+  \tilde{p}_j := M \cdot p_j + r_j \in \mathbb{N} \quad \text{for all } j \in [N].
+\]
+We verify the two essential properties:
+\begin{enumerate}
+  \item \emph{Distinct profit-to-weight ratios:} For any two distinct items $j \ne j'$:
+  \[
+    w_{j'} \tilde{p}_j - w_j \tilde{p}_{j'} = M(w_{j'} p_j - w_j p_{j'}) + (w_{j'} r_j - w_j r_{j'}).
+  \]
+  \begin{itemize}
+    \item If $\frac{p_j}{w_j} \ne \frac{p_{j'}}{w_{j'}}$, then $|w_{j'} p_j - w_j p_{j'}| \ge 1$ because the weights and profits are integers. Since $r_j, r_{j'} \in [N]$ and $w_j, w_{j'} \in [\wmax]$, we have $|w_{j'} r_j - w_j r_{j'}| \le N\wmax$. Thus:
+    \[
+      |w_{j'} \tilde{p}_j - w_j \tilde{p}_{j'}| \ge M \cdot 1 - N\wmax = N^2 + 1 > 0.
+    \]
+    \item If $\frac{p_j}{w_j} = \frac{p_{j'}}{w_{j'}}$, then $w_{j'} p_j - w_j p_{j'} = 0$, so $w_{j'} \tilde{p}_j - w_j \tilde{p}_{j'} = w_{j'} r_j - w_j r_{j'} \ne 0$ by our inductive choice of $r_j$.
+  \end{itemize}
+  Hence,
+$\frac{\tilde{p}_j}{w_j} \ne \frac{\tilde{p}_{j'}}{w_{j'}}$ for all $j \ne j'$.
+
+  \item \emph{Preservation of optimality:} For any two feasible candidate selections $x, y \in \{0,1\}^N$:
+  \[
+    \tilde{p}^T (x - y) = M \cdot p^T (x - y) + \sum_{j=1}^N r_j (x_j - y_j).
+  \]
+  Since $p, x, y$ are integer-valued, if $p^T x > p^T y$, then $p^T (x - y) \ge 1$. Because $r_j \in [N]$, we have:
+  \[
+    \left| \sum_{j=1}^N r_j (x_j - y_j) \right| \le \sum_{j=1}^N r_j \le N^2.
+  \]
+  Consequently:
+  \[
+    \tilde{p}^T (x - y) \ge M \cdot 1 - N^2 = (N^2 + N\wmax + 1) - N^2 = N\wmax + 1 > 0.
+  \]
+  Thus, any optimal solution to the 0-1-Knapsack instance $(\tilde{p}, w, W')$ strictly maximizes $p^T x$ over all feasible subsets of $C$, and hence provides an optimal completion to $(p, w, W')$.
+\end{enumerate}
+
+\paragraph{Step 5: Total Algorithm and Time Complexity.}
+The complete reduction algorithm is as follows:
+\begin{enumerate}
+  \item Check degenerate regimes ($\sum_{i=1}^n u_i w_i \le W$ or $w_i > W$) in $O(n)$ time.
+  \item Sort all $n$ items by ratio $\frac{p_i}{w_i}$ in $O(n \log n) = \tOh(n)$ time.
+  \item Compute the maximal prefix solution $g$ and the split index $t$ in $O(n)$ time.
+  \item Identify the candidate multiset $C = \bigcup_{w=1}^{\wmax} (C^-_w \cup C^+_w)$ of size $N \le 5\wmax^2 = O(\wmax^2)$ in $O(n + \wmax^2)$ time by scanning the sorted items and collecting the last $\le 2\wmax$ copies in $g$ and the first $\le 3\wmax$ copies not in $g$ for each weight $w \in [\wmax]$.
+  \item Determine the mandatory items $g \setminus \bigcup_{w=1}^{\wmax} C^-_w$, calculate $W_{\text{mand}} = \sum_{c \in g \setminus C^-} w_c$ in $O(n)$ time, set the remaining budget $W' := W - W_{\text{mand}}$, and construct the perturbed profits $\tilde{p}$ in $O(N \log N) = \tOh(\wmax^2)$ time.
+  \item Solve the resulting 0-1-Knapsack instance on $N = O(\wmax^2)$ items with distinct profit-to-weight ratios in $\tOh(\wmax^2)$ time using the assumed algorithm.
+  \item Reconstruct the optimal bounded knapsack solution $x^*$ by summing the mandatory copies and the selected candidate items in $O(n + N) = O(n + \wmax^2)$ time.
+\end{enumerate}
+The overall runtime is $\tOh(n) + O(n + \wmax^2) + \tOh(\wmax^2) + \tOh(\wmax^2) = \tOh(n + \wmax^2)$, which completes the proof.
+\end{proof}
+================================================================================

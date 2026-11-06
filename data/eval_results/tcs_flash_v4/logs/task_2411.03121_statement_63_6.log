@@ -1,0 +1,299 @@
+================================================================================
+[2026-11-02 06:01:32] TCS-BENCH UNASSISTED ONE-PASS SESSION: task_2411.03121_statement_63_6
+Model: gemini-3.8-flash-high | Duration: 161.23s | Prompt Tokens: 14672 | Completion Tokens: 48926
+================================================================================
+
+--- [TURN 1/1] INNER THINKING ---
+(none)
+
+--- [TURN 1/1] MODEL GENERATED OUTPUT ---
+\begin{proof}
+We analyze the number of calls made to $\MakeRbst(\cdot \, , \cdot)$ across multiple epochs when the post-processing step $\calU_{\final} \leftarrow \Robustify(\calW^{\star})$ at the end of each epoch is replaced by the procedure in \Cref{alg:modify:robustify}.
+
+\paragraph{1. Epoch Setup, Distances, and Scale Bounds.}
+Consider an arbitrary epoch lasting for $\ell + 1$ consecutive updates, where $\ell \ge 0$. Let $\calP^{(0)}$ be the set of active points at the start of the epoch, and let $\calP^{(\ell+1)}$ be the set of active points at the end of the epoch. Let $M$ denote the total number of updates processed by the dynamic algorithm across all epochs.
+The metric space $(\ground, d)$ has aspect ratio $\Delta$, with all distances in $[1, \Delta]$. If $k = 1$, the solution contains at most one center $w$; in this case, $\calW - w = \emptyset$, so no separation condition with respect to other centers is violated, and at most $O(1)$ calls to $\MakeRbst$ are made per epoch, trivially yielding $O(1) \le O(\log^2 \Delta)$ amortized recourse. Hence, we assume $k \ge 2$.
+
+For any non-empty center set $\calS \subseteq \ground$ with $|\calS| \ge 2$ and any $w \in \calS$, the distance $d(w, \calS - w)$ lies in the interval $[1, \Delta]$. Whenever an integer scale parameter $t$ is chosen as the smallest integer satisfying $10^t \ge d(w, \calS - w) / C$ for a constant $C \in \{100, 200\}$, we have:
+\begin{enumerate}
+    \item Lower bound: $10^t \ge d(w, \calS - w) / C \ge 1/200$, which implies $t \ge \lceil \log_{10}(1/200) \rceil = -2$.
+    \item Upper bound: By minimality of $t$, $10^{t-1} < d(w, \calS - w) / C \le \Delta / 100 \le \Delta / 10$, which implies $10^t < \Delta$, so $t \le \lfloor \log_{10} \Delta \rfloor$.
+\end{enumerate}
+Consequently, the integer scale parameter $t$ belongs to an index set $\calT \subseteq \mathbb{Z} \cap [-2, \lfloor \log_{10} \Delta \rfloor]$. The total number of possible distinct integer values for $t$ is at most:
+\begin{equation}
+\label{eq:t_bound}
+T_{\max} := \lfloor \log_{10} \Delta \rfloor - (-2) + 1 = \lfloor \log_{10} \Delta \rfloor + 3 = O(\log \Delta).
+\end{equation}
+
+\paragraph{2. Distance Shift Under $\MakeRbst$.}
+Let $p \in \ground$ and let $t \in \calT$. When $w_0 \leftarrow \MakeRbst(p, t)$ is executed (\Cref{alg:makerobust}), a sequence of points $(p_0, p_1, \ldots, p_t)$ is constructed with $p_t = p$ and $p_0 = w_0$. For each $i \in [1, t]$, $p_{i-1} \in \text{Ball}_{10^i}^\calP(p_i) \cup \{p_i\}$, so $d(p_{i-1}, p_i) \le 10^i$. By the triangle inequality:
+\begin{equation}
+\label{eq:dist_shift}
+d(p, w_0) = d(p_t, p_0) \le \sum_{i=1}^t d(p_i, p_{i-1}) \le \sum_{i=1}^t 10^i = 10 \cdot \frac{10^t - 1}{9} < \frac{10}{9} \cdot 10^t.
+\end{equation}
+By \Cref{def:robust}, the returned point $w_0 = p_0$ is $t$-robust with respect to the active point set $\calP$. Moreover, since any prefix of a $t$-robust sequence is a $t^*$-robust sequence for every integer $t^* \le t$, $w_0$ is also $t^*$-robust for all integers $t^* \le t$.
+
+\paragraph{3. Classification of Centers in \Cref{alg:modify:robustify}.}
+At the start of the epoch, the maintained center set is $\calU_{\init} \subseteq \ground$ with $|\calU_{\init}| \le k$. For each $u \in \calU_{\init}$, an integer $t[u] \in \calT$ and a $t[u]$-robust sequence $(p_0(u), \ldots, p_{t[u]}(u))$ with respect to $\calP^{(0)}$ are maintained such that $u = p_0(u)$ and $10^{t[u]} \ge d(u, \calU_{\init} - u) / 200$.
+At the end of the epoch, $\calW^\star \subseteq \calV^\star$ is computed with $|\calW^\star| = k$. In \Cref{alg:modify:robustify}, $\calW^\star$ is partitioned into three pairwise disjoint sets:
+\begin{align*}
+\calW_1 &:= \calW^\star \setminus \calU_{\init}, \\
+\calW_2 &:= \{w \in \calW^\star \cap \calU_{\init} : w \text{ is contaminated at the end of the epoch}\}, \\
+\calW_3 &:= \{w \in \calW^\star \cap \calU_{\init} : w \text{ is clean at the end of the epoch}\}.
+\end{align*}
+Calls to $\MakeRbst$ in \Cref{alg:modify:robustify} are categorized into three distinct types:
+\begin{itemize}
+    \item \textbf{Type I Calls:} Calls made in Line~\ref{line:mandatorycall} for centers $w \in \calW_1$.
+    \item \textbf{Type II Calls:} Calls made in Line~\ref{line:mandatorycall} for centers $w \in \calW_2$.
+    \item \textbf{Type III Calls:} Calls made in Line~\ref{line:optionalcall} of the while-loop for centers $w \in \calW_3$.
+\end{itemize}
+
+\paragraph{4. Bounding Type I Calls.}
+From the algorithm description in Section~\ref{sec:alg:describe}, $\calU^\star$ is obtained by adding $O(\ell + 1)$ centers to $\calU_{\init}$, and $\calV^\star = \calU^\star \cup (\calP^{(\ell+1)} - \calP^{(0)})$. Since $|\calP^{(\ell+1)} - \calP^{(0)}| \le \ell + 1$, we have:
+$$|\calW_1| = |\calW^\star \setminus \calU_{\init}| \le |\calV^\star \setminus \calU_{\init}| \le |\calU^\star \setminus \calU_{\init}| + |\calP^{(\ell+1)} - \calP^{(0)}| = O(\ell + 1).$$
+In \Cref{alg:modify:robustify}, the for-loop in Lines~\ref{for-loop-Type-I-and-II}--\ref{end-for-loop-Type-I-and-II} iterates over each center in $\calW_1$ exactly once. Therefore, the number of Type I calls in the epoch is:
+\begin{equation}
+\label{eq:bound_type1}
+N_I \le |\calW_1| = O(\ell + 1).
+\end{equation}
+Amortized over the $\ell + 1$ updates of the epoch, this contributes $N_I / (\ell + 1) = O(1)$ calls per update.
+
+\paragraph{5. Bounding Type II Calls.}
+By definition, a center $u \in \calU_{\init}$ is contaminated if there exists an update $j \in [1, \ell+1]$ inserting or deleting a point $q_j$ such that $d(q_j, p_{t[u]}(u)) \le 10^{t[u]}$.
+We claim that for each update $j \in [1, \ell+1]$ and each fixed integer scale $t \in \calT$, there can be at most one center $u \in \calU_{\init}$ with $t[u] = t$ that is contaminated by $q_j$.
+
+To prove this claim, suppose for contradiction that there exist two distinct centers $u, u' \in \calU_{\init}$ with $t[u] = t[u'] = t$ such that both are contaminated by $q_j$. Then:
+$$d(q_j, p_t(u)) \le 10^t \quad \text{and} \quad d(q_j, p_t(u')) \le 10^t.$$
+By the triangle inequality, the distance between their sequence endpoints is:
+$$d(p_t(u), p_t(u')) \le d(p_t(u), q_j) + d(q_j, p_t(u')) \le 10^t + 10^t = 2 \cdot 10^t.$$
+Using (\ref{eq:dist_shift}), $d(u, p_t(u)) < \frac{10}{9} \cdot 10^t$ and $d(u', p_t(u')) < \frac{10}{9} \cdot 10^t$. Applying the triangle inequality:
+\begin{equation}
+\label{eq:uu_upper}
+d(u, u') \le d(u, p_t(u)) + d(p_t(u), p_t(u')) + d(p_t(u'), u') < \left(\frac{10}{9} + 2 + \frac{10}{9}\right) 10^t = \frac{38}{9} \cdot 10^t < 4.23 \cdot 10^t.
+\end{equation}
+On the other hand, at the end of the previous epoch, the integer $t[u] = t$ was determined (either via Line~\ref{line:findt:1} or Line~\ref{line:findt:2} of \Cref{alg:modify:robustify}) as the smallest integer satisfying $10^t \ge d(u, \calW_{\text{prev}} - u) / 100$. By minimality of $t$:
+$$10^{t-1} < \frac{d(u, \calW_{\text{prev}} - u)}{100} \le \frac{d(u, u')}{100},$$
+which implies:
+\begin{equation}
+\label{eq:uu_lower}
+d(u, u') > 100 \cdot 10^{t-1} = 10 \cdot 10^t.
+\end{equation}
+Inequality (\ref{eq:uu_lower}) directly contradicts (\ref{eq:uu_upper}) since $10 \cdot 10^t > 4.23 \cdot 10^t$. Thus, at most one center with $t[u] = t$ can be contaminated by $q_j$.
+
+Since there are at most $T_{\max} = O(\log \Delta)$ possible values of $t$, each update $j \in [1, \ell+1]$ contaminates at most $O(\log \Delta)$ centers in $\calU_{\init}$. Across the entire epoch of $\ell + 1$ updates, the total number of contaminated centers in $\calU_{\init}$ is at most $(\ell + 1) \cdot O(\log \Delta) = O((\ell + 1) \log \Delta)$.
+Because each center in $\calW_2 \subseteq \{u \in \calU_{\init} : u \text{ is contaminated}\}$ is called at most once in Line~\ref{line:mandatorycall}, the number of Type II calls in the epoch is:
+\begin{equation}
+\label{eq:bound_type2}
+N_{II} \le |\calW_2| = O((\ell + 1) \log \Delta).
+\end{equation}
+Amortized over the $\ell + 1$ updates of the epoch, this contributes $N_{II} / (\ell + 1) = O(\log \Delta)$ calls per update.
+
+\paragraph{6. Bounding Type III Calls and Robustness Invariants.}
+We now examine the while-loop in Lines~\ref{line:while-loop}--\ref{line:end} of \Cref{alg:modify:robustify}.
+For any clean center $w \in \calW_3$, no update in the epoch contaminated $w$. By definition, for every update point $q_j$ and every ball $B_i = \text{Ball}_{10^i}^{\calP^{(0)}}(p_i(w))$ for $i \in [1, t[w]]$, we have $d(q_j, p_{t[w]}(w)) > 10^{t[w]} \ge 10^i + d(p_i(w), p_{t[w]}(w))$, ensuring $q_j \notin B_i$.
+Hence, all balls and local costs along the $t[w]$-robust sequence are completely unaffected by the updates during the epoch. Therefore, $w$ remains $t[w]$-robust with respect to $\calP^{(\ell+1)}$, and is consequently $t$-robust for every integer $t \le t[w]$.
+
+In Line~\ref{line:prep}, $t$ is computed as the smallest integer satisfying $10^t \ge d(w, \calW - w) / 200$.
+If $t \le t[w]$, then $w$ is already $t$-robust with respect to $\calP^{(\ell+1)}$, which satisfies condition (\ref{condition-robust-solution-part-1}) of \Cref{def:robuscenters}; thus, no call to $\MakeRbst$ is executed for $w$.
+A call to $\MakeRbst(w, t')$ in Line~\ref{line:optionalcall} occurs if and only if $t > t[w]$. In that case:
+\begin{enumerate}
+    \item $t'$ is selected as the smallest integer satisfying $10^{t'} \ge d(w, \calW - w) / 100$. Since $100 < 200$, $d(w, \calW - w) / 100 \ge d(w, \calW - w) / 200$, so $t' \ge t > t[w]$.
+    \item $w_0 \leftarrow \MakeRbst(w, t')$ produces a $t'$-robust center $w_0$.
+    \item $\calW$ is updated to $\calW - w + w_0$, and the new scale parameter $t[w_0] := t'$ is saved together with $w_0$.
+    \item By (\ref{eq:dist_shift}), $d(w, w_0) < \frac{10}{9} \cdot 10^{t'}$. For any center $u \in \calW - w = \calW - w_0$, the triangle inequality gives:
+    $$d(w_0, u) \le d(w, u) + d(w, w_0) < d(w, u) + \frac{10}{9} \cdot 10^{t'}.$$
+    Minimizing over $u \in \calW - w$, we have:
+    $$d(w_0, \calW - w_0) < d(w, \calW - w) + \frac{10}{9} \cdot 10^{t'} \le 100 \cdot 10^{t'} + \frac{10}{9} \cdot 10^{t'} = \frac{910}{9} \cdot 10^{t'} < 200 \cdot 10^{t'},$$
+    which yields $10^{t'} > d(w_0, \calW - w_0) / 200$. Thus, the smallest integer $t^*$ satisfying $10^{t^*} \ge d(w_0, \calW - w_0) / 200$ has $t^* \le t'$. Since $w_0$ is $t'$-robust, it is also $t^*$-robust, satisfying condition (\ref{condition-robust-solution-part-1}).
+    \item The original center $w$ is removed from $\calW$, while the replacement center $w_0$ satisfies $w_0 \notin \calW^\star \cap \calU_{\init}$, so $w_0 \notin \calW_3$.
+\end{enumerate}
+Because $w$ is removed from $\calW$ and $w_0$ is never added to $\calW_3$, each center $w \in \calW_3$ is replaced at most once during the execution of \Cref{alg:modify:robustify}.
+
+Most crucially, whenever a Type III call occurs, the active center transitions from $w$ to $w_0$, and its associated scale parameter strictly increases:
+\begin{equation}
+\label{eq:scale_increase}
+t[w_0] = t' \ge t \ge t[w] + 1.
+\end{equation}
+
+\paragraph{7. Amortized Analysis Across All Epochs.}
+We track the center lineages across the entire execution spanning all $M$ updates:
+\begin{itemize}
+    \item Every center lineage begins either:
+    \begin{enumerate}
+        \item At initialization before the first epoch (at most $k$ initial centers),
+        \item Via a Type I call in Line~\ref{line:mandatorycall} for a newly introduced center $w \in \calW_1$, or
+        \item Via a Type II call in Line~\ref{line:mandatorycall} for a contaminated center $w \in \calW_2$.
+    \end{enumerate}
+    \item While a center lineage remains clean across epochs, each Type III call performed on it replaces the center with a new center whose scale parameter $t$ is strictly larger by at least $1$, as shown in (\ref{eq:scale_increase}).
+    \item Since every scale parameter $t$ belongs to $\calT \subseteq [-2, \lfloor \log_{10} \Delta \rfloor]$, it can take at most $T_{\max} = O(\log \Delta)$ distinct integer values before exceeding the maximum possible metric distance scale.
+    \item Hence, any center lineage can participate in at most $T_{\max} = O(\log \Delta)$ Type III calls before it is terminated, contaminated (triggering a Type II call), or replaced (triggering a Type I call).
+\end{itemize}
+
+Therefore, each initial center, each Type I call, and each Type II call can be charged for at most $O(\log \Delta)$ Type III calls across the entire execution. Summing over all epochs spanning $M$ updates:
+\begin{align*}
+\sum_{\text{epochs}} N_I &\le \sum_{\text{epochs}} O(\ell_{\text{epoch}} + 1) = O(M), \\
+\sum_{\text{epochs}} N_{II} &\le \sum_{\text{epochs}} O((\ell_{\text{epoch}} + 1) \log \Delta) = O(M \log \Delta).
+\end{align*}
+The total number of Type III calls across all epochs is therefore bounded by:
+\begin{align*}
+\sum_{\text{epochs}} N_{III} &\le \left(k + \sum_{\text{epochs}} N_I + \sum_{\text{epochs}} N_{II}\right) \cdot O(\log \Delta) \\
+&= \left(k + O(M) + O(M \log \Delta)\right) \cdot O(\log \Delta) \\
+&= O(k \log \Delta) + O(M \log^2 \Delta).
+\end{align*}
+Summing the calls across all three types, the grand total number of calls to $\MakeRbst(\cdot \, , \cdot)$ throughout the sequence of $M$ updates is:
+\begin{align*}
+\text{Total Calls} &= \sum_{\text{epochs}} (N_I + N_{II} + N_{III}) \\
+&= O(M) + O(M \log \Delta) + O(k \log \Delta) + O(M \log^2 \Delta) \\
+&= O(M \log^2 \Delta) + O(k \log \Delta).
+\end{align*}
+Dividing by $M$, the amortized number of calls to $\MakeRbst(\cdot \, , \cdot)$ per update is:
+$$\frac{\text{Total Calls}}{M} = O(\log^2 \Delta) + \frac{O(k \log \Delta)}{M} = O(\log^2 \Delta).$$
+Thus, \Cref{lm:makerobustcalls} continues to hold when the call to $\Robustify(\calW^{\star})$ is replaced by \Cref{alg:modify:robustify}.
+\end{proof}
+
+--- [EXTRACTED CANDIDATE PROOF] ---
+Length: 13732 chars
+\begin{proof}
+We analyze the number of calls made to $\MakeRbst(\cdot \, , \cdot)$ across multiple epochs when the post-processing step $\calU_{\final} \leftarrow \Robustify(\calW^{\star})$ at the end of each epoch is replaced by the procedure in \Cref{alg:modify:robustify}.
+
+\paragraph{1. Epoch Setup, Distances, and Scale Bounds.}
+Consider an arbitrary epoch lasting for $\ell + 1$ consecutive updates, where $\ell \ge 0$. Let $\calP^{(0)}$ be the set of active points at the start of the epoch, and let $\calP^{(\ell+1)}$ be the set of active points at the end of the epoch. Let $M$ denote the total number of updates processed by the dynamic algorithm across all epochs.
+The metric space $(\ground, d)$ has aspect ratio $\Delta$, with all distances in $[1, \Delta]$. If $k = 1$, the solution contains at most one center $w$; in this case, $\calW - w = \emptyset$, so no separation condition with respect to other centers is violated, and at most $O(1)$ calls to $\MakeRbst$ are made per epoch, trivially yielding $O(1) \le O(\log^2 \Delta)$ amortized recourse. Hence, we assume $k \ge 2$.
+
+For any non-empty center set $\calS \subseteq \ground$ with $|\calS| \ge 2$ and any $w \in \calS$, the distance $d(w, \calS - w)$ lies in the interval $[1, \Delta]$. Whenever an integer scale parameter $t$ is chosen as the smallest integer satisfying $10^t \ge d(w, \calS - w) / C$ for a constant $C \in \{100, 200\}$, we have:
+\begin{enumerate}
+    \item Lower bound: $10^t \ge d(w, \calS - w) / C \ge 1/200$, which implies $t \ge \lceil \log_{10}(1/200) \rceil = -2$.
+    \item Upper bound: By minimality of $t$, $10^{t-1} < d(w, \calS - w) / C \le \Delta / 100 \le \Delta / 10$, which implies $10^t < \Delta$, so $t \le \lfloor \log_{10} \Delta \rfloor$.
+\end{enumerate}
+Consequently, the integer scale parameter $t$ belongs to an index set $\calT \subseteq \mathbb{Z} \cap [-2, \lfloor \log_{10} \Delta \rfloor]$. The total number of possible distinct integer values for $t$ is at most:
+\begin{equation}
+\label{eq:t_bound}
+T_{\max} := \lfloor \log_{10} \Delta \rfloor - (-2) + 1 = \lfloor \log_{10} \Delta \rfloor + 3 = O(\log \Delta).
+\end{equation}
+
+\paragraph{2. Distance Shift Under $\MakeRbst$.}
+Let $p \in \ground$ and let $t \in \calT$. When $w_0 \leftarrow \MakeRbst(p, t)$ is executed (\Cref{alg:makerobust}), a sequence of points $(p_0, p_1, \ldots, p_t)$ is constructed with $p_t = p$ and $p_0 = w_0$. For each $i \in [1, t]$, $p_{i-1} \in \text{Ball}_{10^i}^\calP(p_i) \cup \{p_i\}$, so $d(p_{i-1}, p_i) \le 10^i$. By the triangle inequality:
+\begin{equation}
+\label{eq:dist_shift}
+d(p, w_0) = d(p_t, p_0) \le \sum_{i=1}^t d(p_i, p_{i-1}) \le \sum_{i=1}^t 10^i = 10 \cdot \frac{10^t - 1}{9} < \frac{10}{9} \cdot 10^t.
+\end{equation}
+By \Cref{def:robust}, the returned point $w_0 = p_0$ is $t$-robust with respect to the active point set $\calP$. Moreover, since any prefix of a $t$-robust sequence is a $t^*$-robust sequence for every integer $t^* \le t$, $w_0$ is also $t^*$-robust for all integers $t^* \le t$.
+
+\paragraph{3. Classification of Centers in \Cref{alg:modify:robustify}.}
+At the start of the epoch, the maintained center set is $\calU_{\init} \subseteq \ground$ with $|\calU_{\init}| \le k$. For each $u \in \calU_{\init}$, an integer $t[u] \in \calT$ and a $t[u]$-robust sequence $(p_0(u), \ldots, p_{t[u]}(u))$ with respect to $\calP^{(0)}$ are maintained such that $u = p_0(u)$ and $10^{t[u]} \ge d(u, \calU_{\init} - u) / 200$.
+At the end of the epoch, $\calW^\star \subseteq \calV^\star$ is computed with $|\calW^\star| = k$. In \Cref{alg:modify:robustify}, $\calW^\star$ is partitioned into three pairwise disjoint sets:
+\begin{align*}
+\calW_1 &:= \calW^\star \setminus \calU_{\init}, \\
+\calW_2 &:= \{w \in \calW^\star \cap \calU_{\init} : w \text{ is contaminated at the end of the epoch}\}, \\
+\calW_3 &:= \{w \in \calW^\star \cap \calU_{\init} : w \text{ is clean at the end of the epoch}\}.
+\end{align*}
+Calls to $\MakeRbst$ in \Cref{alg:modify:robustify} are categorized into three distinct types:
+\begin{itemize}
+    \item \textbf{Type I Calls:} Calls made in Line~\ref{line:mandatorycall} for centers $w \in \calW_1$.
+    \item \textbf{Type II Calls:} Calls made in Line~\ref{line:mandatorycall} for centers $w \in \calW_2$.
+    \item \textbf{Type III Calls:} Calls made in Line~\ref{line:optionalcall} of the while-loop for centers $w \in \calW_3$.
+\end{itemize}
+
+\paragraph{4. Bounding Type I Calls.}
+From the algorithm description in Section~\ref{sec:alg:describe}, $\calU^\star$ is obtained by adding $O(\ell + 1)$ centers to $\calU_{\init}$, and $\calV^\star = \calU^\star \cup (\calP^{(\ell+1)} - \calP^{(0)})$. Since $|\calP^{(\ell+1)} - \calP^{(0)}| \le \ell + 1$, we have:
+$$|\calW_1| = |\calW^\star \setminus \calU_{\init}| \le |\calV^\star \setminus \calU_{\init}| \le |\calU^\star \setminus \calU_{\init}| + |\calP^{(\ell+1)} - \calP^{(0)}| = O(\ell + 1).$$
+In \Cref{alg:modify:robustify}, the for-loop in Lines~\ref{for-loop-Type-I-and-II}--\ref{end-for-loop-Type-I-and-II} iterates over each center in $\calW_1$ exactly once. Therefore, the number of Type I calls in the epoch is:
+\begin{equation}
+\label{eq:bound_type1}
+N_I \le |\calW_1| = O(\ell + 1).
+\end{equation}
+Amortized over the $\ell + 1$ updates of the epoch, this contributes $N_I / (\ell + 1) = O(1)$ calls per update.
+
+\paragraph{5. Bounding Type II Calls.}
+By definition, a center $u \in \calU_{\init}$ is contaminated if there exists an update $j \in [1, \ell+1]$ inserting or deleting a point $q_j$ such that $d(q_j, p_{t[u]}(u)) \le 10^{t[u]}$.
+We claim that for each update $j \in [1, \ell+1]$ and each fixed integer scale $t \in \calT$, there can be at most one center $u \in \calU_{\init}$ with $t[u] = t$ that is contaminated by $q_j$.
+
+To prove this claim, suppose for contradiction that there exist two distinct centers $u, u' \in \calU_{\init}$ with $t[u] = t[u'] = t$ such that both are contaminated by $q_j$. Then:
+$$d(q_j, p_t(u)) \le 10^t \quad \text{and} \quad d(q_j, p_t(u')) \le 10^t.$$
+By the triangle inequality, the distance between their sequence endpoints is:
+$$d(p_t(u), p_t(u')) \le d(p_t(u), q_j) + d(q_j, p_t(u')) \le 10^t + 10^t = 2 \cdot 10^t.$$
+Using (\ref{eq:dist_shift}), $d(u, p_t(u)) < \frac{10}{9} \cdot 10^t$ and $d(u', p_t(u')) < \frac{10}{9} \cdot 10^t$. Applying the triangle inequality:
+\begin{equation}
+\label{eq:uu_upper}
+d(u, u') \le d(u, p_t(u)) + d(p_t(u), p_t(u')) + d(p_t(u'), u') < \left(\frac{10}{9} + 2 + \frac{10}{9}\right) 10^t = \frac{38}{9} \cdot 10^t < 4.23 \cdot 10^t.
+\end{equation}
+On the other hand, at the end of the previous epoch, the integer $t[u] = t$ was determined (either via Line~\ref{line:findt:1} or Line~\ref{line:findt:2} of \Cref{alg:modify:robustify}) as the smallest integer satisfying $10^t \ge d(u, \calW_{\text{prev}} - u) / 100$. By minimality of $t$:
+$$10^{t-1} < \frac{d(u, \calW_{\text{prev}} - u)}{100} \le \frac{d(u, u')}{100},$$
+which implies:
+\begin{equation}
+\label{eq:uu_lower}
+d(u, u') > 100 \cdot 10^{t-1} = 10 \cdot 10^t.
+\end{equation}
+Inequality (\ref{eq:uu_lower}) directly contradicts (\ref{eq:uu_upper}) since $10 \cdot 10^t > 4.23 \cdot 10^t$. Thus, at most one center with $t[u] = t$ can be contaminated by $q_j$.
+
+Since there are at most $T_{\max} = O(\log \Delta)$ possible values of $t$, each update $j \in [1, \ell+1]$ contaminates at most $O(\log \Delta)$ centers in $\calU_{\init}$. Across the entire epoch of $\ell + 1$ updates, the total number of contaminated centers in $\calU_{\init}$ is at most $(\ell + 1) \cdot O(\log \Delta) = O((\ell + 1) \log \Delta)$.
+Because each center in $\calW_2 \subseteq \{u \in \calU_{\init} : u \text{ is contaminated}\}$ is called at most once in Line~\ref{line:mandatorycall}, the number of Type II calls in the epoch is:
+\begin{equation}
+\label{eq:bound_type2}
+N_{II} \le |\calW_2| = O((\ell + 1) \log \Delta).
+\end{equation}
+Amortized over the $\ell + 1$ updates of the epoch, this contributes $N_{II} / (\ell + 1) = O(\log \Delta)$ calls per update.
+
+\paragraph{6. Bounding Type III Calls and Robustness Invariants.}
+We now examine the while-loop in Lines~\ref{line:while-loop}--\ref{line:end} of \Cref{alg:modify:robustify}.
+For any clean center $w \in \calW_3$, no update in the epoch contaminated $w$. By definition, for every update point $q_j$ and every ball $B_i = \text{Ball}_{10^i}^{\calP^{(0)}}(p_i(w))$ for $i \in [1, t[w]]$, we have $d(q_j, p_{t[w]}(w)) > 10^{t[w]} \ge 10^i + d(p_i(w), p_{t[w]}(w))$, ensuring $q_j \notin B_i$.
+Hence, all balls and local costs along the $t[w]$-robust sequence are completely unaffected by the updates during the epoch. Therefore, $w$ remains $t[w]$-robust with respect to $\calP^{(\ell+1)}$, and is consequently $t$-robust for every integer $t \le t[w]$.
+
+In Line~\ref{line:prep}, $t$ is computed as the smallest integer satisfying $10^t \ge d(w, \calW - w) / 200$.
+If $t \le t[w]$, then $w$ is already $t$-robust with respect to $\calP^{(\ell+1)}$, which satisfies condition (\ref{condition-robust-solution-part-1}) of \Cref{def:robuscenters}; thus, no call to $\MakeRbst$ is executed for $w$.
+A call to $\MakeRbst(w, t')$ in Line~\ref{line:optionalcall} occurs if and only if $t > t[w]$. In that case:
+\begin{enumerate}
+    \item $t'$ is selected as the smallest integer satisfying $10^{t'} \ge d(w, \calW - w) / 100$. Since $100 < 200$, $d(w, \calW - w) / 100 \ge d(w, \calW - w) / 200$, so $t' \ge t > t[w]$.
+    \item $w_0 \leftarrow \MakeRbst(w, t')$ produces a $t'$-robust center $w_0$.
+    \item $\calW$ is updated to $\calW - w + w_0$, and the new scale parameter $t[w_0] := t'$ is saved together with $w_0$.
+    \item By (\ref{eq:dist_shift}), $d(w, w_0) < \frac{10}{9} \cdot 10^{t'}$. For any center $u \in \calW - w = \calW - w_0$, the triangle inequality gives:
+    $$d(w_0, u) \le d(w, u) + d(w, w_0) < d(w, u) + \frac{10}{9} \cdot 10^{t'}.$$
+    Minimizing over $u \in \calW - w$, we have:
+    $$d(w_0, \calW - w_0) < d(w, \calW - w) + \frac{10}{9} \cdot 10^{t'} \le 100 \cdot 10^{t'} + \frac{10}{9} \cdot 10^{t'} = \frac{910}{9} \cdot 10^{t'} < 200 \cdot 10^{t'},$$
+    which yields $10^{t'} > d(w_0, \calW - w_0) / 200$. Thus, the smallest integer $t^*$ satisfying $10^{t^*} \ge d(w_0, \calW - w_0) / 200$ has $t^* \le t'$. Since $w_0$ is $t'$-robust, it is also $t^*$-robust, satisfying condition (\ref{condition-robust-solution-part-1}).
+    \item The original center $w$ is removed from $\calW$, while the replacement center $w_0$ satisfies $w_0 \notin \calW^\star \cap \calU_{\init}$, so $w_0 \notin \calW_3$.
+\end{enumerate}
+Because $w$ is removed from $\calW$ and $w_0$ is never added to $\calW_3$, each center $w \in \calW_3$ is replaced at most once during the execution of \Cref{alg:modify:robustify}.
+
+Most crucially, whenever a Type III call occurs, the active center transitions from $w$ to $w_0$, and its associated scale parameter strictly increases:
+\begin{equation}
+\label{eq:scale_increase}
+t[w_0] = t' \ge t \ge t[w] + 1.
+\end{equation}
+
+\paragraph{7. Amortized Analysis Across All Epochs.}
+We track the center lineages across the entire execution spanning all $M$ updates:
+\begin{itemize}
+    \item Every center lineage begins either:
+    \begin{enumerate}
+        \item At initialization before the first epoch (at most $k$ initial centers),
+        \item Via a Type I call in Line~\ref{line:mandatorycall} for a newly introduced center $w \in \calW_1$, or
+        \item Via a Type II call in Line~\ref{line:mandatorycall} for a contaminated center $w \in \calW_2$.
+    \end{enumerate}
+    \item While a center lineage remains clean across epochs, each Type III call performed on it replaces the center with a new center whose scale parameter $t$ is strictly larger by at least $1$, as shown in (\ref{eq:scale_increase}).
+    \item Since every scale parameter $t$ belongs to $\calT \subseteq [-2, \lfloor \log_{10} \Delta \rfloor]$, it can take at most $T_{\max} = O(\log \Delta)$ distinct integer values before exceeding the maximum possible metric distance scale.
+    \item Hence, any center lineage can participate in at most $T_{\max} = O(\log \Delta)$ Type III calls before it is terminated, contaminated (triggering a Type II call), or replaced (triggering a Type I call).
+\end{itemize}
+
+Therefore, each initial center, each Type I call, and each Type II call can be charged for at most $O(\log \Delta)$ Type III calls across the entire execution. Summing over all epochs spanning $M$ updates:
+\begin{align*}
+\sum_{\text{epochs}} N_I &\le \sum_{\text{epochs}} O(\ell_{\text{epoch}} + 1) = O(M), \\
+\sum_{\text{epochs}} N_{II} &\le \sum_{\text{epochs}} O((\ell_{\text{epoch}} + 1) \log \Delta) = O(M \log \Delta).
+\end{align*}
+The total number of Type III calls across all epochs is therefore bounded by:
+\begin{align*}
+\sum_{\text{epochs}} N_{III} &\le \left(k + \sum_{\text{epochs}} N_I + \sum_{\text{epochs}} N_{II}\right) \cdot O(\log \Delta) \\
+&= \left(k + O(M) + O(M \log \Delta)\right) \cdot O(\log \Delta) \\
+&= O(k \log \Delta) + O(M \log^2 \Delta).
+\end{align*}
+Summing the calls across all three types, the grand total number of calls to $\MakeRbst(\cdot \, , \cdot)$ throughout the sequence of $M$ updates is:
+\begin{align*}
+\text{Total Calls} &= \sum_{\text{epochs}} (N_I + N_{II} + N_{III}) \\
+&= O(M) + O(M \log \Delta) + O(k \log \Delta) + O(M \log^2 \Delta) \\
+&= O(M \log^2 \Delta) + O(k \log \Delta).
+\end{align*}
+Dividing by $M$, the amortized number of calls to $\MakeRbst(\cdot \, , \cdot)$ per update is:
+$$\frac{\text{Total Calls}}{M} = O(\log^2 \Delta) + \frac{O(k \log \Delta)}{M} = O(\log^2 \Delta).$$
+Thus, \Cref{lm:makerobustcalls} continues to hold when the call to $\Robustify(\calW^{\star})$ is replaced by \Cref{alg:modify:robustify}.
+\end{proof}
+================================================================================

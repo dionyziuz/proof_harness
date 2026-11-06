@@ -1,0 +1,634 @@
+
+
+================================================================================
+[2026-10-27 23:16:52] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_85_91
+================================================================================
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_85_91 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**C1. System model $\Pi=\{p_1,\dots,p_n\}$:**
+- Deterministic state machines, zero local-computation time.
+- At most $0<t<n/3$ Byzantine, adaptive, full-information, computationally unbounded unless stated otherwise.
+- Correct = non-Byzantine; faulty = Byzantine.
+- *Precondition to use:* identical correct set must be preserved when mapping $\mathcal{E}\to\mathcal{E}'$.
+
+**C2. Partial synchrony:**
+- Unknown GST, known $\delta$: message sent at $\tau$ received by $\max(\tau,\text{GST})+\delta$.
+- All correct start before GST; clocks do not drift after GST.
+- *Hypothesis to discharge:* $\tau^*\ge \text{GST}$ needed to apply delay bound $+\delta$ and no-drift.
+
+**C3. Complexity definitions:**
+- $\mathit{pbit}(\mathcal{A}^S)=\max_{\mathcal{E},p_i}$ bits sent by $p_i$; $\mathit{latency}(\mathcal{A}^S)=\max_{\mathcal{E}}$ rounds to decide.
+- $\mathcal{R}$ = rounds $\mathcal{A}^S$ takes in synchrony; $\mathcal{B}$ = max bits any correct sends in synchrony.
+- Licensed use: correct processes in synchronous $\mathcal{E}'$ send $\le\mathcal{B}$ bits total, so cap check never blocks them.
+
+**C4. $\mathsf{CryptoSim}$ code (Alg. \ref{algorithm:simulation}):**
+- State: $s_i$, $\mathit{round}_i$ init $1$, $\mathit{sent\_bits}_i$ init $0$, $\mathit{received}_i=\emptyset$.
+- Loop while $\mathit{round}_i\le\mathcal{R}$: clear $\mathit{received}_i$; measure $\Delta_{\mathit{sync}}=2\Delta_{\mathit{shift}}+\delta$; collect all messages received in that window (Line \ref{line:receive_simulation}); wait $\Delta_{\mathit{shift}}$; compute $M_j$ from $(s_i,\mathcal{A}^S)$; if $M_j\neq\bot$ and $\mathit{sent\_bits}_i+B_j\le\mathcal{B}$ (Line \ref{line:check_sent_bits}) then send $\langle M_j\rangle$ (Line \ref{line:send_simulation}) and increment; upon window elapse update $s_i$ from $(s_i,\mathit{received}_i)$ (Line \ref{line:update_state}), $\mathit{round}_i{+}1$.
+- No parity bit (contrast $\mathsf{CryptoFreeSim}$ with $\Delta_{\mathit{sync}}=\Delta_{\mathit{shift}}+\delta$ + parity). Do not conflate.
+- *Preconditions:* $M_j$ defined deterministically from $s_i$; transition uses exactly $\mathit{received}_i$.
+
+**C5. Condition $\mathcal{S}^*$ (established truth, no re-derivation):**
+- (1) first correct starts at $\tau^*\ge\text{GST}$; (2) all correct start by $\tau^*+\Delta_{\mathit{shift}}$; (3) none stops by $\tau^*+\mathcal{R}\cdot\Delta_{\mathit{sync}}$.
+- Licensed direct application: start-skew $\le\Delta_{\mathit{shift}}$; all rounds occur post-GST; exactly $\mathcal{R}$ rounds executed.
+- Explicit observation to use: clocks non-drifting after GST $\Rightarrow$ measured $\Delta_{\mathit{sync}},\Delta_{\mathit{shift}}$ are real-time accurate under $\mathcal{S}^*$.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Strategy Alpha — Constructive Inductive Invariant (primary):**
+Induction on $k\in[1,\mathcal{R}+1]$ proving $s_i^k(\mathcal{E})=s_i^k(\mathcal{E}')$ for all correct $p_i$.
+- Base $k=1$: $s_i^1$ = initial state from identical proposal (Lemma items 1-2 enforced by construction of $\mathcal{E}'$ with same correct set/proposals).
+- Step: assume equality up to $k$. Then correct-to-correct messages prescribed by $\mathcal{A}^S$ in round $k$ are identical in $\mathcal{E},\mathcal{E}'$. Show timing lemma: any correct $p_i\to p_j$ message sent in simulated round $k$ is received in $p_j$'s simulated round $k$ window. Hence $\mathit{received}_j^k(\mathcal{E})$ contains all round-$k$ correct messages of $\mathcal{E}'$ plus possibly extra Byzantine messages. Construct $\mathcal{E}'$ synchronous round $k$ where faulty processes send exactly those extras (allowed: Byzantine arbitrary, $t<n/3$). Then deterministic transition (Line \ref{line:update_state}) yields $s_j^{k+1}(\mathcal{E})=s_j^{k+1}(\mathcal{E}')$. Cap Line \ref{line:check_sent_bits} never triggers for correct due to C3 ($\le\mathcal{B}$ in $\mathcal{E}'$).
+- Concludes all four items including message-set equality.
+
+**Strategy Beta — Extremal Divergence / Minimal Counterexample (contrapositive check):**
+Suppose claim false. Let $k^*\ge 1$ be minimal round where some correct $p_i$ diverges: $s_i^{k^*}(\mathcal{E})\neq s_i^{k^*}(\mathcal{E}')$ or correct message set differs, with agreement for all $k<k^*$. $k^*\neq 1$ by proposal equality. Then divergence must come from $\mathit{received}_i^{k^*-1}$ difference on correct-origin messages. Rule out via timing overlap: start-skew $\le\Delta_{\mathit{shift}}$ + $\Delta_{\mathit{sync}}=2\Delta_{\mathit{shift}}+\delta$ + post-GST delay $\le\delta$ forces inclusion. Therefore only Byzantine-origin difference remains, which is absorbable by redefining faulty behavior in synchronous $\mathcal{E}'$. Contradiction to minimality. Forces handling boundary $k^*=\mathcal{R}+1$ (final state, no sending) separately — no merging.
+
+**Strategy Gamma — Structural Timing Decomposition (send-window vs receive-window):**
+Decompose real-time intervals: let $\tau_i^k$ = start time of $p_i$'s simulated round $k$. Under $\mathcal{S}^*$, $\tau_i^k\in[\tau^*+(k-1)\Delta_{\mathit{sync}},\tau^*+\Delta_{\mathit{shift}}+(k-1)\Delta_{\mathit{sync}}]$. Sending occurs after $\Delta_{\mathit{sync}}+\Delta_{\mathit{shift}}$ offset within round. Show send time $\sigma_i^k\in[\tau_i^k+\Delta_{\mathit{sync}}+\Delta_{\mathit{shift}},\dots]$ arrives by $\sigma_i^k+\delta$ strictly inside $[\tau_j^k,\tau_j^k+\Delta_{\mathit{sync}}]$ receive window of any correct $p_j$ (uses $2\Delta_{\mathit{shift}}$ slack: one for start-skew, one for send-offset). This isolates correct-message delivery from Byzantine asynchrony. No probabilistic/exchangeability machinery needed; dependency is only via deterministic $s_i$.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+Core objects: execution $\mathcal{E}$, synchronous witness $\mathcal{E}'$, per-process round intervals, states $s_i^k$, message sets.
+
+```python
+state.register("Pi_correct", kind="set", properties=["hereditary: identical in E and E' by construction", "size>=n-t"])
+state.register("s_i^k", kind="array[correct,1..R+1]", properties=["hereditary: deterministic from proposal+received", "fragile: equality requires same received_i"])
+state.register("received_i^k", kind="set", properties=["fragile: superset under Byzantine extras; slicing window changes membership", "must contain all correct round-k messages"])
+state.register("tau_i^k", kind="interval", properties=["hereditary: skew<=Delta_shift under S*", "fragile: revoked if tau*<GST or clocks drift"])
+state.register("sent_bits_i", kind="counter", properties=["hereditary: <=B for correct if E' synchronous bound holds", "fragile: cap check would drop messages if B violated"])
+for k in range(1, R+2):
+    state.add_subgoal(f"INV_{k}", f"s_i^k(E)==s_i^k(E') forall correct i and correct-sent round-<k messages equal")
+```
+
+**Hereditary vs Fragile:**
+- Hereditary: determinism of $\mathcal{A}^S$ transition; correct set identity; post-GST delay $\le\delta$; start-skew $\le\Delta_{\mathit{shift}}$.
+- Fragile: $\mathit{received}_i$ content (extra Byzantine messages allowed; arbitrary substring/slicing of window breaks inclusion); $\mathit{sent\_bits}_i\le\mathcal{B}$ (holds only because $\mathcal{E}'$ is synchronous-valid; revoked if $\mathcal{B}$ mis-identified); round alignment (revoked if $\mathcal{S}^*$ (1)-(3) any fails).
+
+### Testable Intermediate Claims
+
+**T1. Receive-window inclusion (timing inequality):**
+For correct $i,j$, round $k\le\mathcal{R}$: send time $\sigma$ of $p_i$'s round-$k$ message satisfies $\tau_j^k \le \sigma \le \tau_j^k+\Delta_{\mathit{sync}}-\delta$ and arrival $\sigma+\delta$ lies in $p_j$'s collection window. Verify arithmetically with worst-case skew $\pm\Delta_{\mathit{shift}}$ and $\Delta_{\mathit{sync}}=2\Delta_{\mathit{shift}}+\delta$. Check boundaries $k=1$ (latest starter) and $k=\mathcal{R}$ (no early stop by $\mathcal{S}^*$(3)). REPL: plug symbolic $\tau^*,\Delta_{\mathit{shift}},\delta$.
+
+**T2. Bit-cap non-blocking:**
+If $s_i^k(\mathcal{E})=s_i^k(\mathcal{E}')$ for all $k'\le k$, then $\sum_{k'\le k}B$-usage in $\mathcal{E}$ equals that in $\mathcal{E}'\le\mathcal{B}$, so Line \ref{line:check_sent_bits} passes. Test: total, not per-round; faulty messages do not increment $\mathit{sent\_bits}_i$. Failure mode: applying $\mathcal{B}$ bound to faulty processes — forbidden.
+
+**T3. Byzantine-absorption construction:**
+Given $\mathit{received}_i^k(\mathcal{E}) = \text{Correct}_k \cup \text{Byz}_k$, define faulty behavior in $\mathcal{E}'$ round $k$ to send exactly $\text{Byz}_k$ to $p_i$. Check: synchronous model permits arbitrary faulty-to-correct messages per round; no constraint $t\ge n/3$ violated since correct set unchanged and $t<n/3$. Heuristic inequality warning: inclusion $\text{Correct}_k(\mathcal{E})\supseteq\text{Correct}_k(\mathcal{E}')$ holds on domain where induction hypothesis holds ($k'<k$); complementary regime $k\ge k^*$ discharged by minimality (Beta), not assumed.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_85_91 ---
+[Falsifier Script 1]:
+import sympy as sp
+# T1: same-round inclusion as literally stated in blueprint is false
+# Model: L = round length = Dsync + Dshift, Dsync = 2*Dshift + delta
+Dshift, delta = sp.symbols('Dshift delta', positive=True, real=True)
+a, b = sp.symbols('a b', real=True)  # start offsets in [0, Dshift]
+Dsync = 2*Dshift + delta
+# send time minus receiver window start (same k): sigma_i - tau_j^k = a - b + Dsync + Dshift
+diff_same = a - b + Dsync + Dshift
+# Claim T1 needs: 0 <= diff_same <= Dsync - delta  (so arrival in window)
+# Worst case lower bound: a-b >= -Dshift so diff_same >= Dsync > 0, upper bound?
+# Upper bound requires a - b + Dsync + Dshift <= Dsync - delta  <=> a - b + Dshift + delta <= 0
+expr = a - b + Dshift + delta
+print("T1 same-k upper-bound lhs - rhs =", expr, " with a-b in [-Dshift, Dshift]")
+print("Minimal possible value (a=0,b=Dshift):", sp.simplify(-Dshift + Dshift + delta), "= delta > 0")
+print("=> upper bound NEVER holds since Dshift+delta+(a-b) >= delta > 0")
+# Concrete numeric counterexample
+Dshift_v, delta_v = 1.0, 1.0
+Dsync_v = 2*Dshift_v + delta_v
+a_v, b_v = 0.0, 1.0  # i earliest, j latest
+diff_v = a_v - b_v + Dsync_v + Dshift_v
+print(f"numeric: Dshift={Dshift_v}, delta={delta_v}, Dsync={Dsync_v}, diff_same={diff_v}, allowed_max={Dsync_v-delta_v}")
+print("same-k inclusion holds?", 0 <= diff_v <= Dsync_v - delta_v)
+if not (0 <= diff_v <= Dsync_v - delta_v):
+    print("COUNTEREXAMPLE T1 same-k: send occurs AFTER receiver window closes; T1 as stated is FALSE")
+    assert False, "T1 same-round inclusion falsified"
+[Falsifier Kernel ALERT (Contradiction Found)]: Traceback (most recent call last):
+  File "<prime_math>", line 25, in <module>
+AssertionError: T1 same-round inclusion falsified
+[Falsifier Script 2]:
+import sympy as sp
+# T1 corrected (next-round) inclusion: arrival sigma_i+delta in [tau_j^{k+1}, tau_j^{k+1}+Dsync] ?
+# arrival - tau_j^{k+1} = a - b + delta, need 0 <= a-b+delta <= Dsync
+Dshift, delta = sp.symbols('Dshift delta', positive=True, real=True)
+a, b = sp.symbols('a b', real=True)
+Dsync = 2*Dshift + delta
+arr = a - b + delta
+# Symbolic domain check via reduce_inequalities: does 0<=arr hold for all a,b in [0,Dshift]?
+# Check worst case a=0,b=Dshift -> delta - Dshift >= 0 iff delta >= Dshift
+print("worst-case lower bound (a=0,b=Dshift): delta - Dshift >= 0 ?", sp.simplify(delta - Dshift))
+res = sp.reduce_inequalities([0 <= delta - Dshift], [delta])
+print("reduce_inequalities delta>=Dshift needed:", res)
+# Empirical spot check (NOT a proof): sample grid
+def holds_on_samples():
+    import itertools
+    for Ds, dl in [(1.0,1.0),(1.0,0.5),(2.0,0.1)]:
+        for av, bv in itertools.product([0.0, Ds/2, Ds],[0.0, Ds/2, Ds]):
+            v = av - bv + dl
+            if not (0 - 1e-9 <= v <= 2*Ds+dl + 1e-9):
+                print(f"  counterexample: Dshift={Ds}, delta={dl}, a={av}, b={bv}, arr-start={v}")
+                return False
+    return True
+print("spot check all-allow (expect fail on delta<Dshift):", holds_on_samples())
+# Concrete falsifying instance for the unconditional claim
+Dshift_v, delta_v, a_v, b_v = 1.0, 0.2, 0.0, 1.0
+v = a_v - b_v + delta_v
+print(f"numeric next-round: Dshift={Dshift_v}, delta={delta_v}, arr-start={v} (need >=0)")
+if v < 0:
+    print("COUNTEREXAMPLE: earliest sender to latest receiver arrives BEFORE next-round window opens unless delta>=Dshift")
+    print("=> T1 holds only under extra hypothesis delta>=Dshift, missing from blueprint")
+    assert False, "T1 next-round inclusion needs delta>=Dshift, falsified unconditionally"
+[Falsifier Kernel ALERT (Contradiction Found)]: Traceback (most recent call last):
+  File "<prime_math>", line 31, in <module>
+AssertionError: T1 next-round inclusion needs delta>=Dshift, falsified unconditionally
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+**Turn 1 — Exploration Gate: Inventory, Invariant, Claims**
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+**C1. System model:** $\Pi=\{p_1,\dots,p_n\}$, deterministic state machines, zero local time. At most $0<t<n/3$ Byzantine, adaptive, full-information. Correct set must be preserved when constructing $\mathcal{E}\to\mathcal{E}'$.
+
+**C2. Partial synchrony:** Unknown GST, known $\delta$. Send at $\tau$ received by $\max(\tau,\text{GST})+\delta$. All correct start before GST; clocks do not drift after GST. To apply $+\delta$ bound and accurate measurement we must discharge $\tau\ge\text{GST}$.
+
+**C3. Complexity:** $\mathcal{R}=\mathit{latency}(\mathcal{A}^S)$ rounds in synchrony; $\mathcal{B}$ = max bits any correct sends in synchrony in any execution. Licensed use: if witness $\mathcal{E}'$ is synchronous-valid, correct total usage $\le\mathcal{B}$, so cap never blocks correct.
+
+**C4. $\mathsf{CryptoSim}$ code:** $s_i$ init from proposal, $\mathit{round}_i=1$, $\mathit{sent\_bits}_i=0$, $\mathit{received}_i=\emptyset$. Loop while $\mathit{round}_i\le\mathcal{R}$: clear $\mathit{received}_i$; measure $\Delta_{\mathit{sync}}=2\Delta_{\mathit{shift}}+\delta$; collect all messages in that window; wait $\Delta_{\mathit{shift}}$; compute deterministic $M_j$ from $(s_i,\mathcal{A}^S)$; if $M_j\neq\bot$ and $\mathit{sent\_bits}_i+B_j\le\mathcal{B}$ then send and increment; upon window elapse update $s_i$ from $(s_i,\mathit{received}_i)$, $\mathit{round}_i+1$. No parity bit. Do not conflate with $\mathsf{CryptoFreeSim}$ ($\Delta_{\mathit{shift}}+\delta$ + parity).
+
+Key structural reading: round duration is exactly $\Delta_{\mathit{sync}}$. The `measure' starts round timer; `wait $\Delta_{\mathit{shift}}$' is *inside* the measured window; send offset is $\Delta_{\mathit{shift}}$ after round start, not $\Delta_{\mathit{sync}}+\Delta_{\mathit{shift}}$ after. This is forced by $\mathcal{S}^*$(3): total time $\mathcal{R}\cdot\Delta_{\mathit{sync}}$ covers exactly $\mathcal{R}$ rounds.
+
+**C5. $\mathcal{S}^*$ (established truth):** (1) first correct starts at $\tau^*\ge\text{GST}$; (2) all correct start by $\tau^*+\Delta_{\mathit{shift}}$; (3) none stops by $\tau^*+\mathcal{R}\cdot\Delta_{\mathit{sync}}$. Licensed: start-skew $\le\Delta_{\mathit{shift}}$; all rounds post-GST; exactly $\mathcal{R}$ rounds executed; clocks non-drifting $\Rightarrow$ measured durations are real-time accurate.
+
+### 2. Invariant-First Formulation
+
+Anti-perseveration note: Blueprint T1 tested send time $\tau_i^k+\Delta_{\mathit{sync}}+\Delta_{\mathit{shift}}$. That falsification is correct *for that wrong offset* and must be discarded, not used to restrict the theorem domain. Correct offset is $\tau_i^k+\Delta_{\mathit{shift}}$.
+
+Unifying invariant — **Same-Round Delivery:**
+Under $\mathcal{S}^*$, every correct-to-correct simulated-round-$k$ message is sent and received inside the receiver's round-$k$ collection window. Hence $\mathit{received}_j^k(\mathcal{E})$ = correct round-$k$ messages (identical to synchronous) $\cup$ extra Byzantine messages. Byzantine extras are absorbable by redefining faulty senders in synchronous $\mathcal{E}'$. No parity, no cross-round spill, no probabilistic machinery needed. The $2\Delta_{\mathit{shift}}$ slack splits as: one $\Delta_{\mathit{shift}}$ for start-skew, one for send-offset.
+
+This groups all cases; no exhaustive combinatorial split over faulty behaviours is needed.
+
+### 3. Structured Intermediate Claims
+
+[CLAIM T-Correct — Round alignment and timing inclusion]:
+Assume $\mathcal{S}^*$. Let $\tau_i^k$ be real start of $p_i$'s simulated round $k$. Then $\tau_i^k\in[\tau^*+(k-1)\Delta_{\mathit{sync}},\tau^*+\Delta_{\mathit{shift}}+(k-1)\Delta_{\mathit{sync}}]$, round lasts exactly $\Delta_{\mathit{sync}}$, send time $\sigma_i^k=\tau_i^k+\Delta_{\mathit{shift}}$, receive window $W_j^k=[\tau_j^k,\tau_j^k+\Delta_{\mathit{sync}}]$. For correct $i,j$, $k\le\mathcal{R}$: $\tau_j^k\le\sigma_i^k$ and $\sigma_i^k+\delta\le\tau_j^k+\Delta_{\mathit{sync}}$, so arrival $\in W_j^k$.
+
+[REDUCTION]: Discharges C2/C5 preconditions (post-GST, no drift, skew bound) and isolates correct-message delivery from Byzantine asynchrony. Foundation for induction step.
+
+[CLAIM C-Cap — Bit-cap non-blocking]:
+If $s_i^{k'}(\mathcal{E})=s_i^{k'}(\mathcal{E}')$ for all $k'\le k$, then correct $p_i$'s cumulative send usage in $\mathcal{E}$ up to $k$ equals that in $\mathcal{E}'$, hence $\le\mathcal{B}$; Line check never drops correct messages. Faulty usage irrelevant.
+
+[REDUCTION]: Discharges C3/C4 precondition to apply deterministic $M_j$ sending; ensures message-set equality is not broken by cap.
+
+[CLAIM I-Ind — Inductive simulation with Byzantine absorption]:
+Define INV$_k$: for all correct $i$, $s_i^{k}(\mathcal{E})=s_i^{k}(\mathcal{E}')$ and correct-sent messages in rounds $<k$ identical. INV$_1$ holds by identical correct set/proposals. INV$_k\Rightarrow$INV$_{k+1}$ by T-Correct + C-Cap: define faulty behaviour in $\mathcal{E}'$ round $k$ to send exactly the Byzantine extras observed in $\mathit{received}^k(\mathcal{E})$; deterministic transition then preserves state equality.
+
+[REDUCTION]: Composes C1 (same correct set, $t<n/3$, Byzantine arbitrary allowed in synchrony) + C4 determinism to construct $\mathcal{R}$-round synchronous witness satisfying all four lemma items. Boundary $k=\mathcal{R}+1$ (final state, no sending) handled as terminal instance of INV, not merged.
+
+### 4. State Machine & REPL Verification
+
+```python
+# Timing inclusion with CORRECT offset sigma = tau_i + Dshift
+import itertools
+Dshift, delta = 1.0, 0.5  # arbitrary; also test delta << Dshift, delta >> Dshift
+Dsync = 2*Dshift + delta
+def check(a_i, a_j):
+    # tau_i = base + a_i, tau_j = base + a_j, a in [0,Dshift]
+    sigma_i = a_i + Dshift  # relative to base
+    lower = sigma_i - a_j  # sigma_i - tau_j (rel); need >=0
+    upper = (sigma_i + delta) - (a_j + Dsync)  # arrival - window_end; need <=0
+    return lower, upper
+
+samples = [0.0, 0.25, 0.5, 1.0]
+ok = True
+for a_i, a_j in itertools.product(samples, repeat=2):
+    lo, up = check(a_i, a_j)
+    if not (lo >= -1e-9 and up <= 1e-9):
+        ok = False
+        print("FAIL", a_i, a_j, lo, up)
+print("correct-offset inclusion holds on grid:", ok)
+# worst-case analytic bounds
+print("lower worst (a_i=0,a_j=Dshift):", 0 + Dshift - Dshift, ">=0 OK")
+print("upper worst (a_i=Dshift,a_j=0):", Dshift+Dshift+delta - (0+Dsync), "<=0 OK")
+# broken blueprint offset for contrast
+def check_broken(a_i, a_j):
+    sigma_i = a_i + Dsync + Dshift
+    lower = sigma_i - a_j
+    upper = (sigma_i + delta) - (a_j + Dsync)
+    return lower, upper
+print("broken offset upper worst:", check_broken(Dshift,0)[1], ">0 => correctly discarded")
+```
+
+```python
+# State-machine registration of hereditary vs fragile invariants
+try:
+    state.register("Pi_correct", domain="set", properties=["identical in E and E'", "size>=n-t"])
+    state.register("s_i^k", domain="array[correct,1..R+1]", properties=["hereditary: deterministic from proposal+received"])
+    state.register("received_i^k", domain="set", properties=["fragile: superset under Byzantine extras"])
+    state.register("tau_i^k", domain="interval", properties=["hereditary: skew<=Dshift under S*", "fragile: revoked if tau*<GST"])
+    state.register("sent_bits_i", domain="counter", properties=["hereditary: <=B for correct if E' synchronous"])
+    for k in [1, 2, "R", "R+1"]:
+        pass  # subgoals INV_k: s equality + correct-message equality
+    state.checkpoint("INV_base")
+    print(state.status())
+except Exception as e:
+    print("state API variant:", e)
+    # fallback: pure arithmetic check already done above suffices for Turn 1 gate
+```
+
+Result expectation: correct-offset grid passes for all $a_i,a_j\in[0,\Delta_{\mathit{shift}}]$ and all $\delta>0$ (no $\delta\ge\Delta_{\mathit{shift}}$ needed); broken offset fails unconditionally — confirming the falsification warning targets the blueprint's misplaced $B(x)$, which we discard. Next turn will synthesize full induction using T-Correct + C-Cap + Byzantine absorption.
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Timing inclusion with CORRECT offset sigma = tau_i + Dshift
+import itertools
+Dshift, delta = 1.0, 0.5  # arbitrary; also test delta << Dshift, delta >> Dshift
+Dsync = 2*Dshift + delta
+def check(a_i, a_j):
+    # tau_i = base + a_i, tau_j = base + a_j, a in [0,Dshift]
+    sigma_i = a_i + Dshift  # relative to base
+    lower = sigma_i - a_j  # sigma_i - tau_j (rel); need >=0
+    upper = (sigma_i + delta) - (a_j + Dsync)  # arrival - window_end; need <=0
+    return lower, upper
+
+samples = [0.0, 0.25, 0.5, 1.0]
+ok = True
+for a_i, a_j in itertools.product(samples, repeat=2):
+    lo, up = check(a_i, a_j)
+    if not (lo >= -1e-9 and up <= 1e-9):
+        ok = False
+        print("FAIL", a_i, a_j, lo, up)
+print("correct-offset inclusion holds on grid:", ok)
+# worst-case analytic bounds
+print("lower worst (a_i=0,a_j=Dshift):", 0 + Dshift - Dshift, ">=0 OK")
+print("upper worst (a_i=Dshift,a_j=0):", Dshift+Dshift+delta - (0+Dsync), "<=0 OK")
+# broken blueprint offset for contrast
+def check_broken(a_i, a_j):
+    sigma_i = a_i + Dsync + Dshift
+    lower = sigma_i - a_j
+    upper = (sigma_i + delta) - (a_j + Dsync)
+    return lower, upper
+print("broken offset upper worst:", check_broken(Dshift,0)[1], ">0 => correctly discarded")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0011s) ---
+Stdout:
+correct-offset inclusion holds on grid: True
+lower worst (a_i=0,a_j=Dshift): 0.0 >=0 OK
+upper worst (a_i=Dshift,a_j=0): 0.0 <=0 OK
+broken offset upper worst: 2.5 >0 => correctly discarded
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# State-machine registration of hereditary vs fragile invariants
+try:
+    state.register("Pi_correct", domain="set", properties=["identical in E and E'", "size>=n-t"])
+    state.register("s_i^k", domain="array[correct,1..R+1]", properties=["hereditary: deterministic from proposal+received"])
+    state.register("received_i^k", domain="set", properties=["fragile: superset under Byzantine extras"])
+    state.register("tau_i^k", domain="interval", properties=["hereditary: skew<=Dshift under S*", "fragile: revoked if tau*<GST"])
+    state.register("sent_bits_i", domain="counter", properties=["hereditary: <=B for correct if E' synchronous"])
+    for k in [1, 2, "R", "R+1"]:
+        pass  # subgoals INV_k: s equality + correct-message equality
+    state.checkpoint("INV_base")
+    print(state.status())
+except Exception as e:
+    print("state API variant:", e)
+    # fallback: pure arithmetic check already done above suffices for Turn 1 gate
+```
+--- [TURN 1] EXECUTION SUCCESS (0.001s) ---
+Stdout:
+=== Mathematical State Machine Status ===
+Registered Objects (5):
+  • Pi_correct [set]
+      Active Invariants: identical in e and e', size>=n-t
+  • s_i^k [array[correct,1..r+1]]
+      Active Invariants: hereditary: deterministic from proposal+received
+  • received_i^k [set]
+      Active Invariants: fragile: superset under byzantine extras
+  • tau_i^k [interval]
+      Active Invariants: fragile: revoked if tau*<gst, hereditary: skew<=dshift under s*
+  • sent_bits_i [counter]
+      Active Invariants: hereditary: <=b for correct if e' synchronous
+
+Subgoals (0):
+
+Verified Lemmas (0):
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 2/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix an execution $\mathcal{E}$ of $\mathsf{CryptoSim}$ and assume $\mathcal{S}^{*}$ holds with witness $\tau^{*}\ge \mathrm{GST}$.
+Let $C\subseteq \Pi$ be the set of correct processes in $\mathcal{E}$ and fix their proposals.
+We construct a synchronous execution $\mathcal{E}'$ of $\mathcal{A}^{S}$ with the same correct set $C$ and same proposals; faulty behavior in $\mathcal{E}'$ is defined round by round below.
+Let $\mathcal{R}$ be the number of synchronous rounds and $\mathcal{B}$ the maximum total bits any correct process sends in any synchronous execution.
+Denote by $s_{i}^{k}(\mathcal{E})$ the state of correct $p_{i}$ at the beginning of simulated round $k$, with $k\in[1,\mathcal{R}+1]$, and $s_{i}^{k}(\mathcal{E}')$ analogously in synchrony.
+Local computation takes zero time.
+
+\medskip\noindent\textbf{Round timing.}
+For correct $p_{i}$, let $\mathit{start}_{i}$ be the real time $p_{i}$ starts $\mathsf{CryptoSim}$ and $\tau_{i}^{k}$ the real time it starts simulated round $k$.
+By $\mathcal{S}^{*}$, $\mathit{start}_{i}=\tau^{*}+\alpha_{i}$ with $\alpha_{i}\in[0,\Delta_{\mathit{shift}}]$.
+Clocks do not drift after $\mathrm{GST}$ and $\tau^{*}\ge\mathrm{GST}$, so measured durations equal real durations.
+Each simulated round consists of a collection window of length $\Delta_{\mathit{sync}}=2\Delta_{\mathit{shift}}+\delta$; the $\Delta_{\mathit{shift}}$ wait and sending occur at offset $\Delta_{\mathit{shift}}$ inside this window, and the next round starts upon its elapse.
+By $\mathcal{S}^{*}$ no correct process is stopped externally before completing its $\mathcal{R}$ windows, so exactly $\mathcal{R}$ rounds are executed and
+\[
+\tau_{i}^{k}=\tau^{*}+\alpha_{i}+(k-1)\Delta_{\mathit{sync}},\qquad
+W_{i}^{k}=[\tau_{i}^{k},\tau_{i}^{k}+\Delta_{\mathit{sync}}],\qquad
+\sigma_{i}^{k}=\tau_{i}^{k}+\Delta_{\mathit{shift}},
+\]
+where $W_{i}^{k}$ is the collection interval for round $k$ and $\sigma_{i}^{k}$ is the sending instant in round $k$.
+Since $\tau_{i}^{k},\sigma_{i}^{k}\ge\mathrm{GST}$, any message sent at $\sigma_{i}^{k}$ arrives in $[\sigma_{i}^{k},\sigma_{i}^{k}+\delta]$.
+\begin{claim}\label{cl:timing}
+For correct $p_{i},p_{j}$ and $k\le\mathcal{R}$:
+(a) any message sent by $p_{i}$ in simulated round $k$ arrives in $W_{j}^{k}$;
+(b) no message sent by correct $p_{i}$ in round $k'$ with $|k'-k|\ge 2$ arrives in $W_{j}^{k}$.
+\end{claim}
+\begin{proof}
+Write $\tau_{i}^{k}=\tau^{*}+\alpha_{i}+(k-1)\Delta_{\mathit{sync}}$ and $\tau_{j}^{k}=\tau^{*}+\alpha_{j}+(k-1)\Delta_{\mathit{sync}}$ with $\alpha_{i},\alpha_{j}\in[0,\Delta_{\mathit{shift}}]$.
+Then $\sigma_{i}^{k}=\tau_{i}^{k}+\Delta_{\mathit{shift}}$.
+For (a), $\sigma_{i}^{k}-\tau_{j}^{k}=\alpha_{i}-\alpha_{j}+\Delta_{\mathit{shift}}\in[0,2\Delta_{\mathit{shift}}]$ because $\alpha_{i}-\alpha_{j}\in[-\Delta_{\mathit{shift}},\Delta_{\mathit{shift}}]$.
+Hence $\sigma_{i}^{k}\ge\tau_{j}^{k}$ and, with $\Delta_{\mathit{sync}}=2\Delta_{\mathit{shift}}+\delta$,
+\[
+\sigma_{i}^{k}+\delta-\big(\tau_{j}^{k}+\Delta_{\mathit{sync}}\big)=\alpha_{i}-\alpha_{j}-\Delta_{\mathit{shift}}\le 0.
+\]
+Thus $[\sigma_{i}^{k},\sigma_{i}^{k}+\delta]\subseteq W_{j}^{k}$.
+For (b), if $k'\le k-2$, the latest arrival is $\sigma_{i}^{k'}+\delta=\tau^{*}+\alpha_{i}+(k'-1)\Delta_{\mathit{sync}}+\Delta_{\mathit{shift}}+\delta\le\tau^{*}+k'\Delta_{\mathit{sync}}<\tau_{j}^{k}$, since $\alpha_{i}\le\Delta_{\mathit{shift}}$ and $k'\le k-2$.
+If $k'\ge k+2$, the earliest arrival is $\sigma_{i}^{k'}\ge\tau^{*}+(k'-1)\Delta_{\mathit{sync}}+\Delta_{\mathit{shift}}>\tau_{j}^{k}+\Delta_{\mathit{sync}}$, since $\Delta_{\mathit{sync}}>\Delta_{\mathit{shift}}$.
+Hence such messages lie strictly outside the closed window $W_{j}^{k}$.
+\end{proof}
+In particular, only rounds $k-1,k,k+1$ can contribute correct messages to $W_{j}^{k}$, and $k\pm1$ only at exact boundary instants.
+This uses $\tau^{*}\ge\mathrm{GST}$, start-skew at most $\Delta_{\mathit{shift}}$, post-$\mathrm{GST}$ delay at most $\delta$, and accurate clocks.
+
+\medskip\noindent\textbf{Inductive simulation.}
+We maintain $\mathrm{INV}_{k}$ for $k\in[1,\mathcal{R}+1]$: for all correct $p_{i}$, $s_{i}^{k}(\mathcal{E})=s_{i}^{k}(\mathcal{E}')$, and correct messages sent in rounds $<k$ coincide in $\mathcal{E},\mathcal{E}'$.
+$\mathrm{INV}_{1}$ holds because $s_{i}^{1}$ is the initial state from the same proposal and $C$ is identical by construction.
+Assume $\mathrm{INV}_{k}$ holds for some $k\le\mathcal{R}$.
+Then $M_{j}$, the messages $\mathcal{A}^{S}$ prescribes $p_{i}$ to send to $p_{j}$ from $s_{i}^{k}$, is identical in $\mathcal{E},\mathcal{E}'$ by determinism.
+We show the bit-cap never blocks correct processes.
+Let $U_{i}^{k}$ be cumulative attempted bits through rounds $<k$; by $\mathrm{INV}_{k}$ it is equal in both executions.
+Full-round attempts through $k$ equal the synchronous prescription from matching states.
+Any valid synchronous prefix extends to a full synchronous execution whose correct total is at most $\mathcal{B}$ by definition of $\mathcal{B}$; since bits are non-negative, any prefix cumulative and any intermediate partial sum within round $k$ is at most $\mathcal{B}$.
+Hence $\mathit{sent\_bits}_{i}+B_{j}\le\mathcal{B}$ holds for each $p_{j}$ in order, so Line~\ref{line:check_sent_bits} passes and actual sends in $\mathcal{E}$ equal prescriptions, hence equal sends in $\mathcal{E}'$ round $k$.
+This establishes message-set equality for round $k$.
+
+Let $C_{j}^{k}$ be the set of correct round-$k$ messages to $p_{j}$; by Claim~\ref{cl:timing}(a), $C_{j}^{k}\subseteq\mathit{received}_{j}^{k}(\mathcal{E})$.
+Write $\mathit{received}_{j}^{k}(\mathcal{E})=C_{j}^{k}\cup X_{j}^{k}$ where $X_{j}^{k}$ are extras (Byzantine messages and possibly correct adjacent-round messages arriving at boundaries).
+Define faulty behavior in $\mathcal{E}'$ round $k$ as follows.
+Let $F=\Pi\setminus C$ with $|F|\le t<n/3$, preserved from $\mathcal{E}$.
+If $F\neq\emptyset$, fix $f^{*}\in F$ to send exactly $X_{j}^{k}$ to each correct $p_{j}$; faulty processes may send arbitrary strings in synchrony, including replays, with no bit limit.
+Then $\mathit{received}_{j}^{k}(\mathcal{E}')=C_{j}^{k}\cup X_{j}^{k}=\mathit{received}_{j}^{k}(\mathcal{E})$.
+If $F=\emptyset$, then $X_{j}^{k}$ contains only correct messages from rounds $k\pm1$ at exact boundaries by Claim~\ref{cl:timing}(b).
+Since $\mathcal{A}^{S}$ is cryptography-based, unlike $\mathsf{CryptoFreeSim}$ which needs an explicit parity bit, correct messages are authenticated to their round and the round-$k$ transition discards strings invalid for round $k$; thus such stale replays do not affect the transition, and effective inputs equal $C_{j}^{k}$ in both executions.
+In either case the deterministic update of Line~\ref{line:update_state} from identical $(s_{j}^{k},\mathit{received}_{j}^{k})$ yields $s_{j}^{k+1}(\mathcal{E})=s_{j}^{k+1}(\mathcal{E}')$.
+This is $\mathrm{INV}_{k+1}$.
+The case $k=\mathcal{R}$ yields the final state $s^{{\mathcal{R}}+1}$ with no further sending, treated separately as above.
+
+By induction $\mathrm{INV}_{\mathcal{R}+1}$ holds.
+The constructed $\mathcal{E}'$ follows $\mathcal{A}^{S}$ for correct processes and arbitrary faulty sends for $F$, with $|F|<n/3$, over $\mathcal{R}$ lock-step rounds; it is a valid $\mathcal{R}$-round synchronous execution.
+Correct sets are identical by construction, proposals are identical by construction, per-round correct sends are identical hence overall sent sets are identical, and $s_{i}^{k}(\mathcal{E})=s_{i}^{k}(\mathcal{E}')$ for all correct $p_{i}$ and $k\in[1,\mathcal{R}+1]$.
+\end{proof}
+[Proof Draft Generated] Turn 2: 7597 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.65, "completeness": 0.6, "boundary_cases": 0.5, "validity": 0.55, "verdict": "REJECT", "issues": "The F-empty branch leaves received-set equality unproved. When F is empty there is no faulty sender to emit X_j^k, so constructed received(E')=C_j^k while received(E)=C_j^k union X_j^k where X_j^k may be non-empty due to adjacent-round boundary arrivals allowed by Claim. The proof does not eliminate this spillover but asserts without Context support that since A^S is cryptography-based messages are authenticated to their round and the transition discards strings invalid for round k, giving equal effective inputs. This round-authentication/discarding behavior is not defined in the Context pseudocode, S* definition, or model, nor derived from first principles. Hence INV_k to INV_{k+1} is unclosed for executions with zero actual faults."}
+[Best Candidate Updated] Turn 2: validity=0.55 (7597 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.55, rejection #1)
+The F-empty branch leaves received-set equality unproved. When F is empty there is no faulty sender to emit X_j^k, so constructed received(E')=C_j^k while received(E)=C_j^k union X_j^k where X_j^k may be non-empty due to adjacent-round boundary arrivals allowed by Claim. The proof does not eliminate this spillover but asserts without Context support that since A^S is cryptography-based messages are authenticated to their round and the transition discards strings invalid for round k, giving equal effective inputs. This round-authentication/discarding behavior is not defined in the Context pseudocode, S* definition, or model, nor derived from first principles. Hence INV_k to INV_{k+1} is unclosed for executions with zero actual faults.
+[Self-Improvement] Initiating surgical revision turn 3 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_85_91 ---
+[Critique Falsifier Script]:
+import itertools
+Ds, d = 1.0, 1.0
+Dsync = 2*Ds + d  # 3.0
+def tau(a,k,ts=10.0): return ts+a+(k-1)*Dsync
+def sig(a,k,ts=10.0): return tau(a,k,ts)+Ds
+found=False
+for ai,aj in itertools.product([0.0,Ds],[0.0,Ds]):
+    k=2; ts=10.0
+    Wj=[tau(aj,k,ts),tau(aj,k,ts)+Dsync]
+    late=sig(ai,k-1,ts)+d   # latest arrival from round k-1
+    early=sig(ai,k+1,ts)    # earliest arrival from round k+1
+    if Wj[0]-1e-9<=late<=Wj[1]+1e-9 or Wj[0]-1e-9<=early<=Wj[1]+1e-9:
+        # F empty: E' has only C, E has C union spillover
+        C={"m_k"}; X=set()
+        if Wj[0]-1e-9<=late<=Wj[1]+1e-9: X.add("m_{k-1}_spill")
+        if Wj[0]-1e-9<=early<=Wj[1]+1e-9: X.add("m_{k+1}_spill")
+        recv_E, recv_Ep = C|X, set(C)
+        if recv_E!=recv_Ep and X:
+            print(f"COUNTEREXAMPLE_FOUND: ai={ai},aj={aj},Wj={Wj},late={late},early={early},recvE={recv_E},recvEp={recv_Ep}")
+            found=True
+if not found: print("INVARIANT_VERIFIED: no spillover")
+else: raise assert False, "COUNTEREXAMPLE_FOUND"
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 3/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix an execution $\mathcal{E}$ of $\mathsf{CryptoSim}$ and assume $\mathcal{S}^{*}$ holds with witness $\tau^{*}\ge\mathrm{GST}$.
+Let $C\subseteq\Pi$ be correct in $\mathcal{E}$, $F=\Pi\setminus C$, $|F|\le t<n/3$, with fixed proposals.
+We construct synchronous $\mathcal{E}'$ of $\mathcal{A}^{S}$ with identical $C$ and proposals; faulty sends defined below.
+Let $\mathcal{R}$ be synchronous rounds, $\mathcal{B}$ max total bits any correct sends in synchrony.
+Denote $s_{i}^{k}(\mathcal{E})$ state of correct $p_{i}$ at beginning of simulated round $k$, $k\in[1,\mathcal{R}+1]$, and $s_{i}^{k}(\mathcal{E}')$ analogously.
+Local steps take zero time.
+\medskip\noindent\textbf{Round timing.}
+Let $\mathit{start}_{i}=\tau^{*}+\alpha_{i}$, $\alpha_{i}\in[0,\Delta_{\mathit{shift}}]$, be start of $\mathsf{CryptoSim}$ at correct $p_{i}$ by $\mathcal{S}^{*}$(1)(2).
+Clocks do not drift after $\mathrm{GST}$ and $\tau^{*}\ge\mathrm{GST}$, so measured durations equal real durations.
+Each simulated round is a collection window of length $\Delta_{\mathit{sync}}=2\Delta_{\mathit{shift}}+\delta$; sending occurs $\Delta_{\mathit{shift}}$ inside it, next round upon elapse.
+By $\mathcal{S}^{*}$(3) no correct stops before completing $\mathcal{R}$ windows, so exactly $\mathcal{R}$ rounds execute and
+\[
+\tau_{i}^{k}=\tau^{*}+\alpha_{i}+(k-1)\Delta_{\mathit{sync}},\quad W_{i}^{k}=[\tau_{i}^{k},\tau_{i}^{k}+\Delta_{\mathit{sync}}],\quad \sigma_{i}^{k}=\tau_{i}^{k}+\Delta_{\mathit{shift}},
+\]
+$W_{i}^{k}$ collection interval, $\sigma_{i}^{k}$ sending instant in round $k$.
+Since $\tau_{i}^{k},\sigma_{i}^{k}\ge\mathrm{GST}$, sent messages arrive in $[\sigma_{i}^{k},\sigma_{i}^{k}+\delta]$.
+\begin{claim}\label{cl:timing}
+For correct $p_{i},p_{j}$, $k\le\mathcal{R}$: (a) messages sent by $p_{i}$ in simulated round $k$ arrive in $W_{j}^{k}$; (b) no correct round-$k'$ message with $|k'-k|\ge 2$ arrives in $W_{j}^{k}$.
+\end{claim}
+\begin{proof}
+Write $\tau_{i}^{k}=\tau^{*}+\alpha_{i}+(k-1)\Delta_{\mathit{sync}}$, $\tau_{j}^{k}=\tau^{*}+\alpha_{j}+(k-1)\Delta_{\mathit{sync}}$.
+Then $\sigma_{i}^{k}-\tau_{j}^{k}=\alpha_{i}-\alpha_{j}+\Delta_{\mathit{shift}}\in[0,2\Delta_{\mathit{shift}}]$.
+Hence $\sigma_{i}^{k}\ge\tau_{j}^{k}$ and $\sigma_{i}^{k}+\delta-(\tau_{j}^{k}+\Delta_{\mathit{sync}})=\alpha_{i}-\alpha_{j}-\Delta_{\mathit{shift}}\le 0$, so $[\sigma_{i}^{k},\sigma_{i}^{k}+\delta]\subseteq W_{j}^{k}$, proving (a).
+If $k'\le k-2$, latest arrival $\sigma_{i}^{k'}+\delta\le\tau^{*}+k'\Delta_{\mathit{sync}}<\tau_{j}^{k}$; if $k'\ge k+2$, earliest arrival $\sigma_{i}^{k'}\ge\tau^{*}+(k'-1)\Delta_{\mathit{sync}}+\Delta_{\mathit{shift}}>\tau_{j}^{k}+\Delta_{\mathit{sync}}$. Hence strictly outside $W_{j}^{k}$, proving (b).
+\end{proof}
+Thus only rounds $k-1,k,k+1$ can contribute to $W_{j}^{k}$, the latter two only at exact boundary instants with maximal skew and extremal delay.
+\medskip\noindent\textbf{Inductive simulation.}
+Maintain $\mathrm{INV}_{k}$: for all correct $p_{i}$, $s_{i}^{k}(\mathcal{E})=s_{i}^{k}(\mathcal{E}')$, and correct sends in rounds $<k$ coincide.
+$\mathrm{INV}_{1}$ holds as $s_{i}^{1}$ is initial state from identical proposals and $C$ identical by construction.
+Assume $\mathrm{INV}_{k}$, $k\le\mathcal{R}$.
+Then $M_{j}$ prescribed by $\mathcal{A}^{S}$ from $s_{i}^{k}$ is identical in $\mathcal{E},\mathcal{E}'$ by determinism.
+Let $U_{i}^{k}$ be cumulative attempted bits through rounds $<k$; equal in both by $\mathrm{INV}_{k}$.
+Full attempts through $k$ equal synchronous prescription from matching states.
+Any prefix cumulative, including intermediate partial sums within round $k$ over $p_{j}$ in order, is bounded by the total of a synchronous execution extending that prefix; by definition of $\mathcal{B}$ that total is $\le\mathcal{B}$, and bits are non-negative.
+Hence $\mathit{sent\_bits}_{i}+B_{j}\le\mathcal{B}$ for each $p_{j}$, Line~\ref{line:check_sent_bits} passes, actual sends in $\mathcal{E}$ equal prescriptions, hence equal sends in $\mathcal{E}'$ round $k$.
+This gives message-set equality for round $k$.
+\begin{claim}\label{cl:filter}
+For cryptography-based $\mathcal{A}^{S}$, transition from $s^{k}$ encoding round $k$ depends only on validly authenticated round-$k$ messages; all other strings are discarded.
+\end{claim}
+\begin{proof}
+$\mathcal{A}^{S}$ solves agreement in synchrony tolerating $t$ faults where faulty have full information and send arbitrarily each round, in particular replays of earlier correct messages and arbitrary forgeries.
+If $\delta(s^{k},\cdot)$ did not discard strings failing authentication for round $k$, faulty could disrupt synchrony by replay/forgery, contradicting correctness.
+Hence correctness necessitates unforgeable binding of $(\text{sender},\text{round})$ and discarding of invalid/wrong-round strings.
+This is why $\mathsf{CryptoFreeSim}$ tags rounds explicitly with parity whereas $\mathsf{CryptoSim}$ carries no parity: round distinction comes from cryptography itself.
+\end{proof}
+Let $C_{j}^{k}$ be correct round-$k$ messages to $p_{j}$; identical in $\mathcal{E},\mathcal{E}'$ and valid for round $k$.
+By Claim~\ref{cl:timing}(a), $C_{j}^{k}\subseteq\mathit{received}_{j}^{k}(\mathcal{E})$ as closed intervals.
+Write $\mathit{received}_{j}^{k}(\mathcal{E})=C_{j}^{k}\cup X_{j}^{k}$ where $X_{j}^{k}$ are extras: Byzantine strings and possibly correct $k\pm1$ spillover at boundaries; far rounds excluded by Claim~\ref{cl:timing}(b).
+Define faulty behavior in $\mathcal{E}'$ round $k$ to send exactly the Byzantine-origin subset of $X_{j}^{k}$ that is valid for round $k$ (faulty-origin valid signatures); this subset was sent in $\mathcal{E}$ no later than end of $W_{j}^{k}$, hence causally known, and arbitrary faulty sends are allowed in synchrony with $|F|\le t<n/3$ preserved.
+Stale correct spillover carries valid signatures for rounds $k\pm1$, hence invalid for $k$, and invalid forgeries fail authentication; by Claim~\ref{cl:filter} both are discarded in $\mathcal{E}$ and need not be reproduced in $\mathcal{E}'$, avoiding any future-round causality loop.
+Thus valid inputs coincide: $\mathrm{Valid}_{k}(\mathit{received}_{j}^{k}(\mathcal{E}))=\mathrm{Valid}_{k}(\mathit{received}_{j}^{k}(\mathcal{E}'))$.
+If $F=\emptyset$ this holds vacuously: $X_{j}^{k}$ contains only stale correct spillover, discarded in $\mathcal{E}$, while $\mathcal{E}'$ has $C_{j}^{k}$ alone, so effective inputs equal $C_{j}^{k}$ in both.
+If $F\neq\emptyset$ fix $f^{*}\in F$ to emit the required Byzantine-valid strings; faulty may send arbitrary strings including replays.
+In either case deterministic Line~\ref{line:update_state} from identical $(s_{j}^{k},\text{effective inputs})$ yields $s_{j}^{k+1}(\mathcal{E})=s_{j}^{k+1}(\mathcal{E}')$, i.e.\ $\mathrm{INV}_{k+1}$.
+The case $k=\mathcal{R}$ yields final $s^{\mathcal{R}+1}$ with no further sending.
+By induction $\mathrm{INV}_{\mathcal{R}+1}$ holds.
+The constructed $\mathcal{E}'$ follows $\mathcal{A}^{S}$ for $C$ and arbitrary faulty sends for $F$ over $\mathcal{R}$ lock-step rounds, hence valid synchronous.
+Correct sets are identical by construction, proposals identical by construction, per-round correct sends identical hence overall sent sets identical, and $s_{i}^{k}(\mathcal{E})=s_{i}^{k}(\mathcal{E}')$ for all correct $p_{i}$, $k\in[1,\mathcal{R}+1]$.
+\end{proof}
+[Proof Draft Generated] Turn 3: 7341 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.45, "completeness": 0.5, "boundary_cases": 0.55, "validity": 0.35, "verdict": "REJECT", "issues": "Prior defect remains unrepaired and actively relied upon. Claim timing(a)(b) permits adjacent-round spillover at exact boundary instants (e.g. alpha_i=0, alpha_j=Delta_shift gives sigma_i^{k+1}=tau_j^k+Delta_sync; alpha_i=Delta_shift, alpha_j=0 gives sigma_i^{k-1}+delta=tau_j^k). Hence received_j^k(E)=C_j^k union X_j^k with X_j^k possibly non-empty. When F empty, constructed received(E')=C_j^k, so full received-set equality fails. Proof replaces it by Valid_k equality via Claim filter that transition from s^k depends only on validly authenticated round-k messages and discards all else. This filtering/discarding/round-binding behavior is not defined in Context: CryptoSim pseudocode sends <M_j> with no round tag and Line update_state transits from (s_i, received_i) with full received_i; no Valid_k filtering step is defined. The bridging proof from correctness necessity does not follow from first principles or Context definitions and invents unstated constraints on A^S. Therefore s_j^{k+1}(E)=s_j^{k+1}(E') does not follow, induction INV_k->INV_{k+1} is unclosed."}
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.35, rejection #2)
+Prior defect remains unrepaired and actively relied upon. Claim timing(a)(b) permits adjacent-round spillover at exact boundary instants (e.g. alpha_i=0, alpha_j=Delta_shift gives sigma_i^{k+1}=tau_j^k+Delta_sync; alpha_i=Delta_shift, alpha_j=0 gives sigma_i^{k-1}+delta=tau_j^k). Hence received_j^k(E)=C_j^k union X_j^k with X_j^k possibly non-empty. When F empty, constructed received(E')=C_j^k, so full received-set equality fails. Proof replaces it by Valid_k equality via Claim filter that transition from s^k depends only on validly authenticated round-k messages and discards all else. This filtering/discarding/round-binding behavior is not defined in Context: CryptoSim pseudocode sends <M_j> with no round tag and Line update_state transits from (s_i, received_i) with full received_i; no Valid_k filtering step is defined. The bridging proof from correctness necessity does not follow from first principles or Context definitions and invents unstated constraints on A^S. Therefore s_j^{k+1}(E)=s_j^{k+1}(E') does not follow, induction INV_k->INV_{k+1} is unclosed.
+[Best Candidate Restored for Revision] Restoring highest-scoring candidate from Turn 2 (validity: 0.55, structural: 0.58) over Turn 3 (validity: 0.35, structural: 0.50) to guarantee progress on the best mathematical foundation.
+[Self-Improvement] Initiating surgical revision turn 4 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_85_91 ---
+[Critique Falsifier Script]:
+import itertools
+Ds, d, Dsync = 1, 1, 2*1+1
+# F empty: only correct processes, show adjacent-round spillover in closed windows
+found = []
+for ai, aj in itertools.product([0,1],[0,1]):
+    tau_j1 = aj  # k=1 window start for pj
+    Wj1 = (tau_j1, tau_j1+Dsync)  # closed window
+    sig_i2 = ai + 3 + Ds  # sigma_i^{k'=2}
+    arr = (sig_i2, sig_i2+d)  # arrival interval
+    if arr[0] <= Wj1[1] <= arr[1] or Wj1[0] <= arr[0] <= Wj1[1]:
+        # check exact boundary overlap: arrival can be at W endpoint
+        if sig_i2 == Wj1[1]:  # earliest arrival equals window end
+            found.append((ai,aj,sig_i2,Wj1,arr))
+print("boundary spillovers:", found)
+# With F empty, received(E')=C, received(E)=C union X with X nonempty
+C = {"m_k"}
+X = {"m_{k+1}_replay"}  # correct round-(k+1) msg arriving at boundary instant
+recv_Eprime, recv_E = set(C), set(C)|set(X)
+print("recv_Eprime:", recv_Eprime, "recv_E:", recv_E, "equal?", recv_Eprime==recv_E)
+# Generic deterministic transition with no round-discard changes state
+def trans(s, R): return (s, len(R))  # e.g. counts messages
+if found and recv_Eprime!=recv_E and trans(0,recv_Eprime)!=trans(0,recv_E):
+    print(f"COUNTEREXAMPLE_FOUND: ai,aj={found[0][:2]} F empty but X nonempty {X}, recv differ {recv_Eprime} vs {recv_E}, no-auth transition differs")
+    raise assert False if False else AssertionError("COUNTEREXAMPLE_FOUND")
+[Critique Kernel ALERT (Counterexample/Defect Confirmed)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_version, optimize=optimize)
+  File "<unknown>", li
+
+--- [TURN 4/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 4/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix an execution $\mathcal{E}$ of $\mathsf{CryptoSim}$ and assume $\mathcal{S}^{*}$ holds with witness $\tau^{*}\ge \mathrm{GST}$.
+Let $C\subseteq\Pi$ be the correct set in $\mathcal{E}$ and fix correct proposals.
+We construct a synchronous execution $\mathcal{E}'$ of $\mathcal{A}^{S}$ with identical correct set $C$ and identical proposals; faulty behaviour in $\mathcal{E}'$ is defined round by round below.
+Let $\mathcal{R}$ be the synchronous round count and $\mathcal{B}$ the maximum total bits any correct process sends in any synchronous execution.
+Denote by $s_{i}^{k}(\mathcal{E})$ the state of correct $p_{i}$ at the beginning of simulated round $k$ and $s_{i}^{k}(\mathcal{E}')$ analogously, $k\in[1,\mathcal{R}+1]$.
+Local computation takes zero time.
+
+\medskip\noindent\textbf{Round timing.}
+For correct $p_{i}$ let $\tau_{i}^{k}$ be the real time it starts simulated round $k$.
+By $\mathcal{S}^{*}$, $\tau_{i}^{1}=\tau^{*}+\alpha_{i}$ with $\alpha_{i}\in[0,\Delta_{\mathit{shift}}]$.
+Clocks do not drift after $\mathrm{GST}$ and $\tau^{*}\ge\mathrm{GST}$, so measured durations equal real durations.
+Each simulated round measures $\Delta_{\mathit{sync}}=2\Delta_{\mathit{shift}}+\delta$; the $\Delta_{\mathit{shift}}$ wait and sending occur inside this window, and the next round starts upon its elapse.
+By $\mathcal{S}^{*}$ no correct process is stopped before completing $\mathcal{R}$ windows, so exactly $\mathcal{R}$ rounds execute contiguously and
+\[
+\tau_{i}^{k}=\tau^{*}+\alpha_{i}+(k-1)\Delta_{\mathit{sync}},\quad
+W_{i}^{k}=(\tau_{i}^{k},\tau_{i}^{k}+\Delta_{\mathit{sync}}],\quad
+\sigma_{i}^{k}=\tau_{i}^{k}+\Delta_{\mathit{shift}},
+\]
+where $W_{i}^{k}$ is the collection interval for round $k$ and $\sigma_{i}^{k}$ the sending instant in round $k$.
+Indeed, Line~\ref{line:receive_simulation} collects during the measured $\Delta_{\mathit{sync}}$, Line~\ref{line:send_simulation} sends after $\Delta_{\mathit{shift}}$, and Line~\ref{line:update_state} finalises upon elapse before clearing $\mathit{received}$ for the next round.
+Hence a message arriving exactly at the boundary $\tau_{i}^{k+1}=\tau_{i}^{k}+\Delta_{\mathit{sync}}$ is finalised in round $k$ (end inclusive) and cleared before round $k+1$ (start exclusive), with no duplication.
+Since $\tau_{i}^{k},\sigma_{i}^{k}\ge\mathrm{GST}$, post-$\mathrm{GST}$ delay is at most $\delta$.
+Across distinct processes send happens-before receive, so delay is strictly positive: arrival lies in $(\sigma_{i}^{k},\sigma_{i}^{k}+\delta]$.
+\begin{claim}\label{cl:timing}
+For correct $p_{i},p_{j}$ and $k\le\mathcal{R}$:
+(a) $(\sigma_{i}^{k},\sigma_{i}^{k}+\delta]\subseteq W_{j}^{k}$;
+(b) for any $k'\ne k$, $(\sigma_{i}^{k'},\sigma_{i}^{k'}+\delta]\cap W_{j}^{k}=\emptyset$.
+\end{claim}
+\begin{proof}
+Write $\tau_{i}^{k}=\tau^{*}+\alpha_{i}+(k-1)\Delta_{\mathit{sync}}$ and $\tau_{j}^{k}=\tau^{*}+\alpha_{j}+(k-1)\Delta_{\mathit{sync}}$ with $\alpha_{i},\alpha_{j}\in[0,\Delta_{\mathit{shift}}]$.
+Then $\sigma_{i}^{k}=\tau_{i}^{k}+\Delta_{\mathit{shift}}$.
+For (a), $\sigma_{i}^{k}-\tau_{j}^{k}=\alpha_{i}-\alpha_{j}+\Delta_{\mathit{shift}}\in[0,2\Delta_{\mathit{shift}}]$, so $\sigma_{i}^{k}\ge\tau_{j}^{k}$.
+Moreover with $\Delta_{\mathit{sync}}=2\Delta_{\mathit{shift}}+\delta$,
+\[
+\sigma_{i}^{k}+\delta-(\tau_{j}^{k}+\Delta_{\mathit{sync}})=\alpha_{i}-\alpha_{j}-\Delta_{\mathit{shift}}\le 0.
+\]
+Hence $\sigma_{i}^{k}\ge\tau_{j}^{k}$ and $\sigma_{i}^{k}+\delta\le\tau_{j}^{k}+\Delta_{\mathit{sync}}$.
+Since arrivals satisfy $>\sigma_{i}^{k}$ and $\le\sigma_{i}^{k}+\delta$, they lie in $(\tau_{j}^{k},\tau_{j}^{k}+\Delta_{\mathit{sync}}]=W_{j}^{k}$.
+For $k'=k-1$, $\sigma_{i}^{k-1}+\delta-\tau_{j}^{k}=\alpha_{i}-\alpha_{j}-\Delta_{\mathit{shift}}\le 0$, so arrivals satisfy $\le\tau_{j}^{k}$ and are excluded from $W_{j}^{k}=(\tau_{j}^{k},\cdot]$.
+For $k'=k+1$, $\sigma_{i}^{k+1}-(\tau_{j}^{k}+\Delta_{\mathit{sync}})=\alpha_{i}-\alpha_{j}+\Delta_{\mathit{shift}}\ge 0$, so arrivals satisfy $>\tau_{j}^{k}+\Delta_{\mathit{sync}}$ and are excluded.
+For $k'\le k-2$, $\sigma_{i}^{k'}+\delta-\tau_{j}^{k}=\alpha_{i}-\alpha_{j}-\Delta_{\mathit{shift}}+(k'-k+1)\Delta_{\mathit{sync}}\le -\Delta_{\mathit{sync}}<0$.
+For $k'\ge k+2$, $\sigma_{i}^{k'}-(\tau_{j}^{k}+\Delta_{\mathit{sync}})=\alpha_{i}-\alpha_{j}+\Delta_{\mathit{shift}}+(k'-k-1)\Delta_{\mathit{sync}}\ge\Delta_{\mathit{sync}}>0$.
+Thus arrivals lie strictly outside $W_{j}^{k}$.
+\end{proof}
+
+\medskip\noindent\textbf{Inductive simulation.}
+Maintain $\mathrm{INV}_{k}$ for $k\in[1,\mathcal{R}+1]$: for all correct $p_{i}$, $s_{i}^{k}(\mathcal{E})=s_{i}^{k}(\mathcal{E}')$, and correct sends in rounds $<k$ coincide.
+$\mathrm{INV}_{1}$ holds because $s_{i}^{1}$ is the initial state from the same proposal and $C$ is identical by construction.
+Assume $\mathrm{INV}_{k}$ for $k\le\mathcal{R}$.
+Then $M_{j}$, prescribed by $\mathcal{A}^{S}$ from $s_{i}^{k}$, is identical in $\mathcal{E},\mathcal{E}'$ by determinism.
+Cumulative attempted bits through rounds $<k$ are equal; full-round attempts through $k$ equal the synchronous prescription.
+Any such synchronous prefix extends to a full synchronous execution whose correct total is at most $\mathcal{B}$; bits are non-negative, so any prefix and any partial sum within round $k$ is at most $\mathcal{B}$.
+Hence $\mathit{sent\_bits}_{i}+B_{j}\le\mathcal{B}$ for each $p_{j}$ in order, Line~\ref{line:check_sent_bits} passes, and actual sends in $\mathcal{E}$ equal prescriptions, hence equal sends in $\mathcal{E}'$ round $k$.
+
+Let $C_{j}^{k}$ be correct round-$k$ messages to $p_{j}$.
+By Claim~\ref{cl:timing}(a), $C_{j}^{k}\subseteq\mathit{received}_{j}^{k}(\mathcal{E})$.
+By Claim~\ref{cl:timing}(b), no correct message from $k'\ne k$ lies in $W_{j}^{k}$.
+Thus $\mathit{received}_{j}^{k}(\mathcal{E})=C_{j}^{k}\cup\mathit{Byz}_{j}^{k}$ where $\mathit{Byz}_{j}^{k}$ contains only faulty-origin messages arriving in the window.
+Let $F=\Pi\setminus C$ with $|F|\le t<n/3$ preserved.
+Define faulty behaviour in $\mathcal{E}'$ round $k$: if $F\ne\emptyset$, fix $f^{*}\in F$ to send exactly $\mathit{Byz}_{j}^{k}$ to each correct $p_{j}$; faulty may send arbitrarily with no bit limit.
+If $F=\emptyset$, then all sends in $\mathcal{E}$ are correct, so by (b) $\mathit{Byz}_{j}^{k}=\emptyset$ and $\mathit{received}_{j}^{k}(\mathcal{E})=C_{j}^{k}$; no faulty sends are needed.
+In either case $\mathit{received}_{j}^{k}(\mathcal{E}')=C_{j}^{k}\cup\mathit{Byz}_{j}^{k}=\mathit{received}_{j}^{k}(\mathcal{E})$.
+The deterministic update of Line~\ref{line:update_state} from identical $(s_{j}^{k},\mathit{received}_{j}^{k})$ yields $s_{j}^{k+1}(\mathcal{E})=s_{j}^{k+1}(\mathcal{E}')$.
+This is $\mathrm{INV}_{k+1}$; $k=\mathcal{R}$ yields the final state $s^{\mathcal{R}+1}$ with no further sending.
+
+By induction $\mathrm{INV}_{\mathcal{R}+1}$ holds.
+The constructed $\mathcal{E}'$ follows $\mathcal{A}^{S}$ for correct processes with arbitrary faulty sends for $F$ over $\mathcal{R}$ lock-step rounds; it is valid synchronous.
+Correct sets are identical by construction, proposals are identical by construction, per-round correct sends are identical hence overall sent sets are identical, and $s_{i}^{k}(\mathcal{E})=s_{i}^{k}(\mathcal{E}')$ for all correct $p_{i}$ and $k\in[1,\mathcal{R}+1]$.
+\end{proof}
+[Proof Draft Generated] Turn 4: 7299 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.95, "completeness": 0.95, "boundary_cases": 0.95, "validity": 0.95, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.92, "completeness": 0.92, "boundary_cases": 0.9, "validity": 0.92, "verdict": "VALID", "issues": "none"}
+[Best Candidate Updated] Turn 4: validity=0.92 (7299 chars)
+[Audit Passed] Proof verified on Turn 4 (validity: 0.92). Early-terminating to prevent multi-turn degradation.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_85_91 | Proof Length: 7299 chars | Turns: 4 | Duration: 1885.93s
+================================================================================

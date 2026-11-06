@@ -1,0 +1,313 @@
+================================================================================
+[2026-11-01 23:10:50] TCS-BENCH UNASSISTED ONE-PASS SESSION: task_2110.11712_statement_2_196
+Model: gemini-3.8-flash-high | Duration: 97.25s | Prompt Tokens: 13589 | Completion Tokens: 32856
+================================================================================
+
+--- [TURN 1/1] INNER THINKING ---
+(none)
+
+--- [TURN 1/1] MODEL GENERATED OUTPUT ---
+\begin{proof}
+We construct the randomized algorithm, establish the query and path reporting times, prove its correctness with high probability against an adaptive adversary, and derive the total expected update time.
+
+\medskip
+\noindent \textbf{1. Algorithm Construction.}
+Let $\epsilon \in (0, 1)$ be the given approximation parameter. We set the internal error parameter to 
+\[
+\epsilon' = \frac{\epsilon}{100 \lceil \lg n \rceil}.
+\]
+The algorithm maintains distance estimates $\hat{d}(x)$ from the dedicated source $s$ to all vertices $x \in V$ by decomposing the distance range into a small-distance regime and a collection of geometrically spaced large-distance scales:
+
+\begin{enumerate}
+    \item \emph{Small-Distance Regime ($d(s,x) < 2m^{1/3}$):}
+    Each edge $e = (u,v)$ has integer weight $\omega(u,v) \geq 1$. Consequently, any path consisting of $l$ edges has cumulative weight at least $l \cdot 1 = l$. If $d(s,x) < 2m^{1/3}$, any shortest path connecting $s$ to $x$ contains at most $\lfloor d(s,x) \rfloor \leq \lfloor 2m^{1/3} \rfloor$ hops. We instantiate a deterministic Even-Shiloach tree (ES-tree) rooted at $s$ with hop bound $h = \lfloor 2m^{1/3} \rfloor$ and approximation parameter $\epsilon$, as provided by Theorem~\ref{thm:es}. This data structure maintains distance estimates $\hat{d}_{ES}(x)$ satisfying $d(s,x) \leq \hat{d}_{ES}(x) < (1+\epsilon)d(s,x)$ whenever a shortest path has at most $h$ hops (and in particular whenever $d(s,x) < 2m^{1/3}$), and $\hat{d}_{ES}(x) \geq d(s,x)$ otherwise.
+
+    \item \emph{Large-Distance Regime ($d(s,x) \geq 2m^{1/3}$):}
+    Any simple directed path in $G$ contains at most $n-1$ edges, each of weight at most $W$, so any finite shortest path distance satisfies $d(s,x) \leq (n-1)W < nW$. For every power of two $\tau = 2^i$ in the range $[m^{1/3}, nW]$, we instantiate an independent instance of the two-tree data structure responsible for the interval $[\tau, 2\tau)$. The number of such scales $\tau$ is at most $\lfloor \log_2(nW) \rfloor - \lfloor \log_2(m^{1/3}) \rfloor + 1 = O(\log(nW))$.
+    
+    For each scale $\tau$, the data structure maintains two lazy ES-trees, $\DSReal_{[\tau, 2\tau)}$ and $\DSBack_{[\tau, 2\tau)}$, with parameters $\delta = \tau / m^{1/3}$, phase threshold $B = \lfloor m^{1/3} \rfloor$, and error parameter $\epsilon'$. Updates are processed via \textsc{insert} (Algorithm~\ref{alg:det_insert}) and \textsc{PartialDijkstra} (Algorithm~\ref{alg:partialdijkstra}). A rebuild (the global fixing phase, Algorithm~\ref{alg:glob_fix}) is invoked whenever either $B$ edge insertions have elapsed since the previous rebuild, or the potential $\Phi_{\DSBack} = \sum_{v \in V} \hat{d}_{\DSBack}(v)$ has decreased by at least $\frac{m^{1/3}\tau}{4\epsilon'}$ since the beginning of the current phase.
+\end{enumerate}
+
+For every vertex $x \in V$, the algorithm maintains the overall distance estimate:
+\[
+\hat{d}(x) = \min \left( \hat{d}_{ES}(x), \, \min_{\tau = 2^i \in [m^{1/3}, nW]} \hat{d}_{\DSReal_{[\tau, 2\tau)}}(x) \right).
+\]
+Whenever an edge relaxation or synchronization step decreases an estimate in any underlying tree, $\hat{d}(x)$ is updated to the new minimum in $O(1)$ time, and a pointer to the responsible data structure and its corresponding in-tree parent pointer $parent(x)$ is recorded.
+
+\medskip
+\noindent \textbf{2. Query Answering and Path Reporting.}
+\begin{itemize}
+    \item \emph{Distance Queries:} For any vertex $x \in V$, the query \textsc{QueryDistance}($x$) simply reads the maintained value $\hat{d}(x)$, which takes $O(1)$ worst-case time.
+    \item \emph{Path Reporting:} For any query \textsc{ReportPath}($x$), the algorithm retrieves the data structure achieving the minimum estimate $\hat{d}(x)$. Tracing the sequence of parent pointers $x = v_l, v_{l-1} = parent(v_l), \dots, v_0 = s$ yields a directed path $\pi_{s,x}$ in $G$. Since every step follows an edge $(parent(v), v) \in E$ along which distances were relaxed, the sequence forms a valid path from $s$ to $x$ of weight at most $\hat{d}(x) \leq (1+\epsilon)d(s,x)$. The traversal performs exactly one step per edge of the reported path, requiring $O(|\pi_{s,x}|)$ time.
+\end{itemize}
+
+\medskip
+\noindent \textbf{3. Correctness Against an Adaptive Adversary.}
+We show that at every insertion step $t \in \{1, \dots, m\}$ and for every vertex $x \in V$, $d^t(s,x) \leq \hat{d}^t(x) \leq (1+\epsilon)d^t(s,x)$ holds with high probability $1 - O(1/n)$.
+
+First, all distance estimates $\hat{d}(x)$ in the ES-tree and in each $\DSReal_{[\tau, 2\tau)}$ are initialized to $\infty$ (or $0$ for $s$) and updated solely via valid edge relaxations $\hat{d}(v) \leftarrow \hat{d}(u) + \omega(u,v)$. By induction on the sequence of relaxations, $\hat{d}(x) \geq d(s,x)$ holds deterministically at all times for all data structures, ensuring $\hat{d}^t(x) \geq d^t(s,x)$.
+
+Next, we establish the upper bound $(1+\epsilon)d^t(s,x)$:
+\begin{itemize}
+    \item If $d^t(s,x) < 2m^{1/3}$, then as established, the shortest path from $s$ to $x$ has hop count at most $\lfloor d^t(s,x) \rfloor \leq h = \lfloor 2m^{1/3} \rfloor$. By Theorem~\ref{thm:es}, the ES-tree deterministically satisfies:
+    \[
+    \hat{d}^t(x) \leq \hat{d}_{ES}^t(x) < (1+\epsilon)d^t(s,x).
+    \]
+    \item If $d^t(s,x) \geq 2m^{1/3}$, there exists a unique power of two $\tau = 2^i \in [m^{1/3}, nW]$ such that $d^t(s,x) \in [\tau, 2\tau)$. Let $t_i$ be the time of the most recent rebuild prior to or at time $t$ in the data structure for scale $[\tau, 2\tau)$, so that $t = t_i + b < t_{i+1}$ with $b \in \mathbb{N}_{\geq 0}$. We apply Lemma~\ref{lem:total_error_prob_start} with error parameter $\epsilon'$. All preconditions of the lemma are satisfied: $i \in [k]$, $t_i + b < t_{i+1}$, and $2m^{1/3} \leq d^t(s,x) \in [\tau, 2\tau)$. Therefore, against an adaptive adversary,
+    \[
+    \Pr\left[ \hat{d}_{\DSReal_{[\tau, 2\tau)}}^t(x) \geq d^t(s,x) + 100 \epsilon' \tau \lg n \right] < \frac{1}{n^5}.
+    \]
+    Substituting $\epsilon' = \frac{\epsilon}{100 \lceil \lg n \rceil}$ and using $\tau \leq d^t(s,x)$ yields:
+    \[
+    100 \epsilon' \tau \lg n = 100 \left( \frac{\epsilon}{100 \lceil \lg n \rceil} \right) \tau \lg n \leq \epsilon \tau \leq \epsilon d^t(s,x).
+    \]
+    Hence, $\hat{d}_{\DSReal_{[\tau, 2\tau)}}^t(x) < (1+\epsilon)d^t(s,x)$ holds with probability at least $1 - 1/n^5$.
+\end{itemize}
+
+Applying the union bound over all $n$ vertices $x \in V$ and all $m$ insertion time steps $t \in [m]$, the probability that the distance estimate fails to satisfy the $(1+\epsilon)$-approximation bound at any step for any vertex is at most:
+\[
+\sum_{t=1}^m \sum_{x \in V} \Pr\left[ \hat{d}^t(x) \geq (1+\epsilon)d^t(s,x) \right] \leq m \cdot n \cdot \frac{1}{n^5} = \frac{m}{n^4}.
+\]
+In any graph where all edges are added incrementally, $m \leq n^2$ (or multigraph edges can be reduced to the minimum weight parallel edge), so $\frac{m}{n^4} \leq \frac{1}{n^2} = O(1/n)$. Because the error bound of Lemma~\ref{lem:total_error_prob_start} holds against an adaptive adversary, this union bound guarantees that the adversary cannot force any distance query to fail throughout the entire execution, except with probability at most $O(1/n)$.
+
+\medskip
+\noindent \textbf{4. Total Expected Update Time.}
+We bound the running time across all components:
+
+\paragraph{A. Hop-Bounded ES-Tree:}
+By Theorem~\ref{thm:es}, maintaining the ES-tree up to hop bound $h = \lfloor 2m^{1/3} \rfloor$ takes deterministic total time:
+\[
+O\left( \frac{m h \log(nW)}{\epsilon} \right) = O\left( \frac{m \cdot m^{1/3} \log(nW)}{\epsilon} \right) = O\left( \frac{m^{4/3} \log(nW)}{\epsilon} \right).
+\]
+
+\paragraph{B. Analysis of a Single Scale $\tau \in [m^{1/3}, nW]$:}
+Consider the data structure responsible for $[\tau, 2\tau)$.
+
+\begin{enumerate}
+    \item \emph{Monotonicity and Number of Rebuilds:}
+    In both $\DSReal$ and $\DSBack$, distance estimates $\hat{d}(v)$ are initialized to $\infty$ (or $0$ for $s$) and only updated by edge relaxations (which strictly decrease values) or synchronization in Algorithm~\ref{alg:glob_fix} ($\hat{d}(v) \leftarrow \min(\hat{d}_{\DSReal}(v), \hat{d}_{\DSBack}(v))$, which is non-increasing). Thus, for every vertex $v$, $\hat{d}_{\DSReal}(v)$ and $\hat{d}_{\DSBack}(v)$ are monotonically non-increasing over the entire execution.
+    
+    The rebuilds partition the execution into $k$ phases. A phase terminates when either:
+    \begin{itemize}
+        \item (Condition 1) $B = \lfloor m^{1/3} \rfloor$ insertions have occurred. The number of such rebuilds across all $m$ insertions is at most $k_1 \leq \frac{m}{B} = O(m^{2/3})$.
+        \item (Condition 2) $\Phi_{\DSBack}$ decreases by at least $\Delta \Phi = \frac{m^{1/3}\tau}{4\epsilon'}$. Since the data structure handles paths of length $[\tau, 2\tau)$, distances are bounded by $O(\tau)$. For the non-isolated vertices (at most $2m$), the maximum total decrease of $\Phi_{\DSBack}$ throughout the algorithm is at most $O(n\tau) \leq O(m\tau)$. Therefore, the number of potential-triggered rebuilds is at most:
+        \[
+        k_2 \leq \frac{O(m\tau)}{\frac{m^{1/3}\tau}{4\epsilon'}} = O\left( \frac{m^{2/3} \epsilon'}{1} \right) = O(m^{2/3}).
+        \]
+    \end{itemize}
+    Thus, the total number of rebuilds is $k = k_1 + k_2 + 1 = O(m^{2/3})$.
+
+    \item \emph{Cost of Global Fixing Phases (Algorithm~\ref{alg:glob_fix}):}
+    Each global fixing phase performs:
+    \begin{itemize}
+        \item \emph{Synchronization (lines 1--4):} Since $\hat{d}_{\DSReal}(v) = \hat{d}_{\DSBack}(v)$ held at the end of the previous synchronization, only vertices whose distances were modified during the preceding phase need to be synchronized. The number of such vertices is bounded by the total number of decrease steps, which is amortized against distance drops.
+        \item \emph{Sampling and Dijkstra Initialization (lines 7--13):}
+        The algorithm samples $S = \lceil 2000 \log n / \epsilon' \rceil$ subsets $V^*_j$. In each iteration $j$, an index $i$ is chosen uniformly from a range of size $M \geq 2m^{1/3}$. A vertex $u$ satisfies $i\delta \leq \hat{d}_{\DSBack}(u) \leq (i+8)\delta$ for at most $9$ choices of $i$. Thus, for every vertex $u \in V$,
+        \[
+        \Pr[u \in V^*_j] \leq \frac{9}{M} \leq \frac{9}{2m^{1/3}} = O(m^{-1/3}).
+        \]
+        By linearity of expectation, the expected sum of out-degrees of vertices in $V^*$ satisfies:
+        \[
+        \mathbb{E}\left[ \sum_{u \in V^*} \deg_{out}(u) \right] \leq \sum_{j=1}^S \sum_{u \in V} \deg_{out}(u) \Pr[u \in V^*_j] \leq S \cdot O(m^{-1/3}) \sum_{u \in V} \deg_{out}(u) = O\left( \frac{m^{2/3} \log n}{\epsilon'} \right),
+        \]
+        since $\sum_{u \in V} \deg_{out}(u) \leq m$.
+        
+        When $\textsc{PartialDijkstra}(V^*, \epsilon')$ is executed on $\DSBack$, the initial vertices in $Q = V^*$ are extracted and their outgoing edges scanned. With priority queue operations taking $O(\log n)$ time, the expected time spent on edge scans originating from $V^*$ during one rebuild is:
+        \[
+        O\left( \mathbb{E}\left[ \sum_{u \in V^*} \deg_{out}(u) \right] \log n \right) = O\left( \frac{m^{2/3} \log^2 n}{\epsilon'} \right).
+        \]
+        Summing over all $k = O(m^{2/3})$ rebuilds, the total expected time spent on relaxations from $V^*$ across all global fixing phases is:
+        \[
+        O(m^{2/3}) \cdot O\left( \frac{m^{2/3} \log^2 n}{\epsilon'} \right) = O\left( \frac{m^{4/3} \log^2 n}{\epsilon'} \right).
+        \]
+    \end{itemize}
+
+    \item \emph{Cost of Insertions and Step Decreases (Algorithms~\ref{alg:det_insert} and \ref{alg:partialdijkstra}):}
+    During \textsc{insert} and \textsc{PartialDijkstra}, a vertex $v$ is added to $Q$ during search (line~9 of Algorithm~\ref{alg:partialdijkstra}) or placed into $V_{input}$ (Algorithm~\ref{alg:det_insert}) only when its distance estimate decreases past a multiple of $\epsilon'\delta$.
+    
+    The maximum distance in scale $\tau$ is $O(\tau)$, and the step size is $\epsilon'\delta = \frac{\epsilon'\tau}{m^{1/3}}$. The total number of distinct $\epsilon'\delta$ steps that $\hat{d}(v)$ can cross over the entire execution is at most:
+    \[
+    \frac{O(\tau)}{\epsilon'\delta} = \frac{O(\tau)}{\epsilon'\tau / m^{1/3}} = O\left( \frac{m^{1/3}}{\epsilon'} \right).
+    \]
+    By Lemma~\ref{lem:part_dijksta_log}, each single decrease past an $\epsilon'\delta$ step causes $v$ to enter $O(\log B)$ sets $V_{input}$. Therefore, across all $m$ insertions, vertex $v$ enters $V_{input}$ at most $O\left( \frac{m^{1/3} \log B}{\epsilon'} \right)$ times.
+    
+    Whenever $v$ is extracted from $Q$, scanning its outgoing edges takes $O(\deg_{out}(v) \log n)$ time. Summing across all vertices $v \in V$:
+    \[
+    \sum_{v \in V} O\left( \frac{m^{1/3} \log B}{\epsilon'} \right) \cdot \deg_{out}(v) \log n = O\left( \frac{m^{1/3} \log B \log n}{\epsilon'} \right) \sum_{v \in V} \deg_{out}(v) = O\left( \frac{m^{4/3} \log B \log n}{\epsilon'} \right).
+    \]
+    Since $B = \lfloor m^{1/3} \rfloor$, we have $\log B \leq \frac{1}{3}\log_2 m = O(\log n)$. Hence, this update work takes total time $O\left( \frac{m^{4/3} \log^2 n}{\epsilon'} \right)$.
+\end{enumerate}
+
+Combining the rebuild and insertion costs, the total expected update time for a single scale $\tau$ is:
+\[
+T(\tau) = O\left( \frac{m^{4/3} \log^2 n}{\epsilon'} \right).
+\]
+Substituting $\epsilon' = \frac{\epsilon}{100 \lceil \lg n \rceil} = \Theta\left(\frac{\epsilon}{\log n}\right)$ gives:
+\[
+T(\tau) = O\left( \frac{m^{4/3} \log^3 n}{\epsilon} \right).
+\]
+
+\paragraph{C. Total Update Time Across All Scales:}
+The algorithm maintains instances for all powers of two $\tau \in [m^{1/3}, nW]$, of which there are $O(\log(nW)) = O(\log n + \log W)$. Summing over all scales and adding the ES-tree update time yields the total expected update time:
+\begin{align*}
+T_{total} &= O\left( \frac{m^{4/3} \log(nW)}{\epsilon} \right) + \sum_{\tau} T(\tau) \\
+&= O\left( \frac{m^{4/3} \log(nW)}{\epsilon} \right) + O(\log(nW)) \cdot O\left( \frac{m^{4/3} \log^3 n}{\epsilon} \right) \\
+&= O\left( \frac{m^{4/3} \log^3 n \log(nW)}{\epsilon} \right) \\
+&= \tilde{O}\left( \frac{m^{4/3} \log(W)}{\epsilon^2} \right),
+\end{align*}
+where the $\tilde{O}$ notation absorbs polylogarithmic factors in $n$, and $1/\epsilon \leq 1/\epsilon^2$ for $\epsilon \in (0, 1)$. This completes the proof.
+\end{proof}
+
+--- [EXTRACTED CANDIDATE PROOF] ---
+Length: 14394 chars
+\begin{proof}
+We construct the randomized algorithm, establish the query and path reporting times, prove its correctness with high probability against an adaptive adversary, and derive the total expected update time.
+
+\medskip
+\noindent \textbf{1. Algorithm Construction.}
+Let $\epsilon \in (0, 1)$ be the given approximation parameter. We set the internal error parameter to 
+\[
+\epsilon' = \frac{\epsilon}{100 \lceil \lg n \rceil}.
+\]
+The algorithm maintains distance estimates $\hat{d}(x)$ from the dedicated source $s$ to all vertices $x \in V$ by decomposing the distance range into a small-distance regime and a collection of geometrically spaced large-distance scales:
+
+\begin{enumerate}
+    \item \emph{Small-Distance Regime ($d(s,x) < 2m^{1/3}$):}
+    Each edge $e = (u,v)$ has integer weight $\omega(u,v) \geq 1$. Consequently, any path consisting of $l$ edges has cumulative weight at least $l \cdot 1 = l$. If $d(s,x) < 2m^{1/3}$, any shortest path connecting $s$ to $x$ contains at most $\lfloor d(s,x) \rfloor \leq \lfloor 2m^{1/3} \rfloor$ hops. We instantiate a deterministic Even-Shiloach tree (ES-tree) rooted at $s$ with hop bound $h = \lfloor 2m^{1/3} \rfloor$ and approximation parameter $\epsilon$, as provided by Theorem~\ref{thm:es}. This data structure maintains distance estimates $\hat{d}_{ES}(x)$ satisfying $d(s,x) \leq \hat{d}_{ES}(x) < (1+\epsilon)d(s,x)$ whenever a shortest path has at most $h$ hops (and in particular whenever $d(s,x) < 2m^{1/3}$), and $\hat{d}_{ES}(x) \geq d(s,x)$ otherwise.
+
+    \item \emph{Large-Distance Regime ($d(s,x) \geq 2m^{1/3}$):}
+    Any simple directed path in $G$ contains at most $n-1$ edges, each of weight at most $W$, so any finite shortest path distance satisfies $d(s,x) \leq (n-1)W < nW$. For every power of two $\tau = 2^i$ in the range $[m^{1/3}, nW]$, we instantiate an independent instance of the two-tree data structure responsible for the interval $[\tau, 2\tau)$. The number of such scales $\tau$ is at most $\lfloor \log_2(nW) \rfloor - \lfloor \log_2(m^{1/3}) \rfloor + 1 = O(\log(nW))$.
+    
+    For each scale $\tau$, the data structure maintains two lazy ES-trees, $\DSReal_{[\tau, 2\tau)}$ and $\DSBack_{[\tau, 2\tau)}$, with parameters $\delta = \tau / m^{1/3}$, phase threshold $B = \lfloor m^{1/3} \rfloor$, and error parameter $\epsilon'$. Updates are processed via \textsc{insert} (Algorithm~\ref{alg:det_insert}) and \textsc{PartialDijkstra} (Algorithm~\ref{alg:partialdijkstra}). A rebuild (the global fixing phase, Algorithm~\ref{alg:glob_fix}) is invoked whenever either $B$ edge insertions have elapsed since the previous rebuild, or the potential $\Phi_{\DSBack} = \sum_{v \in V} \hat{d}_{\DSBack}(v)$ has decreased by at least $\frac{m^{1/3}\tau}{4\epsilon'}$ since the beginning of the current phase.
+\end{enumerate}
+
+For every vertex $x \in V$, the algorithm maintains the overall distance estimate:
+\[
+\hat{d}(x) = \min \left( \hat{d}_{ES}(x), \, \min_{\tau = 2^i \in [m^{1/3}, nW]} \hat{d}_{\DSReal_{[\tau, 2\tau)}}(x) \right).
+\]
+Whenever an edge relaxation or synchronization step decreases an estimate in any underlying tree, $\hat{d}(x)$ is updated to the new minimum in $O(1)$ time, and a pointer to the responsible data structure and its corresponding in-tree parent pointer $parent(x)$ is recorded.
+
+\medskip
+\noindent \textbf{2. Query Answering and Path Reporting.}
+\begin{itemize}
+    \item \emph{Distance Queries:} For any vertex $x \in V$, the query \textsc{QueryDistance}($x$) simply reads the maintained value $\hat{d}(x)$, which takes $O(1)$ worst-case time.
+    \item \emph{Path Reporting:} For any query \textsc{ReportPath}($x$), the algorithm retrieves the data structure achieving the minimum estimate $\hat{d}(x)$. Tracing the sequence of parent pointers $x = v_l, v_{l-1} = parent(v_l), \dots, v_0 = s$ yields a directed path $\pi_{s,x}$ in $G$. Since every step follows an edge $(parent(v), v) \in E$ along which distances were relaxed, the sequence forms a valid path from $s$ to $x$ of weight at most $\hat{d}(x) \leq (1+\epsilon)d(s,x)$. The traversal performs exactly one step per edge of the reported path, requiring $O(|\pi_{s,x}|)$ time.
+\end{itemize}
+
+\medskip
+\noindent \textbf{3. Correctness Against an Adaptive Adversary.}
+We show that at every insertion step $t \in \{1, \dots, m\}$ and for every vertex $x \in V$, $d^t(s,x) \leq \hat{d}^t(x) \leq (1+\epsilon)d^t(s,x)$ holds with high probability $1 - O(1/n)$.
+
+First, all distance estimates $\hat{d}(x)$ in the ES-tree and in each $\DSReal_{[\tau, 2\tau)}$ are initialized to $\infty$ (or $0$ for $s$) and updated solely via valid edge relaxations $\hat{d}(v) \leftarrow \hat{d}(u) + \omega(u,v)$. By induction on the sequence of relaxations, $\hat{d}(x) \geq d(s,x)$ holds deterministically at all times for all data structures, ensuring $\hat{d}^t(x) \geq d^t(s,x)$.
+
+Next, we establish the upper bound $(1+\epsilon)d^t(s,x)$:
+\begin{itemize}
+    \item If $d^t(s,x) < 2m^{1/3}$, then as established, the shortest path from $s$ to $x$ has hop count at most $\lfloor d^t(s,x) \rfloor \leq h = \lfloor 2m^{1/3} \rfloor$. By Theorem~\ref{thm:es}, the ES-tree deterministically satisfies:
+    \[
+    \hat{d}^t(x) \leq \hat{d}_{ES}^t(x) < (1+\epsilon)d^t(s,x).
+    \]
+    \item If $d^t(s,x) \geq 2m^{1/3}$, there exists a unique power of two $\tau = 2^i \in [m^{1/3}, nW]$ such that $d^t(s,x) \in [\tau, 2\tau)$. Let $t_i$ be the time of the most recent rebuild prior to or at time $t$ in the data structure for scale $[\tau, 2\tau)$, so that $t = t_i + b < t_{i+1}$ with $b \in \mathbb{N}_{\geq 0}$. We apply Lemma~\ref{lem:total_error_prob_start} with error parameter $\epsilon'$. All preconditions of the lemma are satisfied: $i \in [k]$, $t_i + b < t_{i+1}$, and $2m^{1/3} \leq d^t(s,x) \in [\tau, 2\tau)$. Therefore, against an adaptive adversary,
+    \[
+    \Pr\left[ \hat{d}_{\DSReal_{[\tau, 2\tau)}}^t(x) \geq d^t(s,x) + 100 \epsilon' \tau \lg n \right] < \frac{1}{n^5}.
+    \]
+    Substituting $\epsilon' = \frac{\epsilon}{100 \lceil \lg n \rceil}$ and using $\tau \leq d^t(s,x)$ yields:
+    \[
+    100 \epsilon' \tau \lg n = 100 \left( \frac{\epsilon}{100 \lceil \lg n \rceil} \right) \tau \lg n \leq \epsilon \tau \leq \epsilon d^t(s,x).
+    \]
+    Hence, $\hat{d}_{\DSReal_{[\tau, 2\tau)}}^t(x) < (1+\epsilon)d^t(s,x)$ holds with probability at least $1 - 1/n^5$.
+\end{itemize}
+
+Applying the union bound over all $n$ vertices $x \in V$ and all $m$ insertion time steps $t \in [m]$, the probability that the distance estimate fails to satisfy the $(1+\epsilon)$-approximation bound at any step for any vertex is at most:
+\[
+\sum_{t=1}^m \sum_{x \in V} \Pr\left[ \hat{d}^t(x) \geq (1+\epsilon)d^t(s,x) \right] \leq m \cdot n \cdot \frac{1}{n^5} = \frac{m}{n^4}.
+\]
+In any graph where all edges are added incrementally, $m \leq n^2$ (or multigraph edges can be reduced to the minimum weight parallel edge), so $\frac{m}{n^4} \leq \frac{1}{n^2} = O(1/n)$. Because the error bound of Lemma~\ref{lem:total_error_prob_start} holds against an adaptive adversary, this union bound guarantees that the adversary cannot force any distance query to fail throughout the entire execution, except with probability at most $O(1/n)$.
+
+\medskip
+\noindent \textbf{4. Total Expected Update Time.}
+We bound the running time across all components:
+
+\paragraph{A. Hop-Bounded ES-Tree:}
+By Theorem~\ref{thm:es}, maintaining the ES-tree up to hop bound $h = \lfloor 2m^{1/3} \rfloor$ takes deterministic total time:
+\[
+O\left( \frac{m h \log(nW)}{\epsilon} \right) = O\left( \frac{m \cdot m^{1/3} \log(nW)}{\epsilon} \right) = O\left( \frac{m^{4/3} \log(nW)}{\epsilon} \right).
+\]
+
+\paragraph{B. Analysis of a Single Scale $\tau \in [m^{1/3}, nW]$:}
+Consider the data structure responsible for $[\tau, 2\tau)$.
+
+\begin{enumerate}
+    \item \emph{Monotonicity and Number of Rebuilds:}
+    In both $\DSReal$ and $\DSBack$, distance estimates $\hat{d}(v)$ are initialized to $\infty$ (or $0$ for $s$) and only updated by edge relaxations (which strictly decrease values) or synchronization in Algorithm~\ref{alg:glob_fix} ($\hat{d}(v) \leftarrow \min(\hat{d}_{\DSReal}(v), \hat{d}_{\DSBack}(v))$, which is non-increasing). Thus, for every vertex $v$, $\hat{d}_{\DSReal}(v)$ and $\hat{d}_{\DSBack}(v)$ are monotonically non-increasing over the entire execution.
+    
+    The rebuilds partition the execution into $k$ phases. A phase terminates when either:
+    \begin{itemize}
+        \item (Condition 1) $B = \lfloor m^{1/3} \rfloor$ insertions have occurred. The number of such rebuilds across all $m$ insertions is at most $k_1 \leq \frac{m}{B} = O(m^{2/3})$.
+        \item (Condition 2) $\Phi_{\DSBack}$ decreases by at least $\Delta \Phi = \frac{m^{1/3}\tau}{4\epsilon'}$. Since the data structure handles paths of length $[\tau, 2\tau)$, distances are bounded by $O(\tau)$. For the non-isolated vertices (at most $2m$), the maximum total decrease of $\Phi_{\DSBack}$ throughout the algorithm is at most $O(n\tau) \leq O(m\tau)$. Therefore, the number of potential-triggered rebuilds is at most:
+        \[
+        k_2 \leq \frac{O(m\tau)}{\frac{m^{1/3}\tau}{4\epsilon'}} = O\left( \frac{m^{2/3} \epsilon'}{1} \right) = O(m^{2/3}).
+        \]
+    \end{itemize}
+    Thus, the total number of rebuilds is $k = k_1 + k_2 + 1 = O(m^{2/3})$.
+
+    \item \emph{Cost of Global Fixing Phases (Algorithm~\ref{alg:glob_fix}):}
+    Each global fixing phase performs:
+    \begin{itemize}
+        \item \emph{Synchronization (lines 1--4):} Since $\hat{d}_{\DSReal}(v) = \hat{d}_{\DSBack}(v)$ held at the end of the previous synchronization, only vertices whose distances were modified during the preceding phase need to be synchronized. The number of such vertices is bounded by the total number of decrease steps, which is amortized against distance drops.
+        \item \emph{Sampling and Dijkstra Initialization (lines 7--13):}
+        The algorithm samples $S = \lceil 2000 \log n / \epsilon' \rceil$ subsets $V^*_j$. In each iteration $j$, an index $i$ is chosen uniformly from a range of size $M \geq 2m^{1/3}$. A vertex $u$ satisfies $i\delta \leq \hat{d}_{\DSBack}(u) \leq (i+8)\delta$ for at most $9$ choices of $i$. Thus, for every vertex $u \in V$,
+        \[
+        \Pr[u \in V^*_j] \leq \frac{9}{M} \leq \frac{9}{2m^{1/3}} = O(m^{-1/3}).
+        \]
+        By linearity of expectation, the expected sum of out-degrees of vertices in $V^*$ satisfies:
+        \[
+        \mathbb{E}\left[ \sum_{u \in V^*} \deg_{out}(u) \right] \leq \sum_{j=1}^S \sum_{u \in V} \deg_{out}(u) \Pr[u \in V^*_j] \leq S \cdot O(m^{-1/3}) \sum_{u \in V} \deg_{out}(u) = O\left( \frac{m^{2/3} \log n}{\epsilon'} \right),
+        \]
+        since $\sum_{u \in V} \deg_{out}(u) \leq m$.
+        
+        When $\textsc{PartialDijkstra}(V^*, \epsilon')$ is executed on $\DSBack$, the initial vertices in $Q = V^*$ are extracted and their outgoing edges scanned. With priority queue operations taking $O(\log n)$ time, the expected time spent on edge scans originating from $V^*$ during one rebuild is:
+        \[
+        O\left( \mathbb{E}\left[ \sum_{u \in V^*} \deg_{out}(u) \right] \log n \right) = O\left( \frac{m^{2/3} \log^2 n}{\epsilon'} \right).
+        \]
+        Summing over all $k = O(m^{2/3})$ rebuilds, the total expected time spent on relaxations from $V^*$ across all global fixing phases is:
+        \[
+        O(m^{2/3}) \cdot O\left( \frac{m^{2/3} \log^2 n}{\epsilon'} \right) = O\left( \frac{m^{4/3} \log^2 n}{\epsilon'} \right).
+        \]
+    \end{itemize}
+
+    \item \emph{Cost of Insertions and Step Decreases (Algorithms~\ref{alg:det_insert} and \ref{alg:partialdijkstra}):}
+    During \textsc{insert} and \textsc{PartialDijkstra}, a vertex $v$ is added to $Q$ during search (line~9 of Algorithm~\ref{alg:partialdijkstra}) or placed into $V_{input}$ (Algorithm~\ref{alg:det_insert}) only when its distance estimate decreases past a multiple of $\epsilon'\delta$.
+    
+    The maximum distance in scale $\tau$ is $O(\tau)$, and the step size is $\epsilon'\delta = \frac{\epsilon'\tau}{m^{1/3}}$. The total number of distinct $\epsilon'\delta$ steps that $\hat{d}(v)$ can cross over the entire execution is at most:
+    \[
+    \frac{O(\tau)}{\epsilon'\delta} = \frac{O(\tau)}{\epsilon'\tau / m^{1/3}} = O\left( \frac{m^{1/3}}{\epsilon'} \right).
+    \]
+    By Lemma~\ref{lem:part_dijksta_log}, each single decrease past an $\epsilon'\delta$ step causes $v$ to enter $O(\log B)$ sets $V_{input}$. Therefore, across all $m$ insertions, vertex $v$ enters $V_{input}$ at most $O\left( \frac{m^{1/3} \log B}{\epsilon'} \right)$ times.
+    
+    Whenever $v$ is extracted from $Q$, scanning its outgoing edges takes $O(\deg_{out}(v) \log n)$ time. Summing across all vertices $v \in V$:
+    \[
+    \sum_{v \in V} O\left( \frac{m^{1/3} \log B}{\epsilon'} \right) \cdot \deg_{out}(v) \log n = O\left( \frac{m^{1/3} \log B \log n}{\epsilon'} \right) \sum_{v \in V} \deg_{out}(v) = O\left( \frac{m^{4/3} \log B \log n}{\epsilon'} \right).
+    \]
+    Since $B = \lfloor m^{1/3} \rfloor$, we have $\log B \leq \frac{1}{3}\log_2 m = O(\log n)$. Hence, this update work takes total time $O\left( \frac{m^{4/3} \log^2 n}{\epsilon'} \right)$.
+\end{enumerate}
+
+Combining the rebuild and insertion costs, the total expected update time for a single scale $\tau$ is:
+\[
+T(\tau) = O\left( \frac{m^{4/3} \log^2 n}{\epsilon'} \right).
+\]
+Substituting $\epsilon' = \frac{\epsilon}{100 \lceil \lg n \rceil} = \Theta\left(\frac{\epsilon}{\log n}\right)$ gives:
+\[
+T(\tau) = O\left( \frac{m^{4/3} \log^3 n}{\epsilon} \right).
+\]
+
+\paragraph{C. Total Update Time Across All Scales:}
+The algorithm maintains instances for all powers of two $\tau \in [m^{1/3}, nW]$, of which there are $O(\log(nW)) = O(\log n + \log W)$. Summing over all scales and adding the ES-tree update time yields the total expected update time:
+\begin{align*}
+T_{total} &= O\left( \frac{m^{4/3} \log(nW)}{\epsilon} \right) + \sum_{\tau} T(\tau) \\
+&= O\left( \frac{m^{4/3} \log(nW)}{\epsilon} \right) + O(\log(nW)) \cdot O\left( \frac{m^{4/3} \log^3 n}{\epsilon} \right) \\
+&= O\left( \frac{m^{4/3} \log^3 n \log(nW)}{\epsilon} \right) \\
+&= \tilde{O}\left( \frac{m^{4/3} \log(W)}{\epsilon^2} \right),
+\end{align*}
+where the $\tilde{O}$ notation absorbs polylogarithmic factors in $n$, and $1/\epsilon \leq 1/\epsilon^2$ for $\epsilon \in (0, 1)$. This completes the proof.
+\end{proof}
+================================================================================

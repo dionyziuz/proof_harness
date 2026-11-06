@@ -1,0 +1,373 @@
+================================================================================
+[2026-11-02 01:23:43] TCS-BENCH UNASSISTED ONE-PASS SESSION: task_2303.01673_statement_127_147
+Model: gemini-3.8-flash-high | Duration: 100.54s | Prompt Tokens: 18646 | Completion Tokens: 31104
+================================================================================
+
+--- [TURN 1/1] INNER THINKING ---
+(none)
+
+--- [TURN 1/1] MODEL GENERATED OUTPUT ---
+\begin{proof}
+Let $i^* \in [n]$ be the best expert in hindsight, and let $\ell_t \in [0, 1]^n$ denote the loss vector at day $t \in [T]$. We consider the total cumulative regret
+\[
+\mathcal{R}_T := \sum_{t \in [T]} \ell_t(i_t) - \sum_{t \in [T]} \ell_t(i^*).
+\]
+If $T < n$, then since the instantaneous loss satisfies $\ell_t(i) \in [0, 1]$ for all $i \in [n]$, we have $\ell_t(i_t) - \ell_t(i^*) \le 1$. Hence $\mathcal{R}_T \le T < \sqrt{nT} \le \wt{O}(\sqrt{nT})$, which discharges the degenerate regime $T < n$ immediately. In the following, we assume $T \ge n$, so that $R = \log_2(T/n) \ge 1$ is well-defined.
+
+\paragraph{Step 1: Interval decomposition and bad epoch sets.}
+By Lemma~\ref{lem:obv-interval}, the epoch assignment procedure (Algorithm~\ref{algo:sequence}) produces a collection of intervals $\{\mI_\tau\}_{\tau \in [\tau_{\max}]}$ that are pairwise disjoint and cover $[T]$, i.e.,
+\[
+\mI_\tau \cap \mI_{\tau'} = \emptyset \quad (\forall\, \tau \neq \tau') \quad \text{and} \quad \bigcup_{\tau \in [\tau_{\max}]} \mI_\tau = [T].
+\]
+Consequently, the cumulative regret decomposes additively over the intervals:
+\begin{align}
+\mathcal{R}_T = \sum_{\tau=1}^{\tau_{\max}} \left( \sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \right). \label{eq:regret-decomp}
+\end{align}
+In Algorithm~\ref{algo:sequence}, each interval $\mI_\tau$ is constructed at some timestep $a_\tau \in K$. There are two mutually exclusive and exhaustive cases for each interval index $\tau \in [\tau_{\max}]$:
+\begin{enumerate}
+\item $a_\tau \notin \mH_R$: This occurs when $t(a_\tau) < +\infty$, in which case $\mI_\tau = [a_\tau : t(a_\tau)]$ and $i^*$ is covered by the set of alive active experts at epoch $t(a_\tau)$.
+\item $a_\tau \in \mH_R$: This occurs when $t(a_\tau) = +\infty$ and $r(a_\tau) = R$. In this case, $a_\tau$ is added to $\mH_R$, the interval is set to $\mI_\tau \leftarrow a_\tau$ (a single epoch of thread $R$), and the timestep advances via $a_{\tau+1} \leftarrow a_\tau \oplus 1$.
+\end{enumerate}
+(Note that when $t(a_\tau) = +\infty$ with $r(a_\tau) < R$, Algorithm~\ref{algo:sequence} augments $\mH_{r(a_\tau)}$ with $a_\tau$ and descends to the next thread $a_\tau \leftarrow (a_\tau, 0)$ without creating an interval or incrementing $\tau$.)
+
+We partition the index set $[\tau_{\max}]$ into:
+\[
+S_{\text{good}} := \{ \tau \in [\tau_{\max}] : a_\tau \notin \mH_R \}, \qquad S_{\text{bad}} := \{ \tau \in [\tau_{\max}] : a_\tau \in \mH_R \}.
+\]
+Then \eqref{eq:regret-decomp} becomes
+\begin{align}
+\mathcal{R}_T = \sum_{\tau \in S_{\text{good}}} \left( \sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \right) + \sum_{\tau \in S_{\text{bad}}} \left( \sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \right). \label{eq:two-sums}
+\end{align}
+
+\paragraph{Step 2: Bounding the size of bad epochs $|\mH_r|$.}
+For each thread $r \in [R]$, $\textsc{Baseline}_+(r)$ (Algorithm~\ref{algo:base+}) executes the epoch structure of $\textsc{Baseline}$ (Algorithm~\ref{algo:base}) with epoch length $B_r = \frac{T}{n 2^{r-1}}$, sampling each expert with probability $1/n$ at each epoch and sampling active random bits with probability $\frac{1}{\log^4(nT)}$. By Lemma~\ref{lem:base-size}, the number of bad epochs in each thread $r \in [R]$ satisfies
+\[
+|\mH_r| \le O\left(n \log^{10}(nT)\right)
+\]
+with probability at least $1 - 1/(nT)^{\omega(1)}$. Taking a union bound over all $R = \log_2(T/n) \le \log_2(T)$ threads, we have
+\begin{align}
+\max_{r \in [R]} |\mH_r| \le O\left(n \log^{10}(nT)\right) \label{eq:Hr-bound}
+\end{align}
+with probability at least $1 - R/(nT)^{\omega(1)} = 1 - 1/(nT)^{\omega(1)}$.
+
+\paragraph{Step 3: Bounding the regret on $S_{\text{bad}}$.}
+For each $\tau \in S_{\text{bad}}$, $\mI_\tau = a_\tau$ is a single epoch of thread $R$. The length of an epoch in thread $R$ is $B_R$. Since $R = \log_2(T/n)$, we have
+\[
+B_R = \frac{T}{n 2^{R-1}} = \frac{T}{n \cdot 2^{\log_2(T/n) - 1}} = \frac{T}{n \cdot \frac{T}{2n}} = 2.
+\]
+Because each epoch in $\mH_R$ is visited at most once by the strictly advancing operator $\oplus$, the number of intervals in $S_{\text{bad}}$ satisfies $|S_{\text{bad}}| \le |\mH_R|$. Since $\ell_t \in [0, 1]^n$, the regret on any single day is at most $1$. Therefore,
+\begin{align}
+\sum_{\tau \in S_{\text{bad}}} \left( \sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \right) \le \sum_{\tau \in S_{\text{bad}}} |\mI_\tau| = |S_{\text{bad}}| \cdot B_R \le 2 |\mH_R|. \label{eq:bad-regret}
+\end{align}
+Using \eqref{eq:Hr-bound} and the fact that $n \le \sqrt{nT}$ (since $T \ge n$), we obtain
+\begin{align}
+2 |\mH_R| \le O\left(n \log^{10}(nT)\right) \le O\left(\sqrt{nT} \log^{10}(nT)\right). \label{eq:bad-bound-final}
+\end{align}
+
+\paragraph{Step 4: Bounding the regret on $S_{\text{good}}$.}
+For every $\tau \in S_{\text{good}}$, $a_\tau \notin \mH_R$. By Lemma~\ref{lem:interval-regret-apply}, with probability at least $1 - 1/(nT)^{\omega(1)}$, for every $\tau \in S_{\text{good}}$ simultaneously:
+\[
+\sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \le O\left(\sqrt{|\mI_\tau|} \log^6(nT)\right).
+\]
+Summing over all $\tau \in S_{\text{good}}$ and using $S_{\text{good}} \subseteq [\tau_{\max}]$, we get
+\begin{align}
+\sum_{\tau \in S_{\text{good}}} \left( \sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \right) \le O\left(\log^6(nT)\right) \sum_{\tau \in S_{\text{good}}} \sqrt{|\mI_\tau|} \le O\left(\log^6(nT)\right) \sum_{\tau=1}^{\tau_{\max}} \sqrt{|\mI_\tau|}. \label{eq:good-regret}
+\end{align}
+
+\paragraph{Step 5: Bounding $\sum_{\tau=1}^{\tau_{\max}} \sqrt{|\mI_\tau|}$.}
+Let $L_1 := \{\mI_\tau\}_{\tau \in [\tau_{\max}]}$, and for each $r \in [2 : R]$, let $L_r := \{\mI \in L_1 : |\mI| < B_{r-1}\}$. The sets $L_r$ form a nested chain:
+\[
+L_1 \supseteq L_2 \supseteq L_3 \supseteq \cdots \supseteq L_R.
+\]
+We partition $L_1$ into disjoint subsets based on the interval lengths:
+\begin{align}
+L_1 = (L_1 \setminus L_2) \cup \left( \bigcup_{r=2}^{R-1} (L_r \setminus L_{r+1}) \right) \cup L_R, \label{eq:L1-partition}
+\end{align}
+where the union over $r \in [2 : R-1]$ is understood to be empty if $R \le 2$. Thus,
+\begin{align}
+\sum_{\mI \in L_1} \sqrt{|\mI|} = \sum_{\mI \in L_1 \setminus L_2} \sqrt{|\mI|} + \sum_{r=2}^{R-1} \sum_{\mI \in L_r \setminus L_{r+1}} \sqrt{|\mI|} + \sum_{\mI \in L_R} \sqrt{|\mI|}. \label{eq:sum-three-terms}
+\end{align}
+We now bound each of the three terms in \eqref{eq:sum-three-terms}:
+
+\begin{enumerate}
+\item \textbf{Term 1 ($L_1 \setminus L_2$):}
+By definition of $L_2$, any interval $\mI \in L_1 \setminus L_2$ satisfies $|\mI| \ge B_1$. Since the intervals in $L_1$ are pairwise disjoint subintervals of $[T]$, we have
+\[
+\sum_{\mI \in L_1 \setminus L_2} |\mI| \le \sum_{\mI \in L_1} |\mI| = T.
+\]
+Because each interval in $L_1 \setminus L_2$ has length at least $B_1$, the cardinality satisfies
+\[
+|L_1 \setminus L_2| \cdot B_1 \le \sum_{\mI \in L_1 \setminus L_2} |\mI| \le T \implies |L_1 \setminus L_2| \le \frac{T}{B_1}.
+\]
+Since $B_1 = \frac{T}{n 2^{1-1}} = \frac{T}{n}$, we have $|L_1 \setminus L_2| \le \frac{T}{T/n} = n$. Applying the Cauchy-Schwarz inequality,
+\begin{align}
+\sum_{\mI \in L_1 \setminus L_2} \sqrt{|\mI|} \le \sqrt{|L_1 \setminus L_2| \cdot \sum_{\mI \in L_1 \setminus L_2} |\mI|} \le \sqrt{n \cdot T} = \sqrt{nT}. \label{eq:term1-bound}
+\end{align}
+
+\item \textbf{Term 2 ($L_r \setminus L_{r+1}$ for $r \in [2 : R-1]$):}
+If $R \le 2$, this term is an empty sum, which is zero. For $R \ge 3$, fix any $r \in [2 : R-1]$. Any interval $\mI \in L_r \setminus L_{r+1}$ satisfies:
+\begin{itemize}
+\item $\mI \in L_r \implies |\mI| < B_{r-1}$;
+\item $\mI \notin L_{r+1} \implies |\mI| \ge B_r$.
+\end{itemize}
+By the second item of Lemma~\ref{lem:obv-interval}, the total length of intervals in $L_r$ satisfies
+\[
+\sum_{\mI \in L_r} |\mI| \le |\mH_{r-1}| \cdot B_{r-1}.
+\]
+Since $(L_r \setminus L_{r+1}) \subseteq L_r$, we have
+\[
+\sum_{\mI \in L_r \setminus L_{r+1}} |\mI| \le \sum_{\mI \in L_r} |\mI| \le |\mH_{r-1}| \cdot B_{r-1}.
+\]
+Since each interval $\mI \in L_r \setminus L_{r+1}$ has $|\mI| \ge B_r$ and they are pairwise disjoint,
+\[
+|L_r \setminus L_{r+1}| \cdot B_r \le \sum_{\mI \in L_r \setminus L_{r+1}} |\mI| \le |\mH_{r-1}| \cdot B_{r-1} \implies |L_r \setminus L_{r+1}| \le |\mH_{r-1}| \cdot \frac{B_{r-1}}{B_r}.
+\]
+From the definition $B_k = \frac{T}{n 2^{k-1}}$, the ratio is
+\[
+\frac{B_{r-1}}{B_r} = \frac{\frac{T}{n 2^{r-2}}}{\frac{T}{n 2^{r-1}}} = 2.
+\]
+Hence, $|L_r \setminus L_{r+1}| \le 2 |\mH_{r-1}|$. Applying the Cauchy-Schwarz inequality to the sum over $L_r \setminus L_{r+1}$,
+\begin{align*}
+\sum_{\mI \in L_r \setminus L_{r+1}} \sqrt{|\mI|} &\le \sqrt{|L_r \setminus L_{r+1}| \cdot \sum_{\mI \in L_r \setminus L_{r+1}} |\mI|} \\
+&\le \sqrt{2 |\mH_{r-1}| \cdot |\mH_{r-1}| B_{r-1}} = |\mH_{r-1}| \sqrt{2 B_{r-1}}.
+\end{align*}
+Summing over all $r \in [2 : R-1]$ and letting $H_{\max} := \max_{j \in [R]} |\mH_j|$, we obtain
+\begin{align*}
+\sum_{r=2}^{R-1} \sum_{\mI \in L_r \setminus L_{r+1}} \sqrt{|\mI|} \le \sqrt{2} H_{\max} \sum_{r=2}^{R-1} \sqrt{B_{r-1}}.
+\end{align*}
+Since $B_{r-1} = \frac{T}{n 2^{r-2}} = \frac{T}{n} \cdot 2^{-(r-2)}$, we have $\sqrt{B_{r-1}} = \sqrt{\frac{T}{n}} \cdot (1/\sqrt{2})^{r-2}$. Summing the geometric series with ratio $1/\sqrt{2} < 1$:
+\[
+\sum_{r=2}^{R-1} \sqrt{B_{r-1}} = \sqrt{\frac{T}{n}} \sum_{k=0}^{R-3} \left(\frac{1}{\sqrt{2}}\right)^k < \sqrt{\frac{T}{n}} \sum_{k=0}^{\infty} \left(\frac{1}{\sqrt{2}}\right)^k = \sqrt{\frac{T}{n}} \cdot \frac{1}{1 - 1/\sqrt{2}} = (2 + \sqrt{2}) \sqrt{\frac{T}{n}}.
+\]
+Therefore,
+\begin{align*}
+\sum_{r=2}^{R-1} \sum_{\mI \in L_r \setminus L_{r+1}} \sqrt{|\mI|} \le \sqrt{2} (2 + \sqrt{2}) H_{\max} \sqrt{\frac{T}{n}} = (2\sqrt{2} + 2) H_{\max} \sqrt{\frac{T}{n}}.
+\end{align*}
+By \eqref{eq:Hr-bound}, $H_{\max} \le O(n \log^{10}(nT))$. Substituting this bound:
+\begin{align}
+\sum_{r=2}^{R-1} \sum_{\mI \in L_r \setminus L_{r+1}} \sqrt{|\mI|} \le O\left(n \log^{10}(nT) \cdot \sqrt{\frac{T}{n}}\right) = O\left(\sqrt{nT} \log^{10}(nT)\right). \label{eq:term2-bound}
+\end{align}
+
+\item \textbf{Term 3 ($L_R$):}
+Applying Lemma~\ref{lem:obv-interval} with $r = R$, we have
+\[
+\sum_{\mI \in L_R} |\mI| \le |\mH_{R-1}| \cdot B_{R-1}.
+\]
+Since $R = \log_2(T/n)$, we have $B_{R-1} = \frac{T}{n 2^{R-2}} = \frac{T}{n \cdot \frac{T}{4n}} = 4$. Every interval $\mI \in L_R$ contains at least one day (as epochs and intervals are non-empty), so $|\mI| \ge 1$. For any integer $x \ge 1$, we have $\sqrt{x} \le x$. Thus,
+\begin{align}
+\sum_{\mI \in L_R} \sqrt{|\mI|} \le \sum_{\mI \in L_R} |\mI| \le 4 |\mH_{R-1}| \le 4 H_{\max} \le O\left(n \log^{10}(nT)\right) \le O\left(\sqrt{nT} \log^{10}(nT)\right). \label{eq:term3-bound}
+\end{align}
+\end{enumerate}
+
+Combining the bounds from \eqref{eq:term1-bound}, \eqref{eq:term2-bound}, and \eqref{eq:term3-bound} into \eqref{eq:sum-three-terms}:
+\begin{align}
+\sum_{\tau=1}^{\tau_{\max}} \sqrt{|\mI_\tau|} \le \sqrt{nT} + O\left(\sqrt{nT} \log^{10}(nT)\right) + O\left(\sqrt{nT} \log^{10}(nT)\right) = O\left(\sqrt{nT} \log^{10}(nT)\right). \label{eq:sum-sqrt-final}
+\end{align}
+
+\paragraph{Step 6: Final Regret Assembly.}
+Substituting \eqref{eq:sum-sqrt-final} into the regret bound for $S_{\text{good}}$ in \eqref{eq:good-regret}:
+\begin{align}
+\sum_{\tau \in S_{\text{good}}} \left( \sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \right) \le O\left(\log^6(nT)\right) \cdot O\left(\sqrt{nT} \log^{10}(nT)\right) = O\left(\sqrt{nT} \log^{16}(nT)\right). \label{eq:good-final}
+\end{align}
+Combining \eqref{eq:good-final} and the bound for $S_{\text{bad}}$ from \eqref{eq:bad-bound-final} into \eqref{eq:two-sums}, we obtain:
+\begin{align*}
+\mathcal{R}_T = \sum_{t \in [T]} \ell_t(i_t) - \sum_{t \in [T]} \ell_t(i^*) &\le O\left(\sqrt{nT} \log^{16}(nT)\right) + O\left(\sqrt{nT} \log^{10}(nT)\right) \\
+&= O\left(\sqrt{nT} \log^{16}(nT)\right) = \wt{O}\left(\sqrt{nT}\right).
+\end{align*}
+
+\paragraph{Failure probability.}
+The bound relies on:
+\begin{enumerate}
+\item Lemma~\ref{lem:interval-regret-apply}, which holds with probability at least $1 - 1/(nT)^{\omega(1)}$;
+\item Lemma~\ref{lem:base-size} applied to each of the $R$ threads, which by union bound fails with probability at most $R \cdot 1/(nT)^{\omega(1)} \le \log_2(T) \cdot 1/(nT)^{\omega(1)} = 1/(nT)^{\omega(1)}$.
+\end{enumerate}
+By the union bound over these two events, the overall failure probability is at most
+\[
+\frac{1}{(nT)^{\omega(1)}} + \frac{1}{(nT)^{\omega(1)}} = \frac{1}{(nT)^{\omega(1)}}.
+\]
+This completes the proof.
+\end{proof}
+
+--- [EXTRACTED CANDIDATE PROOF] ---
+Length: 12637 chars
+\begin{proof}
+Let $i^* \in [n]$ be the best expert in hindsight, and let $\ell_t \in [0, 1]^n$ denote the loss vector at day $t \in [T]$. We consider the total cumulative regret
+\[
+\mathcal{R}_T := \sum_{t \in [T]} \ell_t(i_t) - \sum_{t \in [T]} \ell_t(i^*).
+\]
+If $T < n$, then since the instantaneous loss satisfies $\ell_t(i) \in [0, 1]$ for all $i \in [n]$, we have $\ell_t(i_t) - \ell_t(i^*) \le 1$. Hence $\mathcal{R}_T \le T < \sqrt{nT} \le \wt{O}(\sqrt{nT})$, which discharges the degenerate regime $T < n$ immediately. In the following, we assume $T \ge n$, so that $R = \log_2(T/n) \ge 1$ is well-defined.
+
+\paragraph{Step 1: Interval decomposition and bad epoch sets.}
+By Lemma~\ref{lem:obv-interval}, the epoch assignment procedure (Algorithm~\ref{algo:sequence}) produces a collection of intervals $\{\mI_\tau\}_{\tau \in [\tau_{\max}]}$ that are pairwise disjoint and cover $[T]$, i.e.,
+\[
+\mI_\tau \cap \mI_{\tau'} = \emptyset \quad (\forall\, \tau \neq \tau') \quad \text{and} \quad \bigcup_{\tau \in [\tau_{\max}]} \mI_\tau = [T].
+\]
+Consequently, the cumulative regret decomposes additively over the intervals:
+\begin{align}
+\mathcal{R}_T = \sum_{\tau=1}^{\tau_{\max}} \left( \sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \right). \label{eq:regret-decomp}
+\end{align}
+In Algorithm~\ref{algo:sequence}, each interval $\mI_\tau$ is constructed at some timestep $a_\tau \in K$. There are two mutually exclusive and exhaustive cases for each interval index $\tau \in [\tau_{\max}]$:
+\begin{enumerate}
+\item $a_\tau \notin \mH_R$: This occurs when $t(a_\tau) < +\infty$, in which case $\mI_\tau = [a_\tau : t(a_\tau)]$ and $i^*$ is covered by the set of alive active experts at epoch $t(a_\tau)$.
+\item $a_\tau \in \mH_R$: This occurs when $t(a_\tau) = +\infty$ and $r(a_\tau) = R$. In this case, $a_\tau$ is added to $\mH_R$, the interval is set to $\mI_\tau \leftarrow a_\tau$ (a single epoch of thread $R$), and the timestep advances via $a_{\tau+1} \leftarrow a_\tau \oplus 1$.
+\end{enumerate}
+(Note that when $t(a_\tau) = +\infty$ with $r(a_\tau) < R$, Algorithm~\ref{algo:sequence} augments $\mH_{r(a_\tau)}$ with $a_\tau$ and descends to the next thread $a_\tau \leftarrow (a_\tau, 0)$ without creating an interval or incrementing $\tau$.)
+
+We partition the index set $[\tau_{\max}]$ into:
+\[
+S_{\text{good}} := \{ \tau \in [\tau_{\max}] : a_\tau \notin \mH_R \}, \qquad S_{\text{bad}} := \{ \tau \in [\tau_{\max}] : a_\tau \in \mH_R \}.
+\]
+Then \eqref{eq:regret-decomp} becomes
+\begin{align}
+\mathcal{R}_T = \sum_{\tau \in S_{\text{good}}} \left( \sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \right) + \sum_{\tau \in S_{\text{bad}}} \left( \sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \right). \label{eq:two-sums}
+\end{align}
+
+\paragraph{Step 2: Bounding the size of bad epochs $|\mH_r|$.}
+For each thread $r \in [R]$, $\textsc{Baseline}_+(r)$ (Algorithm~\ref{algo:base+}) executes the epoch structure of $\textsc{Baseline}$ (Algorithm~\ref{algo:base}) with epoch length $B_r = \frac{T}{n 2^{r-1}}$, sampling each expert with probability $1/n$ at each epoch and sampling active random bits with probability $\frac{1}{\log^4(nT)}$. By Lemma~\ref{lem:base-size}, the number of bad epochs in each thread $r \in [R]$ satisfies
+\[
+|\mH_r| \le O\left(n \log^{10}(nT)\right)
+\]
+with probability at least $1 - 1/(nT)^{\omega(1)}$. Taking a union bound over all $R = \log_2(T/n) \le \log_2(T)$ threads, we have
+\begin{align}
+\max_{r \in [R]} |\mH_r| \le O\left(n \log^{10}(nT)\right) \label{eq:Hr-bound}
+\end{align}
+with probability at least $1 - R/(nT)^{\omega(1)} = 1 - 1/(nT)^{\omega(1)}$.
+
+\paragraph{Step 3: Bounding the regret on $S_{\text{bad}}$.}
+For each $\tau \in S_{\text{bad}}$, $\mI_\tau = a_\tau$ is a single epoch of thread $R$. The length of an epoch in thread $R$ is $B_R$. Since $R = \log_2(T/n)$, we have
+\[
+B_R = \frac{T}{n 2^{R-1}} = \frac{T}{n \cdot 2^{\log_2(T/n) - 1}} = \frac{T}{n \cdot \frac{T}{2n}} = 2.
+\]
+Because each epoch in $\mH_R$ is visited at most once by the strictly advancing operator $\oplus$, the number of intervals in $S_{\text{bad}}$ satisfies $|S_{\text{bad}}| \le |\mH_R|$. Since $\ell_t \in [0, 1]^n$, the regret on any single day is at most $1$. Therefore,
+\begin{align}
+\sum_{\tau \in S_{\text{bad}}} \left( \sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \right) \le \sum_{\tau \in S_{\text{bad}}} |\mI_\tau| = |S_{\text{bad}}| \cdot B_R \le 2 |\mH_R|. \label{eq:bad-regret}
+\end{align}
+Using \eqref{eq:Hr-bound} and the fact that $n \le \sqrt{nT}$ (since $T \ge n$), we obtain
+\begin{align}
+2 |\mH_R| \le O\left(n \log^{10}(nT)\right) \le O\left(\sqrt{nT} \log^{10}(nT)\right). \label{eq:bad-bound-final}
+\end{align}
+
+\paragraph{Step 4: Bounding the regret on $S_{\text{good}}$.}
+For every $\tau \in S_{\text{good}}$, $a_\tau \notin \mH_R$. By Lemma~\ref{lem:interval-regret-apply}, with probability at least $1 - 1/(nT)^{\omega(1)}$, for every $\tau \in S_{\text{good}}$ simultaneously:
+\[
+\sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \le O\left(\sqrt{|\mI_\tau|} \log^6(nT)\right).
+\]
+Summing over all $\tau \in S_{\text{good}}$ and using $S_{\text{good}} \subseteq [\tau_{\max}]$, we get
+\begin{align}
+\sum_{\tau \in S_{\text{good}}} \left( \sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \right) \le O\left(\log^6(nT)\right) \sum_{\tau \in S_{\text{good}}} \sqrt{|\mI_\tau|} \le O\left(\log^6(nT)\right) \sum_{\tau=1}^{\tau_{\max}} \sqrt{|\mI_\tau|}. \label{eq:good-regret}
+\end{align}
+
+\paragraph{Step 5: Bounding $\sum_{\tau=1}^{\tau_{\max}} \sqrt{|\mI_\tau|}$.}
+Let $L_1 := \{\mI_\tau\}_{\tau \in [\tau_{\max}]}$, and for each $r \in [2 : R]$, let $L_r := \{\mI \in L_1 : |\mI| < B_{r-1}\}$. The sets $L_r$ form a nested chain:
+\[
+L_1 \supseteq L_2 \supseteq L_3 \supseteq \cdots \supseteq L_R.
+\]
+We partition $L_1$ into disjoint subsets based on the interval lengths:
+\begin{align}
+L_1 = (L_1 \setminus L_2) \cup \left( \bigcup_{r=2}^{R-1} (L_r \setminus L_{r+1}) \right) \cup L_R, \label{eq:L1-partition}
+\end{align}
+where the union over $r \in [2 : R-1]$ is understood to be empty if $R \le 2$. Thus,
+\begin{align}
+\sum_{\mI \in L_1} \sqrt{|\mI|} = \sum_{\mI \in L_1 \setminus L_2} \sqrt{|\mI|} + \sum_{r=2}^{R-1} \sum_{\mI \in L_r \setminus L_{r+1}} \sqrt{|\mI|} + \sum_{\mI \in L_R} \sqrt{|\mI|}. \label{eq:sum-three-terms}
+\end{align}
+We now bound each of the three terms in \eqref{eq:sum-three-terms}:
+
+\begin{enumerate}
+\item \textbf{Term 1 ($L_1 \setminus L_2$):}
+By definition of $L_2$, any interval $\mI \in L_1 \setminus L_2$ satisfies $|\mI| \ge B_1$. Since the intervals in $L_1$ are pairwise disjoint subintervals of $[T]$, we have
+\[
+\sum_{\mI \in L_1 \setminus L_2} |\mI| \le \sum_{\mI \in L_1} |\mI| = T.
+\]
+Because each interval in $L_1 \setminus L_2$ has length at least $B_1$, the cardinality satisfies
+\[
+|L_1 \setminus L_2| \cdot B_1 \le \sum_{\mI \in L_1 \setminus L_2} |\mI| \le T \implies |L_1 \setminus L_2| \le \frac{T}{B_1}.
+\]
+Since $B_1 = \frac{T}{n 2^{1-1}} = \frac{T}{n}$, we have $|L_1 \setminus L_2| \le \frac{T}{T/n} = n$. Applying the Cauchy-Schwarz inequality,
+\begin{align}
+\sum_{\mI \in L_1 \setminus L_2} \sqrt{|\mI|} \le \sqrt{|L_1 \setminus L_2| \cdot \sum_{\mI \in L_1 \setminus L_2} |\mI|} \le \sqrt{n \cdot T} = \sqrt{nT}. \label{eq:term1-bound}
+\end{align}
+
+\item \textbf{Term 2 ($L_r \setminus L_{r+1}$ for $r \in [2 : R-1]$):}
+If $R \le 2$, this term is an empty sum, which is zero. For $R \ge 3$, fix any $r \in [2 : R-1]$. Any interval $\mI \in L_r \setminus L_{r+1}$ satisfies:
+\begin{itemize}
+\item $\mI \in L_r \implies |\mI| < B_{r-1}$;
+\item $\mI \notin L_{r+1} \implies |\mI| \ge B_r$.
+\end{itemize}
+By the second item of Lemma~\ref{lem:obv-interval}, the total length of intervals in $L_r$ satisfies
+\[
+\sum_{\mI \in L_r} |\mI| \le |\mH_{r-1}| \cdot B_{r-1}.
+\]
+Since $(L_r \setminus L_{r+1}) \subseteq L_r$, we have
+\[
+\sum_{\mI \in L_r \setminus L_{r+1}} |\mI| \le \sum_{\mI \in L_r} |\mI| \le |\mH_{r-1}| \cdot B_{r-1}.
+\]
+Since each interval $\mI \in L_r \setminus L_{r+1}$ has $|\mI| \ge B_r$ and they are pairwise disjoint,
+\[
+|L_r \setminus L_{r+1}| \cdot B_r \le \sum_{\mI \in L_r \setminus L_{r+1}} |\mI| \le |\mH_{r-1}| \cdot B_{r-1} \implies |L_r \setminus L_{r+1}| \le |\mH_{r-1}| \cdot \frac{B_{r-1}}{B_r}.
+\]
+From the definition $B_k = \frac{T}{n 2^{k-1}}$, the ratio is
+\[
+\frac{B_{r-1}}{B_r} = \frac{\frac{T}{n 2^{r-2}}}{\frac{T}{n 2^{r-1}}} = 2.
+\]
+Hence, $|L_r \setminus L_{r+1}| \le 2 |\mH_{r-1}|$. Applying the Cauchy-Schwarz inequality to the sum over $L_r \setminus L_{r+1}$,
+\begin{align*}
+\sum_{\mI \in L_r \setminus L_{r+1}} \sqrt{|\mI|} &\le \sqrt{|L_r \setminus L_{r+1}| \cdot \sum_{\mI \in L_r \setminus L_{r+1}} |\mI|} \\
+&\le \sqrt{2 |\mH_{r-1}| \cdot |\mH_{r-1}| B_{r-1}} = |\mH_{r-1}| \sqrt{2 B_{r-1}}.
+\end{align*}
+Summing over all $r \in [2 : R-1]$ and letting $H_{\max} := \max_{j \in [R]} |\mH_j|$, we obtain
+\begin{align*}
+\sum_{r=2}^{R-1} \sum_{\mI \in L_r \setminus L_{r+1}} \sqrt{|\mI|} \le \sqrt{2} H_{\max} \sum_{r=2}^{R-1} \sqrt{B_{r-1}}.
+\end{align*}
+Since $B_{r-1} = \frac{T}{n 2^{r-2}} = \frac{T}{n} \cdot 2^{-(r-2)}$, we have $\sqrt{B_{r-1}} = \sqrt{\frac{T}{n}} \cdot (1/\sqrt{2})^{r-2}$. Summing the geometric series with ratio $1/\sqrt{2} < 1$:
+\[
+\sum_{r=2}^{R-1} \sqrt{B_{r-1}} = \sqrt{\frac{T}{n}} \sum_{k=0}^{R-3} \left(\frac{1}{\sqrt{2}}\right)^k < \sqrt{\frac{T}{n}} \sum_{k=0}^{\infty} \left(\frac{1}{\sqrt{2}}\right)^k = \sqrt{\frac{T}{n}} \cdot \frac{1}{1 - 1/\sqrt{2}} = (2 + \sqrt{2}) \sqrt{\frac{T}{n}}.
+\]
+Therefore,
+\begin{align*}
+\sum_{r=2}^{R-1} \sum_{\mI \in L_r \setminus L_{r+1}} \sqrt{|\mI|} \le \sqrt{2} (2 + \sqrt{2}) H_{\max} \sqrt{\frac{T}{n}} = (2\sqrt{2} + 2) H_{\max} \sqrt{\frac{T}{n}}.
+\end{align*}
+By \eqref{eq:Hr-bound}, $H_{\max} \le O(n \log^{10}(nT))$. Substituting this bound:
+\begin{align}
+\sum_{r=2}^{R-1} \sum_{\mI \in L_r \setminus L_{r+1}} \sqrt{|\mI|} \le O\left(n \log^{10}(nT) \cdot \sqrt{\frac{T}{n}}\right) = O\left(\sqrt{nT} \log^{10}(nT)\right). \label{eq:term2-bound}
+\end{align}
+
+\item \textbf{Term 3 ($L_R$):}
+Applying Lemma~\ref{lem:obv-interval} with $r = R$, we have
+\[
+\sum_{\mI \in L_R} |\mI| \le |\mH_{R-1}| \cdot B_{R-1}.
+\]
+Since $R = \log_2(T/n)$, we have $B_{R-1} = \frac{T}{n 2^{R-2}} = \frac{T}{n \cdot \frac{T}{4n}} = 4$. Every interval $\mI \in L_R$ contains at least one day (as epochs and intervals are non-empty), so $|\mI| \ge 1$. For any integer $x \ge 1$, we have $\sqrt{x} \le x$. Thus,
+\begin{align}
+\sum_{\mI \in L_R} \sqrt{|\mI|} \le \sum_{\mI \in L_R} |\mI| \le 4 |\mH_{R-1}| \le 4 H_{\max} \le O\left(n \log^{10}(nT)\right) \le O\left(\sqrt{nT} \log^{10}(nT)\right). \label{eq:term3-bound}
+\end{align}
+\end{enumerate}
+
+Combining the bounds from \eqref{eq:term1-bound}, \eqref{eq:term2-bound}, and \eqref{eq:term3-bound} into \eqref{eq:sum-three-terms}:
+\begin{align}
+\sum_{\tau=1}^{\tau_{\max}} \sqrt{|\mI_\tau|} \le \sqrt{nT} + O\left(\sqrt{nT} \log^{10}(nT)\right) + O\left(\sqrt{nT} \log^{10}(nT)\right) = O\left(\sqrt{nT} \log^{10}(nT)\right). \label{eq:sum-sqrt-final}
+\end{align}
+
+\paragraph{Step 6: Final Regret Assembly.}
+Substituting \eqref{eq:sum-sqrt-final} into the regret bound for $S_{\text{good}}$ in \eqref{eq:good-regret}:
+\begin{align}
+\sum_{\tau \in S_{\text{good}}} \left( \sum_{t \in \mI_\tau} \ell_t(i_t) - \sum_{t \in \mI_\tau} \ell_t(i^*) \right) \le O\left(\log^6(nT)\right) \cdot O\left(\sqrt{nT} \log^{10}(nT)\right) = O\left(\sqrt{nT} \log^{16}(nT)\right). \label{eq:good-final}
+\end{align}
+Combining \eqref{eq:good-final} and the bound for $S_{\text{bad}}$ from \eqref{eq:bad-bound-final} into \eqref{eq:two-sums}, we obtain:
+\begin{align*}
+\mathcal{R}_T = \sum_{t \in [T]} \ell_t(i_t) - \sum_{t \in [T]} \ell_t(i^*) &\le O\left(\sqrt{nT} \log^{16}(nT)\right) + O\left(\sqrt{nT} \log^{10}(nT)\right) \\
+&= O\left(\sqrt{nT} \log^{16}(nT)\right) = \wt{O}\left(\sqrt{nT}\right).
+\end{align*}
+
+\paragraph{Failure probability.}
+The bound relies on:
+\begin{enumerate}
+\item Lemma~\ref{lem:interval-regret-apply}, which holds with probability at least $1 - 1/(nT)^{\omega(1)}$;
+\item Lemma~\ref{lem:base-size} applied to each of the $R$ threads, which by union bound fails with probability at most $R \cdot 1/(nT)^{\omega(1)} \le \log_2(T) \cdot 1/(nT)^{\omega(1)} = 1/(nT)^{\omega(1)}$.
+\end{enumerate}
+By the union bound over these two events, the overall failure probability is at most
+\[
+\frac{1}{(nT)^{\omega(1)}} + \frac{1}{(nT)^{\omega(1)}} = \frac{1}{(nT)^{\omega(1)}}.
+\]
+This completes the proof.
+\end{proof}
+================================================================================

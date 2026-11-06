@@ -1,0 +1,813 @@
+
+
+================================================================================
+[2026-10-24 06:40:46] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_9_259
+================================================================================
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_9_259 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**Granted Objects & Definitions (no re-derivation needed):**
+- **D1 Simple Consistent Hashing:** Balls+bins hashed to unit circle/interval; ball → successor bin clockwise. Assumes no collisions.
+- **D2 Bounded Loads (Sec simple-bound):** Bins placed first, then balls one-by-one in priority order; each ball → first non-full bin clockwise from its hash. Load ≤ capacity.
+- **D3 Virtual Bins + Bounded Loads (Sec virt-bound):** Ball in virtual bin ⇒ also in super bin; super bin has limited capacity $C$.
+- **D4 Many Independent Cycles (Sec implementation1):** The *only* quantitative mechanism licensed:
+  - Each super bin → $k$ independent hashes on $k$ cycles (virtual bins).
+  - Each ball → single random cycle $i$ with prob $p_i$, plus uniform hash within cycle.
+  - **Level-ordered static placement:** Process $i=1,\dots,k$ sequentially. At level $i$, use D2 with *remaining* capacities $C_0$. If super bin had $C_0$ before level $i$ and receives $a$ at level $i$, remaining is $C_0-a$.
+  - **Priority convention:** Any ball hashing to level $j>i$ has lower priority than any ball at level $i$, regardless of initial priorities. Within same level, priority order simulated.
+  - **Insertion rule for $x$ with level $i=h_{level}(x)$:** Traverse level $i$ from $h(x)$ clockwise until bin $b$ with (a) not full or (b) contains lower-priority ball $y$. Insert $x$; in case (b) pop $y$ and recurse at level $j\ge i$.
+
+**Target Preconditions to discharge:**
+- $n$ balls, $m$ bins, capacity $C=(1+\eps)n/m$.
+- $k=\lceil\log(1/\eps)\rceil+2$, $p_i=2^{-i}$ for $i<k$, $p_k=2^{-k+1}$ (sums to 1).
+- $1/\eps=n^{o(1)}$ (subpolynomial; forbids assuming $\eps$ constant or $n$ exponential in $1/\eps$).
+- Claim: Expected # bins visited on insertion $=O(1/\eps)$.
+- **No unauthorized constraints:** Cannot assume $k\ge 2$ separately (must hold for all $\eps$), cannot assume $\eps$ small constant, cannot assume non-empty intervals, must handle ceilings/floors and $i=k$ boundary ($p_k=2p_{k-1}$ doubling).
+
+**Explicit Invariants licensed for direct use:**
+- O1: Capacities only decrease across levels; total load ≤ $mC$.
+- O2: Recursion never goes to lower level ($j\ge i$); chain respects level monotonicity.
+- O3: Balls at levels $>i$ are lower priority than level-$i$ ball by convention.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Strategy Alpha (Constructive / Inductive Invariant over Levels):**
+- Induct on level $i$. Maintain remaining capacity vector $C^{(i)}_b$.
+- Witness insertion cost as sum of per-level search costs + cascade costs.
+- At level $i$, conditional on history of levels $<i$, the subsystem is exactly D2 with capacities $C^{(i)}$ and $N_i\sim {\rm Bin}(n,p_i)$ balls.
+- Bound expected run of full virtual bins traversed from random start: needs fullness fraction $\ll 1$. Show by induction expected load at level $i$ decays geometrically while capacity stays $\approx C$, so fullness probability $\le c<1$ uniformly, giving $O(1)$ per-level search. Summing $k$ levels naively gives $O(k)$; refine using $p_i=2^{-i}$ weighting: insertion starts at $i$ with prob $p_i$, cost of levels $\ge i$ bounded, yielding $\sum_i p_i \cdot O(k-i+1)=O(1)$ plus cascade term $O(1/\eps)$.
+- Key step: rank-1/capacity-update identity $C^{(i+1)}=C^{(i)}-a^{(i)}$.
+
+**Strategy Beta (Extremal / Potential / Run-length):**
+- Fix insertion ball $x$ at level $i$. Consider clockwise run of full virtual bins containing $h(x)$.
+- Extremal split: let $I$ be maximal interval starting at predecessor virtual bin and ending at $h(x)$ consisting entirely of full bins. Then # visited $\le |I|_{\rm bins}+1$.
+- Fullness implies balls $\ge$ capacity in $I$: $\text{balls}_I \ge \text{cap}_I$. Choose *minimal* $q$ attaining overflow to avoid double-counting; canonical witness interval must use base case (no split) on one side.
+- Potential $\Phi=\sum_b \max(0,{\rm load}_b-C_b^{\rm rem})$ or total remaining capacity. Show overflow interval requires large deviation of balls hashing into $I$ vs expectation. Since $p_i$ decays, expected balls in small interval $\ll$ capacity, so long runs exponentially unlikely. Union bound over interval lengths gives $E[{\rm run}]=O(1/\eps)$ worst-case at last level where load/capacity $\to 1$.
+- Must check boundary $m=i+1$ or interval wrapping around circle; cannot declare one branch of $\min$ suboptimal without checking.
+
+**Strategy Gamma (Probabilistic Conditioning / Structural Decomposition):**
+- Condition in two stages: (1) unordered multiset of level assignments + hash positions, (2) reveal order/priorities. Use exchangeability: insertion ball symmetric with existing balls at same level.
+- Decompose cost $T = S_i + R$ where $S_i$ = search on starting level $i$, $R$ = recursive cascade to levels $\ge i$.
+- Cascade only pops lower-priority balls (levels $\ge i$), so chain is forward in levels. Bound expected chain length via per-level overflow probability $\approx \eps/ $? Show last levels carry $O(\eps n)$ balls but have $\Omega(m)$ residual capacity, so eviction probability small.
+- Dependency graph: cycles independent across levels except via $C^{(i)}$; condition on $C^{(i)}$ to restore independence of level-$i$ hashes. Then apply standard bounded-load run bound (full bins form Bernoulli-like clusters).
+- Yields $E[T]=\sum_i p_i E[T\mid {\rm level}=i]=O(1/\eps)$ with dominant contribution from $i=k$ where $p_k\approx 2\eps$ and $E[T\mid k]=O(1/\eps^2)$? Must balance to $O(1/\eps)$ — requires $k=\log(1/\eps)+O(1)$ tuning so $2^{-k}=\Theta(\eps)$.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+**Hereditary vs Fragile:**
+- Hereditary: capacity monotonicity ($C^{(i+1)}\le C^{(i)}$), level monotonicity of recursion ($j\ge i$), total capacity invariant $\sum C^{(i)}_b$.
+- Fragile (revoked on restriction): clockwise contiguity/full-run property on arbitrary subinterval (slicing destroys balance); mutual independence of bin loads (conditioning on $C^{(i)}$ couples); uniform hash position (conditioning on overflow biases positions); per-level D2 invariant only holds conditional on prior levels' $a$'s.
+
+```python
+state.register("super_bins", kind="bins", properties=["capacity_C=(1+eps)n/m", "k_virtual_copies", "remaining_cap_Ci_hereditary"])
+state.register("balls", kind="balls", properties=["level_dist_p_geometric", "uniform_within_cycle", "priority_level_ordered"])
+state.register("levels", kind="partition", properties=["k=ceil(log1/eps)+2", "sequential_processing_1_to_k", "independent_cycles"])
+state.register("insertion", kind="procedure", properties=["start_level_i", "forward_recursion_j>=i", "visit_count_T"])
+state.register("run_interval", kind="interval", properties=["fragile_contiguity", "fullness_implies_overflow"])
+
+state.add_subgoal("S1", "E[remaining capacity at level i] stays Omega(C)")
+state.add_subgoal("S2", "E[run length of full virtual bins | level i] bounded")
+state.add_subgoal("S3", "E[cascade length] = O(1/eps); weighted sum sum p_i E[T|i] = O(1/eps)")
+```
+
+### Testable Intermediate Claims
+
+1. **Level-load vs capacity identity:** $E[N_i]=np_i=n2^{-i}$ for $i<k$, $E[N_k]=n2^{-k+1}=\Theta(\eps n)$. Check $ \sum p_i=1$ and $2^{-k}=\Theta(\eps)$ given $k=\lceil\log(1/\eps)\rceil+2$ (boundary $k$ doubling). Verify in REPL: residual capacity after levels $<k$ still $\Omega(C)$ w.h.p. since total prior balls $\le n$ but spread over $m$ bins with slack $\eps n/m$. Complementary regime $D\setminus D_1$ (last level where load/capacity $\to 1$) discharged directly via $O(1/\eps)$ linear-probing bound, not geometric tail.
+
+2. **Run-length overflow implication:** If insertion visits $t$ bins on level $i$, then some clockwise interval $I$ containing $h(x)$ with $t-1$ virtual bins is full ⇒ $\#\{{\rm balls\ in\ }I\}\ge {\rm cap}(I)$. Dimension check: balls counted are only those assigned to level $i$ with priority $\ge x$ plus carryover loads reducing ${\rm cap}$. Test via simulation: $P[{\rm run}\ge t]\le \exp(-\Omega(t\cdot {\rm slack}))$ for small $t$, polynomial for large $t$. Do NOT assert short-interval branch universally dominates without checking $t=1$ and wrap-around intervals.
+
+3. **Weighted-sum heuristic domain:** Candidate $E[T\mid i]\le A\cdot 2^{k-i}+B$ is heuristic only for $i$ near $k$ ($D_1=\{i>k-O(1)\}$); for $i\ll k$ ($D\setminus D_1$) use direct $O(1)$ bound since level lightly loaded. Verify $\sum_{i} p_i E[T\mid i] = \sum_i 2^{-i}O(2^{k-i}) = O(1/\eps)$ vs naive $O(k/\eps)$. Needs REPL check of geometric series with $p_k$ boundary correction.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_9_259 ---
+[Falsifier Script 1]:
+import math, random
+# Claim 1: sum p_i=1, 2^{-k}=Theta(eps), k>=2 universally, residual slack
+def check(eps):
+    import math
+    L = math.log2(1/eps) if eps>0 else float('inf')
+    k = math.ceil(L)+2
+    ps = [2**(-i) for i in range(1,k)] + ([2**(-k+1)] if k>=1 else [])
+    s = sum(ps)
+    pow2k = 2**(-k) if k>=0 else float('inf')
+    return k, s, pow2k
+
+print("== Claim1: level distribution ==")
+for eps in [0.5, 0.25, 0.1, 0.01, 1e-3, 2.0, 4.0]:
+    k,s,pw = check(eps)
+    print(f"eps={eps} k={k} sum_p={s:.6f} 2^-k={pw:.6g} eps/8={eps/8:.6g} eps/4={eps/4:.6g} in_range={eps/8 < pw <= eps/4 if pw!=float('inf') else False}")
+# Monte Carlo: N_i ~ Bin(n,p_i), E[N_i]=n p_i ? all-trials vs at-least-one check
+import random
+def mc(n=2000, eps=0.1, trials=2000):
+    L=math.log2(1/eps); k=math.ceil(L)+2
+    p=[2**(-i) for i in range(1,k)]+[2**(-k+1)]
+    assert abs(sum(p)-1)<1e-9, "sum p !=1"
+    # empirical mean of N_1 and N_k
+    for idx in [0, len(p)-1]:
+        m=sum(sum(1 for _ in range(n) if random.random()<p[idx]) for _ in range(trials))/trials
+        print(f" level {idx+1} p={p[idx]:.5f} emp_mean={m:.1f} theory={n*p[idx]:.1f}")
+    # failure prob logic: repeating scheme k times, all-succeed vs one-succeed
+    q=0.3; kk=5
+    all_succ=(1-q)**kk; one_succ=1-(1-(1-q))**kk  # dummy
+    print(f"q^k={q**kk:.4f} 1-(1-q)^k={1-(1-q)**kk:.4f} (must not confuse)")
+mc()
+# counterexample: k>=2 fails for large eps
+k_big,_ ,_ = check(4.0)
+print("counterexample k>=2 for eps=4.0:", k_big, "=> k>=2 FALSE" if k_big<2 else "ok")
+assert abs(sum([2**(-i) for i in range(1,5)]+[2**(-5+1)])-1)<1e-9
+assert check(0.1)[1] if False else True
+print("Claim1 Theta(eps) holds for eps<=0.5, FAILS k>=1 for eps>=2")
+[Falsifier Kernel Output (Verified)]: == Claim1: level distribution ==
+eps=0.5 k=3 sum_p=1.000000 2^-k=0.125 eps/8=0.0625 eps/4=0.125 in_range=True
+eps=0.25 k=4 sum_p=1.000000 2^-k=0.0625 eps/8=0.03125 eps/4=0.0625 in_range=True
+eps=0.1 k=6 sum_p=1.000000 2^-k=0.015625 eps/8=0.0125 eps/4=0.025 in_range=True
+eps=0.01 k=9 sum_p=1.000000 2^-k=0.00195312 eps/8=0.00125 eps/4=0.0025 in_range=True
+eps=0.001 k=12 sum_p=1.000000 2^-k=0.000244141 eps/8=0.000125 eps/4=0.00025 in_range=True
+eps=2.0 k=1 sum_p=1.000000 2^-k=0.5 eps/8=0.25 eps/4=0
+[Falsifier Script 2]:
+import sympy as sp
+# Claim 3: weighted sums. Candidate E[T|i]<=A*2^{k-i}+B heuristic
+# Test sum_i p_i * E[T|i] behavior; show early levels dominate, not last level
+import math
+print("== Weighted sum heuristic domain ==")
+def S(k, A=1.0, B=0.0):
+    tot=0.0
+    terms=[]
+    for i in range(1,k):
+        pi=2**(-i); Ei=A*2**(k-i)+B
+        terms.append(pi*Ei)
+        tot+=pi*Ei
+    pk=2**(-k+1); Ek=A*1+B  # 2^{k-k}=1
+    terms.append(pk*Ek); tot+=pk*Ek
+    return tot, terms
+
+for eps in [0.1, 0.01, 0.001]:
+    k=math.ceil(math.log2(1/eps))+2
+    tot,terms=S(k)
+    print(f"eps={eps} k={k} 2^k={2**k} 1/eps={1/eps} total={tot:.3f} t1={terms[0]:.3f} tk={terms[-1]:.6f} ratio_tot/(1/eps)={tot*eps:.3f}")
+print("=> term i=1 ~ 2^{k}/4 = Theta(1/eps) DOMINATES; i=k term ~ eps. So 'dominant from i=k' is FALSE.")
+# Symbolic check: sum_{i>=1} 2^{-i}(k-i+1) = O(1) (Alpha's refined sum)
+# Use closed form via sympy summation with finite k symbol? spot-check numeric + symbolic finite sum
+k=sp.symbols('k', integer=True, positive=True)
+i=sp.symbols('i', integer=True, positive=True)
+# finite-sum identity check for concrete k values (empirical spot check, not proof)
+def holds_on_samples():
+    for kk in [2,3,5,10,20]:
+        s=sum(2**(-i)*(kk-i+1) for i in range(1,kk+1))
+        if not (s < 3.0):
+            return False, kk, s
+    return True, None, None
+print("sum p_i*(k-i+1) bounded by O(1):", holds_on_samples())
+# sympy reduce_inequalities for Theta bounds: eps/8 < 2^{-k} <= eps/4 given k=ceil(log2(1/eps))+2
+eps=sp.symbols('eps', positive=True)
+# spot check inequality eps/8 < 2^{-(ceil(log2(1/eps))+2)} on samples
+import math as m
+def spot():
+    for e in [0.5,0.25,0.1,0.05,0.01,0.001,1e-6]:
+        kk=m.ceil(m.log2(1/e))+2
+        if not (e/8 < 2**(-kk) <= e/4+1e-15):
+            return False, e
+    return True, None
+print("Theta(eps) spot check (eps<=0.5):", spot())
+# Show naive O(k) vs refined O(1): both true but refined needs proof
+for kk in [3,5,8,12]:
+    naive=kk; refined=sum(2**(-i)*(kk-i+1) for i in range(1,kk+1))
+    print(f"k={kk} naive O(k)={naive} refined={refined:.3f}")
+[Falsifier Kernel Output (Verified)]: == Weighted sum heuristic domain ==
+eps=0.1 k=6 2^k=64 1/eps=10.0 total=21.344 t1=16.000 tk=0.031250 ratio_tot/(1/eps)=2.134
+eps=0.01 k=9 2^k=512 1/eps=100.0 total=170.668 t1=128.000 tk=0.003906 ratio_tot/(1/eps)=1.707
+eps=0.001 k=12 2^k=4096 1/eps=1000.0 total=1365.333 t1=1024.000 tk=0.000488 ratio_tot/(1/eps)=1.365
+=> term i=1 ~ 2^{k}/4 = Theta(1/eps) DOMINATES; i=k term ~ eps. So 'dominant from i=k' is FALSE.
+sum p_i*(k-i+1) bounded by O(1): (False, 5, 4.03125)
+Theta(eps) spot check (eps<=0.5
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+## Turn 1 — Exploration Gate: Inventory, Invariant, Claims
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+**Granted definitions (used without re-derivation):**
+- **D1 Simple consistent hashing:** balls+bins on circle, ball to successor bin clockwise, no collisions.
+- **D2 Bounded loads:** bins placed first, balls in priority order, each to first non-full bin clockwise. Load $\le$ capacity.
+- **D3 Virtual + bounded:** ball in virtual bin $\Rightarrow$ in super bin; super bin capacity $C$.
+- **D4 Many independent cycles (only quantitative mechanism):**
+  each super bin $\to$ $k$ independent hashes on $k$ cycles;
+  each ball $\to$ single random cycle $i$ with prob $p_i$ + uniform hash within cycle;
+  static placement processes $i=1,\dots,k$ sequentially with D2 using remaining capacities $C_0$, update $C_0-a$;
+  priority convention: level $j>i$ lower priority than level $i$ regardless of initial priority;
+  insertion of $x$ at level $i=h_{level}(x)$: traverse level $i$ from $h(x)$ to first bin $b$ with (a) not full or (b) containing lower-priority $y$; insert, in case (b) pop $y$ and recurse at level $j\ge i$.
+
+**Target preconditions to discharge:**
+$n$ balls, $m$ bins, $C=(1+\eps)n/m$,
+$k=\lceil\log_2(1/\eps)\rceil+2$,
+$p_i=2^{-i}\,(i<k)$, $p_k=2^{-k+1}$,
+$1/\eps=n^{o(1)}$, expected bins visited $=O(1/\eps)$.
+No extra assumptions on $k\ge 2$, $\eps$ small, non-empty intervals; must handle ceil/floor and $i=k$ doubling $p_k=2p_{k-1}$.
+
+**Licensed invariants for direct use:**
+- O1 capacities only decrease, total load $\le mC$.
+- O2 recursion $j\ge i$ monotone.
+- O3 levels $>i$ lower priority than level-$i$ ball.
+
+Plan is to compose D4+O1-O3, not rebuild consistent hashing from scratch.
+
+### 2. Invariant-First Formulation
+
+Do not brute-force over all $m$, $n$, priority orders.
+Unifying invariant: **minimal overflow witness interval + conditional independence across cycles.**
+
+Fix level $i$. Condition on history $<i$, i.e. remaining vector $C^{(i)}_b$.
+By D4, level-$i$ virtual positions and level-$i$ ball hashes are independent of $C^{(i)}$ and i.i.d. uniform on cycle $i$.
+Hence conditional on $C^{(i)}$, level $i$ is exactly D2 with capacities $C^{(i)}_b$ and $N_i\sim{\rm Bin}(n,p_i)$ balls.
+
+If insertion at level $i$ visits $t$ virtual bins, the clockwise run of full virtual bins containing $h(x)$ has length $\ge t-1$.
+Fullness implies overflow: balls hashing into that interval $\ge$ capacity of interval (up to integer rounding, see Claim B).
+Long runs thus require large deviation of balls vs capacity.
+Since $E[N_i]/E[R_i]\le 1/2$ but usable fraction $U_i/m\approx \eps+2^{-i}$, the dominant cost is finding a super bin with $C^{(i)}_b>0$, giving $E[S_i]\approx 1/(\eps+2^{-i})$.
+Cascade to levels $\ge i$ sums to $O(1/\eps)$ uniformly because early terms are geometric and only $O(1)$ levels have cost $\approx 1/\eps$.
+
+### 3. Structured Intermediate Claims
+
+[CLAIM A — level/capacity identities]:
+$\sum p_i=1$, $2^{-k}=\Theta(\eps)$, $E[N_i]=n2^{-i}$ ($i<k$), $E[N_k]=n2^{-k+1}$,
+$E[R_i]=mC-\sum_{j<i}E[N_j]$, ratio $\le 1/2$, usable lower bound $E[U_i]\ge E[R_i]/C$.
+
+[REDUCTION A]: discharges D4 preconditions, identifies $f_i:=\eps+2^{-i}$ scale, shows $1/\eps=n^{o(1)}$ gives concentration regime ($E[N_k]=\Theta(\eps n)=n^{1-o(1)}$), handles $k$ ceil and $p_k$ doubling boundary.
+
+[CLAIM B — run-length overflow implication]:
+If insertion with level $i$ and hash $h(x)$ visits $t$ bins on level $i$ (counting same-level shifts), then there exists a clockwise interval $I$ ending at $h(x)$ containing $t-1$ virtual bins, all full w.r.t. higher-priority level-$i$ balls + prior loads, so $\#\{{\rm level}\hbox{-}i\ {\rm balls\ in\ }I\ {\rm with\ priority}\ge x\}+{\rm prior\ load\ in\ }I\ge {\rm cap}(I)$. Minimal $q$ witness avoids double-counting; wrap-around handled as circular interval.
+
+[REDUCTION B]: reduces insertion cost to overflow large-deviation event; groups all combinatorial positions into interval family; fragile contiguity isolated to $I$.
+
+[CLAIM C — per-level search + cascade sum]:
+Conditional on $C^{(i)}$, $E[S_i\mid C^{(i)}]=O(1/f_i')$ where $f_i'$ is usable fraction, unconditionally $E[S_i]=O(\min(2^{i},1/\eps))$. Moreover total starting at $i$, $E[T\mid i]\le\sum_{j\ge i}E[S_j]+{\rm cascade}$, and $\sup_i\sum_{j\ge i}E[S_j]=O(1/\eps)$ because $\sum_{j\ge i}1/(\eps+2^{-j})=O(1/\eps)$ uniformly (early geometric sum $\sim 2^{j_0}\sim 1/\eps$, late $O(1)$ terms).
+
+[REDUCTION C]: upgrades per-level bound to target $O(1/\eps)$ uniformly in $i$, hence averaged over $p_i$ also $O(1/\eps)$; dominant regime $i\approx k$ discharged by linear-probing $O(1/\eps)$, complementary $i\ll k$ by $O(1)$–$O(2^i)$.
+
+### 4. State Machine & REPL Verification
+
+```python
+# Mock state if kernel state absent, then verify Claim A identities
+try:
+    state
+except NameError:
+    class Dummy:
+        def register(self,*a,**k): pass
+        def derive(self,*a,**k): pass
+        def add_subgoal(self,*a,**k): pass
+    state = Dummy()
+
+state.register("super_bins", kind="bins", properties=["capacity_C", "k_copies", "remaining_Ci_hereditary"])
+state.register("balls", kind="balls", properties=["level_dist_geometric", "uniform_within_cycle"])
+state.register("levels", kind="partition", properties=["k=ceil_log+2", "sequential", "independent_cycles"])
+state.register("insertion", kind="procedure", properties=["start_level_i", "forward_j>=i"])
+state.add_subgoal("S1", "remaining capacity Omega(C)")
+state.add_subgoal("S2", "run length bounded")
+state.add_subgoal("S3", "cascade O(1/eps)")
+
+import math
+def check(eps):
+    L = math.log2(1/eps)
+    k = math.ceil(L)+2
+    p = [0]+[2**(-i) for i in range(1,k)]+[2**(-k+1)]
+    s = sum(p[1:])
+    pow2k = 2**(-k)
+    return k, s, pow2k, eps/8, eps/4
+
+for eps in [0.5,0.25,0.1,0.01,0.001]:
+    k,s,pw,lo,hi = check(eps)
+    print(f"eps={eps} k={k} sum={s:.6f} 2^-k={pw:.6f} in[{lo:.6f},{hi:.6f}]? {lo-1e-12<=pw<=hi+1e-12}")
+```
+
+```python
+import math
+# Verify weighted-sum domain: E[S_i]~1/(eps+2^-i), sup_i sum_{j>=i} = O(1/eps)
+def sup_sum(eps):
+    L=math.log2(1/eps); k=math.ceil(L)+2
+    costs=[0]+[1/(eps+2**(-j)) for j in range(1,k)]+[1/(eps+2**(-k+1)*0.5+1e-18)]
+    # use 1/(eps+2^-j) proxy for j<k, last similar order
+    costs2=[0]+[1/(eps+2**(-j)) for j in range(1,k+1)]
+    suffix=[0]*(k+2)
+    for i in range(k,0,-1):
+        suffix[i]=suffix[i+1]+costs2[i]
+    m=max(suffix[1:k+1])
+    wsum=sum((2**(-i) if i<k else 2**(-k+1))*costs2[i] for i in range(1,k+1))
+    return k, m, m*eps, wsum, wsum*eps
+
+for eps in [0.1,0.01,0.001,0.0001]:
+    k,m,meps,w,w_eps=sup_sum(eps)
+    print(f"eps={eps} k={k} sup_suffix={m:.1f} *eps={meps:.2f} wsum={w:.1f} wsum*eps={w_eps:.3f}")
+```
+
+```python
+import random
+# Empirical spot-check: usable fraction f ~ eps+2^-i, search for first usable in random order ~1/f
+import math
+def trial(m, f, trials=20000):
+    # m virtual bins, each usable independently with prob f (proxy for U/m)
+    s=0
+    for _ in range(trials):
+        t=1
+        while random.random()>f:
+            t+=1
+        s+=t
+    return s/trials
+
+for eps in [0.1,0.01]:
+    for i in [1,3,6,9]:
+        f=min(1.0,eps+2**(-i))
+        print(f"eps={eps} i={i} f={f:.4f} 1/f={1/f:.1f} sim={trial(1000,f,5000):.1f}")
+```
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Mock state if kernel state absent, then verify Claim A identities
+try:
+    state
+except NameError:
+    class Dummy:
+        def register(self,*a,**k): pass
+        def derive(self,*a,**k): pass
+        def add_subgoal(self,*a,**k): pass
+    state = Dummy()
+
+state.register("super_bins", kind="bins", properties=["capacity_C", "k_copies", "remaining_Ci_hereditary"])
+state.register("balls", kind="balls", properties=["level_dist_geometric", "uniform_within_cycle"])
+state.register("levels", kind="partition", properties=["k=ceil_log+2", "sequential", "independent_cycles"])
+state.register("insertion", kind="procedure", properties=["start_level_i", "forward_j>=i"])
+state.add_subgoal("S1", "remaining capacity Omega(C)")
+state.add_subgoal("S2", "run length bounded")
+state.add_subgoal("S3", "cascade O(1/eps)")
+
+import math
+def check(eps):
+    L = math.log2(1/eps)
+    k = math.ceil(L)+2
+    p = [0]+[2**(-i) for i in range(1,k)]+[2**(-k+1)]
+    s = sum(p[1:])
+    pow2k = 2**(-k)
+    return k, s, pow2k, eps/8, eps/4
+
+for eps in [0.5,0.25,0.1,0.01,0.001]:
+    k,s,pw,lo,hi = check(eps)
+    print(f"eps={eps} k={k} sum={s:.6f} 2^-k={pw:.6f} in[{lo:.6f},{hi:.6f}]? {lo-1e-12<=pw<=hi+1e-12}")
+```
+--- [TURN 1] EXECUTION ERROR (0.0019s) ---
+Traceback (most recent call last):
+  File "<prime_math>", line 11, in <module>
+TypeError: MathStateMachine.register() got an unexpected keyword argument 'kind'
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# Verify weighted-sum domain: E[S_i]~1/(eps+2^-i), sup_i sum_{j>=i} = O(1/eps)
+def sup_sum(eps):
+    L=math.log2(1/eps); k=math.ceil(L)+2
+    costs=[0]+[1/(eps+2**(-j)) for j in range(1,k)]+[1/(eps+2**(-k+1)*0.5+1e-18)]
+    # use 1/(eps+2^-j) proxy for j<k, last similar order
+    costs2=[0]+[1/(eps+2**(-j)) for j in range(1,k+1)]
+    suffix=[0]*(k+2)
+    for i in range(k,0,-1):
+        suffix[i]=suffix[i+1]+costs2[i]
+    m=max(suffix[1:k+1])
+    wsum=sum((2**(-i) if i<k else 2**(-k+1))*costs2[i] for i in range(1,k+1))
+    return k, m, m*eps, wsum, wsum*eps
+
+for eps in [0.1,0.01,0.001,0.0001]:
+    k,m,meps,w,w_eps=sup_sum(eps)
+    print(f"eps={eps} k={k} sup_suffix={m:.1f} *eps={meps:.2f} wsum={w:.1f} wsum*eps={w_eps:.3f}")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0013s) ---
+Stdout:
+eps=0.1 k=6 sup_suffix=31.4 *eps=3.14 wsum=3.0 wsum*eps=0.300
+eps=0.01 k=9 sup_suffix=302.0 *eps=3.02 wsum=6.1 wsum*eps=0.061
+eps=0.001 k=12 sup_suffix=2758.4 *eps=2.76 wsum=9.4 wsum*eps=0.009
+eps=0.0001 k=16 sup_suffix=33573.9 *eps=3.36 wsum=12.8 wsum*eps=0.001
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random
+# Empirical spot-check: usable fraction f ~ eps+2^-i, search for first usable in random order ~1/f
+import math
+def trial(m, f, trials=20000):
+    # m virtual bins, each usable independently with prob f (proxy for U/m)
+    s=0
+    for _ in range(trials):
+        t=1
+        while random.random()>f:
+            t+=1
+        s+=t
+    return s/trials
+
+for eps in [0.1,0.01]:
+    for i in [1,3,6,9]:
+        f=min(1.0,eps+2**(-i))
+        print(f"eps={eps} i={i} f={f:.4f} 1/f={1/f:.1f} sim={trial(1000,f,5000):.1f}")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.1136s) ---
+Stdout:
+eps=0.1 i=1 f=0.6000 1/f=1.7 sim=1.7
+eps=0.1 i=3 f=0.2250 1/f=4.4 sim=4.4
+eps=0.1 i=6 f=0.1156 1/f=8.6 sim=8.7
+eps=0.1 i=9 f=0.1020 1/f=9.8 sim=9.7
+eps=0.01 i=1 f=0.5100 1/f=2.0 sim=1.9
+eps=0.01 i=3 f=0.1350 1/f=7.4 sim=7.5
+eps=0.01 i=6 f=0.0256 1/f=39.0 sim=38.3
+eps=0.01 i=9 f=0.0120 1/f=83.7 sim=82.8
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 2/8] MODEL GENERATED PROPOSAL & PROOF ---
+Proving uniform $O(1)$ per-level search and $O(k)$ cascade — verifying slack ratios and tail bounds.[CLAIM A — level identities and uniform slack]:
+$\sum_{i}p_{i}=1$, $2^{-k}\in(\eps/8,\eps/4]$ for all $\eps>0$,
+$E[N_{i}]=np_{i}$, $E[R_{i}]=n(\eps+2^{-(i-1)})$ for $i<k$,
+$E[R_{k}]=n(\eps+2^{-k+1})$, $E[D_{i}]=E[R_{i}]-E[N_{i}]
+=n(\eps+2^{-i})$ ($i<k$), $=n\eps$ ($i=k$).
+Hence fractional slack $E[D_{i}]/E[R_{i}]\ge 1/2$ ($i<k$) and $\ge 2/3$ ($i=k$).
+$1/\eps=n^{o(1)}$ gives $E[N_{k}]=\Theta(\eps n)=n^{1-o(1)}\gg\log n$ so Chernoff concentrates all $R_{i},N_{i}$ within $1\pm 1/8$ w.h.p.
+
+[REDUCTION A]: Discharges D4 preconditions. Identifies $f_{i}=\eps+2^{-i}$ scale. Handles $i=k$ doubling $p_{k}=2p_{k-1}$ and ceil. Degenerate $k\le 0$ ($\eps\ge 4$) reduced to single level with huge slack.
+
+[CLAIM B — blocked-run overflow]:
+Fix level $i$, condition on $C^{(i)}$ (prior levels). For lowest-priority insertion from uniform $h(x)$, if $t$ bins visited then maximal blocked run $I$ of $t-1$ full bins containing $h(x)$ satisfies $\#\{\text{level-}i\text{ balls in span}(I)\}\ge \text{cap}(I)$ with prior loads in $\text{cap}$. Only $\le t$ intervals contain $h(x)$ (not $m$), wrap-around as circular interval, $t=1$ base vacuous.
+
+[REDUCTION B]: Reduces per-phase cost to large-deviation event $Y\ge \text{cap}$ where $E[Y]\le \tfrac12E[\text{cap}]$. Split into cap-downward (hypergeometric Hoeffding, range $[0,C]$) and balls-upward (binomial Chernoff) deviations, both $\exp(-\Omega(t))$ uniformly since $R_{i}/m$ and $C$ share scale $n/m$ (ceil to $\ge1$ covers sparse $n\ll m$).
+
+[CLAIM C — phase sum]:
+Each cascade phase at level $j$ (entry uniform independent by independent cycles) costs $\le$ blocked-run length, $E[S_{j}]=O(1)$ uniformly. Levels monotone $j\ge i$ (O2), each level at most one contiguous forward scan, lower-priority convention (O3). Hence $E[T\mid i]\le\sum_{j\ge i}O(1)=O(k-i+1)$, $E[T]=\sum p_{i}O(k-i+1)=O(k)=O(1+\log(1/\eps))$.
+
+[REDUCTION C]: Upgrades to $O(1/\eps)$ ($O(1)$ if $\eps>1$). Dominant suffix sum verified below.
+
+```python
+import math, random
+# state machine with correct signature: register(name, domain, properties)
+try:
+    state.status()
+except Exception as e:
+    print("state status:", e)
+
+try:
+    state.register("super_bins", "bins", ["capacity_C", "remaining_Ci_hereditary"])
+    state.register("balls", "balls", ["level_dist_geometric", "uniform_within_cycle"])
+    state.register("levels", "partition", ["sequential", "independent_cycles"])
+    state.register("insertion", "procedure", ["start_level_i", "forward_j_ge_i"])
+    print("register ok")
+except Exception as e:
+    print("register err:", e)
+
+def check(eps):
+    L = math.log2(1/eps) if eps>0 else float('inf')
+    k = math.ceil(L)+2
+    s = sum(2**(-i) for i in range(1,k)) + (2**(-k+1) if k>=1 else 0) if k>=2 else (1.0 if k==1 else 0.0)
+    # general formula for k>=1
+    if k>=1:
+        p = [2**(-i) for i in range(1,k)] + [2**(-k+1)]
+        s = sum(p)
+        pw = 2**(-k)
+    else:
+        s = float('nan'); pw = 2**(-k)
+    return L,k,s,pw
+
+for eps in [0.5,0.25,0.1,0.01,0.001,2.0,4.0,0.25]:
+    L,k,s,pw = check(eps)
+    lo,hi = eps/8, eps/4
+    print(f"eps={eps} L={L:.3f} k={k} sum={s:.6f} 2^-k={pw:.6f} in({lo:.6f},{hi:.6f})? {lo-1e-12<=pw<=hi+1e-12}")
+
+# slack ratios
+for eps in [0.1,0.01,0.5]:
+    L = math.log2(1/eps); k = math.ceil(L)+2
+    for i in [1,2,3,k-1,k]:
+        if i<k:
+            Ei_R = eps+2**(-(i-1)) if i>=2 else eps+1  # i=1: sum empty => R=(1+eps)n => /n =1+eps
+            # correction i=1: E[R1]=1+eps
+            if i==1:
+                Ei_R = 1+eps
+                Ei_N = 0.5
+                Ei_D = Ei_R-Ei_N
+            else:
+                Ei_N = 2**(-i)
+                Ei_D = eps+2**(-i)
+            ratio = Ei_D/Ei_R
+        else:
+            Ei_R = eps+2**(-k+1); Ei_N = 2**(-k+1); Ei_D = eps
+            ratio = Ei_D/Ei_R
+        print(f"eps={eps} i={i} slack_ratio={ratio:.3f} >=0.5? {ratio>=0.5-1e-12}")
+    print("---")
+```
+
+```python
+import math
+# weighted sum sum p_i (k-i+1) = O(k)
+def wsum(eps):
+    L=math.log2(1/eps); k=math.ceil(L)+2
+    if k<1:
+        return k, 1.0
+    tot=sum((2**(-i) if i<k else 2**(-k+1))*(k-i+1) for i in range(1,k+1))
+    return k, tot
+for eps in [0.5,0.1,0.01,0.001,0.0001,2.0]:
+    k,tot= wsum(eps)
+    print(f"eps={eps} k={k} sum p_i(k-i+1)={tot:.3f} ratio/k={tot/max(1,k):.3f} 1/eps={1/eps:.1f}")
+```
+
+```python
+import random, math
+# spot-check exponential tail proxy: N balls, m bins, cap per bin C, load factor <=1/2
+# simulate linear probing run from random start with random occupancy proxy
+def sim_run(m, N, C, trials=20000):
+    # random full indicators with prob N/(m*C) <=0.5, independent proxy
+    p = N/(m*C)
+    s=0
+    for _ in range(trials):
+        t=1
+        while random.random()<p and t<100:
+            # geometric run proxy; real probing has negative correlation, so upper bounds
+            t+=1
+            # break correlation: use same p (pessimistic)
+        # correct geometric expectation: E=1/(1-p)
+        s+=t
+    return s/trials, 1/(1-p)
+for (m,N,C) in [(100,50,1),(100,50,2),(1000,100,2),(100,5,1)]:
+    est, theory = sim_run(m,N,C,5000)
+    print(f"m={m} N={N} C={C} p={N/(m*C):.3f} sim~{est:.2f} theory 1/(1-p)={theory:.2f}")
+```
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math, random
+# state machine with correct signature: register(name, domain, properties)
+try:
+    state.status()
+except Exception as e:
+    print("state status:", e)
+
+try:
+    state.register("super_bins", "bins", ["capacity_C", "remaining_Ci_hereditary"])
+    state.register("balls", "balls", ["level_dist_geometric", "uniform_within_cycle"])
+    state.register("levels", "partition", ["sequential", "independent_cycles"])
+    state.register("insertion", "procedure", ["start_level_i", "forward_j_ge_i"])
+    print("register ok")
+except Exception as e:
+    print("register err:", e)
+
+def check(eps):
+    L = math.log2(1/eps) if eps>0 else float('inf')
+    k = math.ceil(L)+2
+    s = sum(2**(-i) for i in range(1,k)) + (2**(-k+1) if k>=1 else 0) if k>=2 else (1.0 if k==1 else 0.0)
+    # general formula for k>=1
+    if k>=1:
+        p = [2**(-i) for i in range(1,k)] + [2**(-k+1)]
+        s = sum(p)
+        pw = 2**(-k)
+    else:
+        s = float('nan'); pw = 2**(-k)
+    return L,k,s,pw
+
+for eps in [0.5,0.25,0.1,0.01,0.001,2.0,4.0,0.25]:
+    L,k,s,pw = check(eps)
+    lo,hi = eps/8, eps/4
+    print(f"eps={eps} L={L:.3f} k={k} sum={s:.6f} 2^-k={pw:.6f} in({lo:.6f},{hi:.6f})? {lo-1e-12<=pw<=hi+1e-12}")
+
+# slack ratios
+for eps in [0.1,0.01,0.5]:
+    L = math.log2(1/eps); k = math.ceil(L)+2
+    for i in [1,2,3,k-1,k]:
+        if i<k:
+            Ei_R = eps+2**(-(i-1)) if i>=2 else eps+1  # i=1: sum empty => R=(1+eps)n => /n =1+eps
+            # correction i=1: E[R1]=1+eps
+            if i==1:
+                Ei_R = 1+eps
+                Ei_N = 0.5
+                Ei_D = Ei_R-Ei_N
+            else:
+                Ei_N = 2**(-i)
+                Ei_D = eps+2**(-i)
+            ratio = Ei_D/Ei_R
+        else:
+            Ei_R = eps+2**(-k+1); Ei_N = 2**(-k+1); Ei_D = eps
+            ratio = Ei_D/Ei_R
+        print(f"eps={eps} i={i} slack_ratio={ratio:.3f} >=0.5? {ratio>=0.5-1e-12}")
+    print("---")
+```
+--- [TURN 2] EXECUTION SUCCESS (0.0015s) ---
+Stdout:
+register ok
+eps=0.5 L=1.000 k=3 sum=1.000000 2^-k=0.125000 in(0.062500,0.125000)? True
+eps=0.25 L=2.000 k=4 sum=1.000000 2^-k=0.062500 in(0.031250,0.062500)? True
+eps=0.1 L=3.322 k=6 sum=1.000000 2^-k=0.015625 in(0.012500,0.025000)? True
+eps=0.01 L=6.644 k=9 sum=1.000000 2^-k=0.001953 in(0.001250,0.002500)? True
+eps=0.001 L=9.966 k=12 sum=1.000000 2^-k=0.000244 in(0.000125,0.000250)? True
+eps=2.0 L=-1.000 k=1 sum=1.000000 2^-k=0.500000 in(0.250000,0.500000)? True
+eps=4.0 L=-2.000 k=0 sum=nan 2^-k=1.000000 in(0.500000,1.000000)? True
+eps=0.25 L=2.000 k=4 sum=1.000000 2^-k=0.062500 in(0.031250,0.062500)? True
+eps=0.1 i=1 slack_ratio=0.545 >=0.5? True
+eps=0.1 i=2 slack_ratio=0.583 >=0.5? True
+eps=0.1 i=3 slack_ratio=0.643 >=0.5? True
+eps=0.1 i=5 slack_ratio=0.808 >=0.5? True
+eps=0.1 i=6 slack_ratio=0.762 >=0.5? True
+---
+eps=0.01 i=1 slack_ratio=0.505 >=0.5? True
+eps=0.01 i=2 slack_ratio=0.510 >=0.5? True
+eps=0.01 i=3 slack_ratio=0.519 >=0.5? True
+eps=0.01 i=8 slack_ratio=0.781 >=0.5? True
+eps=0.01 i=9 slack_ratio=0.719 >=0.5? True
+---
+eps=0.5 i=1 slack_ratio=0.667 >=0.5? True
+eps=0.5 i=2 slack_ratio=0.750 >=0.5? True
+eps=0.5 i=3 slack_ratio=0.667 >=0.5? True
+eps=0.5 i=2 slack_ratio=0.750 >=0.5? True
+eps=0.5 i=3 slack_ratio=0.667 >=0.5? True
+---
+
+
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# weighted sum sum p_i (k-i+1) = O(k)
+def wsum(eps):
+    L=math.log2(1/eps); k=math.ceil(L)+2
+    if k<1:
+        return k, 1.0
+    tot=sum((2**(-i) if i<k else 2**(-k+1))*(k-i+1) for i in range(1,k+1))
+    return k, tot
+for eps in [0.5,0.1,0.01,0.001,0.0001,2.0]:
+    k,tot= wsum(eps)
+    print(f"eps={eps} k={k} sum p_i(k-i+1)={tot:.3f} ratio/k={tot/max(1,k):.3f} 1/eps={1/eps:.1f}")
+```
+--- [TURN 2] EXECUTION SUCCESS (0.0009s) ---
+Stdout:
+eps=0.5 k=3 sum p_i(k-i+1)=2.250 ratio/k=0.750 1/eps=2.0
+eps=0.1 k=6 sum p_i(k-i+1)=5.031 ratio/k=0.839 1/eps=10.0
+eps=0.01 k=9 sum p_i(k-i+1)=8.004 ratio/k=0.889 1/eps=100.0
+eps=0.001 k=12 sum p_i(k-i+1)=11.000 ratio/k=0.917 1/eps=1000.0
+eps=0.0001 k=16 sum p_i(k-i+1)=15.000 ratio/k=0.938 1/eps=10000.0
+eps=2.0 k=1 sum p_i(k-i+1)=1.000 ratio/k=1.000 1/eps=0.5
+
+
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random, math
+# spot-check exponential tail proxy: N balls, m bins, cap per bin C, load factor <=1/2
+# simulate linear probing run from random start with random occupancy proxy
+def sim_run(m, N, C, trials=20000):
+    # random full indicators with prob N/(m*C) <=0.5, independent proxy
+    p = N/(m*C)
+    s=0
+    for _ in range(trials):
+        t=1
+        while random.random()<p and t<100:
+            # geometric run proxy; real probing has negative correlation, so upper bounds
+            t+=1
+            # break correlation: use same p (pessimistic)
+        # correct geometric expectation: E=1/(1-p)
+        s+=t
+    return s/trials, 1/(1-p)
+for (m,N,C) in [(100,50,1),(100,50,2),(1000,100,2),(100,5,1)]:
+    est, theory = sim_run(m,N,C,5000)
+    print(f"m={m} N={N} C={C} p={N/(m*C):.3f} sim~{est:.2f} theory 1/(1-p)={theory:.2f}")
+```
+--- [TURN 2] EXECUTION SUCCESS (0.0076s) ---
+Stdout:
+m=100 N=50 C=1 p=0.500 sim~2.02 theory 1/(1-p)=2.00
+m=100 N=50 C=2 p=0.250 sim~1.34 theory 1/(1-p)=1.33
+m=1000 N=100 C=2 p=0.050 sim~1.05 theory 1/(1-p)=1.05
+m=100 N=5 C=1 p=0.050 sim~1.05 theory 1/(1-p)=1.05
+
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 3] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 4.
+
+--- [TURN 4/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 4] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 5.
+
+--- [TURN 5/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 5] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 6.
+
+--- [TURN 6/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 6/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+\medskip\noindent\textbf{Parameters.} Let $\log$ be base $2$, so
+$p_{i}=2^{-i}$ for $i<k$ and $p_{k}=2^{-k+1}$ gives
+$\sum_{i=1}^{k-1}2^{-i}=1-2^{-(k-1)}$ and $\sum_{i}p_{i}=1$.
+Put $L=\lceil\log(1/\eps)\rceil$, so $k=L+2$.
+Then $2^{L}\in[1/\eps,2/\eps)$ and
+$2^{-k}=2^{-L-2}\in(\eps/8,\eps/4]$, $p_{k}\in(\eps/4,\eps/2]$.
+In particular $2^{-k}=\Theta(\eps)$.
+Since the scheme requires $k\ge 1$ levels, $\lceil\log(1/\eps)\rceil\ge -1$,
+hence $\log(1/\eps)>-2$ and $\eps<4$; thus $1+\eps=O(1)$ and
+$O(1)=O(1/\eps)$. If $k=1$ then $p_{1}=1$ and the same formulas hold
+with empty sum over $i<k$. Assume $C=(1+\eps)n/m$ integral, otherwise
+round up, which only increases slack. Collisions have probability $0$.
+Assume $n$ large; $1/\eps=n^{o(1)}$ gives $n\eps^{2}=\omega(\log n)$
+and $\eps n\to\infty$, so total capacity $mC=(1+\eps)n>n$.
+
+Process levels $i=1,\dots,k$ sequentially as in Sec.~\ref{sec:implementation1}.
+At level $i$ we have remaining capacities $C^{(i)}_{b}$ with
+$\sum_{b}C^{(i)}_{b}=mC-N_{<i}$, where $N_{<i}$ is the number of balls
+on levels $<i$. Capacities only decrease. Any ball on level $j>i$ has
+lower priority than any ball on level $i$ by convention, and recursion
+satisfies $j\ge i$. This is standard consistent hashing with bounded
+loads with those capacities.
+
+\medskip\noindent\textbf{Insertion as forward runs.}
+Fix an insertion ball $x$ with level $i=h_{\rm level}(x)$ and hash
+$h(x)$ uniform on cycle $i$, independent of other randomness.
+Let ${\cal H}$ be balls of priority $\ge x$: all balls on levels $<i$
+plus balls on level $i$ with priority $\ge x$. Only ${\cal H}$ can block
+$x$. Call a super bin full$^{*}$ if its load of ${\cal H}$-balls reaches
+$C$ (resp.\ $\ge 1$ if $C<1$); otherwise it is non-full$^{*}$.
+If a visited virtual bin is non-full$^{*}$, either it has room (case (a))
+or it is full but contains a lower-priority ball (case (b)), so the search
+stops. Hence the number of virtual bins examined on the starting level
+until stopping is at most the clockwise distance from $h(x)$ to the next
+non-full$^{*}$ bin. Same-level evictions are merged by continuing clockwise
+from the eviction bin, so the whole same-level cascade is a single run to
+the next non-full$^{*}$ with respect to ${\cal H}$ including $x$.
+If a pop moves to level $j>i$ on a different independent cycle, reinsertion
+starts from the virtual position of the previous super bin on cycle $j$,
+whose hash is independent of other bins' hashes on cycle $j$ conditional
+on the capacity vector, by independence of cycles. By exchangeability the
+successor set is a uniform subset, and starting from a known full$^{*}$ bin
+can only improve the ratio below. Thus each distinct level $\ell\ge i$ is
+visited at most once via a run stochastically dominated by a fresh uniform
+search with all balls on levels $\le\ell$ assumed blocking. Levels are
+nondecreasing, so total visits $T_{i}\le\sum_{\ell\ge i}R_{\ell}$ where
+$R_{\ell}$ is such a fresh run. It suffices to bound $E[R_{\ell}]$.
+
+\medskip\noindent\textbf{Tail bound for a run.}
+Fix $\ell$ and condition on higher-priority occupancies.
+Let $f$ be the number of full$^{*}$ virtual bins on level $\ell$,
+$s=m-f$. By label symmetry of i.i.d.\ bin positions and independent query
+point, the set of first $t$ successors clockwise is a uniform $t$-subset,
+handling wrap-around. Hence for $t\ge 0$,
+\[
+\Pr[R_{\ell}>t\mid f]=\binom{f}{t}\Big/\binom{m}{t}\le (f/m)^{t},
+\]
+since $(f-j)/(m-j)\le f/m$ for $f\le m$.
+Each full$^{*}$ bin contains at least $M=\max(C,1)$ balls of ${\cal H}$:
+$C$ balls if $C\ge 1$, else $\ge 1$ ball. With $L_{\ell}=|{\cal H}|$ relevant
+to level $\ell$, $fM\le L_{\ell}$. Moreover $L_{\ell}\le N_{\le\ell}$,
+the total balls assigned to levels $\le\ell$, by assuming worst-case
+same-level priority. For $\ell<k$, $N_{\le\ell}\sim{\rm Bin}(n,1-2^{-\ell})$,
+since $\sum_{j\le\ell}2^{-j}=1-2^{-\ell}$; for $\ell=k$, $N_{\le k}=n$.
+Let $U=mM=\max(mC,m)=\max((1+\eps)n,m)$. Then $f/m\le N_{\le\ell}/U$.
+At least one non-full$^{*}$ exists since $N_{\le\ell}\le n<mC$ for $C\ge1$
+and $N_{\le\ell}\le n<m$ for $C<1$, so $R_{\ell}\le f+1\le n+1$.
+
+Put $q=1-2^{-\ell}$ for $\ell<k$, $q=1$ for $\ell=k$.
+$E[N_{\le\ell}]=nq=(1+\eps)n(1-\delta)$ where
+$\delta=(\eps+2^{-\ell})/(1+\eps)$ for $\ell<k$ and
+$\delta_{k}=\eps/(1+\eps)$ for $\ell=k$, using $U\ge(1+\eps)n$.
+Indeed $(1+\eps)n-n(\eps+2^{-\ell})=n(1-2^{-\ell})$.
+Let $d=n(\eps+2^{-\ell})/2$. On good event
+$G=\{N_{\le\ell}\le E[N_{\le\ell}]+d\}$, $N_{\le\ell}/U\le 1-\delta/2$,
+since $U(1-\delta/2)\ge(1+\eps)n(1-\delta/2)=E[N_{\le\ell}]+d$.
+By Hoeffding, $\Pr[\neg G]\le\exp(-2d^{2}/n)=\exp(-n(\eps+2^{-\ell})^{2}/2)
+\le\exp(-n\eps^{2}/2)=:p_{\rm fail}$; for $\ell=k$, $p_{\rm fail}=0$.
+Hence $\Pr[R_{\ell}>t]\le(1-\delta/2)^{t}+p_{\rm fail}$ and
+\[
+E[R_{\ell}]=\sum_{t\ge0}\Pr[R_{\ell}>t]\le 2/\delta+(n+1)p_{\rm fail}.
+\]
+Since $1/\eps=n^{o(1)}$, $n\eps^{2}=\omega(\log n)$ and
+$(n+1)p_{\rm fail}=n^{-\omega(1)}=o(1)$, absorbed in $2/\delta\ge2$.
+Thus $E[R_{\ell}]\le K/(\eps+2^{-\ell})$ for $\ell<k$ and $\le K/\eps$
+for $\ell=k$, with $K=O(1+\eps)=O(1)$.
+
+\medskip\noindent\textbf{Summing levels.}
+For start $i$, $E[T_{i}]\le\sum_{\ell=i}^{k}E[R_{\ell}]
+\le\sum_{\ell=1}^{k}E[R_{\ell}]$.
+With $k=L+2$, at most two levels exceed $L$. For $\ell\le L$,
+$(\eps+2^{-\ell})^{-1}\le2^{\ell}$; $\sum_{\ell\le L}2^{\ell}\le2^{L+1}\le4/\eps$.
+The remaining $\le2$ levels each cost $O(1/\eps)$. If $L\le0$ the geometric
+sum is empty. If $k=1$ only the last-level term remains. Hence uniformly
+in $i$, $E[T_{i}]=O(1/\eps)$. Averaging over $i$ with weights $p_{i}$,
+$E[T]=\sum_{i}p_{i}E[T_{i}]=O(1/\eps)$.
+\end{proof}
+[Proof Draft Generated] Turn 6: 5647 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.9, "boundary_cases": 0.9, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.92, "completeness": 0.92, "boundary_cases": 0.95, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+[Best Candidate Updated] Turn 6: validity=0.90 (5647 chars)
+[Audit Passed] Proof verified on Turn 6 (validity: 0.90). Early-terminating to prevent multi-turn degradation.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_9_259 | Proof Length: 5647 chars | Turns: 6 | Duration: 2947.41s
+================================================================================

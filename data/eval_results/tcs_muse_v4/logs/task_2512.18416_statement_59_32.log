@@ -1,0 +1,1128 @@
+
+
+================================================================================
+[2026-10-30 18:41:47] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_59_32
+================================================================================
+[CoALA Procedural Memory] Retrieved 1 relevant rules for '\begin{corollary}
+If $\lambda(G)\leq \lambda$, the comparator will say YES with ':
+  • When bounding uniform deviation over a class approximable by signed mixtures of base functions, first split off
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_59_32 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**Notations & Parameters:**
+- $G=(V,E)$, $n=|V|$, $\lambda(G)$ arboricity. Free parameter $\lambda\in[1,n]$.
+- $G[S]$ induced subgraph. $N(v),deg(v)$.
+- Assume $2\lambda$ integer; $\pm1$ rounding ignored.
+
+**Iterative peeling $X=(x_1,\dots,x_k)$:**
+- Sequentially remove vertices degree $\le 2\lambda$. $k$ = number removed at stop.
+- **Observation (licensed truth, no re-derivation):**
+  - If $\lambda(G)\le\lambda \Rightarrow k=n$ (all removed).
+  - If $\lambda(G)>2\lambda \Rightarrow k\le n-2\lambda-1<n$.
+  - Precondition: none beyond definition. Must discharge degree threshold $2\lambda$.
+
+**Lemma `lem:sampling`:**
+- Sample $B\subseteq A$, $|A|=k$, each incl. w.p. $p$ independently. Can generate in $O(|B|)$ time, expected $O(pk)$.
+- Precondition: independent inclusion. Use for: initial vertex sampling $p=1/\lambda$, neighbor sampling $p=1/(25\lambda)$ in $H(v)$.
+
+**Comparator architecture (licensed):**
+- $O(\log n)$ independent tests, majority vote.
+- Per test: sample each $v$ w.p. $1/\lambda$ independently; run $F(s)$ on each sampled $s$.
+- Test = YES iff total steps $\le 10S/\lambda$ where $S=\tilde O(n)$ to be fixed. Else NO.
+- Must prove: $\lambda(G)\le\lambda \Rightarrow$ YES w.h.p.; $\lambda(G)\ge120\lambda \Rightarrow$ NO w.h.p.
+
+**Modules $H(v),F(v)$ (licensed definitions):**
+- $H(v)$: sample $\Gamma(v)\subseteq N(v)$ each w.p. $1/(25\lambda)$, run $F(u)$ for $u\in\Gamma(v)$; terminates when all $F(u)$ terminate.
+- $F(v)$: infinite batches in parallel under scheduling rule. Batch $t$ has $2t-1$ i.i.d. copies $H_{t,\cdot}(v)$ run same speed. Batch $t$ terminated iff $>1/2$ of its copies terminate. $F(v)$ terminated as soon as one batch terminated.
+- Scheduling: counter $y=1,2,\dots$; at $y$, for each $t\le zeros(y)+1$ advance one step of each $H_{t,\cdot}(v)$. So batch $t$ runs at rate $2^{-(t-1)}$ relative to batch 1. Cost accounting critical.
+
+**Lemma `lem:recursiveT`:**
+- Precondition: $\lambda(G)\le\lambda$, $X=(x_1,\dots,x_n)$ full peeling order.
+- Define $T(x_i):=\frac{2}{5\lambda}\sum_{j<i,(x_j,x_i)\in E}T(x_j)+\frac{10C\,deg(x_i)}{\lambda}$, $C$ given constant.
+- Conclusion: $\sum_{x_i}T(x_i)=O(n)$.
+- Must discharge: full order exists ($k=n$ via Observation), sum over earlier neighbors only $j<i$. Constant depends on $C$ but not $n,\lambda$.
+
+**Lemma `lem:largeCase`:**
+- Precondition: $\lambda(G)\ge120\lambda$ $\Rightarrow$ $\exists\,U$ with $G[U]$ min-degree $\ge120\lambda$; $v\in U$.
+- Conclusion: $\Pr[F(v)\ \text{never terminates}]\ge0.8$.
+- Randomness over internal $H/F$ sampling only.
+
+**Corollary `crl:largeCase`:**
+- Precondition: $\lambda(G)\ge120\lambda$.
+- Conclusion: per test, $\Pr[\text{result NO}]\ge0.6$.
+- Proof licensed? Blueprint must re-derive: need sampling hits $U$ + union with 0.8. Check: $\Pr[\text{sample}\cap U=\emptyset]=(1-1/\lambda)^{|U|}$ small since $|U|\ge120\lambda+1$. Then $0.8$ non-termination $\Rightarrow$ total time exceeds budget $\Rightarrow$ NO. Must verify boundary $|U|$ lower bound.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Strategy Alpha (Constructive / Inductive Invariant — low-arboricity YES):**
+- Goal: bound expected total work of one test by $O(n/\lambda)$ so Markov + $10S/\lambda$ threshold gives YES w.p. $\ge 0.9$, then Chernoff over $O(\log n)$ tests gives majority YES w.h.p.
+- Induction on peeling order $x_1,\dots,x_n$ (exists by Observation when $\lambda(G)\le\lambda$).
+- Claim: expected cost of $F(x_i)$ (resp. $H(x_i)$) bounded by $T(x_i)$ up to constants. Key: when processing $x_i$, only earlier neighbors $x_j,j<i$ can cause large recursion; later neighbors already peeled? Formalize: $deg$ at removal $\le2\lambda$, so number of later neighbors small? Actually earlier-neighbor sum in $T$ captures sampled dependencies.
+- Use `lem:sampling` to account $O(|\Gamma|)$ sampling cost + linearity of expectation: $\mathbb{E}[cost(H(v))] \approx \frac{1}{25\lambda}\sum_{u\in N(v)}\mathbb{E}[cost(F(u))]$.
+- Handle $F$ batch overhead via scheduling rule: cost multiplied by geometric weights $2^{t-1}$ but success probability amplifies with $t$ (majority of $2t-1$). Show some small $t=O(1)$ suffices in expectation when low arboricity, so scheduling overhead $O(1)$.
+- Then $\sum T =O(n)$ by `lem:recursiveT` $\Rightarrow$ expected per-test total $=\frac1\lambda\sum\mathbb{E}[F]\le S/\lambda$ for $S=\tilde O(n)$. Markov: $\Pr[>10S/\lambda]\le0.1$. Majority over $O(\log n)$ tests $\Rightarrow$ YES w.h.p.
+- Fragile point: expectation linearity across overlapping $F$ calls; must not double-count independence.
+
+**Strategy Beta (Extremal / Contrapositive — high-arboricity NO):**
+- Goal: $\lambda(G)\ge120\lambda \Rightarrow$ per-test NO w.p. $\ge0.6$, majority NO w.h.p.
+- Contrapositive structure: assume test says YES (all $F(s)$ terminate fast) $\Rightarrow$ cannot have dense core.
+- Steps: (1) Arboricity $\ge120\lambda \Rightarrow$ $\exists\,U\subseteq V$ with min-degree $\ge120\lambda$ in $G[U]$ (standard degeneracy vs arboricity; licensed via hypothesis of `lem:largeCase`). Note $|U|\ge120\lambda+1$.
+- (2) Initial sampling hits $U$ w.h.p.: $\Pr[B\cap U=\emptyset]=(1-1/\lambda)^{|U|}\le \exp(-|U|/\lambda)\le\exp(-120)$. So $\ge1-e^{-120}\approx1$.
+- (3) Condition on hit $s\in B\cap U$: by `lem:largeCase`, $F(s)$ never terminates w.p. $\ge0.8$ over inner randomness, forcing total time $>10S/\lambda$ $\Rightarrow$ NO. Uncondition: $\Pr[NO]\ge (1-e^{-120})\cdot0.8\ge0.6$.
+- (4) Amplify: $O(\log n)$ independent tests, majority vote, Chernoff: $\Pr[\text{majority YES}]\le\exp(-\Omega(\log n))=n^{-\Omega(1)}$.
+- Boundary check: must handle $\lambda=1$ vs large $\lambda$; $(1-1/\lambda)^{|U|}$ formula fails for $\lambda=1$ ($p=1$); treat separately: if $\lambda=1$, $B=V$ deterministically hits $U$. No unauthorized $k\ge2$ assumption.
+
+**Strategy Gamma (Probabilistic Conditioning / Structural Decomposition — amplification + runtime):**
+- View two layers of randomness separately: outer sampling $B$ (per test) vs inner $\Gamma$ sampling inside $H/F$. Condition on unordered multiset / outer $B$ first, then inner.
+- Low case: $\mathbb{E}_{B,\text{inner}}[\text{total}]=\mathbb{E}_B[\sum_{s\in B}\mathbb{E}_{\text{inner}}[cost(F(s))\mid B]]$ by tower + independence of $B$ from inner. Gives factor $1/\lambda$.
+- High case: $\Pr_{B,\text{inner}}[NO]\ge \mathbb{E}_B[{\bf1}_{B\cap U\neq\emptyset}\cdot0.8]$.
+- Dependency: tests independent; $H_{t,j}$ independent within batch; batches share $v$ but independent randomness — needed for majority-amplification Chernoff.
+- Separator: peeling order $X$ decomposes edges into forward/backward; only $j<i$ edges enter $T$ recurrence, bounding dependency graph degree via arboricity orientation (out-degree $\le O(\lambda)$). This justifies why $\frac{2}{5\lambda}$ contraction yields $O(n)$ sum.
+- Final comparator: choose $S=C'n\log n$ to absorb $\tilde O$ + sampling overhead from `lem:sampling`; threshold $10S/\lambda$ gives constant gap for Markov (0.1 vs 0.6) sufficient for Chernoff separation.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+Hereditary: peeling order prefix property, induced min-degree lower bound on subsets? No — min-degree is Fragile under subsets. Independence of sampling is Hereditary under sub-collections but Fragile under conditioning on $|B|$.
+
+```python
+state.register("G_lambda", kind="graph_param", properties=["hereditary: induced subgraph arboricity <= parent", "n vertices"])
+state.register("peeling_X", kind="ordering", properties=["hereditary: prefix removed with deg<=2lambda at time", "fragile: degree bound only at removal time, not in original G"])
+state.register("B_sample", kind="random_set", properties=["hereditary: independence across vertices", "fragile: independence lost when conditioning on |B| or B∩U nonempty"])
+state.register("H_cost", kind="random_variable", properties=["hereditary: linearity of expectation over overlapping calls", "fragile: distribution not preserved under conditioning on termination"])
+state.register("F_batches", kind="process", properties=["fragile: scheduling rate 2^{-(t-1)}; cost accounting must weight by rate", "fragile: batch termination = >1/2 copies terminate"])
+state.register("U_core", kind="dense_set", properties=["fragile: min-degree >=120lambda only in G[U], not in G; do not lift to V"])
+
+state.add_subgoal("low_expectation", "E[total per test] <= S/lambda with S=tildeO(n)")
+state.add_subgoal("low_per_test_YES", "Pr[YES | lambda(G)<=lambda] >= 0.9 via Markov")
+state.add_subgoal("high_hit", "Pr[B∩U != empty] >= 1-exp(-120) (handle lambda=1 separately)")
+state.add_subgoal("high_per_test_NO", "Pr[NO | lambda(G)>=120lambda] >= 0.6 via lem:largeCase")
+state.add_subgoal("majority_amplification", "Chernoff over O(log n) tests => w.h.p. majority correct both regimes")
+```
+
+### Testable Intermediate Claims
+
+1. **Recurrence contraction & sum $O(n)$:** Verify $T(x_i)=\frac{2}{5\lambda}\sum_{j<i}T(x_j)+\frac{10C\,deg(x_i)}{\lambda}$ sums to $O(n)$ given peeling degree $\le2\lambda$ at removal. Check in REPL: simulate orientation where each $x_i$ has $\le2\lambda$ later-neighbors? Actually removal degree bounds total remaining neighbors, i.e. neighbors in $\{x_i,\dots,x_n\}$. Need to confirm coefficient $2/5<1$ yields contraction after double-counting via $\sum_i\sum_{j<i}{\bf1}_{edge}=m\le \lambda n$? Test numerically that $\sum deg =2m=O(\lambda n)$ under $\lambda(G)\le\lambda$ so second term sums to $O(n)$. Complementary regime: coefficient only heuristic? No — `lem:recursiveT` licensed, but verify dimension: $T$ has units of time steps, $deg/\lambda$ dimensionless $\times C$.
+
+2. **Sampling hit probability:** Claim $(1-1/\lambda)^{|U|}\le e^{-|U|/\lambda}\le e^{-120}$ for $\lambda>1$, $|U|\ge120\lambda+1$. Test boundary $\lambda=1$: $(1-1)^{|U|}=0$, hit prob $=1$. Must split $ \lambda=1$ vs $\lambda>1$; never assert universal bound without boundary. Also verify $0.8\cdot(1-e^{-120})>0.6$ numerically.
+
+3. **Majority amplification gap:** Per-test success $p_{low}\ge0.9$ (YES) and $p_{high}\ge0.6$ (NO). Claim $L=c\log n$ tests with majority vote gives error $n^{-\Omega(c)}$ via Chernoff/Hoeffding. Test: for $p=0.6$, gap $\delta=0.1$ from $0.5$, Hoeffding $\Pr[\text{majority wrong}]\le\exp(-2L\delta^2)$. Verify $L=O(\log n)$ suffices for $1-1/\text{poly}(n)$. Note inequality $A\le B\le C$ for runtime only holds in expectation (domain $D_1$); tail $D\setminus D_1$ discharged by Markov threshold $10S/\lambda$, not by expectation alone.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_59_32 ---
+[Falsifier Script 1]:
+import sympy as sp
+import math
+# Claim 1: recurrence contraction sums to O(n)
+# Formal bound: S = sum T <= (2/(5L))*sum_j T_j*cnt_j + (10C/L)*2m
+# where cnt_j <= 2L (peeling degree), m <= L*(n-1) if arboricity<=L
+L, C, n = sp.symbols('L C n', positive=True, real=True)
+coeff = sp.Rational(2,5)/L * (2*L)  # = 4/5
+print("contraction coeff =", sp.simplify(coeff))
+assert float(coeff) == 0.8  # 4/5 < 1, contraction holds unconditionally
+# Solve S <= coeff*S + (10C/L)*2*L*n  => S <= 5*20*C*n
+S = sp.symbols('S')
+sol = sp.solve(sp.Eq(S, coeff*S + 20*C*n), S)
+print("fixed point S =", sol)
+assert sol[0] == 100*C*n  # O(n), constant depends on C only
+# Numeric simulation of recurrence on a peeling order with deg_removal<=2L
+import random
+random.seed(0)
+lam = 3; nn = 50; Cc = 2.0
+# build random graph with max remaining-degree <=2lam via random peeling order construction
+T = [0.0]*nn
+deg = [0]*nn
+for i in range(nn):
+    # later-neighbors count for x_i: random 0..2lam capped by remaining
+    import random as r
+    deg[i] = r.randint(0, 2*lam)
+    s = 0.0
+    # earlier neighbors: randomly pick subset of j<i (simulate); bounded so total consistent
+    for j in range(i):
+        if r.random() < 0.05:
+            s += T[j]
+    T[i] = (2/(5*lam))*s + (10*Cc*deg[i]/lam)
+print("sum T =", sum(T), " n =", nn, " ratio sumT/n =", sum(T)/nn)
+assert sum(T)/nn < 100*Cc*2  # O(n) with reasonable constant
+print("Claim1 PASS: 4/5 contraction + O(n) sum verified")
+[Falsifier Kernel Output (Verified)]: contraction coeff = 4/5
+fixed point S = [100*C*n]
+sum T = 1286.240658436214  n = 50  ratio sumT/n = 25.724813168724282
+Claim1 PASS: 4/5 contraction + O(n) sum verified
+[Falsifier Script 2]:
+import math
+# Claim 2: sampling hit probability + boundary lambda=1
+def hit_bound(lam, U):
+    return (1-1/lam)**U if lam > 1 else 0.0
+
+for lam in [2, 3, 5, 10, 100]:
+    U = 120*lam+1
+    exact = hit_bound(lam, U)
+    expb = math.exp(-U/lam)
+    print(f"lam={lam} U={U} (1-1/lam)^U={exact:.3e} exp(-U/lam)={expb:.3e}")
+    assert exact <= expb + 1e-15, "need (1-1/lam)^U <= exp(-U/lam)"
+    assert expb <= math.exp(-120)*(1+1e-9)
+# boundary lam=1: p=1 so B=V deterministically, miss prob = 0
+lam = 1
+U = 121
+print("lam=1 miss prob =", 0.0, "(B=V deterministically)")
+assert 0.0 <= math.exp(-120)
+# combined with lem:largeCase 0.8
+val = 0.8*(1-math.exp(-120))
+print("0.8*(1-e^-120) =", val)
+assert val > 0.6
+# Monte Carlo spot-check of hit prob (5-line style)
+import random
+random.seed(1)
+for lam in [2, 5]:
+    U = 120*lam+1; trials=20000; miss=0
+    for _ in range(trials):
+        if all(random.random() > 1/lam for _ in range(U)): miss+=1
+    print(f"lam={lam} empirical miss={miss/trials:.4f} bound={math.exp(-U/lam):.3e}")
+    assert miss/trials < 1e-3
+print("Claim2 PASS")
+[Falsifier Kernel Output (Verified)]: lam=2 U=241 (1-1/lam)^U=2.830e-73 exp(-U/lam)=4.651e-53
+lam=3 U=361 (1-1/lam)^U=2.698e-64 exp(-U/lam)=5.494e-53
+lam=5 U=601 (1-1/lam)^U=5.716e-59 exp(-U/lam)=6.278e-53
+lam=10 U=1201 (1-1/lam)^U=1.110e-55 exp(-U/lam)=6.938e-53
+lam=100 U=12001 (1-1/lam)^U=4.149e-53 exp(-U/lam)=7.591e-53
+lam=1 miss prob = 0.0 (B=V deterministically)
+0.8*(1-e^-120) = 0.8
+lam=2 empirical miss=0.0000 bound=4.651e-53
+lam=5 empirical miss=0.0000 bound=6.278e-53
+Claim2 PASS
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+**Turn 1 — Exploration Gate: Inventory, Invariant, Claims**
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+* **Notations:** $G=(V,E)$, $n=|V|$, $\lambda(G)$ arboricity, free $\lambda\in[1,n]$. $G[S]$ induced, $N(v),deg(v)$.
+* **Iterative peeling $X=(x_1,\dots,x_k)$:** remove degree $\le 2\lambda$ sequentially.
+  - **Observation (licensed):** $\lambda(G)\le\lambda \Rightarrow k=n$ (full order exists). $\lambda(G)>2\lambda \Rightarrow k\le n-2\lambda-1$. No re-derivation needed, only discharge $2\lambda$ threshold.
+* **Lemma `lem:sampling`:** sample $B\subseteq A$, $|A|=k$, incl. w.p. $p$ indep. in $O(|B|)$ time, expected $O(pk)$. Precondition: independent inclusion. Will use for outer sampling $p=1/\lambda$ and inner $\Gamma(v)$ sampling $p=1/(25\lambda)$.
+* **Comparator architecture (licensed):** $L=O(\log n)$ independent tests, majority vote. Per test: sample each $v$ w.p. $1/\lambda$ indep., run $F(s)$ for sampled $s$. Test YES iff total steps $\le 10S/\lambda$, $S=\tilde O(n)$ to fix. Else NO.
+* **Modules $H(v),F(v)$ (licensed definitions):** $H(v)$ samples $\Gamma(v)\subseteq N(v)$ w.p. $1/(25\lambda)$, runs $F(u),u\in\Gamma(v)$. $F(v)$ has infinite batches, batch $t$ has $2t-1$ i.i.d. $H_{t,\cdot}(v)$; batch terminated iff $>1/2$ terminate; $F(v)$ terminated when some batch terminated. Scheduling: counter $y$, $zeros(y)$ trailing zeros, at $y$ advance batches $t\le zeros(y)+1$ by one step. So batch $t$ rate $2^{-(t-1)}$.
+* **Lemma `lem:recursiveT`:** Precondition $\lambda(G)\le\lambda$ + full peeling $X=(x_1,\dots,x_n)$. With $T(x_i):=\frac{2}{5\lambda}\sum_{j<i,(x_j,x_i)\in E}T(x_j)+\frac{10C\,deg(x_i)}{\lambda}$, conclusion $\sum T(x_i)=O(n)$. Must discharge full order + earlier-neighbor sum only.
+* **Lemma `lem:largeCase`:** Precondition $\lambda(G)\ge 120\lambda \Rightarrow \exists U$, $G[U]$ min-degree $\ge 120\lambda$. Conclusion: $\forall v\in U$, $\Pr[F(v)\ \text{never terminates}]\ge 0.8$ over inner randomness.
+* **Corollary `crl:largeCase`:** Precondition $\lambda(G)\ge 120\lambda$. Conclusion per-test $\Pr[NO]\ge 0.6$. Must re-verify: needs outer hit $B\cap U\neq\emptyset$ + $0.8$; boundary $\lambda=1$ separate since $(1-1/\lambda)=0$.
+
+Target corollary needs both regimes amplified to w.h.p. via majority. High per-test part is licensed via `crl:largeCase`; low per-test part must be built from `lem:recursiveT`+`lem:sampling`+Markov.
+
+### 2. Invariant-First Formulation (no brute-force case split)
+
+Unifying invariant: **peeling order $X$** decomposes edge dependencies into forward/backward. In low regime $k=n$, every vertex removed with current degree $\le 2\lambda$. Hence orientation along $X$ has bounded out-degree. Only earlier neighbors $j<i$ enter $T$-recurrence with contraction factor $2/(5\lambda)$. This groups all combinatorial recursion of $H/F$ into a single linear recurrence whose sum is $O(n)$ by `lem:recursiveT`. No enumeration over subsets of $N(v)$ needed.
+
+In high regime, invariant is **dense core $U$**: min-degree $\ge 120\lambda$ in $G[U]$. This is fragile (only in $G[U]$, not $G$) and must not be lifted. It forces $F(v),v\in U$ to diverge with constant probability, separating YES/NO by threshold $10S/\lambda$.
+
+Two randomness layers kept separate: outer $B$ vs inner $\Gamma$/batches. Tower law gives expectation factorization in low case; conditional product gives $0.8\cdot\Pr[hit]$ in high case.
+
+### 3. Structured Intermediate Claims
+
+[CLAIM A — Low expectation via $T$]:
+Assume $\lambda(G)\le\lambda$, full $X$. Expected cost of $F(x_i)$ bounded (up to constants/scheduling overhead) by $T(x_i)$. Then per-test expected total $\le S/\lambda$ for $S=\tilde O(n)$.
+
+[REDUCTION A]: Discharges hypothesis of Markov step. Uses `lem:sampling` for $O(|\Gamma|)$ + linearity: $\mathbb{E}[cost(H(v))]\approx \frac{1}{25\lambda}\sum_{u\in N(v)}\mathbb{E}[cost(F(u))]$; $F$-batch overhead $O(1)$ since small $t$ succeeds w.h.p. in low regime despite $2^{-(t-1)}$ slowdown. Then $\sum T=O(n)$ by `lem:recursiveT` gives $S$. Outer sampling contributes $1/\lambda$ factor via tower: $\mathbb{E}_{B,inner}=\mathbb{E}_B[\sum_{s\in B}\mathbb{E}_{inner}[cost|B]]$.
+
+[CLAIM B — Per-test YES $\ge 0.9$]:
+With threshold $10S/\lambda$, $\Pr[YES\mid\lambda(G)\le\lambda]\ge 0.9$ via Markov.
+
+[REDUCTION B]: Expectation $\le S/\lambda$ implies $\Pr[>10S/\lambda]\le 0.1$. Creates constant gap vs high regime $0.6$ sufficient for Chernoff.
+
+[CLAIM C — High per-test NO $\ge 0.6$ (audit `crl:largeCase`)]:
+If $\lambda(G)\ge 120\lambda$, $|U|\ge 120\lambda+1$, $\Pr[B\cap U=\emptyset]=(1-1/\lambda)^{|U|}\le e^{-120}$ for $\lambda>1$, $=0$ for $\lambda=1$. Hence $\Pr[NO]\ge (1-e^{-120})\cdot 0.8\ge 0.6$ using `lem:largeCase`.
+
+[REDUCTION C]: Discharges high-regime hypothesis. Must split $\lambda=1$ vs $\lambda>1$ boundary; must not condition away independence of inner randomness. Non-termination forces exceedance of any finite budget $10S/\lambda$ $\Rightarrow$ NO.
+
+[CLAIM D — Majority amplification]:
+$L=c\log n$ independent tests, majority vote gives error $n^{-\Omega(c)}$ in both regimes via Hoeffding: $\Pr[\text{wrong majority}]\le \exp(-2L\delta^2)$ with $\delta=0.4$ (low, $p=0.9$) and $\delta=0.1$ (high, $p=0.6$).
+
+[REDUCTION D]: Lifts per-test constants to w.h.p. Completes comparator correctness. Runtime $\tilde O(n/\lambda)$ follows since per-test budget $10S/\lambda$, $S=\tilde O(n)$, $L=O(\log n)$.
+
+### 4. State Machine & REPL Verification
+
+```python
+# Inventory registration + numeric audits
+import math
+try:
+    state.register("G_lambda", kind="graph_param", properties=["hereditary: induced arboricity <= parent"])
+    state.register("peeling_X", kind="ordering", properties=["hereditary: prefix deg<=2lambda at removal", "fragile: bound only at removal time"])
+    state.register("B_sample", kind="random_set", properties=["hereditary: independence across vertices", "fragile: lost when conditioning on |B|"])
+    state.register("U_core", kind="dense_set", properties=["fragile: min-degree >=120lambda only in G[U]"])
+    state.add_subgoal("low_expectation", "E[total]<=S/lambda")
+    state.add_subgoal("high_per_test_NO", "Pr[NO]>=0.6")
+    state.add_subgoal("majority_amplification", "Chernoff O(log n) => w.h.p.")
+    print(state.status())
+except Exception as e:
+    print("state machine unavailable:", e)
+
+# Claim 1: contraction 4/5 and sum O(n) heuristic
+C=5; n=50; lam=5
+# simulate: each xi has <=2lam later-neighbors? check sum bound logic
+# sum deg =2m <= 2*lam*n (arboricity bound m<=lam*(n-1) approx)
+m_bound = lam*n
+second_term_sum = sum(10*C*(2*m_bound/n)/lam for _ in range(n))
+print("second term O(n):", second_term_sum, "ratio", second_term_sum/n)
+# contraction: sum_i sum_{j<i} T_j *2/(5lam) <= (2/(5lam))* (max later-degree?) *sum T
+# later-degree <=2lam => coeff <=4/5
+print("contraction coeff =", 2*2*lam/(5*lam))
+
+# Claim C: hit probability
+for lam in [2,3,5,10,100]:
+    U=120*lam+1
+    miss=(1-1/lam)**U
+    bound=math.exp(-U/lam)
+    print(f"lam={lam} U={U} miss={miss:.3e} exp-bound={bound:.3e} hit~{1-miss:.6f}")
+# lam=1 boundary
+print("lam=1 miss prob =", (0)**121 if True else 0, " hit=1 deterministically, B=V")
+print("0.8*(1-exp(-120)) =", 0.8*(1-math.exp(-120)))
+
+# Claim D: Hoeffding
+for p,delta in [(0.9,0.4),(0.6,0.1)]:
+    for c in [10,20]:
+        L=c*math.log(1000)
+        err=math.exp(-2*L*delta*delta)
+        print(f"p={p} c={c} L={L:.1f} err<={err:.3e}")
+```
+
+Expected REPL outcomes to certify before Turn 2: contraction $4/5<1$, second-term sum $O(n)$, miss $\le e^{-120}$, $0.8(1-e^{-120})>0.6$, Hoeffding $n^{-\Omega(1)}$ with $L=O(\log n)$. Boundary $\lambda=1$ handled separately. No full proof assembled on this turn.
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Inventory registration + numeric audits
+import math
+try:
+    state.register("G_lambda", kind="graph_param", properties=["hereditary: induced arboricity <= parent"])
+    state.register("peeling_X", kind="ordering", properties=["hereditary: prefix deg<=2lambda at removal", "fragile: bound only at removal time"])
+    state.register("B_sample", kind="random_set", properties=["hereditary: independence across vertices", "fragile: lost when conditioning on |B|"])
+    state.register("U_core", kind="dense_set", properties=["fragile: min-degree >=120lambda only in G[U]"])
+    state.add_subgoal("low_expectation", "E[total]<=S/lambda")
+    state.add_subgoal("high_per_test_NO", "Pr[NO]>=0.6")
+    state.add_subgoal("majority_amplification", "Chernoff O(log n) => w.h.p.")
+    print(state.status())
+except Exception as e:
+    print("state machine unavailable:", e)
+
+# Claim 1: contraction 4/5 and sum O(n) heuristic
+C=5; n=50; lam=5
+# simulate: each xi has <=2lam later-neighbors? check sum bound logic
+# sum deg =2m <= 2*lam*n (arboricity bound m<=lam*(n-1) approx)
+m_bound = lam*n
+second_term_sum = sum(10*C*(2*m_bound/n)/lam for _ in range(n))
+print("second term O(n):", second_term_sum, "ratio", second_term_sum/n)
+# contraction: sum_i sum_{j<i} T_j *2/(5lam) <= (2/(5lam))* (max later-degree?) *sum T
+# later-degree <=2lam => coeff <=4/5
+print("contraction coeff =", 2*2*lam/(5*lam))
+
+# Claim C: hit probability
+for lam in [2,3,5,10,100]:
+    U=120*lam+1
+    miss=(1-1/lam)**U
+    bound=math.exp(-U/lam)
+    print(f"lam={lam} U={U} miss={miss:.3e} exp-bound={bound:.3e} hit~{1-miss:.6f}")
+# lam=1 boundary
+print("lam=1 miss prob =", (0)**121 if True else 0, " hit=1 deterministically, B=V")
+print("0.8*(1-exp(-120)) =", 0.8*(1-math.exp(-120)))
+
+# Claim D: Hoeffding
+for p,delta in [(0.9,0.4),(0.6,0.1)]:
+    for c in [10,20]:
+        L=c*math.log(1000)
+        err=math.exp(-2*L*delta*delta)
+        print(f"p={p} c={c} L={L:.1f} err<={err:.3e}")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0012s) ---
+Stdout:
+state machine unavailable: MathStateMachine.register() got an unexpected keyword argument 'kind'
+second term O(n): 5000.0 ratio 100.0
+contraction coeff = 0.8
+lam=2 U=241 miss=2.830e-73 exp-bound=4.651e-53 hit~1.000000
+lam=3 U=361 miss=2.698e-64 exp-bound=5.494e-53 hit~1.000000
+lam=5 U=601 miss=5.716e-59 exp-bound=6.278e-53 hit~1.000000
+lam=10 U=1201 miss=1.110e-55 exp-bound=6.938e-53 hit~1.000000
+lam=100 U=12001 miss=4.149e-53 exp-bound=7.591e-53 hit~1.000000
+lam=1 miss prob = 0  hit=1 deterministically, B=V
+0.8*(1-exp(-120)) = 0.8
+p=0.9 c=10 L=69.1 err<=2.512e-10
+p=0.9 c=20 L=138.2 err<=6.310e-20
+p=0.6 c=10 L=69.1 err<=2.512e-01
+p=0.6 c=20 L=138.2 err<=6.310e-02
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 2/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+The comparator consists of $L=O(\log n)$ independent tests with majority vote.
+Each test samples $B\subseteq V$ by including each $v$ independently with
+probability $1/\lambda$, runs the fortified process $F(s)$ for each
+$s\in B$, and outputs YES iff the total number of steps is at most
+$10S/\lambda$, where $S=\tilde O(n)$ is fixed below; otherwise NO.
+By Lemma~\ref{lem:sampling} $B$ is generated in $O(|B|)$ time with
+expected time $O(n/\lambda)$, and each $\Gamma(v)$ in $H(v)$ is generated
+in expected time $O(\deg(v)/\lambda)$. Outer sampling randomness is
+independent of inner $H/F$ randomness. We prove per-test success
+$\ge 0.9$ in the low regime and $\ge 0.6$ for NO in the high regime,
+then amplify by majority.
+We assume $2\lambda$ integer; rounding is negligible.
+
+\medskip\noindent\textbf{Low arboricity gives YES.}
+Assume $\lambda(G)\le\lambda$. By the Observation on iterative peeling
+with threshold $2\lambda$, $k=n$: all vertices are removed. Hence
+$X=(x_{1},\dots,x_{n})$ is a full peeling order, and each $x_{i}$ has at
+most $2\lambda$ neighbours in $\{x_{i},\dots,x_{n}\}$. This discharges
+the hypothesis of Lemma~\ref{lem:recursiveT}. Let $T$ be defined there,
+$T(x_{i}):=\frac{2}{5\lambda}\sum_{j<i,(x_{j},x_{i})\in E}T(x_{j})
++\frac{10C\deg(x_{i})}{\lambda}$, where $C$ dominates the sampling
+constant in Lemma~\ref{lem:sampling}. Then $\sum_{i}T(x_{i})=O(n)$.
+
+Let $f(v),h(v)$ be expected step counts of $F(v),H(v)$ over inner
+randomness. By Lemma~\ref{lem:sampling} and linearity,
+$h(v)\le C\deg(v)/\lambda+\frac1{25\lambda}\sum_{u\in N(v)}f(u)$.
+Write $N(x_{i})=E_{i}\cup L_{i}$ with $E_{i}$ earlier and $L_{i}$ later
+in $X$. Then $|L_{i}|\le 2\lambda$. For one copy of $H(x_{i})$,
+$\Gamma(x_{i})\cap L_{i}=\emptyset$ with probability
+$q_{i}=(1-\frac1{25\lambda})^{|L_{i}|}\ge (1-\frac1{25\lambda})^{2\lambda}$.
+Since $\lambda\ge 1$, $2\lambda\ge 1$ and Bernoulli gives
+$q_{i}\ge 1-2\lambda/(25\lambda)=23/25>1/2$.
+Conditioned on this event the copy depends only on earlier vertices.
+By Markov, the earlier-only cost is within a constant factor of its
+mean with probability $>1/2$; union with $1-q_{i}\le 2/25$ keeps success
+$>1/2$. Since batch $t$ needs $>1/2$ of its $2t-1$ independent copies
+to terminate, larger $t$ amplifies success exponentially while the
+scheduling rule slows batch $t$ by $2^{t-1}$. Hence some $t=O(1)$
+succeeds with overwhelming probability with $O(1)$ overhead. This yields
+the dominating recurrence with only earlier neighbours,
+$f(x_{i})\le \frac{2}{5\lambda}\sum_{j<i}f(x_{j})+\frac{10C\deg(x_{i})}{\lambda}$.
+By induction $f\le T$, so $\sum_{v}f(v)\le\sum_{v}T(v)=O(n)$.
+
+The expected total of one test is, by the tower law,
+$\E_{B}[\sum_{s\in B}\E_{\rm inner}[{\rm cost}\,F(s)]]=
+\frac1\lambda\sum_{v}f(v)$ plus $O(n/\lambda)$ sampling. Hence for
+$S$ a sufficiently large $\tilde O(n)$,
+$\E[{\rm total}]\le S/\lambda$. By Markov,
+$\Pr[{\rm total}>10S/\lambda]\le 0.1$. Thus each test outputs YES with
+probability at least $0.9$.
+
+\medskip\noindent\textbf{High arboricity gives NO.}
+Assume $\lambda(G)>120\lambda$. Apply the Observation with parameter
+$60\lambda$, i.e.\ threshold $120\lambda$. Since
+$\lambda(G)>2\cdot 60\lambda$, peeling stops with
+$k\le n-120\lambda-1<n$. The remainder $U=V\setminus\{x_{1},\dots,x_{k}\}$
+is non-empty, $|U|\ge 120\lambda+1$, and every $v\in U$ has degree
+$>120\lambda$ in $G[U]$. Thus $G[U]$ has minimum degree at least
+$120\lambda$. This discharges the hypothesis of Lemma~\ref{lem:largeCase}
+and Corollary~\ref{crl:largeCase}.
+
+Fix one test. Let $B$ be the outer sample. If $\lambda=1$ then
+$B=V$ deterministically hits $U$; if $\lambda>1$,
+$\Pr[B\cap U=\emptyset]=(1-1/\lambda)^{|U|}\le e^{-|U|/\lambda}
+\le e^{-120}$ using $1-x\le e^{-x}$ and $|U|\ge 120\lambda+1$.
+Hence $\Pr[B\cap U\ne\emptyset]\ge 1-e^{-120}$.
+Condition on $B\cap U\ne\emptyset$ and pick $s\in B\cap U$.
+By Lemma~\ref{lem:largeCase}, over inner randomness,
+$F(s)$ never terminates with probability at least $0.8$, forcing total
+steps $>10S/\lambda$ and test output NO. Outer and inner randomness are
+independent, so unconditionally
+$\Pr[{\rm NO}]\ge (1-e^{-120})\cdot 0.8\ge 0.6$, the claim of
+Corollary~\ref{crl:largeCase}. The case $\lambda=1$ gives
+$\Pr[{\rm NO}]\ge 0.8\ge 0.6$.
+
+\medskip\noindent\textbf{Majority amplification and time.}
+Tests are independent. Let $L=c\log n$. In the low regime let $Y_{i}$
+indicate YES in test $i$, $\E Y_{i}\ge 0.9$. Majority fails only if
+$\bar Y\le 1/2$. By Hoeffding,
+$\Pr[\bar Y\le 1/2]\le \exp(-2L(0.4)^{2})=\exp(-0.32L)=n^{-0.32c}$.
+In the high regime with NO indicators, $\E\ge 0.6$ and
+$\Pr[{\rm majority\ YES}]\le \exp(-2L(0.1)^{2})=\exp(-0.02L)=n^{-0.02c}$.
+Choosing $c$ large gives error $n^{-\Omega(1)}$: YES with high
+probability if $\lambda(G)\le\lambda$ and NO with high probability if
+$\lambda(G)>120\lambda$. Each test is capped at $10S/\lambda$,
+$S=\tilde O(n)$, so total time over $L=O(\log n)$ tests is
+$\tilde O(n/\lambda)$. This is the required comparator.
+\end{proof}
+[Proof Draft Generated] Turn 2: 5016 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.5, "completeness": 0.55, "boundary_cases": 0.8, "validity": 0.55, "verdict": "REJECT", "issues": "Low-regime expected-cost bound is asserted without deductive proof: the dominating recurrence for f with only earlier neighbours and f<=T is stated but not derived. The per-copy success >1/2 from avoidance of later neighbours plus tail-bound on earlier-only cost, the transfer from per-copy success to batch success for 2t-1 copies needing majority, the accounting of parallel-batch scheduling slowdown by 2^{t-1} to O(1) expected overhead with stated constants, and finiteness plus induction base for possibly infinite costs are only sketched in prose. Hence E[total]<=S/lambda and per-test YES>=0.9 does not follow rigorously."}
+[Best Candidate Updated] Turn 2: validity=0.55 (5016 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.55, rejection #1)
+Low-regime expected-cost bound is asserted without deductive proof: the dominating recurrence for f with only earlier neighbours and f<=T is stated but not derived. The per-copy success >1/2 from avoidance of later neighbours plus tail-bound on earlier-only cost, the transfer from per-copy success to batch success for 2t-1 copies needing majority, the accounting of parallel-batch scheduling slowdown by 2^{t-1} to O(1) expected overhead with stated constants, and finiteness plus induction base for possibly infinite costs are only sketched in prose. Hence E[total]<=S/lambda and per-test YES>=0.9 does not follow rigorously.
+[Self-Improvement] Initiating surgical revision turn 3 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_59_32 ---
+[Critique Falsifier Script]:
+import random, math
+# Test ONLY disputed low-regime dominating recurrence: f(xi) <= 2/(5l) sum_earlier + 10C deg/l
+# Countermodel: x1 earlier, x2 later, edge x1-x2, lam=1. Earlier-only mean = 0, later cost M huge.
+lam=1; p_hit=1/(25*lam); M=10000.0
+q=(1-p_hit)**1  # avoidance prob
+print("q=",q)  # ~0.96 >1/2 as claimed
+# Claimed recurrence for x1 with zero earlier sum and zero deg term gives f(x1)<=0.
+claimed=0.0
+# True per-copy mean includes failure branch: p_hit*M
+true_per_copy=p_hit*M
+print("true per-copy mean",true_per_copy,"claimed bound",claimed)
+# Fortified F needs majority of 2t-1 copies to avoid L; failure-branch copies still pay M (slowed by 2^{t-1}).
+# Even t=1 needs 1 copy to succeed; expected cost to get one success >= true mean chain >= p_hit*M >> 0.
+# Simulate batch t=1,2 with slowdown 2^{t-1}:
+def batch_success(t,p):
+    from math import comb
+    n=2*t-1; s=0.0
+    for k in range(t,n+1): s+=comb(n,k)*(p**k)*((1-p)**(n-k))
+    return s
+p=1-p_hit
+for t in [1,2,3]:
+    print(t, batch_success(t,p))
+if true_per_copy > claimed + 1e-9:
+    print(f"COUNTEREXAMPLE_FOUND: later-neighbour failure branch cost {true_per_copy} exceeds earlier-only bound {claimed}; dropping L_i underestimates E[cost]")
+    raise assert False if False else AssertionError("COUNTEREXAMPLE_FOUND")
+[Critique Kernel ALERT (Counterexample/Defect Confirmed)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_version, optimize=optimize)
+  File "<unknown>", li
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 3/8] MODEL GENERATED PROPOSAL & PROOF ---
+Repairing the low-arboricity cost induction — verifying the contraction and scheduling bounds.I'll verify the contraction coefficient and tail probability calculations in Python to confirm the low-regime bounds.```python
+import math
+p=207/250
+# exact p2
+e1=1-p
+e2=(1-p)**2*(1+2*p)
+print("p",p,"e1",e1,"e2",e2)
+# exact p3: N=5, need >=3 good. failure = sum_{k=0..2} C(5,k) p^k (1-p)^{5-k}
+from math import comb
+def fail(N,p):
+    # need > N/2 good, i.e. >= floor(N/2)+1. N=2t-1, need >=t
+    t=(N+1)//2
+    return sum(comb(N,k)*(p**k)*((1-p)**(N-k)) for k in range(t))
+for t in [1,2,3,4,5]:
+    N=2*t-1
+    print(t,N,fail(N,p))
+# compute E[2^{T*-1}] exactly assuming independence, using exact fails up to 5 then Hoeffding tail
+fails=[fail(2*t-1,p) for t in range(1,7)]
+print(fails)
+# E = sum Pr[T*=t]2^{t-1}, Pr[T*=t]= (prod_{s<t} e_s)*(1-e_t)
+E=0
+prod=1
+for t in range(1,7):
+    e=fails[t-1]
+    Pt=prod*(1-e)
+    E+=Pt*(2**(t-1))
+    prod*=e
+    print(t, Pt, E, prod)
+print("E up to 6",E,"remaining prod",prod)
+# tail bound: for t>=7, e_t <= exp(-2*d^2*(2t-1)), d=41/125
+d=41/125
+c=2*d*d
+print("c",c)
+# bound remaining E tail: sum_{t>=7} prod_{s<t} e_s 2^{t-1} <= ?
+# prod up to 6 is tiny, then geometric with ratio?
+# Let's upper bound e_s for s>=7 by 0.1 (since exp(-c*13)=exp(-2.797)=0.061)
+for t in range(7,12):
+    print(t, math.exp(-c*(2*t-1)))
+```
+
+
+--- [TURN 3] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+p=207/250
+# exact p2
+e1=1-p
+e2=(1-p)**2*(1+2*p)
+print("p",p,"e1",e1,"e2",e2)
+# exact p3: N=5, need >=3 good. failure = sum_{k=0..2} C(5,k) p^k (1-p)^{5-k}
+from math import comb
+def fail(N,p):
+    # need > N/2 good, i.e. >= floor(N/2)+1. N=2t-1, need >=t
+    t=(N+1)//2
+    return sum(comb(N,k)*(p**k)*((1-p)**(N-k)) for k in range(t))
+for t in [1,2,3,4,5]:
+    N=2*t-1
+    print(t,N,fail(N,p))
+# compute E[2^{T*-1}] exactly assuming independence, using exact fails up to 5 then Hoeffding tail
+fails=[fail(2*t-1,p) for t in range(1,7)]
+print(fails)
+# E = sum Pr[T*=t]2^{t-1}, Pr[T*=t]= (prod_{s<t} e_s)*(1-e_t)
+E=0
+prod=1
+for t in range(1,7):
+    e=fails[t-1]
+    Pt=prod*(1-e)
+    E+=Pt*(2**(t-1))
+    prod*=e
+    print(t, Pt, E, prod)
+print("E up to 6",E,"remaining prod",prod)
+# tail bound: for t>=7, e_t <= exp(-2*d^2*(2t-1)), d=41/125
+d=41/125
+c=2*d*d
+print("c",c)
+# bound remaining E tail: sum_{t>=7} prod_{s<t} e_s 2^{t-1} <= ?
+# prod up to 6 is tiny, then geometric with ratio?
+# Let's upper bound e_s for s>=7 by 0.1 (since exp(-c*13)=exp(-2.797)=0.061)
+for t in range(7,12):
+    print(t, math.exp(-c*(2*t-1)))
+```
+--- [TURN 3] EXECUTION SUCCESS (0.0012s) ---
+Stdout:
+p 0.828 e1 0.17200000000000004 e2 0.07857510400000002
+1 1 0.17200000000000004
+2 3 0.07857510400000003
+3 5 0.03865950403379203
+4 7 0.01971077041783376
+5 9 0.010265660454557657
+[0.17200000000000004, 0.07857510400000003, 0.03865950403379203, 0.01971077041783376, 0.010265660454557657, 0.005423175244649914]
+1 0.828 0.828 0.17200000000000004
+2 0.15848508211200005 1.144970164224 0.01351491788800001
+3 0.012992437865392505 1.19693991568557 0.0005224800226075044
+4 0.0005121815388339833 1.2010373679962418 1.029848377352111e-05
+5 1.0192763035905371e-05 1.2012004522048163 1.0572073761573937e-07
+6 1.0514739552865558e-07 1.2012038169214732 5.733420870838067e-10
+E up to 6 1.2012038169214732 remaining prod 5.733420870838067e-10
+c 0.21516800000000003
+7 0.06098154509556954
+8 0.0396557231332383
+9 0.025787742418719097
+10 0.016769525468489418
+11 0.010905064114266245
+
+
+--- [TURN 4/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 4/8] MODEL GENERATED PROPOSAL & PROOF ---
+Low-regime induction needs tighter constants — I'll verify the overhead numerically.```python
+import math
+from math import comb
+def fail(N,p):
+    t=(N+1)//2
+    return sum(comb(N,k)*(p**k)*((1-p)**(N-k)) for k in range(t))
+def E_factor(p, Tmax=12):
+    # E[2^{T*-1}] where T* = first success, success prob 1-e_t, independent across t
+    # e_t = fail(2t-1,p)
+    es=[fail(2*t-1,p) for t in range(1,Tmax+1)]
+    E=0.0
+    prod=1.0
+    for t in range(1,Tmax+1):
+        e=es[t-1]
+        Pt=prod*(1-e)
+        E+=Pt*(2**(t-1))
+        prod*=e
+    # tail: prod remaining, bound crudely: remaining E <= prod * something? prod tiny
+    return E, prod, es
+for K in [3,4,5,8,10]:
+    q=0.92
+    p=q*(1-1/K)
+    E,prod,es=E_factor(p)
+    print(f"K={K} p={p:.4f} E={E:.4f} 6*K*E={6*K*E:.2f} 1*K*E={K*E:.2f}")
+    print(" es",[round(e,4) for e in es[:5]])
+```
+
+
+--- [TURN 4] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+from math import comb
+def fail(N,p):
+    t=(N+1)//2
+    return sum(comb(N,k)*(p**k)*((1-p)**(N-k)) for k in range(t))
+def E_factor(p, Tmax=12):
+    # E[2^{T*-1}] where T* = first success, success prob 1-e_t, independent across t
+    # e_t = fail(2t-1,p)
+    es=[fail(2*t-1,p) for t in range(1,Tmax+1)]
+    E=0.0
+    prod=1.0
+    for t in range(1,Tmax+1):
+        e=es[t-1]
+        Pt=prod*(1-e)
+        E+=Pt*(2**(t-1))
+        prod*=e
+    # tail: prod remaining, bound crudely: remaining E <= prod * something? prod tiny
+    return E, prod, es
+for K in [3,4,5,8,10]:
+    q=0.92
+    p=q*(1-1/K)
+    E,prod,es=E_factor(p)
+    print(f"K={K} p={p:.4f} E={E:.4f} 6*K*E={6*K*E:.2f} 1*K*E={K*E:.2f}")
+    print(" es",[round(e,4) for e in es[:5]])
+```
+--- [TURN 4] EXECUTION SUCCESS (0.0022s) ---
+Stdout:
+K=3 p=0.6133 E=1.9415 6*K*E=34.95 1*K*E=5.82
+ es [0.3867, 0.3329, 0.2947, 0.2644, 0.2393]
+K=4 p=0.6900 E=1.5196 6*K*E=36.47 1*K*E=6.08
+ es [0.31, 0.2287, 0.1766, 0.1394, 0.1115]
+K=5 p=0.7360 E=1.3807 6*K*E=41.42 1*K*E=6.90
+ es [0.264, 0.1723, 0.1188, 0.0842, 0.0607]
+K=8 p=0.8050 E=1.2382 6*K*E=59.43 1*K*E=9.91
+ es [0.195, 0.0992, 0.0542, 0.0306, 0.0176]
+K=10 p=0.8280 E=1.2012 6*K*E=72.07 1*K*E=12.01
+ es [0.172, 0.0786, 0.0387, 0.0197, 0.0103]
+
+
+--- [TURN 5/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 5/8] MODEL GENERATED PROPOSAL & PROOF ---
+I need to tighten the low-regime induction to close the expectation gap — I'll verify the batch-amplification constants numerically.\begin{proof}
+The comparator has $L=c\log n$ independent tests with majority vote.
+Each test samples $B\subseteq V$ including each $v$ independently with
+probability $1/\lambda$, runs the fortified process $F(s)$ for $s\in B$,
+and outputs YES iff the total time is at most $10S/\lambda$ for
+$S=\tilde O(n)$ fixed below, else NO. Outer sampling randomness is
+independent of inner $H/F$ randomness. Sampling is via
+Lemma~\ref{lem:sampling} in expected time $O(n/\lambda)$ for $B$ and
+$O(\deg(v)/\lambda)$ for $\Gamma(v)$. We prove per-test YES with
+probability $\ge 0.9$ if $\lambda(G)\le\lambda$ and per-test NO with
+probability $\ge 0.6$ if $\lambda(G)>120\lambda$, then amplify.
+Assume $2\lambda$ integer; rounding is negligible.
+
+\medskip\noindent\textbf{Low arboricity gives YES.}
+Assume $\lambda(G)\le\lambda$. By the Observation with threshold
+$2\lambda$, $k=n$: $X=(x_{1},\dots,x_{n})$ is a full peeling order.
+Each $x_{i}$ has at most $2\lambda$ neighbours in
+$\{x_{i+1},\dots,x_{n}\}$. This discharges the hypothesis of
+Lemma~\ref{lem:recursiveT}. Let $C$ be the constant with sampling time
+$\le C\deg(v)/\lambda$ from Lemma~\ref{lem:sampling} and $T$ as in
+Lemma~\ref{lem:recursiveT}:
+$T(x_{i})=\frac{2}{5\lambda}\sum_{j<i}T(x_{j})+\frac{10C\deg(x_{i})}{\lambda}$.
+Then $\sum T=O(n)$.
+
+Let $C_{H}(v),C_{F}(v)\in{\mathbb N}\cup\{\infty\}$ be the inner costs,
+$\infty$ if never terminating, and $f(v)={\mathbb E}\,C_{F}(v)$.
+Count one increment of the scheduling counter $y$ in $F(v)$ as one time
+unit; batch $t$ advances once per $2^{t-1}$ increments, so $S$ steps of
+batch $t$ need $Y=S2^{t-1}$ counter steps. We prove by induction
+$f(x_{i})\le T(x_{i})<\infty$.
+
+Fix $i$ and assume $f(x_{j})\le T(x_{j})$ for $j<i$.
+Write $N(x_{i})=E_{i}\cup L_{i}$ with $E_{i}$ earlier and $L_{i}$ later;
+$|L_{i}|\le 2\lambda$. Let $A=\{\Gamma(x_{i})\cap L_{i}=\emptyset\}$.
+Since $1/(25\lambda)\in[0,1]$ as $\lambda\ge 1$,
+$\Pr[A]=(1-\frac1{25\lambda})^{|L_{i}|}\ge 1-\frac{|L_{i}|}{25\lambda}
+\ge 1-\frac{2}{25}=\frac{23}{25}$ by Bernoulli. Conditioned on $A$,
+$\Gamma\cap E_{i}$ keeps its unconditional law by independence across
+neighbours, and ${\mathbb E}[|\Gamma|\mid A]=|E_{i}|/(25\lambda)$.
+Hence with $M_{i}=C\deg(x_{i})/\lambda+\frac1{25\lambda}\sum_{j<i}T(x_{j})$,
+${\mathbb E}[C_{H}(x_{i})\mid A]\le M_{i}$ using the induction hypothesis;
+on $A$ no later, possibly unbounded cost is incurred, so $M_{i}<\infty$.
+This also gives the base $i=1$ with empty sum.
+
+\begin{claim}\label{cl:copy}
+One copy of $H(x_{i})$ is good, i.e.\ $A$ holds and terminates within
+$5M_{i}$ steps, with probability $p\ge 92/125>1/2$.
+\end{claim}
+Indeed, conditional Markov gives
+$\Pr[C_{H}>5M_{i}\mid A]\le 1/5$, so
+$\Pr[\text{good}]=\Pr[A]\Pr[C_{H}\le 5M_{i}\mid A]
+\ge \frac{23}{25}\cdot\frac45=\frac{92}{125}=0.736$.
+
+Copies $H_{t,j}$ use independent randomness. Batch $t$ with $2t-1$
+copies succeeds within $5M_{i}$ steps if $>1/2$ copies are good.
+Let $e_{t}$ be its failure probability. Then
+$e_{t}=\Pr[\mathrm{Bin}(2t-1,p)\le t-1]\le\exp(-2(2t-1)(p-1/2)^{2})$
+by Hoeffding, with $d=p-1/2=59/250$. Exactly,
+$e_{1}=1-p=33/125\le 0.27$ and
+$e_{2}=q^{3}+3pq^{2}=q^{2}(q+3p)\le 0.18$ with $q=1-p$.
+Batches are independent. Let $T^{\star}=\min\{t:\text{batch }t
+\text{ succeeds within }5M_{i}\}$, $\infty$ if none.
+Then $\Pr[T^{\star}>T]=\prod_{t\le T}e_{t}$, decaying as
+$\exp(-cT^{2})$ with $c=2d^{2}$, so
+${\mathbb E}[2^{T^{\star}-1}{\bf1}_{T^{\star}<\infty}]\le 2$:
+crudely $e_{1}\le 0.27$, $e_{2}\le 0.18$, $e_{s}\le h_{s}$ for $s\ge 3$,
+$\prod_{s< t}e_{s}\le e_{1}e_{2}\prod_{s=3}^{t-1}h_{s}
+=\exp(-c((t-1)^{2}-4))e_{1}e_{2}$, whence
+$\sum_{t}\Pr[T^{\star}=t]2^{t-1}\le 1+0.54+0.31<2$.
+
+If $T^{\star}=t<\infty$, $F(x_{i})$ terminates by counter
+$Y=5M_{i}2^{t-1}$. Thus $C_{F}(x_{i})\le 5M_{i}2^{T^{\star}-1}$ (with
+$\infty$ if $T^{\star}=\infty$), and
+${\mathbb E}\,C_{F}(x_{i})\le 5M_{i}\cdot 2=10M_{i}=T(x_{i})$.
+This completes induction, so $\sum_{v}f(v)\le\sum T=O(n)$.
+
+By the tower law over $B$ and inner randomness, expected total of one
+test is $\frac1\lambda\sum_{v}f(v)$ plus $O(n/\lambda)$ outer and inner
+sampling, hence $\le S/\lambda$ for $S=\tilde O(n)$ large enough.
+By Markov, $\Pr[\text{total}>10S/\lambda]\le 0.1$; each test is YES with
+probability at least $0.9$.
+
+\medskip\noindent\textbf{High arboricity gives NO.}
+Assume $\lambda(G)>120\lambda$; if $\lambda>n/120$ this is vacuous since
+$\lambda(G)\le n$. Otherwise apply the Observation with parameter
+$60\lambda$ (threshold $120\lambda$): since $\lambda(G)>2\cdot 60\lambda$,
+peeling stops with $k\le n-120\lambda-1$ and remainder
+$U=V\setminus\{x_{1},\dots,x_{k}\}$ non-empty with all degrees in $G[U]$
+exceeding $120\lambda$. Hence $G[U]$ has minimum degree at least
+$120\lambda$ and $|U|\ge 120\lambda+1$. This discharges the hypothesis
+of Lemma~\ref{lem:largeCase} and Corollary~\ref{crl:largeCase}.
+
+Fix one test with outer sample $B$. If $\lambda=1$, $B=V$ hits $U$
+deterministically. If $\lambda>1$,
+$\Pr[B\cap U=\emptyset]=(1-1/\lambda)^{|U|}\le e^{-|U|/\lambda}
+\le e^{-120}$ using $1-x\le e^{-x}$ and $|U|\ge 120\lambda+1$.
+Thus $\Pr[B\cap U\ne\emptyset]\ge 1-e^{-120}$.
+Condition on $B\cap U\ne\emptyset$ and pick $s\in B\cap U$.
+By Lemma~\ref{lem:largeCase}, over inner randomness $F(s)$ never
+terminates with probability at least $0.8$, forcing total $>10S/\lambda$,
+i.e.\ NO. Outer and inner randomness are independent, so
+$\Pr[\text{NO}]\ge (1-e^{-120})\cdot 0.8\ge 0.6$, the claim of
+Corollary~\ref{crl:largeCase}; for $\lambda=1$ it is $\ge 0.8$.
+
+\medskip\noindent\textbf{Majority amplification and time.}
+Tests are independent. With $L=c\log n$ and YES indicators of mean
+$\ge 0.9$ in the low regime, Hoeffding gives
+$\Pr[\text{majority not YES}]\le\exp(-2L(0.4)^{2})=n^{-0.32c}$.
+With NO indicators of mean $\ge 0.6$ in the high regime,
+$\Pr[\text{majority not NO}]\le\exp(-2L(0.1)^{2})=n^{-0.02c}$.
+Choosing $c$ large gives error $n^{-\Omega(1)}$: YES with high
+probability if $\lambda(G)\le\lambda$ and NO with high probability if
+$\lambda(G)>120\lambda$. Each test is capped at $10S/\lambda$,
+$S=\tilde O(n)$, so total time is $\tilde O(n/\lambda)$.
+\end{proof}
+[Proof Draft Generated] Turn 5: 6150 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+[Proof Auditor Stage 1 Counterexample]: Empirical Falsification: Witness/assertion failed:
+Traceback (most recent call last):
+  File "<prime_math>", line 77, in <module>
+AssertionError: total=2.4624544155746837
+[Falsifier Test Script]:
+import math
+from fractions import Fraction
+
+# Claim 1: Pr[A] >= 23/25 via Bernoulli: (1-1/(25λ))^{|L|} >= 1 - |L|/(25λ) >= 23/25
+# Check for various lambda >=1 and |L| <= 2λ
+for lam in [1, 2, 5, 10, 100]:
+    maxL = int(2*lam)
+    for Lsize in [0, 1, maxL//2 if maxL//2>0 else 0, maxL]:
+        pA = (1 - 1/(25*lam))**Lsize if lam>0 else 1.0
+        bernoulli_lb = 1 - Lsize/(25*lam)
+        assert pA + 1e-9 >= bernoulli_lb, f"Bernoulli fails lam={lam} L={Lsize}"
+        assert bernoulli_lb + 1e-9 >= 23/25 or Lsize < maxL, f"23/25 bound fails"
+    # worst case |L|=2λ
+    assert (1 - 1/(25*lam))**(2*lam) + 1e-9 >= 23/25
+
+# Claim 2: p >= 92/125 = 0.736
+p = Fraction(23,25) * Fraction(4,5)
+assert p == Fraction(92,125), f"p fraction {p}"
+assert math.isclose(float(p), 0.736, rel_tol=1e-9)
+assert float(p) > 0.5 + 1e-9
+
+# Claim 3: d = p - 1/2 = 59/250
+d = Fraction(92,125) - Fraction(1,2)
+assert d == Fraction(59,250), f"d={d}"
+assert math.isclose(float(d), 0.236, rel_tol=1e-9)
+
+# Claim 4: e1 = 1-p = 33/125 <= 0.27
+q = Fraction(1,1) - Fraction(92,125)
+assert q == Fraction(33,125)
+assert math.isclose(float(q), 0.264, rel_tol=1e-9)
+assert float(q) <= 0.27 + 1e-9
+
+# Claim 5: e2 = q^3 + 3 p q^2 <= 
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": false, "theorem_hypotheses_verified": true, "rigor": 0.6, "completeness": 0.6, "boundary_cases": 0.85, "validity": 0.4, "verdict": "REJECT", "issues": "Low-regime scheduling overhead bound is false as written. With p=92/125, d=59/250, e1=33/125<=0.27, e2=q^3+3pq^2~0.172<=0.18, c=2d^2, the proof claims E[2^{T*-1}1]=sum Pr[T*=t]2^{t-1} <=1+0.54+0.31<2 using e1,e2 and Hoeffding h_s=exp(-2(2s-1)d^2) for s>=3. The crude majorant sum is ~2.46>2 (falsifier total=2.462...), e.g. t=3 term 0.194 + t=4 term ~0.223 already exceed 0.31 tail claim. Hoeffding is too loose for small N to give factor 2, so the claimed O(1) overhead <=2 and hence f<=T induction E[C_F]<=5M_i*2=10M_i=T is unproved. Prior low-regime gap remains."}
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.40, rejection #2)
+Low-regime scheduling overhead bound is false as written. With p=92/125, d=59/250, e1=33/125<=0.27, e2=q^3+3pq^2~0.172<=0.18, c=2d^2, the proof claims E[2^{T*-1}1]=sum Pr[T*=t]2^{t-1} <=1+0.54+0.31<2 using e1,e2 and Hoeffding h_s=exp(-2(2s-1)d^2) for s>=3. The crude majorant sum is ~2.46>2 (falsifier total=2.462...), e.g. t=3 term 0.194 + t=4 term ~0.223 already exceed 0.31 tail claim. Hoeffding is too loose for small N to give factor 2, so the claimed O(1) overhead <=2 and hence f<=T induction E[C_F]<=5M_i*2=10M_i=T is unproved. Prior low-regime gap remains.
+[Best Candidate Restored for Revision] Restoring highest-scoring candidate from Turn 2 (validity: 0.55, structural: 0.62) over Turn 5 (validity: 0.40, structural: 0.68) to guarantee progress on the best mathematical foundation.
+[Self-Improvement] Initiating surgical revision turn 6 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_59_32 ---
+[Critique Falsifier Script]:
+import math
+# Disputed: q>=23/25 plus Markov >1/2 => joint success >1/2
+q = (1-1/25)**2  # worst-case lambda=1, |L|=2lambda
+print(f"q lower bound Bernoulli: {1-2/25}, exact q={q:.4f}")
+p_markov = 0.5  # Markov only guarantees >1/2 up to equality limit
+frechet = q + p_markov - 1  # best universal lower bound on intersection
+print(f"Frechet intersection lower bound = {frechet:.4f}")
+# Explicit joint distribution attaining it with P(A)=q, P(B)=0.5
+pA, pB = q, 0.5
+p_both = max(0, pA+pB-1)
+print(f"maximal-adversarial P(both) = {p_both:.4f} <= 0.5 ? {p_both<=0.5}")
+if p_both <= 0.5:
+    print(f"COUNTEREXAMPLE_FOUND: P(avoid)={pA:.4f}, P(cost-ok)=0.5 -> P(both)={p_both:.4f} not >1/2, union argument fails")
+    raise assert False, "COUNTEREXAMPLE_FOUND"
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+--- [TURN 6/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 6/8] MODEL GENERATED PROPOSAL & PROOF ---
+Rebuilding the low-arboricity cost induction with full batch-amplification accounting.I'll verify the contraction, sampling, and scheduling bounds numerically to lock in the rigorous constants.```python
+import math
+# Check Bernoulli bound
+for lam in [1,2,3,5,10,100]:
+    p = 1/(25*lam)
+    k = 2*lam
+    val = (1-p)**k
+    print(lam, val, 23/25)
+
+# Check per-copy success
+# q >=23/25=0.92, Markov 1/10 => p>=0.82
+print("p lower", 23/25 - 0.1)
+
+# Batch failure probs with p=0.82 (worst case lower bound)
+# delta_t = Pr[Bin(2t-1,p) <= t-1]
+from math import comb
+p=0.82
+for t in [1,2,3,4,5]:
+    n=2*t-1
+    # sum_{k=0}^{t-1} C(n,k) p^k (1-p)^{n-k}
+    s=sum(comb(n,k)*(p**k)*((1-p)**(n-k)) for k in range(t))
+    print(f"t={t} delta<={s:.6f}")
+
+# Expected overhead: E[2^{T*-1}] <= sum q_{t-1} 2^{t-1}
+# q0=1, q1=delta1, etc using exact deltas above
+deltas=[0.18,0.085,0.02,0.005]  # rough upper
+# compute exact for t=3,4
+for t in [3,4,5,6]:
+    n=2*t-1
+    s=sum(comb(n,k)*(p**k)*((1-p)**(n-k)) for k in range(t))
+    print(t,s)
+
+# W(Y) bound: sum_{m} (2m-1)/2^{m-1}=6
+s=sum((2*m-1)/(2**(m-1)) for m in range(1,30))
+print("sum coeff",s)
+
+# hit prob
+for lam in [2,3,5,10,100]:
+    U=120*lam+1
+    miss=(1-1/lam)**U
+    print(lam, miss, math.exp(-U/lam))
+print("0.8*(1-e^-120)=",0.8*(1-math.exp(-120)))
+
+# Hoeffding gaps
+# low: gap 0.4, high gap 0.1
+# Pr fail <= exp(-2 L gap^2)
+# L=c log n => n^{-2c gap^2}
+print("low exponent",2*0.4**2, "high exponent",2*0.1**2)
+```
+
+
+--- [TURN 6] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# Check Bernoulli bound
+for lam in [1,2,3,5,10,100]:
+    p = 1/(25*lam)
+    k = 2*lam
+    val = (1-p)**k
+    print(lam, val, 23/25)
+
+# Check per-copy success
+# q >=23/25=0.92, Markov 1/10 => p>=0.82
+print("p lower", 23/25 - 0.1)
+
+# Batch failure probs with p=0.82 (worst case lower bound)
+# delta_t = Pr[Bin(2t-1,p) <= t-1]
+from math import comb
+p=0.82
+for t in [1,2,3,4,5]:
+    n=2*t-1
+    # sum_{k=0}^{t-1} C(n,k) p^k (1-p)^{n-k}
+    s=sum(comb(n,k)*(p**k)*((1-p)**(n-k)) for k in range(t))
+    print(f"t={t} delta<={s:.6f}")
+
+# Expected overhead: E[2^{T*-1}] <= sum q_{t-1} 2^{t-1}
+# q0=1, q1=delta1, etc using exact deltas above
+deltas=[0.18,0.085,0.02,0.005]  # rough upper
+# compute exact for t=3,4
+for t in [3,4,5,6]:
+    n=2*t-1
+    s=sum(comb(n,k)*(p**k)*((1-p)**(n-k)) for k in range(t))
+    print(t,s)
+
+# W(Y) bound: sum_{m} (2m-1)/2^{m-1}=6
+s=sum((2*m-1)/(2**(m-1)) for m in range(1,30))
+print("sum coeff",s)
+
+# hit prob
+for lam in [2,3,5,10,100]:
+    U=120*lam+1
+    miss=(1-1/lam)**U
+    print(lam, miss, math.exp(-U/lam))
+print("0.8*(1-e^-120)=",0.8*(1-math.exp(-120)))
+
+# Hoeffding gaps
+# low: gap 0.4, high gap 0.1
+# Pr fail <= exp(-2 L gap^2)
+# L=c log n => n^{-2c gap^2}
+print("low exponent",2*0.4**2, "high exponent",2*0.1**2)
+```
+--- [TURN 6] EXECUTION SUCCESS (0.0013s) ---
+Stdout:
+1 0.9216 0.92
+2 0.9223681599999999 0.92
+3 0.922619730810557 0.92
+5 0.9228194119572632 0.92
+10 0.922968264601403 0.92
+100 0.9231015727035113 0.92
+p lower 0.8200000000000001
+t=1 delta<=0.180000
+t=2 delta<=0.085536
+t=3 delta<=0.043707
+t=4 delta<=0.023128
+t=5 delta<=0.012496
+3 0.04370734080000002
+4 0.02312764047360002
+5 0.012496167284981773
+6 0.006847027691477581
+sum coeff 5.999999772757292
+2 2.8298997121333476e-73 4.650663644598907e-53
+3 2.6980840892991738e-64 5.494109923282641e-53
+5 5.715867886138607e-59 6.277739281735331e-53
+10 1.1098232957383282e-55 6.937974885435053e-53
+100 4.149257285238081e-53 7.591353700635556e-53
+0.8*(1-e^-120)= 0.8
+low exponent 0.32000000000000006 high exponent 0.020000000000000004
+
+
+--- [TURN 7/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 7/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+The comparator consists of $L=c\log n$ independent tests with majority vote.
+Each test samples $B\subseteq V$ including each $v$ independently with
+probability $1/\lambda$, runs the fortified process $F(s)$ for each
+$s\in B$, and outputs YES iff the total number of steps is at most
+$10S/\lambda$ for $S=\tilde O(n)$ fixed below, else NO.
+Outer sampling randomness is independent of inner $H/F$ randomness.
+Lemma~\ref{lem:sampling} applies since $1/\lambda\in[0,1]$ and
+$1/(25\lambda)\in[0,1]$ as $\lambda\in[1,n]$.
+We prove per-test YES with probability at least $0.9$ if
+$\lambda(G)\le\lambda$ and per-test NO with probability at least $0.6$
+if $\lambda(G)\ge 120\lambda$, then amplify.
+
+\medskip\noindent\textbf{Low arboricity gives YES.}
+Assume $\lambda(G)\le\lambda$.
+By the Observation on iterative peeling with threshold $2\lambda$,
+$k=n$, so $X=(x_{1},\dots,x_{n})$ is a full peeling order.
+Each $x_{i}$ has at most $2\lambda$ neighbours in
+$\{x_{i},\dots,x_{n}\}$, hence at most $2\lambda$ later neighbours.
+This discharges the hypothesis of Lemma~\ref{lem:recursiveT}.
+Let $T$ be defined there,
+$T(x_{i})=\frac{2}{5\lambda}\sum_{j<i}T(x_{j})+\frac{10C\deg(x_{i})}{\lambda}$,
+so $\sum_{i}T(x_{i})=O(n)$.
+
+Measure $F(v)$ by its parallel completion counter $Y(v)$,
+$Y(v)=\infty$ if it never terminates, and $H$-copies by sequential cost
+$C_{\rm samp}+\sum_{u\in\Gamma}Y(u)$ upper bounding parallel max cost.
+Let $f_{i}=E[Y(x_{i})]$.
+We prove by induction $f_{i}\le T(x_{i})$.
+Fix $i$ and assume $f_{j}\le T(x_{j})<\infty$ for $j<i$, hence
+$Y(x_{j})<\infty$ a.s.\ for $j<i$.
+Write $N(x_{i})=E_{i}\cup L_{i}$ for earlier and later neighbours,
+$|L_{i}|\le 2\lambda$.
+\begin{claim}\label{cl:copy}
+For one $H(x_{i})$ copy, let $A=\{\Gamma(x_{i})\cap L_{i}=\emptyset\}$.
+Then $P[A]\ge 23/25$. Let $Z=C1_{A}$ where $C$ is its sequential cost.
+Then $E[Z]\le E_{0,i}:=C\deg(x_{i})/\lambda+\frac1{25\lambda}\sum_{j<i}f_{j}$,
+and $P[A\wedge C\le 5E_{0,i}]\ge 0.72$.
+\end{claim}
+\begin{proof}
+$P[A]=(1-\frac1{25\lambda})^{|L_{i}|}\ge 1-|L_{i}|/(25\lambda)\ge 23/25$
+by Bernoulli, applicable since $-\frac1{25\lambda}\ge -1$.
+By Lemma~\ref{lem:sampling}, $E[C_{\rm samp}]\le C\deg(x_{i})/\lambda$.
+On $A$, $\Gamma\subseteq E_{i}$, and sampling of $\Gamma$ is independent
+of inner $Y$'s, so
+$E[Z]\le E[C_{\rm samp}]+\frac1{25\lambda}\sum_{j<i}f_{j}=E_{0,i}$.
+If $E_{0,i}=0$ then $Z=0$ a.s.\ and the success probability is $P[A]$.
+Otherwise by Markov $P[Z>5E_{0,i}]\le 1/5$, so
+$P[A\wedge C\le 5E_{0,i}]\ge P[A]-P[Z>5E_{0,i}]\ge 0.92-0.2=0.72$.
+\end{proof}
+Put $B_{i}=5E_{0,i}$ and $p\ge 0.72$ for per-copy success within $B_{i}$.
+Batch $t$ has $2t-1$ independent copies and succeeds if at least $t$
+succeed. Let $\delta_{t}=P[{\rm Bin}(2t-1,p)\le t-1]$.
+For $p>1/2$, $P_{t}=1-\delta_{t}$ is nondecreasing:
+with $S$ the sum of the first $2t-1$ trials,
+$P_{t+1}-P_{t}=-P[S=t](1-p)^{2}+P[S=t-1]p^{2}
+=\binom{2t-1}{t}p^{t}(1-p)^{t}(2p-1)\ge 0$.
+Hence $\delta_{t}\le\delta_{1}=1-p\le 0.28$ for all $t$, and
+$\delta_{t}<1/2$.
+Batches use independent randomness, so with $T^{\ast}=\min\{t:
+\text{batch }t\text{ succeeds}\}$,
+$P[T^{\ast}>t]=\prod_{s\le t}\delta_{s}\le 0.28^{t}\to 0$;
+hence $F(x_{i})$ terminates a.s.
+Let $W_{t}$ be the $t$-th smallest $C$ in batch $t$.
+Global counter needs $2^{t-1}W_{t}$ for batch $t$, so
+$Y(x_{i})=\min_{t}2^{t-1}W_{t}$.
+On $\{T^{\ast}=t\}$, $Y\le 2^{t-1}B_{i}$, and on $\{T^{\ast}=1\}$,
+$Y=C_{1,1}1_{\rm succ}$ with expectation at most $E_{0,i}$.
+Therefore
+$E[Y1_{T^{\ast}=1}]\le E_{0,i}$ and for $t\ge 2$,
+$E[Y1_{T^{\ast}=t}]\le 2^{t-1}B_{i}0.28^{\,t-1}$.
+Summing,
+$E[Y]\le E_{0,i}+B_{i}\sum_{t\ge 2}0.56^{\,t-1}
+=E_{0,i}+B_{i}\frac{0.56}{0.44}\le 7.37E_{0,i}\le 10E_{0,i}$.
+That is $f_{i}\le 10C\deg(x_{i})/\lambda+\frac{2}{5\lambda}\sum_{j<i}f_{j}$.
+With $f_{j}\le T(x_{j})$ for $j<i$ this gives $f_{i}\le T(x_{i})$,
+closing induction, with base $x_{1}$ having no earlier neighbours.
+
+Hence $\sum_{v}f(v)\le\sum T=O(n)$.
+Expected sampling of $B$ is $O(n/\lambda)$ by Lemma~\ref{lem:sampling}.
+By tower law, expected total of one test is
+$\frac1\lambda\sum_{v}f(v)+O(n/\lambda)\le S/\lambda$ for large
+$S=O(n)$. By Markov, $P[{\rm total}>10S/\lambda]\le 0.1$,
+so each test is YES with probability at least $0.9$.
+
+\medskip\noindent\textbf{High arboricity gives NO.}
+Assume $\lambda(G)\ge 120\lambda$.
+Then some $U\subseteq V$ has $G[U]$ minimum degree at least $120\lambda$,
+the hypothesis of Lemma~\ref{lem:largeCase}; the $\pm1$ rounding is
+absorbed as noted in the context.
+In particular $|U|\ge 120\lambda+1$.
+For one test, $P[B\cap U=\emptyset]=(1-1/\lambda)^{|U|}
+\le e^{-|U|/\lambda}\le e^{-120}$, using $1-x\le e^{-x}$;
+for $\lambda=1$ this is $0$, i.e.\ deterministic hit.
+Thus $P[B\cap U\ne\emptyset]\ge 1-e^{-120}$.
+Condition on $B$ with $B\cap U\ne\emptyset$ and pick $s\in B\cap U$.
+By Lemma~\ref{lem:largeCase}, over inner randomness independent of $B$,
+$F(s)$ never terminates with probability at least $0.8$, forcing total
+$>10S/\lambda$. Hence $P[{\rm NO}]\ge 0.8(1-e^{-120})\ge 0.6$,
+which is Corollary~\ref{crl:largeCase}.
+
+\medskip\noindent\textbf{Majority amplification and time.}
+Tests are independent. With $L=c\log n$ and YES indicators of mean
+$\ge 0.9$ in the low regime, Hoeffding gives
+$P[\bar Y\le 1/2]\le\exp(-2L(0.4)^{2})=\exp(-0.32L)$.
+With NO indicators of mean $\ge 0.6$ in the high regime,
+$P[{\rm majority\ YES}]\le\exp(-2L(0.1)^{2})=\exp(-0.02L)$.
+Choosing $c$ large yields error $n^{-\Omega(1)}$.
+Thus YES with high probability if $\lambda(G)\le\lambda$ and NO with
+high probability if $\lambda(G)>120\lambda$.
+Each test is capped at $10S/\lambda$, $S=\tilde O(n)$, so total time
+over $L=O(\log n)$ tests is $\tilde O(n/\lambda)$.
+\end{proof}
+[Proof Draft Generated] Turn 7: 5719 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.9, "boundary_cases": 0.9, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.92, "completeness": 0.92, "boundary_cases": 0.93, "validity": 0.92, "verdict": "VALID", "issues": "none"}
+[Best Candidate Updated] Turn 7: validity=0.90 (5719 chars)
+[Audit Passed] Proof verified on Turn 7 (validity: 0.90). Early-terminating to prevent multi-turn degradation.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_59_32 | Proof Length: 5719 chars | Turns: 7 | Duration: 1539.57s
+================================================================================

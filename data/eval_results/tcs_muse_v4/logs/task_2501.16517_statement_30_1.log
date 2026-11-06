@@ -1,0 +1,535 @@
+
+
+================================================================================
+[2026-10-29 21:24:23] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_30_1
+================================================================================
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_30_1 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**Notation / primitives (licensed as given):**
+- $\one[\varphi]$, $\ln$ vs $\log_2$, $\R_{>0},\R_{\ge1}$, negligible vs non-negligible, $\Delta(\cdot,\cdot)$, $U(S)$, $\zero,\matI_n$, $\ell_1,\ell_2,\ell_\infty$, $\sigma_{\max}(\matA)$, column-max norm $\norm{\matA}=\max_j\norm{\veca_j}_2\neq\sigma_{\max}$.
+- Lattice $\LL(\matB)$, parallelepiped $\PP(\matB)$, $\vecx\bmod\matB\in\PP(\matB)$ unique, polynomial-time computable. Dual $\Lambda^*$. Successive minima $\lambda_i$.
+- Gaussian $\Norm(\vecmu,\matSigma)$, density $\varphi_{\sigma,\vecmu}$, function $\rho_{s,\vecmu}(\vecx)=\exp(-\pi\norm{\vecx-\vecmu}_2^2/s^2)=s^n\varphi_{s/\sqrt{2\pi},\vecmu}(\vecx)$, discrete Gaussian $D_{\Lambda+\vecmu,s}$, efficient sampler only for $\Lambda=\Z^n$ granted.
+- Smoothing $\eta_\epsilon(\Lambda)=\min\{s:\rho_{1/s,\zero}(\Lambda^*\setminus\{\zero\})\le\epsilon\}$.
+
+**Lemma \ref{bound-by-matrix-norm-and-ell-1}:** Pre: $\matA\in\R^{n\times m}$, $\vecv\in\R^m$. Concl: $\norm{\matA\vecv}_2\le\norm{\matA}\norm{\vecv}_1$. Must discharge dimensions; $\norm{\matA}$ is column-max. No independence needed.
+
+**Lemma \ref{ell-1-to-ell-infty}:** Pre: $\vecv\in\R^n$. Concl: $\norm{\vecv}_1\le n\norm{\vecv}_\infty$. $n$ is dimension of $\vecv$.
+
+**Def \ref{def:incgdd} $\IncGDD_\gamma$:** Input $(\matB,\matS,\vect,r)$ with $\matB$ invertible, $\matS$ $n$ lin. indep. vectors in $\LL(\matB)$, $\vect\in\R^n$, $r>\gamma(n)\lambda_n(\LL(\matB))$. Goal $\vecs\in\LL(\matB)$ with $\norm{\vecs-\vect}_2\le r+\norm{\matS}/8$. Note additive term uses column-max norm of $\matS$. Reduction must handle arbitrary such input, no extra $k\ge2$, $\epsilon$-small, non-empty assumptions.
+
+**Lemma \ref{smoothing-bound-lambda-n}:** Pre: any $n$-dim $\Lambda$, any $\epsilon>0$. Concl: $\eta_\epsilon(\Lambda)\le\sqrt{\ln(2n(1+1/\epsilon))/\pi}\cdot\lambda_n(\Lambda)$. To apply need $\lambda_n$ finite (full-rank).
+
+**Lemma \ref{smoothing-mod-P}:** Pre: lattice $\LL(\matB)$, $\epsilon>0$, $s\ge\eta_\epsilon(\LL(\matB))$, $\vecmu\in\R^n$. Concl: $\Delta(\Norm(\vecmu,s^2/2\pi\matI_n)\bmod\PP(\matB),U(\PP(\matB)))\le\epsilon/2$. Must verify $s\ge\eta$; uniformity is over $\PP(\matB)$ only, not whole space. Fragile: does not give independence across samples unless applied with product / i.i.d. sampling.
+
+**Lemma \ref{gaussian-singular-value}:** Pre: $\matA_{i,j}\sim_{\iid}\Norm(0,1)$, $t>0$. Concl: $\Pr[\sigma_{\max}(\matA)\le\sqrt n+\sqrt m+t]\ge1-2e^{-t^2/2}$. Special: $m\ge16n$, $t=\sqrt n$ gives $\le3\sqrt m/2$ w.p. $\ge1-2e^{-n/2}$. Requires exact i.i.d. standard Gaussian, $m\ge16n$ must be checked.
+
+**Lemma \ref{chi-squared-tail-bound}:** Pre: $\vecv\sim\Norm(\zero,\matI_n)$, $t\ge0$. Concl: $\Pr[\norm{\vecv}_2^2\ge n+2\sqrt{tn}+2t]\le e^{-t}$. Special $t=n/4$ gives $\norm{\vecv}_2\ge\sqrt{5/2}\sqrt n$ w.p. $\le e^{-n/4}$. Requires centered identity covariance.
+
+**Def $\SBP_{\sbpError}$:** Input $\matA\sim\Norm(0,1)^{n\times m}$, $m\ge n$. Goal $\vecx\in\{-1,1\}^m$ with $\norm{\matA\vecx}_\infty\le\sbpError(m/n)\sqrt m$. Here $\sbpError(x)=1/x^{1/2+\varepsilon}= (n/m)^{1/2+\varepsilon}$. So target bound $=m^{-\varepsilon}n^{1/2+\varepsilon}\sqrt m$? Must compute exactly: $\sbpError(m/n)\sqrt m = (m/n)^{-1/2-\varepsilon}\sqrt m = n^{1/2+\varepsilon}m^{-\varepsilon}$. Reduction calls SBP oracle once (or poly times) on truly Gaussian $\matA$; cannot feed arbitrary matrix.
+
+> Observations licensed directly: uniqueness/computability of $\bmod\matB$, sampler for $D_{\Z^n,s}$, formulas linking $\rho,\varphi$.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+Goal: Given $(\matB,\matS,\vect,r)$ with $r>\gamma(n)\lambda_n$, $\gamma=n^{O(1/\varepsilon)}$, output $\vecs$ within $r+\norm{\matS}/8$ in poly time using $\SBP$ oracle with $\kappa:=\sbpError$.
+
+Common skeleton: choose $m=\poly(n)$ with $m\ge16n$, $s\approx r/\sqrt n$ up to constants, $\epsilon$ negligible, sample $m$ Gaussians, reduce mod $\PP(\matB)$, express via $\matS$ coefficients to build Gaussian matrix $\matA$ for SBP, combine via $\vecx\in\{-1,1\}^m$ to cancel error.
+
+**Strategy Alpha (Constructive / Inductive Invariant — rank-1 / iterative combination):**
+1. Set $s$ s.t. $s\ge\eta_\epsilon(\LL(\matB))$ via Lemma \ref{smoothing-bound-lambda-n} using $r>\gamma\lambda_n$; e.g. $s = r/(\text{poly factor})$ still $\gg\lambda_n\sqrt{\log n/\epsilon}$.
+2. Sample $\vecy_i\sim\Norm(\vect/m\text{ or }\zero, s^2/2\pi\matI_n)$ i.i.d., let $\vecz_i=\vecy_i\bmod\PP(\matB)$. By Lemma \ref{smoothing-mod-P}, each $\vecz_i\approx U(\PP(\matB))$.
+3. Write $\vecz_i = \matS\veca_i + \text{lattice shift}$? Actually express $\matS^{-1}\vecz_i\bmod\Z^n$ or $\matB^{-1}(\vecy_i-\vecz_i)\in\Z^n$ to keep lattice membership invariant. Construct $\matA$ with columns normalized from $\veca_i$ so $\matA_{i,j}\sim_{\iid}\Norm(0,1)$ (using discrete-Gaussian / uniform-to-Gaussian transformation via $\matS$).
+4. Call $\SBP$ to get $\vecx\in\{-1,1\}^m$ with $\norm{\matA\vecx}_\infty$ small. Map back: $\vecs = \sum_i x_i(\vecy_i-\vecz_i\text{-correction})$ stays in $\LL(\matB)$ by integer-linear-combination invariant. Error $\norm{\vecs-\vect}_2$ bounded by Lemma \ref{bound-by-matrix-norm-and-ell-1}+Lemma \ref{ell-1-to-ell-infty}: $\norm{\matS(\matA\vecx\text{-scaled})}_2\le\norm{\matS}\norm{\matA\vecx}_1\le n\norm{\matS}\norm{\matA\vecx}_\infty$. Tune $m$ so $n\cdot\kappa(m/n)\sqrt m\cdot\text{scale}\le\norm{\matS}/8$ plus $O(s\sqrt n)$ from Lemma \ref{chi-squared-tail-bound} $\le r$.
+5. Invariant preserved per step: lattice membership (hereditary under $\Z$-linear combos), closeness via triangle inequality.
+
+**Strategy Beta (Extremal Split / Potential / Contrapositive):**
+- View SBP optimum as $\min_{\vecx\in\{-1,1\}^m}\norm{\matA\vecx}_\infty$. If oracle fails, potential $\Phi=\norm{\cdot}$ large — contrapositive gives distinguisher against smoothing uniformity, contradicting Lemma \ref{smoothing-mod-P}.
+- Alternatively extremal-index style for correctness: among all signings, pick minimal-error signing; show extremal signing must use base Gaussian tail bound (Lemma \ref{chi-squared-tail-bound}) plus SBP term, no further split. Formalize error decomposition $E = E_{\text{Gaussian sum}} + E_{\text{SBP}}$: $E_{\text{Gaussian sum}}\approx s\sqrt n\le r$ by tail bound with $t=n/4$; $E_{\text{SBP}}\le\norm{\matS}/8$ by $\ell_1\to\ell_\infty$ conversion. Choose $m=n^{1+2/\varepsilon\text{ or }O(1/\varepsilon)}$ so $\kappa(m/n)\sqrt m\cdot n\ll1$. Then $\gamma$ polynomial $n^{O(1/\varepsilon)}$ bridges $r$ to $\eta$.
+- Boundary care: $m\ge16n$ needed for Lemma \ref{gaussian-singular-value} special case; $m\ge n$ needed for SBP definition; verify both.
+
+**Strategy Gamma (Probabilistic Conditioning / Structural Decomposition):**
+- Condition on unordered multiset of mod-$\PP(\matB)$ samples before revealing order/signs: by exchangeability, SBP signing is independent of magnitudes, allowing to argue $\matA$ is exactly i.i.d. $\Norm(0,1)$ as required by SBP precondition.
+- Decomposition: $\R^n = \LL(\matB)+\PP(\matB)$ (tiling). Write continuous Gaussian as discrete lattice part + uniform parallelepiped part (statistically close by smoothing). Dependency graph: $m$ samples independent; SBP solution introduces dependencies only through $\vecx$, controlled by spectral bound Lemma \ref{gaussian-singular-value} ($\sigma_{\max}\le3\sqrt m/2$) to bound $\norm{\matA\vecx}_2\le\sigma_{\max}\norm{\vecx}_2$.
+- Separator: use $\matS$ as short basis to convert uniform $\PP(\matB)$ samples to near-Gaussian coefficients; smoothing ensures total variation error negligible, so oracle success probability preserved up to negligible loss.
+
+Preferred path: Alpha + Gamma hybrid (construct $\matA$ rigorously i.i.d., then Alpha error accounting).
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+Hereditary: lattice membership $\vecv\in\LL(\matB)$ (preserved under $\Z$-linear combos); linear independence of $\matS$; Gaussian i.i.d. property before conditioning; dimension compatibility $n,m$.
+Fragile (revoked on restriction/conditioning/slicing): uniformity over $\PP(\matB)$ (fails on substrings/arbitrary subsets, only whole parallelepiped); mutual independence after conditioning on $\vecx$ or revealing order; Dyck-like balance / mod-$\matB$ representation (fails if switching basis $\matB\to\matS$ without integer transformation); spectral vs column-max norm ($\norm{\matA}$ vs $\sigma_{\max}$ not interchangeable); discrete-Gaussian exact distribution (only statistically close).
+
+```python
+state.register("B", kind="matrix_R_nxn", properties=["invertible","lattice_basis"])
+state.register("S", kind="matrix_R_nxn", properties=["columns_in_L(B)","lin_indep","colmax_norm=S_norm"])
+state.register("t_target", kind="vector_R_n", properties=["arbitrary"])
+state.register("r", kind="scalar", properties=["r>gamma*lambda_n"])
+state.register("A_sbp", kind="matrix_R_nxm", properties=["iid_N01","m>=16n","m>=n"])
+state.register("x_sign", kind="vector_pm1_m", properties=["SBP_bound_infty"])
+state.register("s_smooth", kind="scalar", properties=["s>=eta_eps","s~r/sqrt(n)"])
+state.add_subgoal("A_is_iid", "constructed A ~ N(0,1)^{n x m} up to negl TVD")
+state.add_subgoal("lattice_membership", "output s_vec in L(B)")
+state.add_subgoal("error_bound", "||s_vec-t||_2 <= r + ||S||/8")
+```
+
+### Testable Intermediate Claims
+
+1. **SBP-to-additive-error conversion:** With $\kappa(y)=y^{-1/2-\varepsilon}$, claim $n\cdot\kappa(m/n)\sqrt m\cdot C = n^{3/2+\varepsilon}m^{-\varepsilon}C \le 1/8$ for $m=n^{O(1/\varepsilon)}$ and explicit scale $C$ (depending on $s$, $\norm{\matS}$ normalization). Verify numerically: pick $n,m,\varepsilon$, compute LHS; check complementary regime: if $m$ too small, bound fails — must increase $m$ polynomially, not assume. Also verify $\ell_1\to\ell_\infty$ dimension is $n$ (or $m$?) — misidentifying $n$ vs $m$ in Lemma \ref{ell-1-to-ell-infty} is fatal; test with random vectors in REPL.
+2. **Gaussian tail + smoothing scale compatibility:** Claim there exists $s$ with simultaneously $s\ge\eta_\epsilon(\LL(\matB))$ (via Lemma \ref{smoothing-bound-lambda-n}: $s\gtrsim\lambda_n\sqrt{\log n/\epsilon}$) and $s\sqrt{5n/2}\le r$ (via Lemma \ref{chi-squared-tail-bound} with $t=n/4$) given $r>\gamma\lambda_n$, $\gamma=n^{O(1/\varepsilon)}$. Test inequality chain $A=\eta$-upper-bound $\le s \le B=r/\sqrt n$ non-empty; check $m=i+1$ style boundaries: $m\ge\max(n,16n)$ and $\epsilon$ negligible ($e^{-n}$) keeps $\log(1/\epsilon)=O(n)$.
+3. **Dimension / norm compatibility for $\matA\vecx$:** Claim $\norm{\matS\tilde{\vecv}}_2\le\norm{\matS}\norm{\tilde{\vecv}}_1$ (Lemma \ref{bound-by-matrix-norm-and-ell-1}) then $\le n\norm{\matS}\norm{\tilde{\vecv}}_\infty$ applies with correct $n$. Also if using spectral bound, $\norm{\matA\vecx}_2\le\sigma_{\max}(\matA)\sqrt m\le\frac32 m$. Verify via REPL with random Gaussian $\matA$, random $\vecx\in\{-1,1\}^m$: compare $\norm{\matA\vecx}_\infty$ vs $\norm{\matA\vecx}_2$, check $\sigma_{\max}\le3\sqrt m/2$ holds w.h.p., and never assert one branch of $\min$ (e.g. $\ell_\infty$ vs spectral) universally better without checking $m=n$ boundary.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_30_1 ---
+[Falsifier Script 1]:
+import sympy as sp
+# Claim 1: SBP-to-additive-error conversion
+# kappa(y)=y^{-1/2-eps}, LHS = n*kappa(m/n)*sqrt(m)*C = n^{3/2+eps} m^{-eps} C
+n,m,eps,C = sp.symbols('n m eps C', positive=True)
+kappa = (m/n)**(-sp.Rational(1,2)-eps)
+LHS = n*kappa*sp.sqrt(m)*C
+LHS_simpl = sp.simplify(LHS - n**(sp.Rational(3,2)+eps)*m**(-eps)*C)
+print("LHS-simplified diff (should be 0):", LHS_simpl)
+# Solve for m needed: LHS <= 1/8
+# m >= (8*C*n^{3/2+eps})^{1/eps}
+m_needed = (8*C*n**(sp.Rational(3,2)+eps))**(1/eps)
+print("m_needed formula:", m_needed)
+# Numeric check: n=10, eps=0.1, C=1
+import math
+for (nn,ee,CC,mm) in [(10,0.1,1.0,10),(10,0.1,1.0,10**8),(100,0.2,2.0,100),(100,0.2,2.0,10**12)]:
+    lhs = (nn**(1.5+ee))*(mm**(-ee))*CC
+    print(f"n={nn} eps={ee} C={CC} m={mm} LHS={lhs:.4g} <=1/8? {lhs<=1/8}")
+# Complementary regime: m=n (minimal SBP) must FAIL for large n
+nn,ee,CC,mm = 100,0.1,1.0,100
+lhs = (nn**(1.5+ee))*(mm**(-ee))*CC
+print("m=n fails (LHS>1/8)?", lhs>1/8, "LHS=",lhs)
+# l1->linf dimension check: ||v||_1 <= dim*||v||_inf, dim must be len(v)
+import random, math as ma
+for dim in [3,5]:
+    v=[random.uniform(-2,2) for _ in range(dim)]
+    l1=sum(abs(x) for x in v); linf=max(abs(x) for x in v)
+    print(f"dim={dim} l1={l1:.3f} dim*linf={dim*linf:.3f} holds? {l1<=dim*linf+1e-9}")
+    # wrong dim (e.g. using m instead of n) can be loose but using n<m underestimates
+    print("  if wrongly used dim=2:", 2*linf, "would hold?", sum(abs(x) for x in v)<=2*linf+1e-9, "(fatal if False)")
+[Falsifier Kernel Output (Verified)]: LHS-simplified diff (should be 0): 0
+m_needed formula: (8*C*n**(eps + 3/2))**(1/eps)
+n=10 eps=0.1 C=1.0 m=10 LHS=31.62 <=1/8? False
+n=10 eps=0.1 C=1.0 m=100000000 LHS=6.31 <=1/8? False
+n=100 eps=0.2 C=2.0 m=100 LHS=2000 <=1/8? False
+n=100 eps=0.2 C=2.0 m=1000000000000 LHS=20 <=1/8? False
+m=n fails (LHS>1/8)? True LHS= 1000.0000000000003
+dim=3 l1=3.861 dim*linf=4.869 holds? True
+  if wrongly used dim=2: 3.2459069310857958 would hold? False (fatal if False)
+dim=5 l1=3.256 dim*linf=6.392 holds? Tru
+[Falsifier Script 2]:
+import sympy as sp
+# Claim 2: smoothing scale compatibility: exists s with eta_ub <= s <= r/sqrt(5n/2)-ish
+# eta_ub = sqrt(ln(2n(1+1/ep))/pi)*lam_n ; need eta_ub <= r / K where K = sqrt(5n/2) factor from tail
+# i.e. gamma = r/lam_n >= K*sqrt(ln(...)/pi)
+n, lam, ep, gamma = sp.symbols('n lam ep gamma', positive=True)
+K = sp.sqrt(5*n/2)  # s*sqrt(5n/2) <= r  <=> s <= r/K ; use s*K<=r
+eta_ub = sp.sqrt(sp.log(2*n*(1+1/ep))/sp.pi)*lam
+# Required gamma condition:
+req = sp.simplify(K*sp.sqrt(sp.log(2*n*(1+1/ep))/sp.pi))
+print("required gamma >=", req)
+# Numeric: negligible ep = 2^-n, n=20
+import math
+for nn in [10,20,50]:
+    epp = 2**(-nn)
+    eta_over_lam = math.sqrt(math.log(2*nn*(1+1/epp))/math.pi)
+    Knum = math.sqrt(5*nn/2)
+    gneed = eta_over_lam*Knum
+    print(f"n={nn} eps=2^-n eta/lam={eta_over_lam:.3f} K={Knum:.3f} gamma_needed={gneed:.3f} poly? n^2={nn**2}")
+    # check interval non-empty with gamma = n^3 (which is n^{O(1/eps)} for fixed eps)
+    ghave = nn**3
+    print(f"  gamma=n^3={ghave} suffices? {ghave>=gneed}")
+# Symbolic check via reduce_inequalities on samples: gamma=n^3 suffices at n=20,eps=2^-20
+nn=20; epp=2.0**(-20)
+Knum=math.sqrt(5*nn/2); eta=math.sqrt(math.log(2*nn*(1+1/epp))/math.pi)
+print("interval nonempty (eta_lam <= gamma/K)?", eta <= (nn**3)/Knum)
+assert eta <= (nn**3)/Knum
+# Boundary: if gamma=O(1) fails
+print("gamma=10 fails?", 10 < eta*Knum, f"(need {eta*Knum:.2f})")
+assert 10 < eta*Knum  # falsifies O(1) gamma
+[Falsifier Kernel Output (Verified)]: required gamma >= sqrt(10)*sqrt(n)*sqrt(log(2*n*(ep + 1)/ep))/(2*sqrt(pi))
+n=10 eps=2^-n eta/lam=1.778 K=5.000 gamma_needed=8.889 poly? n^2=100
+  gamma=n^3=1000 suffices? True
+n=20 eps=2^-n eta/lam=2.364 K=7.071 gamma_needed=16.714 poly? n^2=400
+  gamma=n^3=8000 suffices? True
+n=50 eps=2^-n eta/lam=3.535 K=11.180 gamma_needed=39.525 poly? n^2=2500
+  gamma=n^3=125000 suffices? True
+interval nonempty (eta_lam <= gamma/K)? True
+gamma=10 fails? True (need 16.71)
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 1] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 2.
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 2/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix $\varepsilon>0$ and $\sbpError(x)=x^{-1/2-\varepsilon}$.
+Let $L_{n}=\ln(2n(1+2^{n}))>0$, $\epsilon_{B}=\epsilon_{d}=2^{-n}$,
+$s_{d}=\sqrt{L_{n}/\pi}$, $c=s_{d}/\sqrt{2\pi}$.
+Since $\lambda_{n}(\Z^{n})\le 1$ via the standard basis,
+Lemma~\ref{smoothing-bound-lambda-n} with any $n$-dimensional lattice
+and any $\epsilon>0$ gives $\eta_{\epsilon_{d}}(\Z^{n})\le s_{d}$.
+Let $M\ge n$ be an integer with $M^{\varepsilon}\ge 8cn^{3/2+\varepsilon}$,
+e.g.\ $M=\max\{n,\lceil(8cn^{3/2+\varepsilon})^{1/\varepsilon}\rceil\}$,
+so $M=n^{O(1/\varepsilon)}$ since $c=O(\sqrt n)$.
+Let $\gamma(n)=\max\{1,\lceil M\sqrt{5nL_{n}}/(2\pi)\rceil\}$,
+polynomial $n^{O(1/\varepsilon)}$.
+
+\medskip\noindent\textbf{Construction.}
+Given $\IncGDD_{\gamma}$ input $(\matB,\matS,\vect,r)$ with
+$\matB$ invertible, $\matS$ $n$ independent vectors in $\LL(\matB)$,
+$r>\gamma(n)\lambda_{n}(\LL(\matB))$,
+write $\matS=\matB\matC$ where $\matC=\matB^{-1}\matS$.
+Since each column of $\matS$ is in $\LL(\matB)$,
+$\matC\in\Z^{n\times n}$; since both $\matB,\matS$ are invertible,
+$\matC$ is invertible with $|\det\matC|\ge 1$.
+Set $s=\sqrt{L_{n}/\pi}\,r/\gamma(n)$.
+By Lemma~\ref{smoothing-bound-lambda-n} for $\LL(\matB)$,
+$\eta_{\epsilon_{B}}(\LL(\matB))\le\sqrt{L_{n}/\pi}\,\lambda_{n}(\LL(\matB))
+<\sqrt{L_{n}/\pi}\,r/\gamma(n)=s$, so $s\ge\eta_{\epsilon_{B}}(\LL(\matB))$.
+Sample $\vecy_{0}\sim\Norm(\vect,s^{2}/2\pi\matI_{n})$ and
+$\vecy_{j}\sim\Norm(\zero,s^{2}/2\pi\matI_{n})$, $1\le j<M$,
+independently. Let $\vecu_{j}=\matB^{-1}(\vecy_{j}\bmod\PP(\matB))\in[0,1)^{n}$,
+computable in polynomial time.
+By Lemma~\ref{smoothing-mod-P}, whose preconditions
+$s\ge\eta$, any $\vecmu$ hold for $\vecmu=\vect,\zero$,
+each $\vecy_{j}\bmod\PP(\matB)$ is $\epsilon_{B}/2$-close to
+$U(\PP(\matB))$, hence each $\vecu_{j}$ is $\epsilon_{B}/2$-close to
+$U([0,1)^{n})$, independently.
+
+For $\vecu\in[0,1)^{n}$ let
+$F_{\vecu}=\{\vecmu\in[0,1)^{n}:\matC\vecmu-\vecu\in\Z^{n}\}$.
+The map $\phi(\vecmu)=\matC\vecmu\bmod\Z^{n}$ is a surjective
+torus endomorphism with kernel $\matC^{-1}\Z^{n}/\Z^{n}$ of size
+$|\det\matC|$; each fiber has exactly $|\det\matC|$ points and
+$\phi$ preserves Haar measure. Hence if $\vecu$ is uniform,
+a uniform element of $F_{\vecu}$ is uniform over $[0,1)^{n}$,
+and the same randomized kernel cannot increase statistical distance.
+A particular element is the fractional part of $\matC^{-1}\vecu$,
+and a uniform kernel element is sampled in polynomial time via
+Smith normal form of $\matC$. Sample $\vecmu_{j}$ uniformly in
+$F_{\vecu_{j}}$. Then $(\vecmu_{j})$ is $M\epsilon_{B}/2$-close to i.i.d.\ uniform.
+
+Sample $\veca_{j}\sim D_{\Z^{n}+\vecmu_{j},s_{d}}$ with the granted
+$\Z^{n}$ sampler. Let $\matA'=[\veca_{0},\dots,\veca_{M-1}]$,
+$\matA=\matA'/c$. Call the $\SBP_{\sbpError}$ oracle on $\matA$;
+$M\ge n$ discharges its input precondition.
+If it succeeds it returns $\vecx\in\{-1,1\}^{M}$ with
+$\norm{\matA\vecx}_{\infty}\le\sbpError(M/n)\sqrt M
+=(M/n)^{-1/2-\varepsilon}\sqrt M=n^{1/2+\varepsilon}M^{-\varepsilon}$.
+Replacing $\vecx$ by $-\vecx$ preserves the norm, so assume $x_{0}=1$.
+Output $\vecs=\sum_{j}x_{j}\vecy_{j}-\matS\matA'\vecx$.
+
+\medskip\noindent\textbf{Lattice membership.}
+Write $\vecy_{j}=\vecv_{j}+\matB\vecu_{j}$ with
+$\vecv_{j}\in\LL(\matB)$. Let $\veck^{u}_{j}=\matC\vecmu_{j}-\vecu_{j}\in\Z^{n}$
+and $\veck^{a}_{j}=\veca_{j}-\vecmu_{j}\in\Z^{n}$.
+Then $\matB\vecu_{j}=\matS\vecmu_{j}-\matB\veck^{u}_{j}$ and
+$\matS\vecmu_{j}=\matS\veca_{j}-\matS\veck^{a}_{j}$, so
+$\vecy_{j}=(\vecv_{j}-\matB\veck^{u}_{j}-\matS\veck^{a}_{j})+\matS\veca_{j}$.
+Since $\LL(\matS)\subseteq\LL(\matB)$, the bracket is in $\LL(\matB)$.
+Hence $\sum_{j}x_{j}\vecy_{j}=\vecW+\matS\matA'\vecx$ with
+$\vecW\in\LL(\matB)$, and $\vecs=\vecW\in\LL(\matB)$.
+All operations are polynomial-time.
+
+\medskip\noindent\textbf{Statistical closeness.}
+Let $\vecY\sim\Norm(\zero,s_{d}^{2}/2\pi\matI_{n})$,
+$\vecU=\vecY\bmod\PP(\matI_{n})$.
+Since $\PP(\matI_{n})=[0,1)^{n}$ and $s_{d}\ge\eta_{\epsilon_{d}}(\Z^{n})$,
+Lemma~\ref{smoothing-mod-P} gives $\Delta(\vecU,U([0,1)^{n}))\le\epsilon_{d}/2$.
+Conditioned on $\vecU=\vecmu$, $\vecY-\vecU\in\Z^{n}$ has law
+$D_{\Z^{n}+\vecmu,s_{d}}$ by definition of $\rho_{s,\zero}$.
+Thus uniform $\vecmu$ plus this kernel is $\epsilon_{d}/2$-close to Gaussian.
+Applying the same kernel to $\vecmu_{j}$ which are $M\epsilon_{B}/2$-close
+to uniform gives $\matA$ is $M(\epsilon_{B}+\epsilon_{d})/2$-close in
+total variation to $\Norm(0,1)^{n\times M}$ after scaling by $c$,
+negligible since $M$ is polynomial. Hence an oracle succeeding with
+probability $p$ on ideal Gaussian succeeds with $\ge p-\negl$ on $\matA$.
+
+\medskip\noindent\textbf{Error bound.}
+Write $\vece_{0}=\vecy_{0}-\vect$,
+$\vece_{j}=\vecy_{j}$, $j\ge1$, so $\vece_{j}=(s/\sqrt{2\pi})\vecg_{j}$,
+$\vecg_{j}\sim\Norm(\zero,\matI_{n})$.
+Lemma~\ref{chi-squared-tail-bound} with $t=n/4\ge0$ gives
+$\Pr[\norm{\vecg_{j}}_{2}\ge\sqrt{5n/2}]\le e^{-n/4}$.
+By union bound all $M$ hold except with $\le Me^{-n/4}$.
+On this event, for any $\vecx\in\{-1,1\}^{M}$,
+$\norm{\sum_{j}x_{j}\vecy_{j}-\vect}_{2}\le\sum_{j}\norm{\vece_{j}}_{2}
+\le M(s/\sqrt{2\pi})\sqrt{5n/2}=Ms\sqrt{5n/4\pi}=rM\sqrt{5nL_{n}}/(2\pi\gamma(n))\le r$
+by choice of $\gamma$.
+Moreover Lemma~\ref{bound-by-matrix-norm-and-ell-1} with
+$\matS\in\R^{n\times n}$, $\matA'\vecx\in\R^{n}$ gives
+$\norm{\matS\matA'\vecx}_{2}\le\norm{\matS}\norm{\matA'\vecx}_{1}$,
+and Lemma~\ref{ell-1-to-ell-infty} in dimension $n$ gives
+$\norm{\matA'\vecx}_{1}\le n\norm{\matA'\vecx}_{\infty}
+=nc\norm{\matA\vecx}_{\infty}\le cn^{3/2+\varepsilon}M^{-\varepsilon}$.
+By choice of $M$ this is $\le\norm{\matS}/8$.
+Hence $\norm{\vecs-\vect}_{2}\le r+\norm{\matS}/8$.
+The reduction uses one oracle call plus polynomial work, succeeds
+whenever the tail event and oracle succeed, i.e.\ with probability
+$\ge p-\negl$, non-negligible if $p$ is. This is a polynomial-time
+reduction from $\IncGDD_{\gamma}$ to $\SBP_{\sbpError}$ with
+$\gamma(n)=n^{O(1/\varepsilon)}$.
+\end{proof}
+[Proof Draft Generated] Turn 2: 6002 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+[Proof Auditor Stage 1 Counterexample]: Empirical Falsification: Witness/assertion failed:
+Traceback (most recent call last):
+  File "<prime_math>", line 62, in <module>
+  File "<prime_math>", line 52, in check_case
+AssertionError
+[Falsifier Test Script]:
+import math
+
+def check_case(n, eps):
+    # Definitions from proof
+    Ln = math.log(2*n*(1+2**n))  # natural ln
+    assert Ln > 0
+    epsB = 2**-n
+    epsd = 2**-n
+    s_d = math.sqrt(Ln / math.pi)
+    c = s_d / math.sqrt(2*math.pi)
+    # c = O(sqrt n): verify c <= sqrt(n) for these n (generous)
+    assert c > 0
+    # M choice: M = max{n, ceil((8*c*n**(3/2+eps))**(1/eps))}
+    val = (8*c*(n**(1.5+eps)))**(1.0/eps) if eps>0 else n
+    # careful: (8*c*n^{3/2+eps})^{1/eps}
+    target = (8*c*(n**(1.5+eps)))**(1.0/eps)
+    M = max(n, math.ceil(target))
+    assert M >= n
+    # Verify M^eps >= 8*c*n^{3/2+eps} (up to fp tolerance)
+    assert (M**eps) + 1e-9 >= 8*c*(n**(1.5+eps))
+    # gamma choice
+    gval = M*math.sqrt(5*n*Ln)/(2*math.pi)
+    gamma = max(1, math.ceil(gval))
+    assert gamma >= gval - 1e-9
+    assert gamma >= 1
+    # Smoothing bound: ln(2n(1+1/epsd)) == Ln
+    assert math.isclose(math.log(2*n*(1+1/epsd)), Ln, rel_tol=1e-9, abs_tol=1e-9)
+    eta_bound_Z = math.sqrt(math.log(2*n*(1+1/epsd))/math.pi)*1.0  # lambda_n(Z^n)<=1
+    assert eta_bound_Z <= s_d + 1e-9
+    assert math.isclose(eta_bound_Z, s_d, rel_tol=1e-9, abs_tol=1e-9)
+    # Scaling: c^2 == s_d^2/(2pi)
+    assert ma
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.95, "completeness": 0.95, "boundary_cases": 0.95, "validity": 0.95, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": false, "theorem_hypotheses_verified": false, "rigor": 0.3, "completeness": 0.45, "boundary_cases": 0.7, "validity": 0.28, "verdict": "REJECT", "issues": "Fatal intermediate false claims: (1) k^a_j = a_j - mu_j in Z^n is false. Counterexample n=1, mu=0.5, a=0 in Z gives -0.5 not in Z. Hence lattice-membership decomposition fails; e.g. B=1,S=2, y=v+u, S a=2a, y-S a = (v-2a)+u not in L(B) for u!=0. (2) Statistical closeness false: A=A'/c is supported on countable lattice (1/c)Z^{n x M} of Lebesgue measure zero, while Norm(0,1)^{n x M} is continuous, so total variation distance =1, not M(eps_B+eps_d)/2 negligible. Claim uniform mu plus kernel is eps_d/2-close to Gaussian confuses discrete K with continuous K+mu. (3) Centering/sign error: conditioned on U=mu, Y-U has mass proportional to exp(-pi||k+mu||^2/s_d^2), not exp(-pi||k-mu||^2/s_d^2) claimed for D_{Z^n+mu}. In 1D integrals int_{a-1}^{a} vs int_{a}^{a+1} differ, mean shift ~0.5. Thus oracle input is not statistically close to Gaussian and output is not proved in lattice."}
+[Best Candidate Updated] Turn 2: validity=0.25 (6002 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.25, rejection #1)
+Fatal intermediate false claims: (1) k^a_j = a_j - mu_j in Z^n is false. Counterexample n=1, mu=0.5, a=0 in Z gives -0.5 not in Z. Hence lattice-membership decomposition fails; e.g. B=1,S=2, y=v+u, S a=2a, y-S a = (v-2a)+u not in L(B) for u!=0. (2) Statistical closeness false: A=A'/c is supported on countable lattice (1/c)Z^{n x M} of Lebesgue measure zero, while Norm(0,1)^{n x M} is continuous, so total variation distance =1, not M(eps_B+eps_d)/2 negligible. Claim uniform mu plus kernel is eps_d/2-close to Gaussian confuses discrete K with continuous K+mu. (3) Centering/sign error: conditioned on U=mu, Y-U has mass proportional to exp(-pi||k+mu||^2/s_d^2), not exp(-pi||k-mu||^2/s_d^2) claimed for D_{Z^n+mu}. In 1D integrals int_{a-1}^{a} vs int_{a}^{a+1} differ, mean shift ~0.5. Thus oracle input is not statistically close to Gaussian and output is not proved in lattice.
+[Self-Improvement] Initiating surgical revision turn 3 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_30_1 ---
+[Critique Falsifier Script]:
+import math
+mu = 0.5; a = 0; s_d = 1.0
+ka = a - mu
+print(f"k^a=a-mu={ka}, in Z? {abs(ka-round(ka))<1e-9}")
+B_lat = lambda x: abs(x-round(x))<1e-9
+v, u, S = 0.0, 0.3, 2.0
+y = v + u
+print(f"y-S*a={y-S*a}, in L(B)=Z? {B_lat(y-S*a)}")
+w_plus = math.exp(-math.pi*(0+mu)**2/s_d**2)
+w_minus = math.exp(-math.pi*(0-mu)**2/s_d**2) if False else math.exp(-math.pi*((0+1)-mu)**2/s_d**2)
+print(f"cond weight k+mu vs shifted claim differ: {w_plus:.4f} vs {w_minus:.4f}")
+print(f"COUNTEREXAMPLE_FOUND: mu={mu},a={a},k^a={ka} not in Z; y={y},y-S*a={y} not in Z; discrete vs continuous TV=1")
+assert False, "COUNTEREXAMPLE_FOUND"
+[Critique Kernel ALERT (Counterexample/Defect Confirmed)]: Traceback (most recent call last):
+  File "<prime_math>", line 13, in <module>
+AssertionError: COUNTEREXAMPLE_FOUND | stdout: k^a=a-mu=-0.5, in Z? False
+y-S*a=0.3, in L(B)=Z? False
+cond weight k+mu vs shifted claim differ: 0.4559 vs 0.4559
+COUNTEREXAMPLE_FOUND: mu=0.5,a=0,k^a=-0.5 not in Z; y=0.3,y-S*a=0.3 not in Z; discrete
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 3/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix $\varepsilon>0$ and $\sbpError(x)=x^{-1/2-\varepsilon}$.
+Let $\epsilon_{B}=\epsilon_{d}=2^{-n}$,
+$L_{n}=\ln(2n(1+2^{n}))$, $s_{d}=\sqrt{L_{n}/\pi}$,
+$c=s_{d}/\sqrt{2\pi}$.
+Let $M=\max\{16n,\lceil (8cn^{3/2+\varepsilon})^{1/\varepsilon}\rceil\}$,
+so $M\ge n$ and $M=n^{O(1/\varepsilon)}$ since $c=O(\sqrt n)$.
+Let $\gamma(n)=\max\{1,\lceil M\sqrt{5nL_{n}}/(2\pi)\rceil\}$,
+polynomial $n^{O(1/\varepsilon)}$.
+Given $\IncGDD_{\gamma}$ input $(\matB,\matS,\vect,r)$ with
+$\matB$ invertible, $\matS$ $n$ independent vectors in $\LL(\matB)$,
+$\vect\in\R^{n}$, $r>\gamma(n)\lambda_{n}(\LL(\matB))$,
+write $\matS=\matB\matC$, $\matC=\matB^{-1}\matS$.
+Since each column of $\matS$ is in $\LL(\matB)$,
+$\matC\in\Z^{n\times n}$; since both are invertible,
+$\matC$ is invertible over $\R$, hence $|\det\matC|\ge 1$.
+Set $s=\sqrt{L_{n}/\pi}\,r/\gamma(n)$.
+
+\medskip\noindent\textbf{Construction.}
+Sample $\vecy_{0}\sim\Norm(\vect,s^{2}/2\pi\matI_{n})$,
+$\vecy_{j}\sim\Norm(\zero,s^{2}/2\pi\matI_{n})$, $1\le j<M$,
+independently. Write $\vecy_{j}=\vecv_{j}+\matB\vecu_{j}$ with
+$\vecu_{j}\in[0,1)^{n}$ the fractional part of $\matB^{-1}\vecy_{j}$
+and $\vecv_{j}\in\LL(\matB)$, computable in polynomial time.
+For each $j$, sample $\vecw_{j}$ uniformly in the fiber
+$F_{\vecu_{j}}=\{\vecw\in[0,1)^{n}:\matC\vecw-\vecu_{j}\in\Z^{n}\}$.
+A particular element is the fractional part of $\matC^{-1}\vecu_{j}$;
+a uniform kernel element of $\matC$ on the torus is sampled in
+polynomial time via Smith normal form, giving a uniform fiber element.
+Then sample $\veck_{j}\in\Z^{n}$ with probability proportional to
+$\exp(-\pi\norm{\vecw_{j}+\veck_{j}}_{2}^{2}/s_{d}^{2})$,
+i.e.\ discrete Gaussian on $\Z^{n}$ centered at $-\vecw_{j}$,
+using the granted $\Z^{n}$ sampler, and set $\vecb_{j}=\vecw_{j}+\veck_{j}$.
+Let $\matBmat=[\vecb_{0},\dots,\vecb_{M-1}]$,
+$\matA=\matBmat/c$. Since $M\ge n$, call the $\SBP_{\sbpError}$ oracle
+on $\matA$. If it succeeds it returns $\vecx\in\{-1,1\}^{M}$ with
+$\norm{\matA\vecx}_{\infty}\le\sbpError(M/n)\sqrt M$.
+Replacing $\vecx$ by $-\vecx$ preserves this norm; assume $x_{0}=1$.
+Output $\vecs=\sum_{j}x_{j}\vecy_{j}-\matS\matBmat\vecx$.
+
+\begin{claim}\label{cl:smooth}
+$s\ge\eta_{\epsilon_{B}}(\LL(\matB))$ and
+$s_{d}\ge\eta_{\epsilon_{d}}(\Z^{n})$.
+\end{claim}
+\begin{proof}
+Lemma~\ref{smoothing-bound-lambda-n} applies to any $n$-dimensional
+lattice and any $\epsilon>0$. For $\LL(\matB)$,
+$\eta_{\epsilon_{B}}\le\sqrt{L_{n}/\pi}\,\lambda_{n}(\LL(\matB))$.
+Since $r>\gamma\lambda_{n}$, $s=\sqrt{L_{n}/\pi}\,r/\gamma$
+exceeds this bound. For $\Z^{n}$, $\lambda_{n}(\Z^{n})\le1$ via the
+standard basis, so $\eta_{\epsilon_{d}}\le\sqrt{L_{n}/\pi}=s_{d}$.
+\end{proof}
+
+Hence Lemma~\ref{smoothing-mod-P}, whose preconditions are
+$s\ge\eta$ and arbitrary $\vecmu$, gives that each
+$\vecy_{j}\bmod\PP(\matB)$ is $\epsilon_{B}/2$-close to
+$U(\PP(\matB))$, so each $\vecu_{j}$ is $\epsilon_{B}/2$-close to
+$U([0,1)^{n})$, independently. Similarly
+$\Norm(\zero,s_{d}^{2}/2\pi\matI_{n})\bmod[0,1)^{n}$ is
+$\epsilon_{d}/2$-close to uniform.
+
+\begin{claim}\label{cl:unif}
+If $\vecW\sim U([0,1)^{n})$ then $\matC\vecW\bmod\Z^{n}$ is uniform,
+and if $\vecU\sim U([0,1)^{n})$ then a uniform element of $F_{\vecU}$
+is uniform.
+\end{claim}
+\begin{proof}
+For $\ell\in\Z^{n}$,
+$\E[\exp(2\pi i\langle\ell,\matC\vecW\rangle)]
+=\E[\exp(2\pi i\langle\matC^{T}\ell,\vecW\rangle)]
+=\one[\matC^{T}\ell=\zero]=\one[\ell=\zero]$ since $\matC$ is
+invertible, so all nontrivial Fourier coefficients vanish.
+For the second part, let $\vecW'\sim U$,
+$\vecU'=\matC\vecW'\bmod\Z^{n}$, uniform by the first part.
+For any fixed kernel element $\vech$ with $\matC\vech\in\Z^{n}$,
+$(\vecU',\vecW'+\vech\bmod\Z^{n})$ has the same law as
+$(\vecU',\vecW')$. Hence the conditional law of $\vecW'$ given
+$\vecU'$ is invariant under kernel translations, i.e.\ uniform
+among the $|\det\matC|$ preimages. Thus uniform $\vecU$ plus uniform
+preimage has the same joint law as $(\vecU',\vecW')$, so its
+$\vecW$-marginal is uniform.
+\end{proof}
+
+By data processing with the kernel $\vecu\mapsto\vecw$,
+each $\vecw_{j}$ is $\epsilon_{B}/2$-close to uniform.
+Conditioned on $\vecw_{j}=\vecw$, $\vecb_{j}=\vecw+\veck_{j}$ with
+weight $\propto\exp(-\pi\norm{\vecw+\veck}_{2}^{2}/s_{d}^{2})$ is exactly
+the conditional law of $\Norm(\zero,s_{d}^{2}/2\pi\matI_{n})$ given
+mod $\vecw$, since the Gaussian density is proportional to the same
+exponential. This corrects the sign to center $-\vecw$.
+
+\begin{claim}\label{cl:lattice}
+$\vecs\in\LL(\matB)$.
+\end{claim}
+\begin{proof}
+Let $\veck^{u}_{j}=\matC\vecw_{j}-\vecu_{j}\in\Z^{n}$ by fiber
+definition and $\veck_{j}=\vecb_{j}-\vecw_{j}\in\Z^{n}$ by construction.
+Then $\matB\vecu_{j}=\matS\vecw_{j}-\matB\veck^{u}_{j}$ since
+$\matS=\matB\matC$, and $\matS\vecb_{j}=\matS\vecw_{j}+\matS\veck_{j}$.
+Hence $\vecy_{j}-\matS\vecb_{j}=\vecv_{j}-\matB\veck^{u}_{j}
+-\matS\veck_{j}\in\LL(\matB)$, as $\vecv_{j},\matB\veck^{u}_{j}\in\LL(\matB)$
+and $\matS\veck_{j}\in\LL(\matS)\subseteq\LL(\matB)$.
+Thus $\sum_{j}x_{j}\vecy_{j}-\matS\matBmat\vecx
+=\sum_{j}x_{j}(\vecy_{j}-\matS\vecb_{j})\in\LL(\matB)$.
+\end{proof}
+
+\begin{claim}\label{cl:stat}
+$\matA$ is $M(\epsilon_{B}+\epsilon_{d})/2$-close in total variation
+to $\Norm(0,1)^{n\times M}$, hence negligible.
+\end{claim}
+\begin{proof}
+Let $\varphi$ be the density of $\Norm(\zero,s_{d}^{2}/2\pi\matI_{n})$,
+$p_{\true}(\vecu)=\sum_{\veck}\varphi(\veck+\vecu)$ the mod density,
+$p_{w}$ the density of $\vecw_{j}$. Then
+$\frac12\int|p_{\true}-1|\le\epsilon_{d}/2$,
+$\frac12\int|p_{w}-1|\le\epsilon_{B}/2$ by Lemma~\ref{smoothing-mod-P}
+and Claim~\ref{cl:unif} plus data processing.
+The density of $\vecb_{j}$ at $\veck+\vecu$ is
+$p_{w}(\vecu)\varphi(\veck+\vecu)/p_{\true}(\vecu)$ with $p_{\true}>0$.
+Hence its distance to $\varphi$ is
+$\frac12\int|p_{w}-p_{\true}|\le(\epsilon_{B}+\epsilon_{d})/2$.
+Independence across $j$ gives at most $M$ times this for the product
+by hybrids; scaling by $c$ preserves distance.
+Since $M$ is polynomial and $\epsilon_{B}=\epsilon_{d}=2^{-n}$,
+this is negligible. $\vecb_{j}$ is continuous (uniform $\vecw_{j}$ plus
+discrete offset), so no $1$ vs $0$ measure obstruction occurs.
+\end{proof}
+
+Thus an oracle succeeding with probability $p$ on ideal Gaussian
+succeeds with $\ge p-\negl$ on $\matA$.
+
+\begin{claim}\label{cl:err}
+With probability $\ge1-Me^{-n/4}$,
+$\norm{\sum_{j}x_{j}\vecy_{j}-\vect}_{2}\le r$ for any
+$\vecx\in\{-1,1\}^{M}$ with $x_{0}=1$, and
+$\norm{\matS\matBmat\vecx}_{2}\le\norm{\matS}/8$ whenever the oracle succeeds.
+\end{claim}
+\begin{proof}
+Write $\vece_{j}=(\vecy_{j}-\text{center}_{j})/(s/\sqrt{2\pi})
+\sim\Norm(\zero,\matI_{n})$. Lemma~\ref{chi-squared-tail-bound} with
+$t=n/4\ge0$ gives $\Pr[\norm{\vece_{j}}_{2}\ge\sqrt{5n/2}]\le e^{-n/4}$,
+since $n+2\sqrt{tn}+2t=5n/2$. By union bound all $M$ hold except
+with $\le Me^{-n/4}$. Then
+$\norm{\sum_{j}x_{j}\vecy_{j}-\vect}_{2}\le\sum_{j}\norm{\vece_{j}}_{2}s/\sqrt{2\pi}
+\le Ms\sqrt{5n/4\pi}=rM\sqrt{5nL_{n}}/(2\pi\gamma)\le r$ by $\gamma$.
+Moreover $\sbpError(M/n)\sqrt M=(M/n)^{-1/2-\varepsilon}\sqrt M
+=n^{1/2+\varepsilon}M^{-\varepsilon}$.
+Lemma~\ref{bound-by-matrix-norm-and-ell-1} with $\matS\in\R^{n\times n}$,
+$\matBmat\vecx\in\R^{n}$ gives
+$\norm{\matS\matBmat\vecx}_{2}\le\norm{\matS}\norm{\matBmat\vecx}_{1}$,
+and Lemma~\ref{ell-1-to-ell-infty} in dimension $n$ gives
+$\norm{\matBmat\vecx}_{1}\le n\norm{\matBmat\vecx}_{\infty}
+=nc\norm{\matA\vecx}_{\infty}\le cn^{3/2+\varepsilon}M^{-\varepsilon}$.
+By choice of $M$ this is $\le\norm{\matS}/8$.
+\end{proof}
+
+Hence $\norm{\vecs-\vect}_{2}\le r+\norm{\matS}/8$ by triangle inequality
+whenever the tail event and oracle succeed, i.e.\ with probability
+$\ge p-\negl-Me^{-n/4}$. All steps are polynomial-time plus one oracle
+call. This is a polynomial-time reduction from $\IncGDD_{\gamma}$ with
+$\gamma(n)=n^{O(1/\varepsilon)}$ to $\SBP_{\sbpError}$.
+\end{proof}
+[Proof Draft Generated] Turn 3: 7897 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.95, "completeness": 0.95, "boundary_cases": 0.95, "validity": 0.95, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.95, "completeness": 0.95, "boundary_cases": 0.92, "validity": 0.95, "verdict": "VALID", "issues": "none"}
+[Best Candidate Updated] Turn 3: validity=0.95 (7897 chars)
+[Audit Passed] Proof verified on Turn 3 (validity: 0.95). Early-terminating to prevent multi-turn degradation.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_30_1 | Proof Length: 7897 chars | Turns: 3 | Duration: 2421.63s
+================================================================================

@@ -1,0 +1,794 @@
+
+
+================================================================================
+[2026-10-25 14:57:50] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_130_213
+================================================================================
+[CoALA Procedural Memory] Retrieved 1 relevant rules for '\begin{lemma}
+    \label{lemma:eps-impossible-approx-plain-finite}
+    Suppose t':
+  • When proving consistency of a projected hierarchy solution, rewrite the marginal sum as a double sum over distinguished subsets and partition extensions, then establish a bijection between refinements to invoke the original consistency constraint; always verify cardinality bounds to ensure all referenced lifted variables exist.
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_130_213 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**Definitions / Setup licensed as truth:**
+- Plain model: bid vector ${\bf b}$ of length $N$; inclusion rule picks $\le k$ bids; confirmation/payment/miner-revenue rules act on included block configuration ${\bf b}'$. All possibly randomized.
+- Symmetry of honest TFM: permuting ${\bf b}$ does not change distribution of set $\{(b_i,x_i,p_i)\}$.
+- Utility: user $i$ with value $v_i$, confirmed with payment $p_i$: $v_i-p_i$ if confirmed else $0$ (implicit). Miner utility = revenue. Coalition utility = sum.
+- Ex post $\epsilon$-UIC: for any $n,i,{\bf b}_{-i},v_i$, no unilateral deviation gains $>\epsilon$ vs truthful.
+- Ex post $\epsilon$-MIC (plain): for any ${\bf b}$, miner deviating from honest inclusion + no fake bids gains $\le\epsilon$.
+- Ex post $\epsilon$-SCP for $1$-sized coalitions (plain): for any ${\cal C}=\{\text{miner}, \le 1\text{ user}\}$, any ${\bf b}_{-{\cal C}}$, no joint deviation gains $>\epsilon$ vs honest.
+- Notation: $\mu({\bf b})$ = expected miner revenue when world bid vector is ${\bf b}$ (honest implementation). $\widetilde{\mu}({\bf b}')$ = expected miner revenue given block configuration is ${\bf b}'$. ${\bf m}_t=(M,\dots,M)$, $|{\bf m}_t|=t$.
+
+**Lemma \ref{lemma:miner-rev-bound-by-user} (one-step revenue increment):**
+- Preconditions: (possibly randomized) plain-model TFM satisfying $\epsilon$-UIC + $\epsilon$-MIC + $\epsilon$-SCP against $1$-sized coalition. No restriction on $k,\epsilon,N$.
+- Conclusion: for any ${\bf b}_{-i}$ and $v$, with ${\sf util}^i({\bf b})$ user $i$ expected utility under honest play, $\mu({\bf b})$ expected miner revenue:
+$$\mu({\bf b}_{-i},v)-\mu({\bf b}_{-i},0)\le \begin{cases}4\epsilon,&v\le 2\epsilon\\ {\sf util}^i({\bf b}_{-i},v)+3\epsilon\log(v/\epsilon)+4\epsilon,&v>2\epsilon.\end{cases}$$
+
+**Corollary \ref{corollary:miner-rev-bound-by-user} (zero-bid baseline):**
+- Same preconditions as Lemma.
+- Conclusion: for any ${\bf b}_{-i}$ and $v$:
+$$\mu({\bf b}_{-i},v)-\mu({\bf b}_{-i})=\begin{cases}5\epsilon,&v\le 2\epsilon\\ {\sf util}^i({\bf b}_{-i},v)+3\epsilon\log(v/\epsilon)+5\epsilon,&v>2\epsilon.\end{cases}$$
+  i.e. cost $+\epsilon$ to replace $\mu({\bf b}_{-i},0)$ by $\mu({\bf b}_{-i})$ (dropping zero bid). Hypotheses to discharge: mechanism satisfies all three $\epsilon$-notions; argument applied to honest $\mu$.
+- Do NOT re-derive Lemma/Corollary; they are granted. Must discharge: applicability to each incremental bid addition, honest execution, correct identification of ${\sf util}^i$.
+
+**Target \ref{lemma:eps-impossible-approx-plain-finite}:**
+- Preconditions: block size $\le k$; fix any $\epsilon>0$; any (possibly randomized) plain TFM with $\epsilon$-UIC/MIC/SCP even for $1$-user collusion.
+- Goal: for any block configuration ${\bf b}$, with $M=\max {\bf b}$:
+$$\widetilde{\mu}({\bf b})\le \begin{cases}2k\epsilon,&M<2\epsilon\\12k^2\epsilon\log(M/\epsilon)+2k\epsilon,&M\ge 2\epsilon.\end{cases}$$
+- No extra assumptions allowed: must handle $k=1$, empty block, $t=|{\bf b}|\le k$, arbitrary $N$, $M=0$.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Strategy Alpha (Constructive / Inductive Invariant over block size):**
+- View block configuration ${\bf b}=(b_1,\dots,b_t)$, $t\le k$, as world bid vector ${\bf b}$ itself (or padded with zeros). Show $\widetilde{\mu}({\bf b})=\mu({\bf b})$ when world equals block and inclusion is forced/honest, up to MIC slack.
+- Induct on $t$: $t=0$ base $\mu(\emptyset)=0$ (no bids $\Rightarrow$ no revenue; must justify via MIC/non-negativity).
+- Inductive step: order bids arbitrarily, e.g. ${\bf b}^{(j)}=(b_1,\dots,b_j)$. Apply Corollary to add $b_j$:
+$$\mu({\bf b}^{(j)})-\mu({\bf b}^{(j-1)})\le {\sf util}^{j}({\bf b}^{(j)})+3\epsilon\log(b_j/\epsilon)+5\epsilon$$
+  (or $5\epsilon$ if $b_j\le 2\epsilon$). Telescope sum $j=1..t$.
+- Bound ${\sf util}^j\le b_j\le M$ naively gives $O(kM)$ — too large. Need stronger: total user welfare in block $\le kM$ but need $O(k^2\log)$. Actually use per-user payment non-negativity $\Rightarrow {\sf util}^j\le b_j$, then need to convert $b_j$ term into $O(k\log)$? Key: iterate dyadic / replace $M$ copies argument: bound ${\sf util}$ itself via UIC? Or bound sum of utils by $kM$ insufficient. Correct refinement: use Lemma with ${\bf m}_t$ worst-case and show ${\sf util}^i({\bf m}_t)\le O(k\log)$? Alternative: apply Corollary $t$ times but bound ${\sf util}^i\le M$ then $tM$ still linear in $M$. So Alpha alone needs auxiliary welfare bound.
+- Therefore Alpha must include second induction to bound ${\sf util}^i({\bf m}_t)$ uniformly using UIC/SCP (e.g. Myerson-like payment sandwich). This yields ${\sf util}$ itself $O(\log)$ + small, turning linear $M$ into polylog.
+
+**Strategy Beta (Extremal / Canonical Witness — max-bid uniformization + potential):**
+- Extremal choice: let $M=\max{\bf b}$. By monotonicity/symmetry, worst-case block for revenue given max $M$ is uniform block ${\bf m}_t=(M,\dots,M)$, $t\le k$. Reduce to bounding $\widetilde{\mu}({\bf m}_t)$.
+- Formalize: replacing any $b_i<M$ by $M$ cannot decrease $\widetilde{\mu}$ by more than controlled amount? Or directly bound arbitrary ${\bf b}$ by same proof as uniform with $b_j\le M$, so uniform is extremal for upper bound expression.
+- Potential $\Phi(t)=\widetilde{\mu}({\bf m}_t)$. Derive recurrence from Corollary:
+$$\Phi(t)-\Phi(t-1)\le U_t + 3\epsilon\log(M/\epsilon)+5\epsilon,$$
+  where $U_t={\sf util}$ of the added $M$-bidder in ${\bf m}_t$.
+- Bound $U_t$ via extremal argument: consider user with value $M$ deviating downward; UIC constrains utility differences across values. Use dyadic ladder $M, M/2, M/4,\dots$ down to $<2\epsilon$ to bound $U_t\le O(\epsilon\log(M/\epsilon))$ uniformly in $t\le k$? Or bound sum $\sum U_t \le$ total welfare but welfare itself bounded by same ladder + SCP.
+- Split regimes: $M<2\epsilon$ discharged directly ($5\epsilon$ per bid $\to$ need $2k\epsilon$; check constants via MIC inclusion slack). $M\ge 2\epsilon$ uses log term. Never claim one branch of $\min/\max$ universally suboptimal; handle boundary $M=2\epsilon$ continuity.
+- Tree-ancestry / minimal-split analogue: if inclusion rule is strategic, choose minimal block achieving max revenue; then MIC forces $\widetilde{\mu}({\bf b})\le \mu({\bf b})+\epsilon$.
+
+**Strategy Gamma (Structural Decomposition / Symmetry + Inclusion linkage):**
+- Decompose $\mu$ vs $\widetilde{\mu}$: $\mu({\bf b})=\mathbb{E}_{{\bf b}'\sim \text{Inclusion}({\bf b})}[\widetilde{\mu}({\bf b}')]$.
+- When world bid vector equals block configuration ${\bf b}$ with $|{\bf b}|\le k$, honest inclusion includes all bids (up to tie-breaking / randomization). Hence $\mu({\bf b})=\widetilde{\mu}({\bf b})$ exactly (or within $\epsilon$ via MIC if miner could drop bids). Use MIC precondition to argue miner cannot gain by excluding: $\widetilde{\mu}({\bf b}')\le \mu({\bf b})+\epsilon$ for any feasible ${\bf b}'\subset{\bf b}$.
+- Symmetry: $\mu$ and ${\sf util}$ depend only on multiset, so ordering of incremental additions is WLOG; can sort ${\bf b}$ ascending to keep $\log(b_j/\epsilon)$ valid (define $\log\le 0$ regime as small-bid case).
+- Conditioning: fix unordered multiset then reveal order; dependency graph is star (miner revenue couples at most $k$ users). Sum per-bid Corollary bounds linearly in $t\le k$, giving factor $k$; second factor $k$ comes from bounding each ${\sf util}^i\le M$ refined to $k\log$ via welfare decomposition across $\le k$ confirmed users.
+- Yields final constants: $t\le k$ times $(O(k\log)+O(\log))$ $\to$ $12k^2\epsilon\log(M/\epsilon)+2k\epsilon$. Track constants carefully; do not invent safety margins.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+Hereditary vs Fragile:
+- Hereditary (preserved under sub-vectors / subsets): $t=|{\bf b}|\le k$; $M=\max$ non-increasing under subsets; $\epsilon$-UIC/MIC/SCP hypotheses (global mechanism properties).
+- Fragile (revoked on restriction/slicing/conditioning): honest inclusion distribution (world ${\bf b}$ vs block ${\bf b}'$ distinction $\mu$ vs $\widetilde{\mu}$); symmetry distribution over sets $\{(b_i,x_i,p_i)\}$ (index identity lost after permutation); user utility ${\sf util}^i$ tied to specific position $i$ and full vector $({\bf b}_{-i},v)$ — cannot transfer bound from ${\bf m}_t$ to arbitrary ${\bf b}$ without re-instantiation; zero-bid equivalence $\mu({\bf b}_{-i},0)$ vs $\mu({\bf b}_{-i})$ costs $\epsilon$ (Corollary already accounts; do not double-count).
+
+```python
+# Seeded epistemic state before Turn 1
+state.register("plain_TFM", kind="mechanism", properties=["possibly_randomized","symmetric_honest","block_size<=k","eps-UIC","eps-MIC","eps-SCP-1"])
+state.register("b_block", kind="vector", properties=["len_t<=k","max_M","block_config"])
+state.register("mu", kind="function", properties=["honest_world_revenue","expectation_over_inclusion+confirmation"])
+state.register("tilde_mu", kind="function", properties=["conditional_on_block","fragile:depends_on_block_not_world"])
+state.register("util_i", kind="function", properties=["honest_user_utility","fragile:position_specific","bounded_by_value_if_IR"])
+state.register("Lemma_bound", kind="axiom", properties=["one_step_increment","needs_honest_mu_util"])
+state.register("Corollary_bound", kind="axiom", properties=["one_step_vs_dropped_zero","cost_5eps_small_case"])
+state.add_subgoal("S1", "link tilde_mu(b) to mu(b) when |b|<=k via honest inclusion + MIC")
+state.add_subgoal("S2", "telescoping sum over t<=k via Corollary")
+state.add_subgoal("S3", "uniform worst-case m_t + bound sum utils by O(k^2 log)")
+state.add_subgoal("S4", "assemble constants 2k eps vs 12k^2 eps log + 2k eps with M<2eps split")
+```
+
+### Testable Intermediate Claims
+
+1. **Inclusion linkage (dimension compatibility):** If $|{\bf b}|=t\le k$, honest inclusion includes all of ${\bf b}$ (deterministically or w.h.p.), so $\mu({\bf b})=\widetilde{\mu}({\bf b})$; in general for any feasible sub-block ${\bf b}'\subseteq{\bf b}$, $\widetilde{\mu}({\bf b}')\le \mu({\bf b})+\epsilon$ by $\epsilon$-MIC. *Test:* check $t=0$ gives $0$; check $t>k$ not needed; verify miner deviation (drop/replace) is in MIC strategy space.
+2. **Telescoping increment with boundary:** For sorted $0\le b_1\le\cdots\le b_t\le M$, with ${\bf b}^{(j)}=(b_1,\dots,b_j)$,
+$$\mu({\bf b}^{(j)})-\mu({\bf b}^{(j-1)})\le \begin{cases}5\epsilon & b_j\le 2\epsilon\\ {\sf util}^{(j)}+3\epsilon\log(b_j/\epsilon)+5\epsilon & b_j>2\epsilon\end{cases}$$
+   where ${\sf util}^{(j)}$ is $j$-th bidder utility in ${\bf b}^{(j)}$. *Test:* REPL-check summation gives $\le t\cdot5\epsilon+\sum({\sf util}+3\epsilon\log)$; verify $b_j=2\epsilon$ boundary falls in small case; verify $\log$ argument $\ge2$ when large case so $\log>0$.
+3. **Utility/welfare polylog bound (heuristic domain split):** Claim ${\sf util}^i({\bf b}^{(j)})\le b_j$ (needs individual rationality / payment $\ge0$ / $x_i\le1$) is valid globally, but $ \sum{\sf util}\le kM$ alone is insufficient for $M\gg\epsilon$. Need stronger uniform bound ${\sf util}^i({\bf m}_t)=O(k\epsilon\log(M/\epsilon))$ on domain $D_1=\{M\ge2\epsilon\}$ via UIC ladder; complementary regime $D\setminus D_1=\{M<2\epsilon\}$ discharged directly by $5\epsilon$ per bid $\to O(k\epsilon)$. *Test:* verify dyadic sum $\sum_{l}3\epsilon$ over $\log_2(M/\epsilon)$ steps yields coefficient $12k^2$ after multiplying by $t\le k$ and converting $\log_2$ to $\ln$; check constants do not assume $k\ge2$ or $\epsilon$ small.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_130_213 ---
+[Falsifier Script 1]:
+# Stress-test 1: small-bid constant mismatch (Corollary 5eps vs Target 2k eps)
+import math
+print("=== Test1: small regime M<2eps constant ===")
+for k in [1,2,5,10]:
+    eps = 1.0
+    cor_bound = 5*k*eps   # telescoping Corollary small-case: 5eps per bid
+    target = 2*k*eps      # claimed target for M<2eps
+    print(f"k={k}: corollary-telescope={cor_bound}, target={target}, target>=corollary? {target>=cor_bound}")
+    # concrete falsification: telescoping alone cannot yield 2k eps
+assert 5*3 > 2*3, "sanity"
+print("FALSIFIED: 5eps-per-bid telescoping gives 5k eps, NOT 2k eps; needs extra MIC/inclusion slack argument")
+[Falsifier Kernel Output (Verified)]: === Test1: small regime M<2eps constant ===
+k=1: corollary-telescope=5.0, target=2.0, target>=corollary? False
+k=2: corollary-telescope=10.0, target=4.0, target>=corollary? False
+k=5: corollary-telescope=25.0, target=10.0, target>=corollary? False
+k=10: corollary-telescope=50.0, target=20.0, target>=corollary? False
+FALSIFIED: 5eps-per-bid telescoping gives 5k eps, NOT 2k eps; needs extra MIC/inclusion slack argument
+[Falsifier Script 2]:
+# Stress-test 2: boundary continuity at M=2eps + log positivity
+import math
+print("=== Test2: boundary M=2eps continuity ===")
+for k in [1,2,5]:
+    eps = 1.0
+    M = 2*eps
+    small = 2*k*eps
+    large = 12*k*k*eps*math.log(M/eps) + 2*k*eps  # natural log as written
+    print(f"k={k}: small-branch={small:.3f}, large-branch(limit M=2eps)={large:.3f}, jump={large-small:.3f}")
+    assert large > small  # discontinuity jump at boundary
+# log argument check: large case requires b_j>2eps => b_j/eps>2 => log>0
+for r in [2.0, 2.01, 10.0]:
+    print(f"ratio={r} log_nat={math.log(r):.3f} log2={math.log2(r):.3f} >0? {math.log(r)>0}")
+print("CONFIRMED discontinuity: branches do not meet at M=2eps; also log>0 holds since ratio>=2")
+[Falsifier Kernel Output (Verified)]: === Test2: boundary M=2eps continuity ===
+k=1: small-branch=2.000, large-branch(limit M=2eps)=10.318, jump=8.318
+k=2: small-branch=4.000, large-branch(limit M=2eps)=37.271, jump=33.271
+k=5: small-branch=10.000, large-branch(limit M=2eps)=217.944, jump=207.944
+ratio=2.0 log_nat=0.693 log2=1.000 >0? True
+ratio=2.01 log_nat=0.698 log2=1.007 >0? True
+ratio=10.0 log_nat=2.303 log2=3.322 >0? True
+CONFIRMED discontinuity: branches do not meet at M=2eps; also log>0 holds since ratio>=2
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+--- Turn 1 — Exploration Gate: Inventory, Invariant, Claims, REPL Checks ---
+No complete proof is attempted on this turn.
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+Licensed ground truth from Context:
+
+* **Plain model:** bid vector ${\bf b}$ length $N$; inclusion picks $\le k$; confirmation/payment/miner-revenue act on block ${\bf b}'$. Possibly randomized.
+* **Symmetry:** permuting ${\bf b}$ does not change distribution of set $\{(b_i,x_i,p_i)\}$.
+* **Utilities:** user $v_i-p_i$ if confirmed else $0$; miner = revenue; coalition = sum.
+* **Ex post $\epsilon$-UIC:** any $n,i,{\bf b}_{-i},v_i$, unilateral deviation gains $\le\epsilon$.
+* **Ex post $\epsilon$-MIC (plain):** any ${\bf b}$, miner deviating from honest inclusion + no fakes gains $\le\epsilon$.
+* **Ex post $\epsilon$-SCP for $1$-sized coalitions:** any ${\cal C}=\{\text{miner},\le 1\text{ user}\}$, any ${\bf b}_{-{\cal C}}$, joint deviation gains $\le\epsilon$.
+* **Notation:** $\mu({\bf b})$ = honest expected miner revenue on world ${\bf b}$; $\widetilde{\mu}({\bf b}')$ = expected revenue conditioned on block ${\bf b}'$; ${\bf m}_t=(M,\dots,M)$, $|{\bf m}_t|=t$.
+
+**Lemma miner-rev-bound-by-user (granted, do not re-derive):**
+Preconditions: plain TFM with $\epsilon$-UIC+MIC+SCP-1. No restriction on $k,\epsilon,N$.
+Conclusion for any ${\bf b}_{-i},v$:
+$\mu({\bf b}_{-i},v)-\mu({\bf b}_{-i},0)\le 4\epsilon$ if $v\le 2\epsilon$, else ${\sf util}^i({\bf b}_{-i},v)+3\epsilon\log(v/\epsilon)+4\epsilon$.
+
+**Corollary miner-rev-bound-by-user (granted):**
+Same preconditions. $\mu({\bf b}_{-i},v)-\mu({\bf b}_{-i})\le 5\epsilon$ if $v\le 2\epsilon$, else ${\sf util}^i+3\epsilon\log(v/\epsilon)+5\epsilon$.
+Extra $+\epsilon$ is cost of dropping zero bid. Must discharge honest $\mu,{\sf util}$ identification at each use.
+
+**Target lemma:eps-impossible-approx-plain-finite:**
+Preconditions: block $\le k$; any $\epsilon>0$; any randomized plain TFM with the three $\epsilon$-notions even for $1$-user collusion.
+Goal for any block ${\bf b}$, $M=\max{\bf b}$, $t=|{\bf b}|\le k$:
+$\widetilde{\mu}({\bf b})\le 2k\epsilon$ if $M<2\epsilon$, else $12k^2\epsilon\log(M/\epsilon)+2k\epsilon$.
+Must handle $k=1$, empty, $t\le k$, $M=0$, boundary $M=2\epsilon$ both sides. No extra assumptions.
+
+Hereditary (preserved under subsets): $t\le k$, $M$ non-increasing under subsets, global $\epsilon$-notions.
+Fragile (revoked on slicing): honest inclusion distribution ($\mu$ vs $\widetilde{\mu}$), symmetry index identity after permutation, position-specific ${\sf util}^i$, zero-bid equivalence cost already in Corollary — do not double-count.
+
+### 2. Invariant-First Formulation (no brute-force case split)
+
+Instead of enumerating block shapes, group by single invariant:
+
+* **Max-bid uniformization + telescoping potential:** order block ${\bf b}=(b_1,\dots,b_t)$, $t\le k$, define prefixes ${\bf b}^{(j)}$. Potential $\Phi(j)=\mu({\bf b}^{(j)})$. Increment controlled by Corollary with $\log(b_j/\epsilon)\le\log(M/\epsilon)$. Thus arbitrary ${\bf b}$ reduced to uniform worst-case in $M$ for log terms. Sorting WLOG by symmetry.
+* **Inclusion linkage:** when world equals block and $t\le k$, honest inclusion includes all. Hence $\mu({\bf b})=\widetilde{\mu}({\bf b})$ up to MIC slack for sub-blocks. This discharges transfer from $\mu$-telescope to $\widetilde{\mu}$ target.
+* **Utility ceiling as bottleneck:** naive ${\sf util}\le b_j\le M$ gives $O(kM)$ linear — too weak for $M\gg\epsilon$. Need uniform polylog ceiling on utils enforced by UIC/SCP sybil-resistance + $k$-cap, not by value cap. This is the unifying invariant to be certified, not an exhaustive split.
+
+### 3. Structured Intermediate Claims for Skeptic Audit
+
+[CLAIM S1 — Inclusion linkage, dimension compatibility]:
+If $|{\bf b}|=t\le k$, honest inclusion includes all of ${\bf b}$, so $\mu({\bf b})=\widetilde{\mu}({\bf b})$; for any feasible ${\bf b}'\subseteq{\bf b}$, $\widetilde{\mu}({\bf b}')\le\mu({\bf b})+\epsilon$ by $\epsilon$-MIC.
+[REDUCTION]: Transfers Target on $\widetilde{\mu}$ to bound on honest $\mu$ with $t\le k$. Discharges $|{\bf b}|\le k$ precondition; needs $t=0\Rightarrow 0$ base, miner drop/replace in MIC strategy space.
+
+[CLAIM S2 — Telescoping increment with boundary]:
+For sorted $0\le b_1\le\cdots\le b_t\le M$, ${\bf b}^{(j)}=(b_1,\dots,b_j)$,
+$\mu({\bf b}^{(j)})-\mu({\bf b}^{(j-1)})\le 5\epsilon$ if $b_j\le 2\epsilon$ else ${\sf util}^{(j)}+3\epsilon\log(b_j/\epsilon)+5\epsilon$.
+[REDUCTION]: Direct instantiation of Corollary; verifies honest $\mu,{\sf util}$ hypotheses per $j$. Gives $\mu({\bf b})-\mu(\emptyset)=\sum$ increments. Log terms $\le\log(M/\epsilon)$ when large. Boundary $b_j=2\epsilon$ in small case.
+
+[CLAIM S3 — Utility/welfare polylog ceiling on $D_1=\{M\ge 2\epsilon\}$ + direct small regime $D\setminus D_1$]:
+Naive $\sum{\sf util}\le kM$ insufficient. Need uniform bound $\sup{\sf util}^i=O(k\epsilon\log(M/\epsilon))$ on $D_1$ via UIC ladder / SCP sybil-constraint + $k$-cap; $D\setminus D_1$ discharged without log.
+[REDUCTION]: Converts S2 telescope from linear-in-$M$ to $O(k^2\log)$. Must prove both $D_1$ and complement; never restrict domain to salvage loose $B(x)$. Constants must assemble to $2k\epsilon$ vs $12k^2\epsilon\log+2k\epsilon$.
+
+[CLAIM S4 — Constant assembly & edge integrity]:
+$t\le k$, $\mu(\emptyset)=0$, $M=0$, $k=1$, $M=2\epsilon$ continuity, $\log\ge 0$ in large branch.
+[REDUCTION]: Ensures no unauthorized $k\ge 2$/small-$\epsilon$/nonempty margins; tracks $\log_2$ vs $\ln$ conversion toward coefficient $12$.
+
+### 4. State Machine & Python REPL Verification
+
+Naive Blueprint bounds are UNVERIFIED heuristics. REPL below falsifies naive $B(x)$ as universal upper bound, forcing pivot per anti-perseveration rule — Target itself is never doubted.
+
+```python
+import math
+# Test1: naive Corollary telescope 5k eps vs target 2k eps (small regime)
+print("=== Test1 small regime naive vs target (units of eps) ===")
+for k in [1,2,5,10]:
+    naive = 5*k
+    target = 2*k
+    print(f"k={k}: naive-telescope={naive}, target={target}, naive<=target? {naive<=target}")
+# Conclusion: naive 5k > 2k for all k => discard naive B, need tighter linkage (S1 MIC slack + payment/value cap)
+```
+
+```python
+import math
+# Test2: boundary M=2eps continuity jump
+print("=== Test2 boundary M=2eps ===")
+for k in [1,2,5]:
+    small = 2*k  # in eps units
+    # large branch limit M->2eps+: 12k^2*log(2)+2k (natural log)
+    large = 12*k*k*math.log(2)+2*k
+    print(f"k={k}: small={small:.3f}, large-limit={large:.3f}, jump={large-small:.3f}")
+print("log_nat(2)=", math.log(2), " log2(2)=1")
+# Conclusion: branches discontinuous; must prove both regimes separately, cover M=2eps in large branch
+```
+
+```python
+import math
+# Test3: naive linear kM vs log target for large M (shows need S3 polylog ceiling)
+print("=== Test3 large M linear vs log (eps=1 units) ===")
+for M_over_eps in [2,10,100,1000]:
+    k=5
+    naive_linear = k*M_over_eps  # sum utils <= kM heuristic
+    target = 12*k*k*math.log(M_over_eps)+2*k
+    print(f"M/eps={M_over_eps}: linear~{naive_linear}, target-log~{target:.1f}, linear<=target? {naive_linear<=target}")
+# Conclusion: for M/eps=1000 linear 5000 >> target ~2072? actually crosses; for larger M linear fails => need S3
+for M_over_eps in [10**6]:
+    k=5
+    print("M/eps=1e6:", k*M_over_eps, "vs", 12*k*k*math.log(M_over_eps)+2*k)
+```
+
+```python
+# Test4: edge integrity k=1, empty, M=0
+print("=== Test4 edges ===")
+# empty block t=0 => mu=0, tilde=0 <= target (M defined as 0? max of empty -> 0 <2eps)
+# k=1, single bid b1=0 => small regime target 2eps, naive 5eps overshoot flagged in Test1
+# M=0 => log undefined, must stay in small branch
+for t,k in [(0,1),(1,1),(0,5)]:
+    print(f"t={t},k={k}, t<=k? {t<=k}, empty=>0 revenue base needed")
+```
+
+```python
+# Seeded epistemic state for audit
+state.register("plain_TFM", domain="mechanism", properties=["possibly_randomized","symmetric_honest","block_size<=k","eps-UIC","eps-MIC","eps-SCP-1"])
+state.register("b_block", domain="vector", properties=["len_t<=k","max_M","block_config"])
+state.register("mu", domain="function", properties=["honest_world_revenue","expectation_over_inclusion+confirmation"])
+state.register("tilde_mu", domain="function", properties=["conditional_on_block","fragile:depends_on_block_not_world"])
+state.register("util_i", domain="function", properties=["honest_user_utility","fragile:position_specific"])
+state.register("Lemma_bound", domain="axiom", properties=["one_step_increment","needs_honest_mu_util"])
+state.register("Corollary_bound", domain="axiom", properties=["one_step_vs_dropped_zero","cost_5eps_small"])
+state.checkpoint("explore_base")
+# S1 linkage derived object: world==block when t<=k
+state.derive("world_eq_block", parent="b_block", op="restrict_to_t<=k", details="honest inclusion includes all; MIC bounds sub-block deviation")
+state.status()
+```
+
+Interpretation of REPL outcomes:
+
+* Test1 False across $k$: naive $5k\epsilon$ does NOT imply $2k\epsilon$. Blueprint $B(x)=5k\epsilon$ discarded as intermediate; need tighter per-bid cost (payment $\le$ value + MIC zero-drop refinement, S1+S4) — not a restriction of Target domain.
+* Test2 jump $>0$: branches are discontinuous; proof must explicitly cover $M<2\epsilon$ and $M\ge 2\epsilon$ including equality in large branch.
+* Test3: linear $kM$ eventually exceeds $k^2\log$; confirms S3 polylog ceiling is mandatory, naive value-cap insufficient.
+* Test4: empty/M=0 stays in small branch; $\mu(\emptyset)=0$ base must be justified (no bids $\Rightarrow$ no payments/revenue).
+
+Next turns will certify S1–S4 via Skeptic and assemble constants without unauthorized margins.
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# Test1: naive Corollary telescope 5k eps vs target 2k eps (small regime)
+print("=== Test1 small regime naive vs target (units of eps) ===")
+for k in [1,2,5,10]:
+    naive = 5*k
+    target = 2*k
+    print(f"k={k}: naive-telescope={naive}, target={target}, naive<=target? {naive<=target}")
+# Conclusion: naive 5k > 2k for all k => discard naive B, need tighter linkage (S1 MIC slack + payment/value cap)
+```
+--- [TURN 1] EXECUTION SUCCESS (0.001s) ---
+Stdout:
+=== Test1 small regime naive vs target (units of eps) ===
+k=1: naive-telescope=5, target=2, naive<=target? False
+k=2: naive-telescope=10, target=4, naive<=target? False
+k=5: naive-telescope=25, target=10, naive<=target? False
+k=10: naive-telescope=50, target=20, naive<=target? False
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# Test2: boundary M=2eps continuity jump
+print("=== Test2 boundary M=2eps ===")
+for k in [1,2,5]:
+    small = 2*k  # in eps units
+    # large branch limit M->2eps+: 12k^2*log(2)+2k (natural log)
+    large = 12*k*k*math.log(2)+2*k
+    print(f"k={k}: small={small:.3f}, large-limit={large:.3f}, jump={large-small:.3f}")
+print("log_nat(2)=", math.log(2), " log2(2)=1")
+# Conclusion: branches discontinuous; must prove both regimes separately, cover M=2eps in large branch
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0008s) ---
+Stdout:
+=== Test2 boundary M=2eps ===
+k=1: small=2.000, large-limit=10.318, jump=8.318
+k=2: small=4.000, large-limit=37.271, jump=33.271
+k=5: small=10.000, large-limit=217.944, jump=207.944
+log_nat(2)= 0.6931471805599453  log2(2)=1
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# Test3: naive linear kM vs log target for large M (shows need S3 polylog ceiling)
+print("=== Test3 large M linear vs log (eps=1 units) ===")
+for M_over_eps in [2,10,100,1000]:
+    k=5
+    naive_linear = k*M_over_eps  # sum utils <= kM heuristic
+    target = 12*k*k*math.log(M_over_eps)+2*k
+    print(f"M/eps={M_over_eps}: linear~{naive_linear}, target-log~{target:.1f}, linear<=target? {naive_linear<=target}")
+# Conclusion: for M/eps=1000 linear 5000 >> target ~2072? actually crosses; for larger M linear fails => need S3
+for M_over_eps in [10**6]:
+    k=5
+    print("M/eps=1e6:", k*M_over_eps, "vs", 12*k*k*math.log(M_over_eps)+2*k)
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0007s) ---
+Stdout:
+=== Test3 large M linear vs log (eps=1 units) ===
+M/eps=2: linear~10, target-log~217.9, linear<=target? True
+M/eps=10: linear~50, target-log~700.8, linear<=target? True
+M/eps=100: linear~500, target-log~1391.6, linear<=target? True
+M/eps=1000: linear~5000, target-log~2082.3, linear<=target? False
+M/eps=1e6: 5000000 vs 4154.653167389282
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Test4: edge integrity k=1, empty, M=0
+print("=== Test4 edges ===")
+# empty block t=0 => mu=0, tilde=0 <= target (M defined as 0? max of empty -> 0 <2eps)
+# k=1, single bid b1=0 => small regime target 2eps, naive 5eps overshoot flagged in Test1
+# M=0 => log undefined, must stay in small branch
+for t,k in [(0,1),(1,1),(0,5)]:
+    print(f"t={t},k={k}, t<=k? {t<=k}, empty=>0 revenue base needed")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0005s) ---
+Stdout:
+=== Test4 edges ===
+t=0,k=1, t<=k? True, empty=>0 revenue base needed
+t=1,k=1, t<=k? True, empty=>0 revenue base needed
+t=0,k=5, t<=k? True, empty=>0 revenue base needed
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Seeded epistemic state for audit
+state.register("plain_TFM", domain="mechanism", properties=["possibly_randomized","symmetric_honest","block_size<=k","eps-UIC","eps-MIC","eps-SCP-1"])
+state.register("b_block", domain="vector", properties=["len_t<=k","max_M","block_config"])
+state.register("mu", domain="function", properties=["honest_world_revenue","expectation_over_inclusion+confirmation"])
+state.register("tilde_mu", domain="function", properties=["conditional_on_block","fragile:depends_on_block_not_world"])
+state.register("util_i", domain="function", properties=["honest_user_utility","fragile:position_specific"])
+state.register("Lemma_bound", domain="axiom", properties=["one_step_increment","needs_honest_mu_util"])
+state.register("Corollary_bound", domain="axiom", properties=["one_step_vs_dropped_zero","cost_5eps_small"])
+state.checkpoint("explore_base")
+# S1 linkage derived object: world==block when t<=k
+state.derive("world_eq_block", parent="b_block", op="restrict_to_t<=k", details="honest inclusion includes all; MIC bounds sub-block deviation")
+state.status()
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0123s) ---
+Evaluated Value: "=== Mathematical State Machine Status ===\nRegistered Objects (8):\n  • plain_TFM [mechanism]\n      Active Invariants: block_size<=k, eps-mic, eps-scp-1, eps-uic, possibly_randomized, symmetric_honest\n  • b_block [vector]\n      Active Invariants: block_config, len_t<=k, max_m\n  • mu [function]\n      Active Invariants: expectation_over_inclusion+confirmation, honest_world_revenue\n  • tilde_mu [function]\n      Active Invariants: conditional_on_block, fragile:depends_on_block_not_world\n...
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 2] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 3.
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 3] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 4.
+
+--- [TURN 4/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 4] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 5.
+
+--- [TURN 5/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 5/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix a (possibly randomized) plain-model TFM satisfying
+$\epsilon$-UIC, $\epsilon$-MIC and $\epsilon$-SCP against $1$-sized
+coalitions, with block size at most $k$.
+We use standard feasibility: an unconfirmed bid pays $0$,
+a confirmed bid pays in $[0,\text{bid}]$,
+miner revenue is in $[0,\text{total payments}]$,
+confirmation probabilities lie in $[0,1]$,
+${\sf util}^{i}=vx-p$, $\mu(\emptyset)=\widetilde{\mu}(\emptyset)=0$.
+Hence expected revenue never exceeds expected total payments,
+and expected payment of a bidder never exceeds its bid.
+By symmetry $\mu$ depends only on the multiset of bids.
+If $k=0$ only the empty block exists and the claim is trivial;
+henceforth $k\ge 1$.
+Fix a block configuration ${\bf b}$ with $t=|{\bf b}|\le k$.
+If $t=0$ revenue is $0$.
+Otherwise let $M=\max{\bf b}\ge 0$ and sort ascending w.l.o.g.,
+${\bf b}^{(j)}=(b_{1},\dots,b_{j})$, ${\bf b}^{(0)}=\emptyset$.
+
+\medskip\noindent\textbf{Small maximum.}
+Given the block ${\bf b}$, $\widetilde{\mu}({\bf b})\le\sum_{i}b_{i}$
+since revenue is bounded by total payments and each payment
+is bounded by its bid.
+If $M<2\epsilon$, $\widetilde{\mu}({\bf b})<2t\epsilon\le 2k\epsilon$,
+which is the first branch.
+
+Henceforth $M\ge 2\epsilon$.
+It suffices to bound $\mu$ and transfer to $\widetilde{\mu}$.
+
+\begin{claim}\label{cl:link}
+If $|{\bf b}|\le k$, $\widetilde{\mu}({\bf b})\le\mu({\bf b})+\epsilon$.
+\end{claim}
+\begin{proof}
+View ${\bf b}$ as the world bid vector.
+The miner may deviate to include all $t\le k$ bids with no fakes,
+achieving $\widetilde{\mu}({\bf b})$.
+By $\epsilon$-MIC for bid vector ${\bf b}$,
+$\widetilde{\mu}({\bf b})\le\mu({\bf b})+\epsilon$.
+\end{proof}
+
+\begin{claim}\label{cl:zero}
+Let ${\bf a}$ have $|{\bf a}|<k$.
+Let $\mu_{{\bf a}}(u)=\mu({\bf a},u)$.
+Then $\mu_{{\bf a}}(0)-\mu({\bf a})\le\epsilon$.
+\end{claim}
+\begin{proof}
+With world ${\bf a}$, injecting a fake $0$ bid costs $0$
+(payment $\le$ bid $=0$) and simulates world $({\bf a},0)$,
+yielding $\mu_{{\bf a}}(0)$.
+By $\epsilon$-MIC allowing fake bids,
+$\mu_{{\bf a}}(0)\le\mu({\bf a})+\epsilon$.
+\end{proof}
+
+\begin{claim}\label{cl:double}
+Fix ${\bf a}$ and bidder $i$.
+Write $x(u),p(u)$ for $i$'s expected confirmation and payment
+when bidding $u$, and $\mu_{{\bf a}}(u)$ for expected miner revenue.
+For any $v>0$, $\mu_{{\bf a}}(v)-\mu_{{\bf a}}(v/2)\le 2\epsilon$.
+\end{claim}
+\begin{proof}
+UIC with others ${\bf a}$, true value $v$, deviation to $v/2$ gives
+$vx(v)-p(v)\ge vx(v/2)-p(v/2)-\epsilon$,
+i.e.\ $\Delta p\le v\Delta x+\epsilon$.
+SCP for coalition $\{\text{miner},i\}$, others ${\bf a}$,
+true value $v$, deviation to bid $v/2$ with honest inclusion gives
+joint $vx-p+\mu_{{\bf a}}$.
+Hence $vx(v)-p(v)+\mu_{{\bf a}}(v)
+\ge vx(v/2)-p(v/2)+\mu_{{\bf a}}(v/2)-\epsilon$,
+i.e.\ $v\Delta x\le\Delta p-\Delta\mu+\epsilon$.
+Combining, $\Delta p\le\Delta p-\Delta\mu+2\epsilon$,
+so $\Delta\mu\le 2\epsilon$.
+All preconditions of UIC/SCP for $1$-sized coalitions are met.
+\end{proof}
+
+\medskip\noindent\textbf{Telescoping with dyadic ladder.}
+Sort ${\bf b}$ ascending.
+Let $s$ be the number of bids $<2\epsilon$.
+The prefix ${\bf b}^{(s)}$ has only small bids, so by budget
+$\mu({\bf b}^{(s)})\le\sum_{j\le s}b_{j}<2s\epsilon\le 2k\epsilon$
+($0$ if $s=0$).
+Consider $j>s$, ${\bf a}={\bf b}^{(j-1)}$, $v=b_{j}\ge 2\epsilon$,
+$v\le M$, $r=M/\epsilon\ge 2$.
+
+Write $v_{L}=v$, $v_{l-1}=v_{l}/2$.
+Choose $L\ge 0$ minimal with $v_{0}=v/2^{L}\le 2\epsilon$
+($L=0$ if $v\le 2\epsilon$, but here $v\ge 2\epsilon$).
+Then $v_{0}>\epsilon$ unless $L=0$.
+By Lemma~\ref{lemma:miner-rev-bound-by-user} applied to
+${\bf a},v_{0}\le 2\epsilon$,
+$\mu_{{\bf a}}(v_{0})-\mu_{{\bf a}}(0)\le 4\epsilon$.
+By Claim~\ref{cl:double}, each halving costs $\le 2\epsilon$,
+so $\mu_{{\bf a}}(v)-\mu_{{\bf a}}(0)\le 4\epsilon+2L\epsilon$.
+With Claim~\ref{cl:zero},
+$\mu({\bf a},v)-\mu({\bf a})\le 5\epsilon+2L\epsilon$.
+Moreover $L\le\log_{2}(M/\epsilon)$:
+if $v\le 2\epsilon$, $L=0\le\log_{2}r$ since $r\ge 2$;
+if $v>2\epsilon$, $L=\lceil\log_{2}(v/2\epsilon)\rceil$,
+$y=\log_{2}(v/2\epsilon)$, $L\le y+1\le\log_{2}r$
+because $y+1=\log_{2}(v/\epsilon)\le\log_{2}r$.
+
+Hence each large increment is at most $5\epsilon+2\epsilon\log_{2}r$.
+Summing,
+$\mu({\bf b})\le 2s\epsilon+(t-s)(5\epsilon+2\epsilon\log_{2}r)
+\le 2k\epsilon+k(5\epsilon+2\epsilon\log_{2}r)$.
+By Claim~\ref{cl:link},
+$\widetilde{\mu}({\bf b})\le 2k\epsilon+k(5\epsilon
++2\epsilon\log_{2}r)+\epsilon$.
+
+It remains to dominate this by $2k\epsilon+12k^{2}\epsilon\log r$
+with $\log=\ln$.
+Indeed $\log_{2}r=\ln r/\ln 2\le 1.45\ln r$.
+Dividing by $\epsilon$, it suffices that
+$5k+1+2k\log_{2}r\le 12k^{2}\ln r$,
+implied by $5k+1+2.9k\ln r\le 12k^{2}\ln r$.
+Let $y=\ln r\ge\ln 2>0.69$.
+Since $12k^{2}-2.9k=k(12k-2.9)>0$ for $k\ge 1$,
+$(12k^{2}-2.9k)y-5k-1$ is increasing in $y$,
+minimal at $y=0.69$:
+$(12k^{2}-2.9k)0.69-5k-1=8.28k^{2}-7.001k-1\ge 0.279>0$
+at $k=1$ and increasing thereafter.
+Thus $\widetilde{\mu}({\bf b})\le 12k^{2}\epsilon\log(M/\epsilon)
++2k\epsilon$ when $M\ge 2\epsilon$.
+This verifies both branches.
+\end{proof}
+[Proof Draft Generated] Turn 5: 5055 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": false, "theorem_hypotheses_verified": true, "rigor": 0.55, "completeness": 0.65, "boundary_cases": 0.85, "validity": 0.5, "verdict": "REJECT", "issues": "Claim cl:double reverses SCP inequality direction. With true value v deviating to v/2, ex post SCP gives vx(v)-p(v)+mu(v) >= vx(v/2)-p(v/2)+mu(v/2)-eps, i.e. vDx-Dp+Dmu >= -eps, i.e. vDx >= Dp-Dmu-eps, not vDx <= Dp-Dmu+eps as claimed. Combined with UIC Dp <= vDx+eps this does not imply Dmu <=2eps. The bound needs true value v/2 deviating to v. As written the chained inequality is false, breaking the dyadic telescoping. Proof also invokes unstated feasibility (unconfirmed pays 0, payment in [0,bid], revenue in [0,payments], mu(empty)=0) not defined in context to bound tilde mu and mu by sum bids."}
+[Best Candidate Updated] Turn 5: validity=0.50 (5055 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.50, rejection #1)
+Claim cl:double reverses SCP inequality direction. With true value v deviating to v/2, ex post SCP gives vx(v)-p(v)+mu(v) >= vx(v/2)-p(v/2)+mu(v/2)-eps, i.e. vDx-Dp+Dmu >= -eps, i.e. vDx >= Dp-Dmu-eps, not vDx <= Dp-Dmu+eps as claimed. Combined with UIC Dp <= vDx+eps this does not imply Dmu <=2eps. The bound needs true value v/2 deviating to v. As written the chained inequality is false, breaking the dyadic telescoping. Proof also invokes unstated feasibility (unconfirmed pays 0, payment in [0,bid], revenue in [0,payments], mu(empty)=0) not defined in context to bound tilde mu and mu by sum bids.
+[Self-Improvement] Initiating surgical revision turn 6 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_130_213 ---
+[Critique Falsifier Script]:
+v, eps = 10.0, 1.0
+# Dx=0, Dp=0, Dmu=100: satisfies both premises with true value v
+Dx, Dp, Dmu = 0.0, 0.0, 100.0
+uic_holds = (v*Dx - Dp >= -eps)  # UIC true v -> v/2: Dp <= vDx+eps
+scp_holds = (v*Dx - Dp + Dmu >= -eps)  # SCP true v -> v/2
+claimed = (Dmu <= 2*eps + 1e-9)
+print(f"UIC holds: {uic_holds}, SCP(true=v) holds: {scp_holds}, claimed Dmu<=2eps: {claimed}")
+if uic_holds and scp_holds and not claimed:
+    print(f"COUNTEREXAMPLE_FOUND: v={v} Dx={Dx} Dp={Dp} Dmu={Dmu} satisfies UIC+SCP(true=v) but Dmu>2eps")
+    raise assert False, "COUNTEREXAMPLE_FOUND"
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+--- [TURN 6/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 6/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix $\epsilon>0$ and a (possibly randomized) plain-model TFM with
+block size at most $k$ satisfying $\epsilon$-UIC, $\epsilon$-MIC and
+$\epsilon$-SCP against $1$-sized coalitions.
+Recall $\mu({\bf b})$ is expected miner (fee) revenue when the world
+bid vector is ${\bf b}$ under honest play, and $\widetilde{\mu}({\bf b}')$
+is expected miner revenue given the block configuration is ${\bf b}'$.
+Hence for any world ${\bf b}$,
+$\mu({\bf b})=\mathbb{E}_{{\bf b}'\sim\mathrm{Inclusion}({\bf b})}
+[\widetilde{\mu}({\bf b}')]$
+by total expectation.
+The honest TFM is symmetric, $x_i$ denotes a confirmation probability
+so $x_i\in[0,1]$.
+Standard well-formedness of the plain model holds:
+unconfirmed bids pay $0$, a confirmed bid $b_i$ pays in $[0,b_i]$,
+miner revenue is non-negative and funded by user payments,
+in particular an empty block yields zero revenue.
+Thus $\widetilde{\mu}(\emptyset)=\mu(\emptyset)=0$.
+A strategic miner may inject fake bids and include any set of up to
+$k$ bids; honest behavior is no fakes plus honest inclusion.
+Miner utility is revenue, so $\epsilon$-MIC applies to any world
+bid vector and any such deviation.
+If $k=0$ only the empty block exists with revenue $0$ and the claim
+holds. Henceforth let $k\ge 1$.
+Let ${\bf b}$ be a (feasible) block configuration,
+$t=|{\bf b}|\le k$ by the block-size bound.
+If $t=0$ revenue is $0$.
+Otherwise $M=\max{\bf b}$ is defined.
+\begin{claim}\label{cl:link}
+If $|{\bf b}|\le k$, $\widetilde{\mu}({\bf b})\le\mu({\bf b})+\epsilon$.
+\end{claim}
+\begin{proof}
+View ${\bf b}$ as the world bid vector.
+The miner may deviate to include all $t\le k$ bids with no fakes,
+achieving $\widetilde{\mu}({\bf b})$.
+By $\epsilon$-MIC for bid vector ${\bf b}$,
+$\widetilde{\mu}({\bf b})\le\mu({\bf b})+\epsilon$.
+\end{proof}
+\begin{claim}\label{cl:zero}
+Let ${\bf a}$ have $|{\bf a}|<k$.
+Let $\mu_{{\bf a}}(u)=\mu({\bf a},u)$.
+Then $\mu_{{\bf a}}(0)-\mu({\bf a})\le\epsilon$.
+\end{claim}
+\begin{proof}
+With world ${\bf a}$, injecting a fake $0$ bid costs $0$
+(payment $\le$ bid $=0$) and simulates world $({\bf a},0)$,
+yielding $\mu_{{\bf a}}(0)$.
+By $\epsilon$-MIC allowing fake bids,
+$\mu_{{\bf a}}(0)\le\mu({\bf a})+\epsilon$.
+\end{proof}
+\begin{claim}\label{cl:step}
+Let $|{\bf a}|<k$ and ${\bf b}=({\bf a},v)$ with $|{\bf b}|\le k$.
+Then $\widetilde{\mu}({\bf b})\le\mu({\bf a})+\epsilon$.
+\end{claim}
+\begin{proof}
+Consider world ${\bf a}$.
+The miner observes ${\bf a}$, injects a fake bid $v$,
+and includes all $|{\bf b}|\le k$ bids (honest bids plus fake).
+The resulting block multiset equals ${\bf b}$,
+so deviant expected utility, which by definition is expected
+revenue, equals $\widetilde{\mu}({\bf b})$; fake payments do not
+enter miner utility since utility is revenue.
+Honest expected utility on world ${\bf a}$ is $\mu({\bf a})$.
+This deviation is in MIC strategy space (fake plus arbitrary
+inclusion up to $k$), feasible since $|{\bf b}|\le k$.
+By ex post $\epsilon$-MIC for bid vector ${\bf a}$,
+$\widetilde{\mu}({\bf b})\le\mu({\bf a})+\epsilon$.
+\end{proof}
+We prove by induction on $t$ that every feasible block ${\bf b}$
+with $|{\bf b}|=t\le k$ satisfies $\widetilde{\mu}({\bf b})\le t\epsilon$.
+Base $t=0$ holds with equality by well-formedness.
+Fix $t\ge 1$ and assume the bound for all blocks of size $<t$.
+Write ${\bf b}=({\bf a},v)$ with $|{\bf a}|=t-1<k$.
+By Claim~\ref{cl:step}, $\widetilde{\mu}({\bf b})\le\mu({\bf a})+\epsilon$.
+Honest inclusion on world ${\bf a}$ produces a random sub-block
+${\bf b}'\subseteq{\bf a}$ with $|{\bf b}'|\le|{\bf a}|=t-1$,
+and $\mu({\bf a})=\mathbb{E}[\widetilde{\mu}({\bf b}')]$.
+By the induction hypothesis each realization satisfies
+$\widetilde{\mu}({\bf b}')\le|{\bf b}'|\epsilon\le(t-1)\epsilon$,
+hence taking expectation $\mu({\bf a})\le(t-1)\epsilon$.
+Therefore $\widetilde{\mu}({\bf b})\le(t-1)\epsilon+\epsilon=t\epsilon$.
+This completes induction, so $\widetilde{\mu}({\bf b})\le t\epsilon\le k\epsilon$
+for any feasible ${\bf b}$.
+In particular $\widetilde{\mu}({\bf b})\le k\epsilon\le 2k\epsilon$.
+If $M<2\epsilon$ (with the empty block treated as $0$),
+this is the first branch.
+If $M\ge 2\epsilon$ then $M/\epsilon\ge 2>1$ so
+$\log(M/\epsilon)>0$, whence
+$12k^2\epsilon\log(M/\epsilon)+2k\epsilon\ge 2k\epsilon\ge\widetilde{\mu}({\bf b})$,
+which is the second branch.
+Both cases of the lemma hold.
+\end{proof}
+[Proof Draft Generated] Turn 6: 4354 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": false, "theorem_hypotheses_verified": false, "rigor": 0.3, "completeness": 0.3, "boundary_cases": 0.5, "validity": 0.25, "verdict": "REJECT", "issues": "Claim cl:step asserts tilde mu(b)<=mu(a)+eps by having miner in world a inject fake v and include all bids, equating deviant utility to tilde mu(b). This is unjustified: deviant utility is revenue minus fake-bid payment cost, not revenue alone; proof asserts fake payments do not enter utility while simultaneously assuming payment bounds for 0-bid. Proof invents unstated well-formedness axioms not in Context (unconfirmed pays 0, payment in [0,bid], revenue non-negative/funded, tilde mu(empty)=mu(empty)=0) to ground base case t=0 and zero-cost claim. Base induction therefore unproved. Using only MIC the proof claims uniform tilde mu<=k eps, bypassing UIC/SCP and provided Lemma/Corollary, leaving fatal gap; prior unstated-feasibility defect remains."}
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.25, rejection #2)
+Claim cl:step asserts tilde mu(b)<=mu(a)+eps by having miner in world a inject fake v and include all bids, equating deviant utility to tilde mu(b). This is unjustified: deviant utility is revenue minus fake-bid payment cost, not revenue alone; proof asserts fake payments do not enter utility while simultaneously assuming payment bounds for 0-bid. Proof invents unstated well-formedness axioms not in Context (unconfirmed pays 0, payment in [0,bid], revenue non-negative/funded, tilde mu(empty)=mu(empty)=0) to ground base case t=0 and zero-cost claim. Base induction therefore unproved. Using only MIC the proof claims uniform tilde mu<=k eps, bypassing UIC/SCP and provided Lemma/Corollary, leaving fatal gap; prior unstated-feasibility defect remains.
+[Hard Pivot Prevented — Substantive/Best Candidate Protected] Turn 6 validity was 0.25, but a viable foundation exists (current structural=0.37, best validity=0.50). Proceeding with Surgical Revision instead of wiping candidate.
+[Best Candidate Restored for Revision] Restoring highest-scoring candidate from Turn 5 (validity: 0.50, structural: 0.68) over Turn 6 (validity: 0.25, structural: 0.37) to guarantee progress on the best mathematical foundation.
+[Self-Improvement] Initiating surgical revision turn 7 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_130_213 ---
+[Critique Falsifier Script]:
+import itertools
+v, eps = 1.0, 0.1
+Dx, Dp, Dmu = 0.0, 0.0, 10.0  # x(v)-x(v/2), p(v)-p(v/2), mu(v)-mu(v/2)
+uic = (v*Dx - Dp >= -eps - 1e-9)  # true-value-v UIC: Dp <= vDx+eps
+scp_correct = (v*Dx - Dp + Dmu >= -eps - 1e-9)  # true-value-v SCP: vDx >= Dp-Dmu-eps
+scp_claimed = (v*Dx <= Dp - Dmu + eps + 1e-9)  # candidate's reversed inequality
+conclusion = (Dmu <= 2*eps + 1e-9)
+print(f"UIC holds: {uic}, correct-SCP holds: {scp_correct}, claimed-SCP holds: {scp_claimed}, Dmu<=2eps: {conclusion}")
+if uic and scp_correct and not conclusion:
+    print(f"COUNTEREXAMPLE_FOUND: v={v},eps={eps},Dx={Dx},Dp={Dp},Dmu={Dmu} satisfies correct UIC+SCP but violates Dmu<=2eps; claimed vDx<=Dp-Dmu+eps is {scp_claimed}")
+    raise assert False, "COUNTEREXAMPLE_FOUND"
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+--- [TURN 7/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 7] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 8.
+
+--- [TURN 8/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+[Cognitive Partitioning] Invoking Publication Scribe Subagent on Turn 8...
+
+--- [SUBAGENT: PUBLICATION SCRIBE] Typesetting publication LaTeX proof for task_[ID]_statement_130_213 ---
+
+--- [DEDICATED PUBLICATION SCRIBE SYNTHESIS TURN] ---
+[Synthesis Optimization] Skipping redundant from-scratch Scribe pass; seeding directly from Best Candidate (Turn 5, validity: 0.50).
+
+[Synthesis Optimization] Skipping redundant Attempt 2 (Synthesis Turn); entering Synthesis Revision 1/2 directly on Best Candidate (Turn 5, validity: 0.50, structural: 0.68).
+
+[Synthesis Revision 1/2] Initiating referee revision pass to resolve flagged issues...
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_130_213 ---
+[Critique Falsifier Script]:
+import random
+v, eps = 10.0, 1.0
+Dx, Dp, Dmu = 0.0, 0.0, 10.0  # x(v)-x(v/2), p diff, mu diff
+uic_holds = (v*Dx - Dp >= -eps - 1e-9)  # Dp <= vDx+eps
+scp_correct = (v*Dx - Dp + Dmu >= -eps - 1e-9)  # true SCP direction per referee
+scp_claimed = (v*Dx <= Dp - Dmu + eps + 1e-9)  # candidate's reversed form
+conclusion = (Dmu <= 2*eps + 1e-9)
+print(f"UIC holds: {uic_holds}, SCP-correct holds: {scp_correct}, SCP-as-claimed holds: {scp_claimed}, Dmu<=2eps: {conclusion}")
+if uic_holds and scp_correct and not conclusion:
+    print(f"COUNTEREXAMPLE_FOUND: v={v},eps={eps},Dx={Dx},Dp={Dp},Dmu={Dmu} satisfies true UIC+SCP but violates Dmu<=2eps; claimed reversed inequality is {scp_claimed}")
+    raise assert False, "COUNTEREXAMPLE_FOUND"
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": false, "theorem_hypotheses_verified": true, "rigor": 0.35, "completeness": 0.45, "boundary_cases": 0.75, "validity": 0.3, "verdict": "REJECT", "issues": "Central dyadic step mu_a(v)-mu_a(v/2)<=2eps reverses inequality direction and remains unproved. With true value v, UIC comparing v to v/2 gives D=[vx(v/2)-p(v/2)]-[vx(v)-p(v)]<=eps. SCP with true value v comparing honest v to deviation v/2 gives -D+[mu(v)-mu(v/2)]>=-eps, i.e. mu(v)-mu(v/2)>=D-eps, a lower bound, not an upper bound. Combined with D<=eps this yields no upper bound. The valid upper bound requires true value v/2 deviating to v, which the proof does not use. Hence chained inequality is false and dyadic telescoping collapses. Proof also relies on unstated feasibility axioms not in Context (unconfirmed pays 0, payment in [0,bid], revenue in [0,payments], mu(empty)=tilde mu(empty)=0) to bound tilde mu and mu by sums and to claim zero-cost fake 0 for mu_a(0)-mu(a)<=eps."}
+[Revised Proof Audit Notes Attempt 1] (validity: 0.30) Central dyadic step mu_a(v)-mu_a(v/2)<=2eps reverses inequality direction and remains unproved. With true value v, UIC comparing v to v/2 gives D=[vx(v/2)-p(v/2)]-[vx(v)-p(v)]<=eps. SCP with true value v comparing honest v to deviation v/2 gives -D+[mu(v)-mu(v/2)]>=-eps, i.e. mu(v)-mu(v/2)>=D-eps, a lower bound, not an upper bound. Combined with D<=eps this yields no upper bound. The valid upper bound requires true value v/2 deviating to v, which the proof does not use. Hence chained inequality is false and dyadic telescoping collapses. Proof also relies on unstated feasibility axioms not in Context (unconfirmed pays 0, payment in [0,bid], revenue in [0,payments], mu(empty)=tilde mu(empty)=0) to bound tilde mu and mu by sums and to claim zero-cost fake 0 for mu_a(0)-mu(a)<=eps.
+
+[Synthesis Revision 2/2] Initiating referee revision pass to resolve flagged issues...
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_130_213 ---
+[Critique Falsifier Script]:
+import math
+eps = 1.0
+v = 4.0
+# honest utilities: A = v*x(v)-p(v), B = v*x(v/2)-p(v/2)
+A, B = v*1.0-0.0, v*1.0-0.0  # D = 0
+D = B - A
+mu_v, mu_half = 10.0, 0.0  # Mdiff = 10 > 2*eps
+Mdiff = mu_v - mu_half
+uic_holds = (A >= B - eps)  # D <= eps
+scp_holds = (A + mu_v >= B + mu_half - eps)  # Mdiff >= D - eps
+conclusion = (Mdiff <= 2*eps)
+print(f"D={D}, Mdiff={Mdiff}, UIC={uic_holds}, SCP={scp_holds}, claimed<=2eps? {conclusion}")
+if uic_holds and scp_holds and not conclusion:
+    print(f"COUNTEREXAMPLE_FOUND: eps={eps}, D={D}<=eps, Mdiff={Mdiff}>2eps, premises hold but upper bound fails")
+    raise assert False, "COUNTEREXAMPLE_FOUND"
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+[Proof Auditor] Active mode: tcs
+[Proof Auditor Stage 1 Counterexample]: Empirical Falsification: Witness/assertion failed:
+Traceback (most recent call last):
+  File "<prime_math>", line 35, in <module>
+  File "<prime_math>", line 18, in check_L
+AssertionError
+[Falsifier Test Script]:
+import math
+
+# Verify concrete numerical / algebraic claims in candidate proof
+
+# Claim 1: ln 2 > 0.69 and 1/ln2 <= 1.45 (used for log2 r <= 1.45 ln r)
+assert math.log(2) > 0.69
+assert 1.0 / math.log(2) <= 1.45 + 1e-9
+# Tighter: log2 r = ln r / ln 2
+for r in [2.0, 2.5, 3.0, 10.0, 100.0, 1e6]:
+    lhs = math.log(r, 2)
+    rhs = math.log(r) / math.log(2)
+    assert math.isclose(lhs, rhs, rel_tol=1e-9, abs_tol=1e-9)
+    assert lhs <= 1.45 * math.log(r) + 1e-9
+
+# Claim 2: L bound. Let v >= 2eps, r = M/eps >= 2, v <= M.
+# L = ceil(log2(v/(2eps))) <= log2(v/(2eps))+1 = log2(v/eps) <= log2 r
+def check_L(v, eps):
+    assert v > 2*eps
+    L = math.ceil(math.log2(v/(2*eps)))
+    assert L >= 0
+    # v/2^L <= 2eps
+    assert v / (2**L) <= 2*eps + 1e-9
+    # minimality: if L>0 then v/2^{L-1} > 2eps
+    if L > 0:
+        assert v / (2**(L-1)) > 2*eps - 1e-9
+    assert L <= math.log2(v/(2*eps)) + 1 + 1e-9
+    assert math.isclose(math.log2(v/(2*eps))+1, math.log2(v/eps), rel_tol=1e-9, abs_tol=1e-9)
+    return L
+
+for eps in [0.1, 1.0, 5.0]:
+    for v_factor in [2.0, 2.01, 3.0, 4.0, 5.7, 100.0]:
+        v = v_factor * eps
+        M = v  # minimal M=v, so r = v/eps
+        r = M / eps
+        L = che
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": false, "theorem_hypotheses_verified": false, "rigor": 0.3, "completeness": 0.45, "boundary_cases": 0.6, "validity": 0.3, "verdict": "REJECT", "issues": "Central halving claim mu_a(v)-mu_a(v/2)<=2eps is unproved and direction-reversed. With true value v, UIC gives A>=B-eps where A=vx(v)-p(v), B=vx(v/2)-p(v/2), and SCP gives A+mu(v)>=B+mu(v/2)-eps. These two together imply D_user+ Dmu >= -eps with D_user>=-eps, i.e. Dmu >= -eps-D_user, a lower bound, not an upper bound. E.g. A=100,B=0,mu(v)=100,mu(v/2)=0,eps=1 satisfies both premises but violates Dmu<=2eps. Hence combining does not yield the claimed upper bound; dyadic telescoping collapses. Proof also invokes unstated feasibility axioms not in Context (unconfirmed pays 0, payment in [0,bid], revenue in [0,payments], mu(empty)=tilde mu(empty)=0) to bound tilde mu and mu by sum bids, to claim fake 0-bid costs 0 for mu_a(0)-mu(a)<=eps, and for base t=0. Falsifier AssertionError is test-script artifact (asserts v>2eps while testing v=2eps equality case which proof handles with L=0), not a genuine refutation of L bound."}
+[Revised Proof Audit Notes Attempt 2] (validity: 0.38) Central halving claim mu_a(v)-mu_a(v/2)<=2eps is unproved and direction-reversed. With true value v, UIC gives A>=B-eps where A=vx(v)-p(v), B=vx(v/2)-p(v/2), and SCP gives A+mu(v)>=B+mu(v/2)-eps. These two together imply D_user+ Dmu >= -eps with D_user>=-eps, i.e. Dmu >= -eps-D_user, a lower bound, not an upper bound. E.g. A=100,B=0,mu(v)=100,mu(v/2)=0,eps=1 satisfies both premises but violates Dmu<=2eps. Hence combining does not yield the claimed upper bound; dyadic telescoping collapses. Proof also invokes unstated feasibility axioms not in Context (unconfirmed pays 0, payment in [0,bid], revenue in [0,payments], mu(empty)=tilde mu(empty)=0) to bound tilde mu and mu by sum bids, to claim fake 0-bid costs 0 for mu_a(0)-mu(a)<=eps, and for base t=0. Falsifier AssertionError is test-script artifact (asserts v>2eps while testing v=2eps equality case which proof handles with L=0), not a genuine refutation of L bound.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_130_213 | Proof Length: 5055 chars | Turns: 8 | Duration: 6343.13s
+================================================================================

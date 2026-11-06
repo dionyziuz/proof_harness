@@ -1,0 +1,395 @@
+================================================================================
+[2026-11-01 23:48:59] TCS-BENCH UNASSISTED ONE-PASS SESSION: task_2112.03791_statement_7_191
+Model: gemini-3.8-flash-high | Duration: 226.59s | Prompt Tokens: 11965 | Completion Tokens: 63746
+================================================================================
+
+--- [TURN 1/1] INNER THINKING ---
+(none)
+
+--- [TURN 1/1] MODEL GENERATED OUTPUT ---
+\begin{proof}
+We construct an online algorithm for $\OnlineSorting{}[1+\varepsilon, n]$ achieving the claimed competitive ratio. Throughout the proof, logarithms $\log$ are base $2$ unless specified otherwise, and $\ln$ denotes the natural logarithm.
+
+\paragraph{1. Parameter Selection.}
+Let $n$ be sufficiently large, and let $\varepsilon \in [\log n / n, 1]$. We define
+\[
+\lambda \mydef \sqrt{\log n} \cdot \sqrt{\log \log n + \log(1/\varepsilon)}.
+\]
+Since $\varepsilon \le 1$, we have $\log(1/\varepsilon) \ge 0$. Furthermore, $\varepsilon \ge \log n / n$ implies $\log(1/\varepsilon) \le \log n - \log \log n \le \log n$. Thus, $\sqrt{\log \log n} \le \lambda \le \log n$.
+We choose the recursion depth $H$ and the branching factor $k$ as integers:
+\[
+H \mydef \left\lceil \frac{\sqrt{\log n}}{\sqrt{\log \log n + \log(1/\varepsilon)}} \right\rceil = \left\lceil \frac{\log n}{\lambda} \right\rceil, \qquad k \mydef \left\lceil 2^{\lambda / H} \right\rceil.
+\]
+By this choice, we have:
+\begin{enumerate}
+    \item $H \ge 1$, and for sufficiently large $n$, $H \le \sqrt{\log n} \le \lambda$.
+    \item $\log H \le \log \sqrt{\log n} = \frac{1}{2}\log \log n \le \lambda$.
+    \item $k \ge 2$, and $\log k = \frac{\lambda}{H} + O(1) = O(\lambda)$.
+    \item $k^H \ge \left(2^{\lambda/H}\right)^H = 2^\lambda$. Moreover, by choosing $k = \lceil 2^{(\log n)/H} \rceil$, we have $k^H \ge 2^{\log n} = n$.
+\end{enumerate}
+Define the per-level slack decrement $\delta \mydef \frac{\varepsilon}{2H}$. For each level $\ell \in \{0, 1, \dots, H\}$, the slack available at level $\ell$ will be
+\[
+\varepsilon_\ell \mydef \varepsilon - \ell \delta = \varepsilon \left(1 - \frac{\ell}{2H}\right) \ge \frac{\varepsilon}{2}.
+\]
+
+\paragraph{2. One-Level Chunking Reduction.}
+Consider an arbitrary recursive call at level $\ell \in \{0, \dots, H-1\}$ with input parameters:
+\begin{itemize}
+    \item an interval $J \subseteq [0, 1]$ of length $|J|$;
+    \item a sequence of $m$ arriving reals all contained in $J$;
+    \item an array segment of $N_m$ cells, where $N_m \ge \lfloor (1 + \varepsilon_\ell) m \rfloor$;
+    \item available slack $\varepsilon_\ell \ge \varepsilon/2$.
+\end{itemize}
+We define the threshold
+\[
+M_0 \mydef \left\lceil \frac{8 H k}{\varepsilon} \right\rceil.
+\]
+
+\subparagraph{Base Case ($m \le M_0$):}
+If the number of arriving reals is $m \le M_0$, we invoke Theorem~\ref{thm:SortingUpperBoundBaby}. Since $N_m \ge \lfloor (1+\varepsilon_\ell) m \rfloor \ge m$, the array segment contains at least $m$ cells. We place the $m$ reals into the first $m$ cells of the segment using the algorithm for $\OnlineSorting{}[1, m]$ guaranteed by Theorem~\ref{thm:SortingUpperBoundBaby}.
+By Theorem~\ref{thm:SortingUpperBoundBaby}, the competitive ratio of this placement scaled to the interval $J$ satisfies
+\[
+\cost(\mathbf{r}) \le 18\sqrt{m} \cdot \OPT \le 18\sqrt{M_0} \cdot |J| + 2|J|,
+\]
+where the term $2|J|$ accounts for the distance from the endpoints of $J$ to the first and last placed reals.
+
+\subparagraph{Recursive Step ($m > M_0$):}
+When $m > M_0$, we partition the interval $J$ into $k$ equal-length subintervals $I_1, \dots, I_k$, each of length
+\[
+|I_j| = \frac{|J|}{k}.
+\]
+Define the subproblem item capacity
+\[
+s \mydef \left\lfloor \frac{\varepsilon m}{4 H k} \right\rfloor.
+\]
+Since $m > M_0 \ge \frac{8 H k}{\varepsilon}$, we have $\frac{\varepsilon m}{4 H k} > 2$, which guarantees that $s \ge 2$ is an integer satisfying
+\[
+\frac{\varepsilon m}{8 H k} \le s \le \frac{\varepsilon m}{4 H k}.
+\]
+Each subproblem will be allocated a contiguous block of cells (a \emph{chunk}) of size
+\[
+S_{\text{cell}} \mydef \lfloor (1 + \varepsilon_{\ell+1}) s \rfloor.
+\]
+We maintain the placement of arriving reals as follows:
+\begin{enumerate}
+    \item For each subinterval $I_j$ ($j \in \{1, \dots, k\}$), we maintain at most one \emph{active} chunk.
+    \item When a real $\sigma_t \in I_j$ arrives:
+    \begin{itemize}
+        \item If $I_j$ has an active chunk that currently contains strictly fewer than $s$ reals, $\sigma_t$ is placed into that chunk according to the sub-algorithm at level $\ell+1$.
+        \item If $I_j$ has no active chunk, or if its active chunk is full (contains exactly $s$ reals), the current chunk of $I_j$ is closed. A new chunk of $S_{\text{cell}}$ contiguous empty cells is allocated immediately to the right of all previously allocated chunks in the array segment, designated as the active chunk of $I_j$, and $\sigma_t$ is placed as its first real.
+    \end{itemize}
+\end{enumerate}
+
+\paragraph{3. Capacity and Cell Budget Analysis.}
+Let $n_j$ denote the total number of reals that fall into subinterval $I_j$ over the entire sequence, so $\sum_{j=1}^k n_j = m$.
+Each chunk dedicated to $I_j$ receives exactly $s$ reals, except possibly the final active chunk of $I_j$, which receives between $1$ and $s$ reals. Therefore, the number of chunks allocated to $I_j$ is precisely $\lceil n_j / s \rceil$.
+The total number of chunks allocated across all $k$ subintervals is
+\[
+C = \sum_{j=1}^k \left\lceil \frac{n_j}{s} \right\rceil \le \sum_{j=1}^k \left( \frac{n_j}{s} + 1 \right) = \frac{m}{s} + k.
+\]
+The total number of cells consumed by these $C$ chunks is
+\[
+C \cdot S_{\text{cell}} \le \left( \frac{m}{s} + k \right) (1 + \varepsilon_{\ell+1}) s = (1 + \varepsilon_{\ell+1}) m + k (1 + \varepsilon_{\ell+1}) s.
+\]
+Recalling that $\varepsilon_{\ell+1} \le \varepsilon \le 1$, we have $1 + \varepsilon_{\ell+1} \le 2$. Using $s \le \frac{\varepsilon m}{4 H k}$, we obtain
+\[
+k (1 + \varepsilon_{\ell+1}) s \le 2 k s \le 2 k \left(\frac{\varepsilon m}{4 H k}\right) = \frac{\varepsilon m}{2 H} = \delta m.
+\]
+Since $\varepsilon_\ell - \varepsilon_{\ell+1} = \delta$, it follows that
+\[
+C \cdot S_{\text{cell}} \le (1 + \varepsilon_{\ell+1}) m + \delta m = (1 + \varepsilon_{\ell+1} + \delta) m = (1 + \varepsilon_\ell) m.
+\]
+Because the array segment contains $N_m \ge \lfloor (1 + \varepsilon_\ell) m \rfloor$ cells, and the number of cells allocated is an integer, we have $C \cdot S_{\text{cell}} \le \lfloor (1 + \varepsilon_\ell) m \rfloor \le N_m$. Thus, the chunks never exceed the boundaries of the allocated segment.
+
+\paragraph{4. Cost Recurrence.}
+Let $K_1, K_2, \dots, K_C$ denote the allocated chunks in their left-to-right spatial order in the array.
+For each $c \in \{1, \dots, C\}$, let $m_c \in \{1, \dots, s\}$ be the number of reals placed in chunk $K_c$, and let $\mathbf{r}^{(c)} = (r_1^{(c)}, \dots, r_{m_c}^{(c)})$ be their left-to-right sequence.
+All reals in chunk $K_c$ belong to the same subinterval $I_{j(c)}$, whose length is $|J|/k$.
+Let $\mathcal{R}_\ell$ denote the competitive ratio of our algorithm at level $\ell$, defined such that the internal cost of placing $m_c$ reals in an interval of length $|I_{j(c)}|$ within a chunk of size $S_{\text{cell}}$ is at most $\mathcal{R}_{\ell+1} \cdot |I_{j(c)}|$.
+
+The cost of the sequence $\mathbf{r}$ formed by the concatenation of all chunks is given by
+\[
+\cost(\mathbf{r}) = \sum_{c=1}^C \sum_{i=1}^{m_c-1} |r_{i+1}^{(c)} - r_i^{(c)}| + \sum_{c=1}^{C-1} |r_1^{(c+1)} - r_{m_c}^{(c)}| + |r_1^{(1)} - \inf(J)| + |\sup(J) - r_{m_C}^{(C)}|.
+\]
+We bound each contribution:
+\begin{enumerate}
+    \item \textbf{Internal Chunk Cost:}
+    Each chunk $K_c$ has internal cost at most $\mathcal{R}_{\ell+1} \cdot |I_{j(c)}| = \mathcal{R}_{\ell+1} \frac{|J|}{k}$. Summing over all $C$ chunks:
+    \[
+    \sum_{c=1}^C \sum_{i=1}^{m_c-1} |r_{i+1}^{(c)} - r_i^{(c)}| \le C \cdot \mathcal{R}_{\ell+1} \frac{|J|}{k} = \frac{C}{k} \mathcal{R}_{\ell+1} |J|.
+    \]
+    \item \textbf{Inter-Chunk Transitions:}
+    For every $c \in \{1, \dots, C-1\}$, both $r_{m_c}^{(c)}$ and $r_1^{(c+1)}$ belong to the parent interval $J$, so $|r_1^{(c+1)} - r_{m_c}^{(c)}| \le |J|$. There are $C - 1$ such transitions, contributing at most $(C - 1)|J|$.
+    \item \textbf{Boundary Sentinels:}
+    The endpoints satisfy $|r_1^{(1)} - \inf(J)| \le |J|$ and $|\sup(J) - r_{m_C}^{(C)}| \le |J|$, contributing at most $2|J|$.
+\end{enumerate}
+Combining these bounds yields
+\[
+\cost(\mathbf{r}) \le \left( \frac{C}{k} \mathcal{R}_{\ell+1} + C + 1 \right) |J|.
+\]
+We now bound $C$ and $C/k$. Using $s \ge \frac{\varepsilon m}{8 H k}$, we have
+\[
+C \le \frac{m}{s} + k \le \frac{8 H k}{\varepsilon} + k \le \frac{9 H k}{\varepsilon},
+\]
+which implies
+\[
+\frac{C}{k} \le \frac{9 H}{\varepsilon}.
+\]
+Consequently, the competitive ratio satisfies the recurrence
+\[
+\mathcal{R}_\ell \le \frac{9 H}{\varepsilon} \mathcal{R}_{\ell+1} + \frac{9 H k}{\varepsilon} + 1 \le \frac{9 H}{\varepsilon} \mathcal{R}_{\ell+1} + \frac{10 H k}{\varepsilon}.
+\]
+
+\paragraph{5. Unwinding the Recurrence.}
+At each level of the recursion, the number of reals per subproblem decreases from $m$ to $s$, where
+\[
+s \le \frac{\varepsilon m}{4 H k} \le \frac{m}{k}.
+\]
+Starting from $n$ reals at level $0$, the maximum number of reals in any subproblem at level $\ell$ is at most $n / k^\ell$.
+Since $k^H \ge n$, after at most $H$ levels the subproblem size satisfies
+\[
+n_H \le \frac{n}{k^H} \le 1 \le M_0,
+\]
+so the recursion terminates in at most $H$ levels, hitting the base case at some level $h^* \le H$.
+
+At the base level $h^*$, the competitive ratio satisfies
+\[
+\mathcal{R}_{h^*} \le 18\sqrt{M_0} + 2 = 18 \sqrt{\left\lceil \frac{8 H k}{\varepsilon} \right\rceil} + 2 \le 18 \sqrt{\frac{9 H k}{\varepsilon}} + 2 = 54 \sqrt{\frac{H k}{\varepsilon}} + 2.
+\]
+Unwinding the recurrence $\mathcal{R}_\ell \le \frac{9 H}{\varepsilon} \mathcal{R}_{\ell+1} + \frac{10 H k}{\varepsilon}$ across the $h^* \le H$ levels yields
+\[
+\mathcal{R}_0 \le \left(\frac{9 H}{\varepsilon}\right)^H \mathcal{R}_{h^*} + \sum_{\ell=0}^{H-1} \left(\frac{9 H}{\varepsilon}\right)^\ell \frac{10 H k}{\varepsilon} \le \left(\frac{9 H}{\varepsilon}\right)^H \left( \mathcal{R}_{h^*} + \frac{10 H k}{\varepsilon} \sum_{j=1}^\infty \left(\frac{\varepsilon}{9 H}\right)^j \right).
+\]
+Since $\varepsilon \le 1$ and $H \ge 1$, we have $\frac{\varepsilon}{9 H} \le \frac{1}{9}$, so the geometric series is bounded by $\frac{1/9}{1 - 1/9} = \frac{1}{8}$.
+Hence,
+\[
+\mathcal{R}_0 \le \left(\frac{9 H}{\varepsilon}\right)^H \left( 54 \sqrt{\frac{H k}{\varepsilon}} + 2 + \frac{5 H k}{4 \varepsilon} \right) \le \left(\frac{9 H}{\varepsilon}\right)^H \cdot \frac{56 H k}{\varepsilon}.
+\]
+Taking base-$2$ logarithms:
+\[
+\log \mathcal{R}_0 \le H \log\left(\frac{9 H}{\varepsilon}\right) + \log\left(\frac{56 H k}{\varepsilon}\right) = H \log H + H \log(1/\varepsilon) + O(H) + \log k + \log H + \log(1/\varepsilon) + O(1).
+\]
+
+\paragraph{6. Asymptotic Evaluation.}
+We evaluate each term in the upper bound for $\log \mathcal{R}_0$:
+\begin{enumerate}
+    \item By definition, $H = \lceil \log n / \lambda \rceil \le \frac{\log n}{\lambda} + 1$. Thus,
+    \[
+    H \log(1/\varepsilon) \le \frac{\log n \log(1/\varepsilon)}{\lambda} + \log(1/\varepsilon) \le \frac{\lambda^2}{\lambda} + \lambda = 2\lambda.
+    \]
+    \item Since $H \le \sqrt{\log n}$, we have $\log H \le \frac{1}{2}\log \log n$. Therefore,
+    \[
+    H \log H \le \left(\frac{\log n}{\lambda} + 1\right) \frac{1}{2}\log \log n \le \frac{\log n \log \log n}{2\lambda} + \frac{1}{2}\log \log n \le \frac{\lambda^2}{2\lambda} + \lambda = \frac{3}{2}\lambda.
+    \]
+    \item By definition of $k$, we have
+    \[
+    \log k = \log \lceil 2^{\lambda/H} \rceil \le \frac{\lambda}{H} + 1.
+    \]
+    Since $H \ge \frac{\log n}{\lambda}$, we have $\frac{\lambda}{H} \le \frac{\lambda^2}{\log n} = \log \log n + \log(1/\varepsilon) \le \lambda$. Hence, $\log k \le \lambda + 1$.
+    \item The remaining lower-order terms satisfy $\log H + \log(1/\varepsilon) + O(H) = O(\lambda)$.
+\end{enumerate}
+Summing these contributions, we obtain
+\[
+\log \mathcal{R}_0 \le O(\lambda) = O\left(\sqrt{\log n} \cdot \sqrt{\log \log n + \log(1/\varepsilon)}\right).
+\]
+Exponentiating gives
+\[
+\mathcal{R}_0 \le 2^{O\left(\sqrt{\log n} \cdot \sqrt{\log \log n + \log(1/\varepsilon)}\right)}.
+\]
+Since the offline optimum cost for $n$ reals on $[0, 1]$ is $\OPT = 1$, the competitive ratio of the online algorithm is precisely $\cost(\mathbf{r}) \le \mathcal{R}_0 \cdot \OPT = 2^{O\left(\sqrt{\log n} \cdot \sqrt{\log \log n + \log(1/\varepsilon)}\right)}$, completing the proof.
+\end{proof}
+
+--- [EXTRACTED CANDIDATE PROOF] ---
+Length: 12261 chars
+\begin{proof}
+We construct an online algorithm for $\OnlineSorting{}[1+\varepsilon, n]$ achieving the claimed competitive ratio. Throughout the proof, logarithms $\log$ are base $2$ unless specified otherwise, and $\ln$ denotes the natural logarithm.
+
+\paragraph{1. Parameter Selection.}
+Let $n$ be sufficiently large, and let $\varepsilon \in [\log n / n, 1]$. We define
+\[
+\lambda \mydef \sqrt{\log n} \cdot \sqrt{\log \log n + \log(1/\varepsilon)}.
+\]
+Since $\varepsilon \le 1$, we have $\log(1/\varepsilon) \ge 0$. Furthermore, $\varepsilon \ge \log n / n$ implies $\log(1/\varepsilon) \le \log n - \log \log n \le \log n$. Thus, $\sqrt{\log \log n} \le \lambda \le \log n$.
+We choose the recursion depth $H$ and the branching factor $k$ as integers:
+\[
+H \mydef \left\lceil \frac{\sqrt{\log n}}{\sqrt{\log \log n + \log(1/\varepsilon)}} \right\rceil = \left\lceil \frac{\log n}{\lambda} \right\rceil, \qquad k \mydef \left\lceil 2^{\lambda / H} \right\rceil.
+\]
+By this choice, we have:
+\begin{enumerate}
+    \item $H \ge 1$, and for sufficiently large $n$, $H \le \sqrt{\log n} \le \lambda$.
+    \item $\log H \le \log \sqrt{\log n} = \frac{1}{2}\log \log n \le \lambda$.
+    \item $k \ge 2$, and $\log k = \frac{\lambda}{H} + O(1) = O(\lambda)$.
+    \item $k^H \ge \left(2^{\lambda/H}\right)^H = 2^\lambda$. Moreover, by choosing $k = \lceil 2^{(\log n)/H} \rceil$, we have $k^H \ge 2^{\log n} = n$.
+\end{enumerate}
+Define the per-level slack decrement $\delta \mydef \frac{\varepsilon}{2H}$. For each level $\ell \in \{0, 1, \dots, H\}$, the slack available at level $\ell$ will be
+\[
+\varepsilon_\ell \mydef \varepsilon - \ell \delta = \varepsilon \left(1 - \frac{\ell}{2H}\right) \ge \frac{\varepsilon}{2}.
+\]
+
+\paragraph{2. One-Level Chunking Reduction.}
+Consider an arbitrary recursive call at level $\ell \in \{0, \dots, H-1\}$ with input parameters:
+\begin{itemize}
+    \item an interval $J \subseteq [0, 1]$ of length $|J|$;
+    \item a sequence of $m$ arriving reals all contained in $J$;
+    \item an array segment of $N_m$ cells, where $N_m \ge \lfloor (1 + \varepsilon_\ell) m \rfloor$;
+    \item available slack $\varepsilon_\ell \ge \varepsilon/2$.
+\end{itemize}
+We define the threshold
+\[
+M_0 \mydef \left\lceil \frac{8 H k}{\varepsilon} \right\rceil.
+\]
+
+\subparagraph{Base Case ($m \le M_0$):}
+If the number of arriving reals is $m \le M_0$, we invoke Theorem~\ref{thm:SortingUpperBoundBaby}. Since $N_m \ge \lfloor (1+\varepsilon_\ell) m \rfloor \ge m$, the array segment contains at least $m$ cells. We place the $m$ reals into the first $m$ cells of the segment using the algorithm for $\OnlineSorting{}[1, m]$ guaranteed by Theorem~\ref{thm:SortingUpperBoundBaby}.
+By Theorem~\ref{thm:SortingUpperBoundBaby}, the competitive ratio of this placement scaled to the interval $J$ satisfies
+\[
+\cost(\mathbf{r}) \le 18\sqrt{m} \cdot \OPT \le 18\sqrt{M_0} \cdot |J| + 2|J|,
+\]
+where the term $2|J|$ accounts for the distance from the endpoints of $J$ to the first and last placed reals.
+
+\subparagraph{Recursive Step ($m > M_0$):}
+When $m > M_0$, we partition the interval $J$ into $k$ equal-length subintervals $I_1, \dots, I_k$, each of length
+\[
+|I_j| = \frac{|J|}{k}.
+\]
+Define the subproblem item capacity
+\[
+s \mydef \left\lfloor \frac{\varepsilon m}{4 H k} \right\rfloor.
+\]
+Since $m > M_0 \ge \frac{8 H k}{\varepsilon}$, we have $\frac{\varepsilon m}{4 H k} > 2$, which guarantees that $s \ge 2$ is an integer satisfying
+\[
+\frac{\varepsilon m}{8 H k} \le s \le \frac{\varepsilon m}{4 H k}.
+\]
+Each subproblem will be allocated a contiguous block of cells (a \emph{chunk}) of size
+\[
+S_{\text{cell}} \mydef \lfloor (1 + \varepsilon_{\ell+1}) s \rfloor.
+\]
+We maintain the placement of arriving reals as follows:
+\begin{enumerate}
+    \item For each subinterval $I_j$ ($j \in \{1, \dots, k\}$), we maintain at most one \emph{active} chunk.
+    \item When a real $\sigma_t \in I_j$ arrives:
+    \begin{itemize}
+        \item If $I_j$ has an active chunk that currently contains strictly fewer than $s$ reals, $\sigma_t$ is placed into that chunk according to the sub-algorithm at level $\ell+1$.
+        \item If $I_j$ has no active chunk, or if its active chunk is full (contains exactly $s$ reals), the current chunk of $I_j$ is closed. A new chunk of $S_{\text{cell}}$ contiguous empty cells is allocated immediately to the right of all previously allocated chunks in the array segment, designated as the active chunk of $I_j$, and $\sigma_t$ is placed as its first real.
+    \end{itemize}
+\end{enumerate}
+
+\paragraph{3. Capacity and Cell Budget Analysis.}
+Let $n_j$ denote the total number of reals that fall into subinterval $I_j$ over the entire sequence, so $\sum_{j=1}^k n_j = m$.
+Each chunk dedicated to $I_j$ receives exactly $s$ reals, except possibly the final active chunk of $I_j$, which receives between $1$ and $s$ reals. Therefore, the number of chunks allocated to $I_j$ is precisely $\lceil n_j / s \rceil$.
+The total number of chunks allocated across all $k$ subintervals is
+\[
+C = \sum_{j=1}^k \left\lceil \frac{n_j}{s} \right\rceil \le \sum_{j=1}^k \left( \frac{n_j}{s} + 1 \right) = \frac{m}{s} + k.
+\]
+The total number of cells consumed by these $C$ chunks is
+\[
+C \cdot S_{\text{cell}} \le \left( \frac{m}{s} + k \right) (1 + \varepsilon_{\ell+1}) s = (1 + \varepsilon_{\ell+1}) m + k (1 + \varepsilon_{\ell+1}) s.
+\]
+Recalling that $\varepsilon_{\ell+1} \le \varepsilon \le 1$, we have $1 + \varepsilon_{\ell+1} \le 2$. Using $s \le \frac{\varepsilon m}{4 H k}$, we obtain
+\[
+k (1 + \varepsilon_{\ell+1}) s \le 2 k s \le 2 k \left(\frac{\varepsilon m}{4 H k}\right) = \frac{\varepsilon m}{2 H} = \delta m.
+\]
+Since $\varepsilon_\ell - \varepsilon_{\ell+1} = \delta$, it follows that
+\[
+C \cdot S_{\text{cell}} \le (1 + \varepsilon_{\ell+1}) m + \delta m = (1 + \varepsilon_{\ell+1} + \delta) m = (1 + \varepsilon_\ell) m.
+\]
+Because the array segment contains $N_m \ge \lfloor (1 + \varepsilon_\ell) m \rfloor$ cells, and the number of cells allocated is an integer, we have $C \cdot S_{\text{cell}} \le \lfloor (1 + \varepsilon_\ell) m \rfloor \le N_m$. Thus, the chunks never exceed the boundaries of the allocated segment.
+
+\paragraph{4. Cost Recurrence.}
+Let $K_1, K_2, \dots, K_C$ denote the allocated chunks in their left-to-right spatial order in the array.
+For each $c \in \{1, \dots, C\}$, let $m_c \in \{1, \dots, s\}$ be the number of reals placed in chunk $K_c$, and let $\mathbf{r}^{(c)} = (r_1^{(c)}, \dots, r_{m_c}^{(c)})$ be their left-to-right sequence.
+All reals in chunk $K_c$ belong to the same subinterval $I_{j(c)}$, whose length is $|J|/k$.
+Let $\mathcal{R}_\ell$ denote the competitive ratio of our algorithm at level $\ell$, defined such that the internal cost of placing $m_c$ reals in an interval of length $|I_{j(c)}|$ within a chunk of size $S_{\text{cell}}$ is at most $\mathcal{R}_{\ell+1} \cdot |I_{j(c)}|$.
+
+The cost of the sequence $\mathbf{r}$ formed by the concatenation of all chunks is given by
+\[
+\cost(\mathbf{r}) = \sum_{c=1}^C \sum_{i=1}^{m_c-1} |r_{i+1}^{(c)} - r_i^{(c)}| + \sum_{c=1}^{C-1} |r_1^{(c+1)} - r_{m_c}^{(c)}| + |r_1^{(1)} - \inf(J)| + |\sup(J) - r_{m_C}^{(C)}|.
+\]
+We bound each contribution:
+\begin{enumerate}
+    \item \textbf{Internal Chunk Cost:}
+    Each chunk $K_c$ has internal cost at most $\mathcal{R}_{\ell+1} \cdot |I_{j(c)}| = \mathcal{R}_{\ell+1} \frac{|J|}{k}$. Summing over all $C$ chunks:
+    \[
+    \sum_{c=1}^C \sum_{i=1}^{m_c-1} |r_{i+1}^{(c)} - r_i^{(c)}| \le C \cdot \mathcal{R}_{\ell+1} \frac{|J|}{k} = \frac{C}{k} \mathcal{R}_{\ell+1} |J|.
+    \]
+    \item \textbf{Inter-Chunk Transitions:}
+    For every $c \in \{1, \dots, C-1\}$, both $r_{m_c}^{(c)}$ and $r_1^{(c+1)}$ belong to the parent interval $J$, so $|r_1^{(c+1)} - r_{m_c}^{(c)}| \le |J|$. There are $C - 1$ such transitions, contributing at most $(C - 1)|J|$.
+    \item \textbf{Boundary Sentinels:}
+    The endpoints satisfy $|r_1^{(1)} - \inf(J)| \le |J|$ and $|\sup(J) - r_{m_C}^{(C)}| \le |J|$, contributing at most $2|J|$.
+\end{enumerate}
+Combining these bounds yields
+\[
+\cost(\mathbf{r}) \le \left( \frac{C}{k} \mathcal{R}_{\ell+1} + C + 1 \right) |J|.
+\]
+We now bound $C$ and $C/k$. Using $s \ge \frac{\varepsilon m}{8 H k}$, we have
+\[
+C \le \frac{m}{s} + k \le \frac{8 H k}{\varepsilon} + k \le \frac{9 H k}{\varepsilon},
+\]
+which implies
+\[
+\frac{C}{k} \le \frac{9 H}{\varepsilon}.
+\]
+Consequently, the competitive ratio satisfies the recurrence
+\[
+\mathcal{R}_\ell \le \frac{9 H}{\varepsilon} \mathcal{R}_{\ell+1} + \frac{9 H k}{\varepsilon} + 1 \le \frac{9 H}{\varepsilon} \mathcal{R}_{\ell+1} + \frac{10 H k}{\varepsilon}.
+\]
+
+\paragraph{5. Unwinding the Recurrence.}
+At each level of the recursion, the number of reals per subproblem decreases from $m$ to $s$, where
+\[
+s \le \frac{\varepsilon m}{4 H k} \le \frac{m}{k}.
+\]
+Starting from $n$ reals at level $0$, the maximum number of reals in any subproblem at level $\ell$ is at most $n / k^\ell$.
+Since $k^H \ge n$, after at most $H$ levels the subproblem size satisfies
+\[
+n_H \le \frac{n}{k^H} \le 1 \le M_0,
+\]
+so the recursion terminates in at most $H$ levels, hitting the base case at some level $h^* \le H$.
+
+At the base level $h^*$, the competitive ratio satisfies
+\[
+\mathcal{R}_{h^*} \le 18\sqrt{M_0} + 2 = 18 \sqrt{\left\lceil \frac{8 H k}{\varepsilon} \right\rceil} + 2 \le 18 \sqrt{\frac{9 H k}{\varepsilon}} + 2 = 54 \sqrt{\frac{H k}{\varepsilon}} + 2.
+\]
+Unwinding the recurrence $\mathcal{R}_\ell \le \frac{9 H}{\varepsilon} \mathcal{R}_{\ell+1} + \frac{10 H k}{\varepsilon}$ across the $h^* \le H$ levels yields
+\[
+\mathcal{R}_0 \le \left(\frac{9 H}{\varepsilon}\right)^H \mathcal{R}_{h^*} + \sum_{\ell=0}^{H-1} \left(\frac{9 H}{\varepsilon}\right)^\ell \frac{10 H k}{\varepsilon} \le \left(\frac{9 H}{\varepsilon}\right)^H \left( \mathcal{R}_{h^*} + \frac{10 H k}{\varepsilon} \sum_{j=1}^\infty \left(\frac{\varepsilon}{9 H}\right)^j \right).
+\]
+Since $\varepsilon \le 1$ and $H \ge 1$, we have $\frac{\varepsilon}{9 H} \le \frac{1}{9}$, so the geometric series is bounded by $\frac{1/9}{1 - 1/9} = \frac{1}{8}$.
+Hence,
+\[
+\mathcal{R}_0 \le \left(\frac{9 H}{\varepsilon}\right)^H \left( 54 \sqrt{\frac{H k}{\varepsilon}} + 2 + \frac{5 H k}{4 \varepsilon} \right) \le \left(\frac{9 H}{\varepsilon}\right)^H \cdot \frac{56 H k}{\varepsilon}.
+\]
+Taking base-$2$ logarithms:
+\[
+\log \mathcal{R}_0 \le H \log\left(\frac{9 H}{\varepsilon}\right) + \log\left(\frac{56 H k}{\varepsilon}\right) = H \log H + H \log(1/\varepsilon) + O(H) + \log k + \log H + \log(1/\varepsilon) + O(1).
+\]
+
+\paragraph{6. Asymptotic Evaluation.}
+We evaluate each term in the upper bound for $\log \mathcal{R}_0$:
+\begin{enumerate}
+    \item By definition, $H = \lceil \log n / \lambda \rceil \le \frac{\log n}{\lambda} + 1$. Thus,
+    \[
+    H \log(1/\varepsilon) \le \frac{\log n \log(1/\varepsilon)}{\lambda} + \log(1/\varepsilon) \le \frac{\lambda^2}{\lambda} + \lambda = 2\lambda.
+    \]
+    \item Since $H \le \sqrt{\log n}$, we have $\log H \le \frac{1}{2}\log \log n$. Therefore,
+    \[
+    H \log H \le \left(\frac{\log n}{\lambda} + 1\right) \frac{1}{2}\log \log n \le \frac{\log n \log \log n}{2\lambda} + \frac{1}{2}\log \log n \le \frac{\lambda^2}{2\lambda} + \lambda = \frac{3}{2}\lambda.
+    \]
+    \item By definition of $k$, we have
+    \[
+    \log k = \log \lceil 2^{\lambda/H} \rceil \le \frac{\lambda}{H} + 1.
+    \]
+    Since $H \ge \frac{\log n}{\lambda}$, we have $\frac{\lambda}{H} \le \frac{\lambda^2}{\log n} = \log \log n + \log(1/\varepsilon) \le \lambda$. Hence, $\log k \le \lambda + 1$.
+    \item The remaining lower-order terms satisfy $\log H + \log(1/\varepsilon) + O(H) = O(\lambda)$.
+\end{enumerate}
+Summing these contributions, we obtain
+\[
+\log \mathcal{R}_0 \le O(\lambda) = O\left(\sqrt{\log n} \cdot \sqrt{\log \log n + \log(1/\varepsilon)}\right).
+\]
+Exponentiating gives
+\[
+\mathcal{R}_0 \le 2^{O\left(\sqrt{\log n} \cdot \sqrt{\log \log n + \log(1/\varepsilon)}\right)}.
+\]
+Since the offline optimum cost for $n$ reals on $[0, 1]$ is $\OPT = 1$, the competitive ratio of the online algorithm is precisely $\cost(\mathbf{r}) \le \mathcal{R}_0 \cdot \OPT = 2^{O\left(\sqrt{\log n} \cdot \sqrt{\log \log n + \log(1/\varepsilon)}\right)}$, completing the proof.
+\end{proof}
+================================================================================

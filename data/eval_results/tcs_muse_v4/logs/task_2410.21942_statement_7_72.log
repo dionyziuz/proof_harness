@@ -1,0 +1,801 @@
+
+
+================================================================================
+[2026-10-29 11:53:20] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_7_72
+================================================================================
+[CoALA Procedural Memory] Retrieved 2 relevant rules for '\begin{restatable}[High-Dimensional Subset Sum]{theorem}{thmsubsetsumhighdim} \l':
+  • When proving consistency of a projected hierarchy solution, rewrite the marginal sum as a double sum over distinguished subsets and partition extensions, then establish a bijection between refinements to invoke the original consistency constraint; always verify cardinality bounds to ensure all referenced lifted variables exist.
+  • When bounding randomized iterative progress, isolate a large good subset via averaging/Markov to
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_7_72 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**Definitions / Granted truths:**
+- $[m\ldots n]=\{\lceil m\rceil,\dots,\lfloor n\rfloor\}$, $[n]=[1\ldots n]$, $\poly,\polylog,\widetilde\Order$.
+- Sumset $A+B$. For multiset $X\subseteq \Int_{\ge 0}^d$: $\SSS(X)=\sum_i\{0,x_i\}$, $\SSS^*(X)=\sum_i\{0,x_i,2x_i,\dots\}$, $\SSS(X,t)=\SSS(X)\cap[0\ldots t]^d$, similarly $\SSS^*$.
+- Global preprocessing assumption: $|X|\le |\SSS(X,t)|$. True for sets, enforceable for multisets in linear time. Licensed for direct use; do not re-derive.
+- High probability $=1-n^{-c}$ for arbitrary prespecified $c$.
+- `Alg: FastSubsetSum` high-dim: params $X,t,s$; $K=\lceil 100\log s+\log d\rceil$; $X_S=X\cap[0\ldots t/K^5]^d$, $X_L=X\setminus X_S$; random partition $X_S=X_1\sqcup\dots\sqcup X_K$; recurse $Z_k\gets\textsc{FastSubsetSum}(X_k,(1+1/K)t/K,s)$; $Z\gets\sum_k Z_k$ via sparse-conv; return $(Z+\SSS(X_L,t))\cap[0\ldots t]^d$ via large-items-high-dim with $\gamma=1/K^5$. Base case $|X|\le 1$ or $t\le 1$ trivial.
+
+**Lemma \ref{lem:sumset-lower-bound} (1D Kneser-type):** Precon: $A_i\subseteq\Int$ finite. Concl: $\sum|A_i|\le |\sum A_i|+K-1$. Hypotheses to discharge: 1-dimensionality. **Fragile in $d>1$** — cannot apply directly to $d$-dim $Z_k$.
+
+**Lemma \ref{lem:sparse-conv} (Sumset Computation):** Precon: $A,B\subseteq[0\ldots t]$ (1D). Concl: compute $A+B$ in $|A+B|\polylog(t)$ deterministic, $O(|A+B|\log|A+B|)$ Las Vegas (word RAM $\Theta(\log t)$). Hypotheses: bounded interval, word-size model for randomized bound. Note: stated 1D; use in high-dim line \ref{alg:subset-sum-high-dim:line:sumset} requires $d$-dim extension / coordinate encoding — flag as fragile; must verify dimension compatibility, do not hallucinate $d$-dim bound without justification.
+
+**Lemma \ref{lem:large-items} (1D):** Precon: $\gamma>0$, $X_L\subseteq[\gamma t,t]$, $Z\subseteq[0\ldots t]$. Concl: $Z'=(Z+\SSS(X_L,t))\cap[0\ldots t]$ in $\widetilde O(|Z'|\sqrt{|X_L|}\poly(\gamma^{-1}))$ Las Vegas.
+
+**Thm \ref{thm:submultiplicativity} (Gyarmati-Moran-Ruzsa):** Precon: $A_1,\dots,A_K$ finite sets in commutative semigroup, $B_i=\sum_{j\ne i}A_j$. Concl: $|\sum A_i|\le(\prod_i|B_i|)^{1/(K-1)}$. No dimensionality restriction — hereditary to $\Int^d$. Must verify finiteness + semigroup structure before use.
+
+**Lemma \ref{lem:large-items-high-dim}:** Precon: $d\ge1$ constant, $\gamma>0$, $X_L\subseteq[0\ldots t]^d\setminus[0\ldots\gamma t]^d$ (i.e. each large item large in at least one coordinate), $Z\subseteq[0\ldots t]^d$. Concl: $Z'=(Z+\SSS(X_L,t))\cap[0\ldots t]^d$ in $\widetilde O(|Z'|\cdot|X_L|^{1-1/(d+1)}\poly(\gamma^{-1}))$ Las Vegas. Hypotheses: check exclusion of small cube; $\gamma=1/K^5$ in alg satisfies.
+
+**Lemma \ref{lem:subset-sum-rec-calls}:** Precon: execution of Alg high-dim. Concl: w.p. $\ge1-1/|X|^{40}$, depth $\le400\log|X|$, #calls $\le400|X|\log|X|$. Licensed probabilistic structural bound; do not re-derive partition balance.
+
+**Lemma \ref{lem:subset-sum-correctness}:** Precon: $X\subseteq[0\ldots t]^d$ multiset, $s\ge|\SSS(X,t)|$. Concl: Alg correctly computes $\SSS(X,t)$ w.h.p. Must discharge $s\ge|\SSS|$ at every recursive call (needs monotonicity $|\SSS(X_k,t_k)|\le|\SSS(X,t)|\le s$).
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Strategy Alpha — Constructive Inductive Invariant / Recursion-Tree Accounting:**
+Induct on recursion tree rooted at $(X,t,s)$ with $s=|\SSS(X,t)|$ (guess $s$ by doubling; assume known, $|X|\le s$ by preprocessing).
+Maintain invariant: at node $(Y,u)$: $Y\subseteq[0\ldots u]^d$, recursive target $u'=(1+1/K)u/K$ suffices for correctness (small items bounded by $u/K^5$, so any feasible sub-sum uses limited mass; appeal to \ref{lem:subset-sum-correctness} precondition).
+Cost per node = sparse-conv merges $\sum_k |Z_{\le k}|$ + large-item step via \ref{lem:large-items-high-dim}. Show $Z=\sum_k Z_k$ satisfies $|Z|\le |\SSS(X,t)|$ (hereditary: $Z_k\subseteq\SSS(X_k,\cdot)$, sum $\subseteq\SSS(X_S,t)\subseteq\SSS(X,t)$ after truncation) so merge cost $\widetilde O(|\SSS|\cdot K)$. Similarly $|Z'|\le|\SSS|$. Hence per-node $\widetilde O(|\SSS|\cdot|X_L|^{1-1/(d+1)}\poly(K))$.
+Sum over $O(|X|\log|X|)$ nodes naively too large; refine via disjointness / size decay: partition $X_S$ randomly so $|X_k|\approx|X_S|/K$, depth $O(\log|X|)$, small-item branching shrinks $t$ geometrically by $\approx K$. Use \ref{lem:subset-sum-rec-calls} to bound total nodes and charge large-item exponent $1-1/(d+1)$ at top level dominates (since $|X_L|$ at deeper levels $\le$ ancestor's). Conclude total $\widetilde O(|\SSS|\cdot n^{1-1/(d+1)})$ up to $\polylog(s,t)$ absorbed in $\widetilde O$.
+
+**Strategy Beta — Extremal / Sub-multiplicativity Potential to Bound Intermediate Sumsets:**
+Risk in Alpha: naive bound $|Z_{\le k}|\le|\SSS|$ gives factor $K$ per level $\times$ many nodes. Use \ref{thm:submultiplicativity} as potential to show average merge is small.
+Let $A_k=Z_k$, $B_{-k}=\sum_{j\ne k}A_j$. Then $|\sum A_k|\le(\prod|B_{-k}|)^{1/(K-1)}$. Extremal choice: if all $|B_{-k}|$ large ($\approx|\SSS|$), then product bound forces $|\sum A_k|$ small relative? Contrapositive: total merge cost $\sum_k|B_{-k}+A_k|$ controlled by geometric mean. Alternatively choose minimal $q$ attaining optimum in DP view; here choose $K=\Theta(\log s)$ so $K^5=\polylog(s)$ overhead is $\poly(\gamma^{-1})=\polylog(s)$.
+Key step: each $Z_k\subseteq[0\ldots O(t/K)]^d$ small-box, so sumset growth limited; sub-multiplicativity converts $K$-fold product into exponent $K/(K-1)=1+1/(K-1)$, yielding $|Z|\polylog$ bound without $K$ blowup. Verify semigroup precondition ($\Int^d$ under $+$). This discharges sparse-conv cost to $\widetilde O(|Z|)$ per node.
+Boundary check: $K=1$ degenerate ($K-1=0$ denominator) must be excluded — but $K=\lceil100\log s+\log d\rceil\ge2$ for $s\ge2$; handle $s=O(1)$ via Bellman base case separately. Do not assume $K\ge2$ without case split.
+
+**Strategy Gamma — Probabilistic Conditioning / Structural Decomposition (Small vs Large):**
+Condition on unordered multiset of small items before revealing random partition $X_S=\sqcup X_k$ (exchangeability). Given $X_S$, partition is symmetric; each $x\in X_S$ uniform over $K$ parts independently.
+Decompose: small items handled recursively (dimension-free via sparsity), large items handled once per node via \ref{lem:large-items-high-dim} exploiting that each $x\in X_L$ escapes $[0\ldots\gamma t]^d$, i.e. has a large coordinate $\ge t/K^5$. Pigeonhole over $d$ coordinates (constant $d$) + 1D large-item technique gives exponent $1-1/(d+1)$.
+Martingale / Chernoff: random split balances $|X_k|$ and $\SSS$-mass so recursion depth logarithmic w.h.p. — cite \ref{lem:subset-sum-rec-calls} directly, do not re-prove. Union-bound correctness over $\le400n\log n$ nodes using \ref{lem:subset-sum-correctness} with $s\ge|\SSS(X,t)|\ge|\SSS(X_k,t_k)|$ monotonicity. Handle unknown $|\SSS|$: try $s=1,2,4,\dots$ doubling, abort if time exceeds budget; first $s\ge|\SSS|$ succeeds w.h.p., geometric series preserves $\widetilde O$ bound.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+Hereditary (preserved under subsets/restriction): finiteness, semigroup membership in $\Int^d$, inclusion $Z_k\subseteq\SSS(X_k,\cdot)$, monotonicity $|\SSS(Y,u)|\le|\SSS(X,t)|$ for $Y\subseteq X$, bound $s\ge|\SSS|$ downward.
+Fragile (revoked on restriction/slicing/conditioning): 1D sumset lower bound (\ref{lem:sumset-lower-bound} fails in $d>1$), interval containment $[0\ldots t]^d$ (rescaling $(1+1/K)t/K$ needs ceil handling), mutual independence after conditioning on sizes, matrix/block dimensions for sparse-conv (1D vs $d$-D).
+
+```python
+state.register("X", kind="multiset", properties=["subset_[0..t]^d", "hereditary_size_bound", "preprocessed_|X|<=|SSS|"])
+state.register("SSS", kind="set_family", properties=["hereditary_monotone", "finite_semigroup"])
+state.register("K_gamma", kind="parameters", properties=["K=ceil(100log s+log d)", "gamma=1/K^5", "fragile_ceil_boundary"])
+state.register("Zk_Z", kind="sumsets", properties=["hereditary_inclusion_in_SSS", "fragile_dim_for_sparse_conv"])
+state.register("XL", kind="multiset", properties=["large_escape_cube", "precon_large_items_high_dim"])
+state.register("rec_tree", kind="control", properties=["depth_calls_Lemma_rec_calls", "probabilistic_partition_exchangeable"])
+state.add_subgoal("correctness", "s>=|SSS| => Alg returns SSS(X,t) w.h.p. via Lem-correctness")
+state.add_subgoal("per_node_cost", "merge + large-item cost <= ~O(|SSS| * |XL|^{1-1/(d+1)} polylog)")
+state.add_subgoal("global_cost", "sum over O(n log n) nodes with shrinking t => ~O(|SSS| n^{1-1/(d+1)})")
+```
+
+### Testable Intermediate Claims
+
+1. **Recursive target sufficiency & $s$-dominance:** For $X_S\subseteq[0\ldots t/K^5]^d$, any $y\in\SSS(X_S,t)$ decomposes as $\sum y_k$ with $y_k\in\SSS(X_k,(1+1/K)t/K)$. Check boundary: items of size $\le t/K^5$ but $K$ parts; worst-case imbalance could exceed $(1+1/K)t/K$ in one part — verify via counting + random balance w.h.p., and verify $|\SSS(X_k,t_k)|\le s$ for \ref{lem:subset-sum-correctness} precondition. Test in REPL by brute force small $t,K$ enumeration of subset sums vs truncated sums.
+2. **Sumset inclusion / dimension compatibility:** $Z=\sum_k Z_k$ (truncated to $[0\ldots t]^d$) satisfies $|Z|\le|\SSS(X,t)|$ and each prefix $Z_{\le k}$ likewise; and \ref{lem:sparse-conv} applied in $d$ dimensions has cost $\widetilde O(|Z_{\le k}|)$ (needs $d$-dim sparse convolution or flattening to 1D with base-$(t+1)$ encoding preserving sums without overflow — test encoding $f(x)=\sum x_i (t+1)^{i}$-type injectivity on box, and verify no wrap-around). Flag if only heuristic on $D_1$ (e.g. small $t$); discharge complement $t=O(1)$ via Bellman base case.
+3. **Exponent dominance $n^{1-1/(d+1)}$:** Per-node cost $\widetilde O(|Z'|\cdot|X_L|^{1-1/(d+1)}\poly(K))$ with $|Z'|\le|\SSS|$, $|X_L|\le n$. Summing over recursion tree: show total $\le\widetilde O(|\SSS|\cdot n^{1-1/(d+1)})$ not $\widetilde O(|\SSS|\cdot n^{2-1/(d+1)})$. Test numerically: simulate recursion sizes $|X|\to|X|/K$, $t\to t/K$, depth $O(\log_K(t\cdot))$, number nodes $K^{\text{depth}}$ vs \ref{lem:subset-sum-rec-calls} linear bound; verify geometric decay makes root large-item cost dominate. Explicitly check $m=i+1$/$m=j-1$-type boundaries: $K\ge2$ vs $s=1$ base case, and $d=1$ recovers $\sqrt{n}=n^{1-1/2}$ matching \ref{lem:large-items}.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_7_72 ---
+[Falsifier Script 1]:
+# Block 1: Probability Conditioning Stress-Test (5-line Monte Carlo)
+import random
+q=0.3; k=5; N=200000
+fail_all=sum(all(random.random()<q for _ in range(k)) for _ in range(N))/N
+fail_any=sum(any(random.random()<q for _ in range(k)) for _ in range(N))/N
+print(f"emp P[all fail]=q^k theory={q**k:.4f} emp={fail_all:.4f}")
+print(f"emp P[any fail]=1-(1-q)^k theory={1-(1-q)**k:.4f} emp={fail_any:.4f}")
+assert abs(fail_all-q**k)<0.01 and abs(fail_any-(1-(1-q)**k))<0.01
+print("PASS: 'at least one succeeds fails w.p. q^k'; 'all succeed fails w.p. 1-(1-q)^k'. Union-bound over <=400n log n nodes needs per-node failure << 1/nodes.")
+[Falsifier Kernel Output (Verified)]: emp P[all fail]=q^k theory=0.0024 emp=0.0026
+emp P[any fail]=1-(1-q)^k theory=0.8319 emp=0.8322
+PASS: 'at least one succeeds fails w.p. q^k'; 'all succeed fails w.p. 1-(1-q)^k'. Union-bound over <=400n log n nodes needs per-node failure << 1/nodes.
+[Falsifier Script 2]:
+# Block 2: Symbolic Parameter & Recurrence Inequality Verification
+import sympy as sp
+s,d=sp.symbols('s d', positive=True, real=True)
+K=100*sp.log(s)+sp.log(d)  # continuous lower bound for ceil
+# Check K>=2 for s>=2, d>=1 : reduce_inequalities
+print(sp.reduce_inequalities([100*sp.log(s)+sp.log(d) >= 2], [s]))
+# Concrete spot checks
+import math
+for ss,dd in [(1,1),(2,1),(2,5),(10,3)]:
+    Kv=math.ceil(100*math.log(ss+1e-9 if ss>1 else math.e)+math.log(dd+1e-9 if dd>1 else math.e)) if False else None
+    # direct: use natural log; s=1 edge case
+    if ss>=2:
+        print(f"s={ss},d={dd}: 100ln s+ln d = {100*math.log(ss)+math.log(max(dd,1)):.3f} >=2 ?", 100*math.log(ss)+math.log(max(dd,1))>=2)
+    else:
+        Kc=math.ceil(100*math.log(max(ss,math.e))+math.log(max(dd,math.e)))
+        print(f"s={ss}: K=ceil(...)={Kc} (s=O(1) needs Bellman base case, K-1 denom check)")
+# Exponent dominance: d=1 gives 1-1/(d+1)=1/2 matches sqrt; monotonic in d
+for dd in [1,2,3,10]:
+    print(f"d={dd} exponent={1-1/(dd+1):.4f}")
+# Recurrence decay: t -> (1+1/K)t/K <= t/2 for K>=2? check: (1+1/K)/K <= 1/2 iff K>=2
+Ksym=sp.symbols('Ksym', positive=True)
+print(sp.reduce_inequalities([(1+1/Ksym)/Ksym <= sp.Rational(1,2)], [Ksym]))
+print("PASS: K>=2 gives geometric t-shrink; s=1 degenerate needs base case (K-1=0 in submult).")
+[Falsifier Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/Documents/github/proof_harness/.venv/lib/python3.13/site-packages/sympy/polys/polyutils.py", line 231, in _parallel_dict_from_expr_if_gens
+    monom[indices[base]] = exp
+          ~~~~~~~^^^^^
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+**Turn 1 — Exploration Gate: Inventory, Invariant, Claims (No Full Proof)**
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+| Tool | Preconditions to discharge | Conclusion used for |
+|---|---|---|
+| Preprocessing $\|X\|\le\|\SSS(X,t)\|$ | sets $X\subseteq[0..t]^d$ automatic; else linear-time removal | licensed; gives $n\le S:=\|\SSS\|$ |
+| `Alg:FastSubsetSum` high-dim, $K=\lceil100\log s+\log d\rceil$, $\gamma=1/K^5$, $t_k=(1+1/K)t/K$ | $X\subseteq[0..t]^d$, $s\ge S$ | recursion skeleton |
+| Lem `sparse-conv` (1D, $A,B\subseteq[0..t]$) | bounded interval; word-RAM for Las Vegas | fragile in $d>1$; needs $d$-dim lift |
+| Lem `large-items-high-dim` | $d$ constant, $X_L\subseteq[0..t]^d\setminus[0..\gamma t]^d$, $Z\subseteq[0..t]^d$ | per-node large cost $\tilde O(\|Z'\|\cdot\|X_L\|^{1-1/(d+1)}\poly(\gamma^{-1}))$ |
+| Thm `submultiplicativity` | finite sets in commutative semigroup ($\Int^d,+$) | hereditary; bounds $\|\sum A_k\|$ via $\prod\|B_i\|^{1/(K-1)}$ |
+| Lem `sumset-lower-bound` | $A_i\subseteq\Int$ (1D only) | **fragile, cannot use in $d>1$**; replaced by Thm above |
+| Lem `rec-calls` | execution of Alg | depth $\le400\log n$, #calls $\le400n\log n$ w.p. $\ge1-1/n^{40}$ |
+| Lem `correctness` | $X\subseteq[0..t]^d$, $s\ge\|\SSS(X,t)\|$ | Alg correct w.h.p.; needs $s$-dominance at every node |
+
+Target: $d$ constant, $|X|=n$, compute $\SSS(X,t)$ in $\tilde O(S\cdot n^{1-1/(d+1)})$ w.h.p., where $S=|\SSS(X,t)|$.
+
+Unknown $S$: guess $s=1,2,4,\dots$ by doubling; abort over-budget runs. First $s\ge S$ succeeds w.h.p.; geometric series preserves $\tilde O$. Hence WLOG assume $s$ known with $s=\Theta(S)$, $K=\Theta(\log s)$, $n\le s$.
+
+### 2. Invariant-First Formulation
+
+Do NOT brute-force over $d$-dim shapes. Unifying invariant:
+
+> **Nonnegativity + Box-containment:** All items in $\Int_{\ge0}^d$. Hence partial sums are coordinate-wise monotone: if $p\notin[0..t]^d$ (exceeds in some coordinate) any extension $p+q\notin[0..t]^d$. So intermediate sums can be truncated to $[0..t]^d$ without changing final $( \cdot\cap[0..t]^d)$.
+> Small items satisfy $X_S\subseteq[0..t/K^5]^d$. Hence any sum of $\le K-1$ small-box sets fits strictly inside $[0..t]^d$. Only the full $K$-fold sum slightly overflows to $[0..(1+1/K)t]^d$.
+
+This groups all cases: (i) prefixes $Z_{\le k}$ and $B_i=\sum_{j\ne i}Z_j$ are already inside the box $\Rightarrow$ their sizes $\le S_Y$; (ii) only $Z=\sum_{k}Z_k$ needs a non-trivial bound $\Rightarrow$ discharged by submultiplicativity, not 1D Kneser.
+
+### 3. Structured Intermediate Claims
+
+[CLAIM 1 — $d$-dim sparse convolution lift]:
+Let $B=4t+1$, $\phi(x)=\sum_{i=1}^d x_i B^{i-1}$. For $A,B'\subseteq[0..(1+1/K)t]^d$, $\phi$ is injective and $\phi(a)+\phi(b)$ decodes uniquely to $a+b$ without base-$B$ carries. Hence $d$-dim sumset $A+B'$ (truncated or not, staying in $[0..2t]^d$ per operand) can be computed via 1D Lem `sparse-conv` on $\phi$-images in $|A+B'|\polylog(t^d)=|A+B'|\polylog(t)$ (constant $d$).
+[REDUCTION]: Discharges dimension-compatibility precondition for line `sumset`; cost per merge $\tilde O(|{\rm out}|)$.
+
+[CLAIM 2 — $B_i$ containment + $|Z|$ bound]:
+Let $Z_k=\SSS(X_k,t_k)$, $B_i=\sum_{j\ne i}Z_j$, $Z=\sum_k Z_k$. Then $(K-1)t_k=(1-1/K^2)t<t$, so $B_i\subseteq[0..t]^d$ and $B_i\subseteq\SSS(X_S,t)$, $|B_i|\le S_Y:=|\SSS(Y,u)|$. Moreover $Z_k\subseteq Z$ (via $0\in Z_j$) and prefix $Z_{\le k}\subseteq B_i$ ($i>k$) so $|Z_{\le k}|\le S_Y$. By Thm `submultiplicativity` (preconditions: finite sets in $\Int^d$), $|Z|\le(\prod_i|B_i|)^{1/(K-1)}\le S_Y^{K/(K-1)}=S_Y\cdot S_Y^{1/(K-1)}$. Since $K\ge100\log s$, $S_Y^{1/(K-1)}=O(1)$.
+[REDUCTION]: Per-node merge cost $K$ steps $\times\tilde O(S_Y)=S_Y\polylog(s)$; no 1D Kneser needed. Handles $K\ge2$ vs $s=O(1)$ Bellman base separately.
+
+[CLAIM 3 — Per-node cost]:
+At node $(Y,u)$ with $S_Y=|\SSS(Y,u)|$, $Y_L$ large part, $Z'$ final truncated sum: $|Z'|\le S_Y$, merge cost $\tilde O(S_YK\polylog)$, large-item cost via Lem `large-items-high-dim` (verify $Y_L$ escapes $[0..\gamma u]^d$ by construction, $\gamma^{-1}=K^5=\polylog$) is $\tilde O(S_Y|Y_L|^{1-1/(d+1)}\polylog)$. Total per-node $\tilde O(S_Y(|Y_L|^{1-1/(d+1)}+K))$.
+[REDUCTION]: Reduces global bound to summing $S_Y|Y_L|^{\alpha}$ over recursion tree ($\alpha=1-1/(d+1)$).
+
+[CLAIM 4 — Global tree accounting]:
+With random partition, $\sum_k|Y_k|=|Y_S|\le|Y|$, children boxes $t_k\approx u/K$. $S_Y$ monotone: $Y'\subseteq Y$, $u'\le u\Rightarrow |\SSS(Y',u')|\le|\SSS(Y,u)|$ (since $\SSS(Y')\subseteq\SSS(Y)$ and box nested). Combined with Lem `rec-calls` (depth, #calls) and union bound over $\le400n\log n$ nodes (per-node failure $\ll1/{\rm nodes}$ via high-probability amplification), total $\sum_{\rm nodes}S_Y(|Y_L|^{\alpha}+K)=\tilde O(S\,n^{\alpha})$. Small-$t$/small-$|Y|$ leaves via Bellman/trivial base.
+[REDUCTION]: Needs REPL audit: worst-case level sum $\max_l K^l\min(S,2^{n_l},V_l)n_l^{\alpha}$ stays $\le S n^{\alpha}\polylog$; $s$-dominance $|\SSS(Y_k,t_k)|\le s$ at every node for Lem `correctness`.
+
+### 4. REPL Verification
+
+```python
+import itertools, math, random
+# Check 1: 1D Kneser fails in d=2 -> must not use Lem sumset-lower-bound
+def sumset(A,B):
+    return {(a[0]+b[0],a[1]+b[1]) for a in A for b in B}
+A={(0,0),(1,1)}; B={(0,0),(1,1)}
+S=sumset(A,B)
+print("2D counterexample:", len(A),len(B),len(S), "ineq holds?" , len(A)+len(B) <= len(S)+1)
+# find true violation
+found=False
+pts=[(x,y) for x in range(3) for y in range(3)]
+for r in range(2,5):
+    import itertools as it
+    # random search
+    for _ in range(20000):
+        a=set(random.sample(pts, r)); a.add((0,0)); a=list(a)[:r]
+        b=set(random.sample(pts, r)); b.add((0,0)); b=list(b)[:r]
+        A=set(a); B=set(b)
+        S=sumset(A,B)
+        if len(A)+len(B) > len(S)+1:
+            print("VIOLATION 2D Kneser:", A,B,"|A|+|B|=",len(A)+len(B),"|A+B|=",len(S))
+            found=True
+            break
+    if found: break
+if not found: print("no violation found in random search (need structured diag sets)")
+# structured: line sets are ok, need 2D spread? try A={(0,0),(2,0),(0,2)}, B same
+A={(0,0),(2,0),(0,2)}; B={(0,0),(2,0),(0,2)}
+S=sumset(A,B)
+print("spread test:", len(A)+len(B), len(S)+1, "holds:", len(A)+len(B)<=len(S)+1)
+```
+
+```python
+import math
+# Check 2: base-B encoding has no carries on relevant domain
+def phi(v,B): return v[0]+v[1]*B
+for t in [5,9,20]:
+    B=4*t+1; K=5
+    tk=(1+1/K)*t/K
+    bound=int(math.floor(tk))+1
+    ok=True
+    for a0 in range(bound+1):
+        for a1 in range(bound+1):
+            for b0 in range(bound+1):
+                for b1 in range(bound+1):
+                    # operands within (1+1/K)t box, sum of digits < B ?
+                    if a0+b0>=B or a1+b1>=B: ok=False
+    print(f"t={t} B={B} no-carry holds:{ok}")
+# Check 3: S^{1/(K-1)} = O(1) when K=ceil(100 log s)
+for s in [10,1000,10**6,10**9]:
+    K=math.ceil(100*math.log(max(s,2))+1)
+    print(f"s={s} K={K} factor={s**(1/(K-1)):.4f}")
+# Check 4: (K-1)*tk < t
+for K in [2,5,50,200]:
+    t=1000
+    tk=(1+1/K)*t/K
+    print(f"K={K} (K-1)*tk/t={(K-1)*tk/t:.4f} <1? {(K-1)*tk<t} K*tk/t={K*tk/t:.4f}")
+```
+
+```python
+import math, random
+# Check 5: state-machine mock + level-sum worst-case scan
+# bound per level: K^l * min(S, 2^{n_l}, (t_l+1)^d) * n_l^alpha
+def level_bound(n,S,t,d,l,K):
+    nl=max(1,n/(K**l)); tl=t/(K**l)
+    Vl=(tl+1)**d
+    import math
+    m=min(S, 2**nl if nl<60 else float('inf'), Vl)
+    alpha=1-1/(d+1)
+    nodes=K**l
+    return nodes*m*(max(1,nl)**alpha)
+
+for d in [1,2,3]:
+    for (n,S,t) in [(1000,1000,1000),(1000,10**6,1000),(100,10**4,10**5)]:
+        K=max(2,math.ceil(100*math.log(max(S,2))))
+        # K huge vs n -> depth tiny; use realistic K=min(K, ...) ? keep as is for scan l=0..4
+        vals=[level_bound(n,S,t,d,l,K) for l in range(5)]
+        alpha=1-1/(d+1)
+        target=S*(n**alpha)
+        print(f"d={d} n={n} S={S} t={t} K={K} levels={[f'{v:.1e}' for v in vals]} target={target:.1e} ratio_max={max(vals)/target:.2f}")
+```
+
+```python
+# Check 6: mock state machine for fragile vs hereditary tracking
+class MockState:
+    def __init__(self): self.objs={}
+    def register(self,n,**kw): self.objs[n]=kw; print(f"register {n}: {kw}")
+    def derive(self,n,parent,op,details=""): print(f"derive {n} from {parent} via {op}: {details}")
+    def checkpoint(self,n): print(f"checkpoint {n}")
+    def status(self): print("objs:",list(self.objs.keys()))
+state=MockState()
+try:
+    s=state
+    s.register("X", kind="multiset", props=["subset_[0..t]^d","n<=S_preprocessed"])
+    s.register("SSS", kind="family", props=["hereditary_monotone","finite_semigroup"])
+    s.register("K_gamma", kind="params", props=["K=ceil(100logs+logd)","gamma=1/K^5"])
+    s.register("Zk_Z", kind="sumsets", props=["hereditary_inclusion","fragile_dim_sparseconv_needs_lift"])
+    s.register("XL", kind="multiset", props=["large_escape_cube"])
+    s.register("rec_tree", kind="control", props=["depth_calls_Lem","exchangeable_partition"])
+    s.derive("B_i","Zk_Z","sum_{j!=i}Z_j","fits_in_box_(K-1)tk<t")
+    s.derive("Z_trunc","Zk_Z","truncate_to_[0..t]^d","monotone_nonneg")
+    s.checkpoint("per_node_bound")
+    s.status()
+except Exception as e: print("state error:",e)
+print("mock state ok")
+```
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import itertools, math, random
+# Check 1: 1D Kneser fails in d=2 -> must not use Lem sumset-lower-bound
+def sumset(A,B):
+    return {(a[0]+b[0],a[1]+b[1]) for a in A for b in B}
+A={(0,0),(1,1)}; B={(0,0),(1,1)}
+S=sumset(A,B)
+print("2D counterexample:", len(A),len(B),len(S), "ineq holds?" , len(A)+len(B) <= len(S)+1)
+# find true violation
+found=False
+pts=[(x,y) for x in range(3) for y in range(3)]
+for r in range(2,5):
+    import itertools as it
+    # random search
+    for _ in range(20000):
+        a=set(random.sample(pts, r)); a.add((0,0)); a=list(a)[:r]
+        b=set(random.sample(pts, r)); b.add((0,0)); b=list(b)[:r]
+        A=set(a); B=set(b)
+        S=sumset(A,B)
+        if len(A)+len(B) > len(S)+1:
+            print("VIOLATION 2D Kneser:", A,B,"|A|+|B|=",len(A)+len(B),"|A+B|=",len(S))
+            found=True
+            break
+    if found: break
+if not found: print("no violation found in random search (need structured diag sets)")
+# structured: line sets are ok, need 2D spread? try A={(0,0),(2,0),(0,2)}, B same
+A={(0,0),(2,0),(0,2)}; B={(0,0),(2,0),(0,2)}
+S=sumset(A,B)
+print("spread test:", len(A)+len(B), len(S)+1, "holds:", len(A)+len(B)<=len(S)+1)
+```
+--- [TURN 1] EXECUTION SUCCESS (0.5841s) ---
+Stdout:
+2D counterexample: 2 2 3 ineq holds? True
+no violation found in random search (need structured diag sets)
+spread test: 6 7 holds: True
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# Check 2: base-B encoding has no carries on relevant domain
+def phi(v,B): return v[0]+v[1]*B
+for t in [5,9,20]:
+    B=4*t+1; K=5
+    tk=(1+1/K)*t/K
+    bound=int(math.floor(tk))+1
+    ok=True
+    for a0 in range(bound+1):
+        for a1 in range(bound+1):
+            for b0 in range(bound+1):
+                for b1 in range(bound+1):
+                    # operands within (1+1/K)t box, sum of digits < B ?
+                    if a0+b0>=B or a1+b1>=B: ok=False
+    print(f"t={t} B={B} no-carry holds:{ok}")
+# Check 3: S^{1/(K-1)} = O(1) when K=ceil(100 log s)
+for s in [10,1000,10**6,10**9]:
+    K=math.ceil(100*math.log(max(s,2))+1)
+    print(f"s={s} K={K} factor={s**(1/(K-1)):.4f}")
+# Check 4: (K-1)*tk < t
+for K in [2,5,50,200]:
+    t=1000
+    tk=(1+1/K)*t/K
+    print(f"K={K} (K-1)*tk/t={(K-1)*tk/t:.4f} <1? {(K-1)*tk<t} K*tk/t={K*tk/t:.4f}")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0016s) ---
+Stdout:
+t=5 B=21 no-carry holds:True
+t=9 B=37 no-carry holds:True
+t=20 B=81 no-carry holds:True
+s=10 K=232 factor=1.0100
+s=1000 K=692 factor=1.0100
+s=1000000 K=1383 factor=1.0100
+s=1000000000 K=2074 factor=1.0100
+K=2 (K-1)*tk/t=0.7500 <1? True K*tk/t=1.5000
+K=5 (K-1)*tk/t=0.9600 <1? True K*tk/t=1.2000
+K=50 (K-1)*tk/t=0.9996 <1? True K*tk/t=1.0200
+K=200 (K-1)*tk/t=1.0000 <1? True K*tk/t=1.0050
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math, random
+# Check 5: state-machine mock + level-sum worst-case scan
+# bound per level: K^l * min(S, 2^{n_l}, (t_l+1)^d) * n_l^alpha
+def level_bound(n,S,t,d,l,K):
+    nl=max(1,n/(K**l)); tl=t/(K**l)
+    Vl=(tl+1)**d
+    import math
+    m=min(S, 2**nl if nl<60 else float('inf'), Vl)
+    alpha=1-1/(d+1)
+    nodes=K**l
+    return nodes*m*(max(1,nl)**alpha)
+
+for d in [1,2,3]:
+    for (n,S,t) in [(1000,1000,1000),(1000,10**6,1000),(100,10**4,10**5)]:
+        K=max(2,math.ceil(100*math.log(max(S,2))))
+        # K huge vs n -> depth tiny; use realistic K=min(K, ...) ? keep as is for scan l=0..4
+        vals=[level_bound(n,S,t,d,l,K) for l in range(5)]
+        alpha=1-1/(d+1)
+        target=S*(n**alpha)
+        print(f"d={d} n={n} S={S} t={t} K={K} levels={[f'{v:.1e}' for v in vals]} target={target:.1e} ratio_max={max(vals)/target:.2f}")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.001s) ---
+Stdout:
+d=1 n=1000 S=1000 t=1000 K=691 levels=['3.2e+04', '2.0e+03', '4.8e+05', '3.3e+08', '2.3e+11'] target=3.2e+04 ratio_max=7209616.96
+d=1 n=1000 S=1000000 t=1000 K=1382 levels=['3.2e+04', '2.4e+03', '1.9e+06', '2.6e+09', '3.6e+12'] target=3.2e+07 ratio_max=115353.87
+d=1 n=100 S=10000 t=100000 K=922 levels=['1.0e+05', '1.8e+03', '9.5e+05', '7.8e+08', '7.2e+11'] target=1.0e+05 ratio_max=7226429.07
+d=2 n=1000 S=1000 t=1000 K=691 levels=['1.0e+05', '2.4e+03', '4.8e+05', '3.3e+08', '2.3e+11'] target=1.0e+05 ratio_max=2279881.07
+d=2 n=1000 S=1000000 t=1000 K=1382 levels=['1.0e+08', '2.8e+03', '1.9e+06', '2.6e+09', '3.6e+12'] target=1.0e+08 ratio_max=36478.10
+d=2 n=100 S=10000 t=100000 K=922 levels=['2.2e+05', '1.8e+03', '1.1e+06', '7.8e+08', '7.2e+11'] target=2.2e+05 ratio_max=3354211.71
+d=3 n=1000 S=1000 t=1000 K=691 levels=['1.8e+05', '2.5e+03', '4.8e+05', '3.3e+08', '2.3e+11'] target=1.8e+05 ratio_max=1282071.35
+d=3 n=1000 S=1000000 t=1000 K=1382 levels=['1.8e+08', '2.8e+03', '1.9e+06', '2.6e+09', '3.6e+12'] target=1.8e+08 ratio_max=20513.14
+d=3 n=100 S=10000 t=100000 K=922 levels=['3.2e+05', '1.8e+03', '1.2e+06', '7.8e+08', '7.2e+11'] target=3.2e+05 ratio_max=2285198.15
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Check 6: mock state machine for fragile vs hereditary tracking
+class MockState:
+    def __init__(self): self.objs={}
+    def register(self,n,**kw): self.objs[n]=kw; print(f"register {n}: {kw}")
+    def derive(self,n,parent,op,details=""): print(f"derive {n} from {parent} via {op}: {details}")
+    def checkpoint(self,n): print(f"checkpoint {n}")
+    def status(self): print("objs:",list(self.objs.keys()))
+state=MockState()
+try:
+    s=state
+    s.register("X", kind="multiset", props=["subset_[0..t]^d","n<=S_preprocessed"])
+    s.register("SSS", kind="family", props=["hereditary_monotone","finite_semigroup"])
+    s.register("K_gamma", kind="params", props=["K=ceil(100logs+logd)","gamma=1/K^5"])
+    s.register("Zk_Z", kind="sumsets", props=["hereditary_inclusion","fragile_dim_sparseconv_needs_lift"])
+    s.register("XL", kind="multiset", props=["large_escape_cube"])
+    s.register("rec_tree", kind="control", props=["depth_calls_Lem","exchangeable_partition"])
+    s.derive("B_i","Zk_Z","sum_{j!=i}Z_j","fits_in_box_(K-1)tk<t")
+    s.derive("Z_trunc","Zk_Z","truncate_to_[0..t]^d","monotone_nonneg")
+    s.checkpoint("per_node_bound")
+    s.status()
+except Exception as e: print("state error:",e)
+print("mock state ok")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0007s) ---
+Stdout:
+register X: {'kind': 'multiset', 'props': ['subset_[0..t]^d', 'n<=S_preprocessed']}
+register SSS: {'kind': 'family', 'props': ['hereditary_monotone', 'finite_semigroup']}
+register K_gamma: {'kind': 'params', 'props': ['K=ceil(100logs+logd)', 'gamma=1/K^5']}
+register Zk_Z: {'kind': 'sumsets', 'props': ['hereditary_inclusion', 'fragile_dim_sparseconv_needs_lift']}
+register XL: {'kind': 'multiset', 'props': ['large_escape_cube']}
+register rec_tree: {'kind': 'control', 'props': ['depth_calls_Lem', 'exchangeable_partition']}
+derive B_i from Zk_Z via sum_{j!=i}Z_j: fits_in_box_(K-1)tk<t
+derive Z_trunc from Zk_Z via truncate_to_[0..t]^d: monotone_nonneg
+checkpoint per_node_bound
+objs: ['X', 'SSS', 'K_gamma', 'Zk_Z', 'XL', 'rec_tree']
+mock state ok
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 2/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Let $d\ge 1$ be constant, $X\subseteq [0\ldots t]^{d}$ a multiset,
+$|X|=n$, $S=|\SSS(X,t)|$, $\alpha=1-\frac1{d+1}$.
+Assume the licensed preprocessing $|X|\le S$, else remove
+redundancies in linear time. It suffices to prove time
+$\widetilde\Order(S\,n^{\alpha})$ w.h.p.
+We guess $s$ with $S\le s\le 2S$ by standard doubling
+$s=1,2,4,\dots$, aborting on budget exceed; geometric series
+preserves $\widetilde\Order$. Hence assume $s$ known,
+$s\ge S$, $|X|\le s$.
+
+\medskip\noindent\textbf{Base cases and $K\ge 2$.}
+If $|X|\le 1$ or $t\le 1$ the algorithm is trivial.
+If $s=1$ then $S\le 1$, $n\le 1$, done by enumeration.
+Hence assume $s\ge 2$, $n\ge 2$, $t>1$.
+Let $K=\lceil 100\log s+\log d\rceil$.
+For any log-base $>1$, $K\ge 2$ when $s\ge 2$.
+Put $\gamma=K^{-5}$, $t_{k}=(1+1/K)t/K$,
+$X_{S}=X\cap[0\ldots t/K^{5}]^{d}$, $X_{L}=X\setminus X_{S}$.
+Enforce $|Y|\le |\SSS(Y,u)|$ at each node by linear preprocessing.
+For a node $(Y,u)$, children are $(X_{k},t_{k})$ where
+$X_{S}=\sqcup_{k}X_{k}$ randomly. Since $K\ge 2$,
+$(1+1/K)/K\le 1$, so $t_{k}\le u$, and
+$u/K^{5}\le t_{k}$; thus $X_{k}\subseteq[0\ldots t_{k}]^{d}$.
+Also $Y\subseteq[0\ldots u]^{d}$ is preserved.
+Monotonicity gives $|\SSS(X_{k},t_{k})|\le |\SSS(Y,u)|\le s$,
+since $X_{k}\subseteq Y$, $t_{k}\le u$ and sums are non-negative.
+Hence \cref{lem:subset-sum-correctness} preconditions hold at every
+node, and correctness follows w.h.p.\ by union bound over at most
+$400n\log n$ nodes from \cref{lem:subset-sum-rec-calls}, choosing the
+prescribed high-probability constant large enough. If $s\le s_{0}$
+absolute constant, $n\le s_{0}$ and $2^{n}=O(1)$ enumeration suffices;
+hence assume $s$ large.
+
+\begin{claim}\label{cl:encode} $d$-dimensional small-box sums reduce to
+1D without carries.
+\end{claim}
+\begin{proof}
+Fix node $(Y,u)$ with $t_{k}$ as above.
+Let $Z_{k}=\SSS(X_{k},t_{k})\subseteq[0\ldots t_{k}]^{d}$.
+Let $B=\lceil Kt_{k}\rceil+1=O(t)$.
+Any sum $\sum_{k}z_{k}$, $z_{k}\in Z_{k}$, has coordinates
+$\le K\lfloor t_{k}\rfloor<B$.
+Define $\phi(x)=\sum_{i=0}^{d-1}x_{i}B^{i}$ on
+$[0\ldots Kt_{k}]^{d}$. Digit-wise addition has no carry because
+coordinate sums $<B$; hence $\phi$ is injective and
+$\phi(\sum z_{k})=\sum\phi(z_{k})$.
+Thus $|\sum Z_{k}|=|\sum\phi(Z_{k})|$ and prefixes are preserved.
+Since $\phi(Z_{k})\subset\Int$ finite,
+\cref{lem:sumset-lower-bound} gives
+$\sum_{k}|Z_{k}|\le |Z|+K-1$ where $Z=\sum_{k}Z_{k}$.
+Moreover $\phi(Z_{<k}),\phi(Z_{k})\subseteq[0\ldots B^{d}]$,
+so \cref{lem:sparse-conv} computes $Z_{<k}+Z_{k}$ via $\phi$ in
+$|{\rm out}|\polylog(B^{d})=|{\rm out}|\polylog(t)$ deterministic
+and $O(|{\rm out}|\log|{\rm out}|)$ Las Vegas, as
+$\log B^{d}=O(d\log t)=O(\log t)$.
+\end{proof}
+
+\begin{claim}\label{cl:submult} Let $B_{i}=\sum_{j\ne i}Z_{j}$.
+Then $|B_{i}|\le S_{Y}$ and $|Z|=O(S_{Y})$.
+\end{claim}
+\begin{proof}
+$Z_{k}$ are finite in the commutative semigroup $(\Int^{d},+)$,
+so \cref{thm:submultiplicativity} applies.
+Now $(K-1)t_{k}=(K-1)(K+1)K^{-2}u=(1-K^{-2})u<u$.
+Hence $B_{i}\subseteq[0\ldots u]^{d}$ and
+$B_{i}\subseteq\SSS(Y_{S},u)$, so $|B_{i}|\le S_{Y}:=|\SSS(Y,u)|$.
+Also $0\in Z_{j}$, so for $i>k$, $Z_{\le k}:=\sum_{j\le k}Z_{j}
+\subseteq B_{i}$, whence $|Z_{\le k}|\le S_{Y}$.
+By the theorem,
+$|Z|\le(\prod_{i}|B_{i}|)^{1/(K-1)}\le S_{Y}^{K/(K-1)}
+=S_{Y}\cdot S_{Y}^{1/(K-1)}$.
+Since $S_{Y}\le s$ and $K-1\ge 100\log s$, $S_{Y}^{1/(K-1)}=O(1)$
+($\le 1.1$ for large $s$; $=1$ if $S_{Y}\le1$).
+Thus $|Z|=O(S_{Y})$ and all merges cost $\widetilde\Order(S_{Y})$
+each, $K$ merges giving $S_{Y}\polylog(s,t)$ per node.
+\end{proof}
+
+\medskip\noindent\textbf{Per-node cost.}
+Truncate $Z$ to $[0\ldots u]^{d}$; excess points cannot combine with
+non-negative items to land in the box, so
+$(Z+\SSS(Y_{L},u))\cap[0\ldots u]^{d}$ is unchanged.
+Then $Z_{\rm trunc}\subseteq\SSS(Y_{S},u)$ and final
+$Z'=(Z+\SSS(Y_{L},u))\cap[0\ldots u]^{d}\subseteq\SSS(Y,u)$,
+so $|Z_{\rm trunc}|,|Z'|\le S_{Y}$.
+By construction $Y_{L}=Y\setminus(Y\cap[0\ldots\gamma u]^{d})
+\subseteq[0\ldots u]^{d}\setminus[0\ldots\gamma u]^{d}$ with
+$\gamma=K^{-5}>0$. Hence \cref{lem:large-items-high-dim} applies and
+costs $\widetilde\Order(|Z'|\cdot|Y_{L}|^{\alpha}\poly(\gamma^{-1}))$
+with $\poly(\gamma^{-1})=\poly(K)=\polylog(s)$.
+With Claim~\ref{cl:submult}, node exclusive cost is
+$E_{v}\le C_{0}S_{v}(m_{v}^{\alpha}+K)P_{0}$,
+$m_{v}=|Y_{v}|$, $P_{0}=\polylog(s,t)$.
+
+\medskip\noindent\textbf{Global accounting.}
+Condition on \cref{lem:subset-sum-rec-calls}: depth $\le400\log n$,
+$\#{\rm nodes}\le400n\log n$ w.p.\ $\ge1-n^{-40}$.
+Random partition is balls-into-bins; Chernoff plus union over all
+nodes gives w.h.p.\ $\max_{k}|X_{k}|\le2m_{S}/K+C_{1}\log n$.
+Let $m_{0}=K^{1/\alpha}=K^{1+1/d}=\polylog(s)$.
+If $m_{v}\le m_{0}$, the subtree has $\le O(m_{v}\log m_{v})$
+nodes, each $S\le S_{v}$, each $E\le S_{v}\polylog$; total
+$\le S_{v}\polylog\le CS_{v}\max(1,m_{v})^{\alpha}P$ for large $P$.
+If $m_{v}\ge m_{0}$ then $m_{v}^{\alpha}\ge K\gg\log n$ and
+$S_{v}\ge m_{v}\ge K$; Claims~\ref{cl:encode}--\ref{cl:submult} give
+$\sum_{k}S_{k}\le|Z|+K\le2S_{v}$ and
+$\max_{k}m_{k}^{\alpha}\le O(K^{-\alpha})m_{v}^{\alpha}$ up to
+$o(1)$ from the $O(\log n)$ term, since $\alpha=d/(d+1)$.
+Induction on $u$ ($t_{k}<u$) with hypothesis
+$T_{v}\le CS_{v}\max(1,m_{v})^{\alpha}P$ then yields
+$\sum_{k}T_{k}\le CS_{v}m_{v}^{\alpha}P\cdot O(K^{-\alpha})
+\ll\frac12CS_{v}m_{v}^{\alpha}P$ for large $K$,
+absorbing $E_{v}$ by taking $C\gg C_{0}$, $P\gg P_{0}$.
+The $m_{v}=0$ leaf costs $O(1)\le CS_{v}P$.
+Thus root costs $CS\,n^{\alpha}P=\widetilde\Order(Sn^{\alpha})$.
+
+Union-bounding partition balance, recursion calls and correctness
+over $O(n\log n)$ nodes preserves high probability.
+Doubling $s$ contributes a geometric series. This computes
+$\SSS(X,t)$ in $\widetilde\Order(|\SSS(X,t)|\cdot n^{1-1/(d+1)})$.
+\end{proof}
+[Proof Draft Generated] Turn 2: 5815 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.88, "completeness": 0.9, "boundary_cases": 0.9, "validity": 0.88, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": false, "theorem_hypotheses_verified": true, "rigor": 0.55, "completeness": 0.6, "boundary_cases": 0.85, "validity": 0.52, "verdict": "REJECT", "issues": "False quantitative partition-balance bound and unproved global accounting. Claims max_k m_k^alpha <= O(K^{-alpha}) m_v^alpha up to o(1) and K >> log n with m_k <= 2m_v/K + C1 log n. False: K=Theta(log s) is Theta(log n) when n<=s, not >>. Counterexample d=3, alpha=3/4, K large, m_v=m0=K^{1/alpha}: 2m_v/K=2K^{1/d} << C1 log n =Theta(K), so max_k m_k^alpha =Theta((log n)^alpha)=Theta(K^alpha) while claimed O(K^{-alpha})m_v^alpha=O(K^{1-alpha}), and alpha>1-alpha, so upper bound too small. Threshold m0=K^{1/alpha} insufficient to dominate additive term for d>1. Also claims subtree with m_v<=m0 has <=O(m_v log m_v) nodes from global conditioning on <=400n log n nodes; global bound does not imply per-subtree bound. Union bound for Chernoff balance over random number of nodes and correctness over nodes not justified. Doubling s via abort on budget exceed without detection of s<S incorrect output not proved."}
+[Best Candidate Updated] Turn 2: validity=0.50 (5815 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.50, rejection #1)
+False quantitative partition-balance bound and unproved global accounting. Claims max_k m_k^alpha <= O(K^{-alpha}) m_v^alpha up to o(1) and K >> log n with m_k <= 2m_v/K + C1 log n. False: K=Theta(log s) is Theta(log n) when n<=s, not >>. Counterexample d=3, alpha=3/4, K large, m_v=m0=K^{1/alpha}: 2m_v/K=2K^{1/d} << C1 log n =Theta(K), so max_k m_k^alpha =Theta((log n)^alpha)=Theta(K^alpha) while claimed O(K^{-alpha})m_v^alpha=O(K^{1-alpha}), and alpha>1-alpha, so upper bound too small. Threshold m0=K^{1/alpha} insufficient to dominate additive term for d>1. Also claims subtree with m_v<=m0 has <=O(m_v log m_v) nodes from global conditioning on <=400n log n nodes; global bound does not imply per-subtree bound. Union bound for Chernoff balance over random number of nodes and correctness over nodes not justified. Doubling s via abort on budget exceed without detection of s<S incorrect output not proved.
+[Self-Improvement] Initiating surgical revision turn 3 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_7_72 ---
+[Critique Falsifier Script]:
+import math
+d=3; alpha=1-1/(d+1); C1=1.0; Cclaim=10.0
+K=1e6
+m_v=K**(1/alpha)  # threshold m0
+logn=K/100.0  # since K=100*log s and n<=s, log n = Theta(K), not <<K
+balanced=2*m_v/K
+add=C1*logn
+max_mk=balanced+add
+actual=max_mk**alpha
+claimed=Cclaim*(K**(-alpha))*(m_v**alpha)
+print(f"K={K:.0f} mv={m_v:.1f} bal={balanced:.1f} add={add:.1f} actual={actual:.1f} claimed={claimed:.1f} ratio={actual/claimed:.1f}")
+print(f"alpha={alpha} 1-alpha={1-alpha} K^alpha={K**alpha:.1f} K^(1-alpha)={K**(1-alpha):.1f}")
+if actual > claimed:
+    print(f"COUNTEREXAMPLE_FOUND: d=3 alpha={alpha} K={K:.0f} mv=K^(1/alpha) max_mk~{max_mk:.0f} gives max^alpha={actual:.0f} >> claimed O(K^-a)mv^a={claimed:.0f}")
+    raise assert False, "COUNTEREXAMPLE_FOUND"
+else:
+    print("INVARIANT_VERIFIED: balance bound holds")
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 3/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Let $d\ge 1$ be constant, $X\subseteq[0\ldots t]^{d}$ a multiset,
+$|X|=n$, $S=|\SSS(X,t)|$, $\alpha=1-\frac1{d+1}$.
+Assume the licensed preprocessing $|X|\le S$, enforced
+linearly at each node. If $|X|\le 1$ or $t\le 1$ the instance is
+trivial, and if $S=O(1)$ then $n=O(1)$ and Bellman enumeration
+suffices. Hence assume $n\ge 2$, $t>1$.
+
+Let $U=(t+1)^{d}\ge S$ and $s=U$.
+Put $K=\lceil 100\log s+\log d\rceil$,
+$\gamma=K^{-5}$, $t_{k}=(1+1/K)t/K$.
+Then $K\ge 2$ (indeed $K\ge 50$ for $t>1$),
+$t_{k}<u$ for any node target $u$, and
+$(K-1)t_{k}=(1-K^{-2})u<u$, $Kt_{k}=(1+1/K)u$.
+All $Y\subseteq[0\ldots u]^{d}$ is preserved and
+$|\SSS(Y',u')|\le |\SSS(Y,u)|$ if $Y'\subseteq Y$, $u'\le u$,
+since sums are non-negative. Hence every descendant
+$(Y,u)$ satisfies $|\SSS(Y,u)|\le S\le s$, so the
+precondition $s\ge |\SSS|$ of
+\cref{lem:subset-sum-correctness} holds everywhere and the
+algorithm is correct w.h.p. Condition henceforth on
+correctness and on \cref{lem:subset-sum-rec-calls}, which holds
+with probability $\ge 1-n^{-40}$.
+Deterministically $t_{\rm child}\le 0.75\,u$ for $K\ge 2$,
+so depth is $O(\log t)$, and per level $\sum m\le n$ since
+children partition $X_{S}$ and drop $X_{L}$.
+
+\begin{claim}\label{cl:enc} Small-box sums reduce to 1D.
+\end{claim}
+\begin{proof}
+Fix $(Y,u)$, $Z_{k}=\SSS(X_{k},t_{k})\subseteq[0\ldots t_{k}]^{d}$.
+Let $B=\lceil Kt_{k}\rceil+1=O(t)$.
+Any $\sum z_{k}$ has coordinates $<B$.
+Define $\phi(x)=\sum_{i}x_{i}B^{i}$.
+Digit-wise addition has no carry, so $\phi$ is injective on
+$[0\ldots Kt_{k}]^{d}$ and $\phi(\sum z_{k})=\sum\phi(z_{k})$.
+Thus $|\sum Z_{k}|=|\sum\phi(Z_{k})|$ and prefixes are preserved.
+$\phi(Z_{k})\subset\Int$ finite, so
+\cref{lem:sumset-lower-bound} gives
+$\sum_{k}|Z_{k}|\le |Z|+K-1$, $Z=\sum_{k}Z_{k}$.
+Moreover $\phi$-images lie in $[0\ldots B^{d}]$, so
+\cref{lem:sparse-conv} applies with $\polylog(B^{d})=\polylog(t)$.
+\end{proof}
+
+\begin{claim}\label{cl:sub} $|Z|=O(S_{Y})$ and merges cost
+$\widetilde\Order(S_{Y})$.
+\end{claim}
+\begin{proof}
+$Z_{k}$ are finite in $(\Int^{d},+)$, so
+\cref{thm:submultiplicativity} applies.
+Let $B_{i}=\sum_{j\ne i}Z_{j}$.
+Since $(K-1)t_{k}<u$, $B_{i}\subseteq[0\ldots u]^{d}$ and
+$B_{i}\subseteq\SSS(Y_{S},u)$, so $|B_{i}|\le S_{Y}:=|\SSS(Y,u)|$.
+Also $0\in Z_{j}$, so $Z_{\le k}:=\sum_{j\le k}Z_{j}\subseteq B_{i}$
+for $i>k$, hence $|Z_{\le k}|\le S_{Y}$.
+The theorem gives $|Z|\le(\prod|B_{i}|)^{1/(K-1)}
+\le S_{Y}^{K/(K-1)}=S_{Y}\cdot S_{Y}^{1/(K-1)}$.
+Since $S_{Y}\le s$ and $K-1\ge 100\log s$,
+$S_{Y}^{1/(K-1)}=O(1)$. Thus $|Z|=O(S_{Y})$ and each of the
+$K$ merges costs $\widetilde\Order(S_{Y})$.
+\end{proof}
+
+Truncate $Z$ to $[0\ldots u]^{d}$; non-negative completions cannot
+re-enter the box, so the final set is unchanged.
+Then $Z_{\rm trunc}\subseteq\SSS(Y_{S},u)$ and
+$Z'=(Z+\SSS(Y_{L},u))\cap[0\ldots u]^{d}\subseteq\SSS(Y,u)$,
+so $|Z_{\rm trunc}|,|Z'|\le S_{Y}$.
+By construction $Y_{L}\subseteq[0\ldots u]^{d}\setminus
+[0\ldots\gamma u]^{d}$, $\gamma=K^{-5}>0$.
+Hence \cref{lem:large-items-high-dim} applies and costs
+$\widetilde\Order(|Z'|\cdot|Y_{L}|^{\alpha}\poly(\gamma^{-1}))$,
+$\poly(\gamma^{-1})=\poly(K)=\polylog(t)$.
+With Claim~\ref{cl:sub}, node exclusive cost is
+$E_{v}\le C_{0}S_{v}(m_{v}^{\alpha}+K)P_{0}$,
+$P_{0}=\polylog(t)$, $m_{v}=|Y_{v}|$.
+
+Let $L=\log(n+t)+10$ and
+$M_{0}=C_{2}K^{1/\alpha}L$ for large constant $C_{2}$,
+still $\polylog(n,t)$ since $K=O(\log t)$ and
+$\log n=O(\log t)$ as $n\le (t+1)^{d}$.
+Note $M_{0}^{\alpha}=C_{2}^{\alpha}KL^{\alpha}\gg K$.
+
+\medskip\noindent\textbf{Small subtrees deterministically.}
+If $m_{v}\le M_{0}$, the whole subtree below $v$ has
+$\sum m\le M_{0}$ per level and depth $O(\log t)$,
+so at most $O(M_{0}\log t)$ non-empty nodes and
+$O(KM_{0}\log t)=\polylog$ total nodes, since empty children
+are leaves. Each descendant $w$ satisfies $S_{w}\le S_{v}$,
+so $E_{w}\le S_{v}\polylog$. Hence total subtree time
+$T_{\rm sub}(v)\le S_{v}P_{1}$ for $P_{1}=\polylog(n,t)$,
+which is $\le CS_{v}\max(1,m_{v})^{\alpha}P$ for large $P$.
+
+\medskip\noindent\textbf{Balance of large nodes.}
+Call $v$ large if $m_{v}\ge M_{0}$; largeness is prefix-closed
+since sizes are non-increasing down any path.
+Per level $\sum m\le n$, depth $O(\log t)$, so the number of
+large nodes is deterministically at most
+$N_{\max}=O(n\log t/M_{0})$.
+Fix a large $v$ with $m=|Y|$, $m_{S}=|X_{S}|$, children loads
+$L_{k}\sim{\rm Bin}(m_{S},1/K)$, $\mu_{S}=m_{S}/K$,
+$T=1.5m/K$. If $m_{S}\le T$ then $\max L_{k}\le T$
+deterministically. Else $T\ge1.5\mu_{S}$; write
+$T=(1+\delta)\mu_{S}$, $\delta\ge0.5$.
+Standard Chernoff gives $\Pr[L_{k}\ge T]\le\exp(-cT)$,
+indeed $\exp(-\mu_{S}\delta^{2}/3)$ for $\delta\le1$ is
+$\le\exp(-T/18)$ and $\exp(-\mu_{S}\delta/3)$ for
+$\delta\ge1$ is $\le\exp(-T/6)$.
+Since $T\ge1.5M_{0}/K\gg L$, this is $\le\exp(-cC_{2}L)$.
+Union over $K$ bins and sequential union over at most
+$N_{\max}$ large nodes in BFS order, each with fresh
+partition conditional on history, yields
+$\max_{k}m_{k}\le1.5m/K$ for all large $v$ w.h.p.\ for
+$C_{2}$ large. Denote this $G_{\rm bal}$.
+
+\medskip\noindent\textbf{Large induction.}
+Induct on $u$: assume $T(w)\le CS_{w}\max(1,m_{w})^{\alpha}P$
+for all smaller targets, with $P\gg P_{0},P_{1}$ to be chosen.
+Let $v$ be large. By $G_{\rm bal}$,
+$\max m_{k}^{\alpha}\le1.5^{\alpha}m^{\alpha}K^{-\alpha}$.
+By Claims~\ref{cl:enc}--\ref{cl:sub},
+$\sum S_{k}\le1.01S_{v}+K$.
+Hence $\sum_{k}S_{k}m_{k}^{\alpha}
+\le(1.5m/K)^{\alpha}(1.01S_{v}+K)
+\le c_{K}S_{v}m^{\alpha}+O(K^{1-\alpha}m^{\alpha})$,
+$c_{K}=1.01\cdot1.5^{\alpha}K^{-\alpha}\ll1$ as $K\ge50$.
+Since $S_{v}\ge m\ge M_{0}\gg K^{1-\alpha}$,
+the second term is $\ll S_{v}m^{\alpha}$, and empty children
+contribute $O(K)\ll CS_{v}m^{\alpha}P$ as $S_{v}m^{\alpha}
+\ge M_{0}^{1+\alpha}\gg K$.
+Thus $\sum_{k}T_{k}\le\frac14CS_{v}m^{\alpha}P$ for large $C$.
+Moreover $K\ll m^{\alpha}$ since $m^{\alpha}\ge M_{0}^{\alpha}
+\gg K$, so $E_{v}\le2C_{0}S_{v}m^{\alpha}P_{0}
+\le\frac14CS_{v}m^{\alpha}P$ for $CP\gg P_{0}$.
+Hence $T(v)=\sum T_{k}+E_{v}\le\frac12CS_{v}m^{\alpha}P$,
+closing the induction. Small $v$ were already bounded above.
+
+Applying to the root gives
+$T_{\rm root}\le CS\,n^{\alpha}P
+=\widetilde\Order(S\,n^{1-1/(d+1)})$.
+Conditioning on correctness, recursion-call, balance and
+Las Vegas time-concentration events, all w.h.p., preserves
+high probability. This computes $\SSS(X,t)$.
+\end{proof}
+[Proof Draft Generated] Turn 3: 6370 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+[Proof Auditor Stage 1 Counterexample]: Empirical Falsification: Witness/assertion failed:
+Traceback (most recent call last):
+  File "<prime_math>", line 109, in <module>
+AssertionError: FALSIFIED: n=100 > (t+1)^d=2, so log n != O(log t)
+[Falsifier Test Script]:
+import math
+import random
+import itertools
+
+# 1. K >= 2 and K >= 50 for t>1 (with natural log, as in proof)
+# s = U = (t+1)^d, K = ceil(100*log s + log d)
+def K_of(t, d):
+    s = (t+1)**d
+    # handle d=1 log(1)=0; use natural log
+    return math.ceil(100*math.log(s) + (math.log(d) if d>1 else 0))
+
+for t in [2, 3, 10, 100]:
+    for d in [1, 2, 5]:
+        K = K_of(t, d)
+        assert K >= 2, f"K>=2 fails t={t} d={d} K={K}"
+        assert K >= 50, f"K>=50 fails t={t} d={d} K={K}"
+
+# 2. Algebraic identities for t_k = (1+1/K)*u/K
+for K in [2, 3, 50, 110]:
+    for u in [1.0, 5.0, 100.0]:
+        tk = (1+1.0/K)*u/K
+        assert math.isclose((K-1)*tk, (1-1.0/(K*K))*u, rel_tol=1e-9, abs_tol=1e-9)
+        assert math.isclose(K*tk, (1+1.0/K)*u, rel_tol=1e-9, abs_tol=1e-9)
+        assert (K-1)*tk < u + 1e-9
+        # deterministically t_child <= 0.75 u for K>=2
+        assert tk <= 0.75*u + 1e-9, f"child bound fails K={K}"
+
+# 3. Claim: phi(x)=sum x_i B^i with B=ceil(K*tk)+1 has no carry, injective, additive
+def phi(x, B):
+    return sum(xi*(B**i) for i, xi in enumerate(x))
+
+for (d, K, u) in [(2, 50, 10.0), (3, 5, 20.0)]:
+    tk = (1+1.0/K)*u/K
+    B = math.ceil(K*tk)+1
+    # coordinates o
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.9, "boundary_cases": 0.9, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.95, "completeness": 0.95, "boundary_cases": 0.95, "validity": 0.95, "verdict": "VALID", "issues": "none"}
+[Best Candidate Updated] Turn 3: validity=0.90 (6370 chars)
+[Audit Passed] Proof verified on Turn 3 (validity: 0.90). Early-terminating to prevent multi-turn degradation.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_7_72 | Proof Length: 6370 chars | Turns: 3 | Duration: 1311.76s
+================================================================================

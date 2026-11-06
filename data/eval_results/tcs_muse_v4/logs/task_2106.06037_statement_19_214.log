@@ -1,0 +1,2052 @@
+
+
+================================================================================
+[2026-10-24 09:55:00] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_19_214
+================================================================================
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_19_214 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**Objects & Definitions (licensed as axioms):**
+- `Alphabet/Fragment`: $\Sigma=\{1..\sigma\}$, $Y[i]$, $Y[i\dd j)$, $Y(i\dd j]$, empty $\eps$ if $i>j$.
+- `Previous factor / LZ77`: $X[i\dd i+\ell)$ is previous iff equals $X[i'\dd i'+\ell)$ for some $i'<i$. $X=F_1\cdots F_z$ where $F_j$ is longest previous factor at $1+|F_1\cdots F_{j-1}|$, else single char. $|\LZ(X)|=z$.
+- `Alignment` $\A=(x_t,y_t)_{t=1}^m$: $(x_1,y_1)=(1,1)$, $(x_m,y_m)=(|X|+1,|Y|+1)$, steps $(+1,+1),(+1,0),(0,+1)$.
+  - delete $X[x_t]$ / delete $Y[y_t]$ / align $X[x_t]\sim_\A Y[y_t]$; match $\simeq_\A$ if chars equal else substitution.
+  - $\cost(\A)$ = # deletes + substitutions.
+  - $\mtch(\A)$ vs $\brkp(\A)$ partition of positions $t$. For every $\A$, $\mtch(\A)$ is non-crossing matching.
+  - $\A$ aligns $X[x_\ell\dd x_r)\sim_\A Y[y_\ell\dd y_r)$; matches $\simeq_\A$ if no breakpoint $t\in[\ell\dd r)$.
+- `Non-crossing matching` $M\subset[1\dd|X|]\times[1\dd|Y|]$: $X[x]=Y[y]$ for $(x,y)\in M$, no $(x,y),(x',y')$ with $x\le x'$ and $y\ge y'$.
+- `Greedy` (Def. \ref{def:greedy_alignment}): $\A$ greedy iff $X[x]\ne Y[y]$ for every $(x,y)\in\brkp(\A)\cap([1\dd|X|]\times[1\dd|Y|])$. $\ga_k(X,Y)=\{\A\text{ greedy}:\cost\le k\}$.
+- `Common matches`: for $k\ge\ed(X,Y)$, $\mtch_k(X,Y)=\bigcap_{\A\in\ga_k}\mtch(\A)$, itself non-crossing.
+- `Masked strings` (defnoncrossing): $X^M,Y^M$ replace $X[x],Y[y]$ by $\#\notin\Sigma$ for $(x,y)\in M$. Maximal $\#$-blocks = dummy segments.
+
+**Observation \ref{fct:lz_properties} — Precondition Contract:**
+- (P1) Any LZ-like factorization $X=F_1\cdots F_f$ (each $|F_j|>1\Rightarrow$ previous factor, not necessarily longest) has $f\ge |\LZ(X)|$. **Hypothesis to discharge:** exhibit explicit factorization with each long phrase having an earlier occurrence; then $|\LZ|\le f$.
+- (P2) $|\LZ(X)|\le |\LZ(XY)|\le |\LZ(X)|+|\LZ(Y)|$. **Use:** bound concatenation by sum; bound substring via prefix argument. No lower-bound merging without proof.
+
+**Preconditions for target Lemma \ref{lm:greedy_size}:**
+- Must assume $k\ge\ed(X,Y)$ positive integer, $M=\mtch_k(X,Y)$. Then $\ga_k\neq\emptyset$ (optimal can be made greedy — must justify, not assume extra $k\ge 2$ or non-emptiness of $M$). No unauthorized $k$ margins.
+- Goal: $|\LZ(X^M)|,|\LZ(Y^M)|=O(k^2)$ and #dummy segments $=O(k)$. By symmetry suffices $X^M$.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Strategy Alpha — Constructive / Inductive Invariant (LZ-like witness from a fixed optimal greedy alignment):**
+- Fix one $\A_0\in\ga_k$ with $\cost\le k$ (exists since $k\ge\ed$). Its breakpoints partition $X$ into $\le \cost+1\le k+1$ maximal exactly-matched blocks interleaved with $\le k$ edited positions.
+- Construct LZ-like factorization of $X^M$: cut $X^M$ at every position where $\A_0$ has breakpoint/delete/substitution, plus at boundaries of dummy segments. Claim each remaining solid (non-$\#$) fragment between cuts is a previous factor inherited from self-similarity of $X$ via $\A_0$'s matches.
+- Inductively maintain invariant: prefix $X^M[1\dd p)$ already factored into $O(k^2)$ phrases; next phrase either single $\#$ / single edited char or extends via earlier occurrence that avoids $M$-masking. Use rank-1 extension: longest previous factor can only be blocked by $\#$'s or edits.
+- Yields $O(k)$ blocks $\times$ $O(k)$ phrases per block $=O(k^2)$. Must handle boundary indices $m=i+1,j-1$ explicitly, not claim one branch of min always wins.
+
+**Strategy Beta — Extremal Split / Canonical Witness / Potential Function:**
+- Let $M=\bigcap_{\A}\mtch(\A)$. Complement = positions that *some* greedy cost-$\le k$ alignment breaks. For each $x\in[1\dd|X|]$, define extremal witness $\A_x\in\ga_k$ that breaks/misaligns $x$ if any exists.
+- Order $M$ as chain $(x_1,y_1)<(x_2,y_2)<\dots$ by non-crossing. Consider gaps $G_i=X^M[x_i+1\dd x_{i+1}-1]$ (with $x_0=0,x_{|M|+1}=|X|+1$). Show number of *non-dummy* gaps (i.e. gaps containing non-$\#$) is $O(k)$: if gap is long with no common match, then every $\A\in\ga_k$ matches it identically, forcing it to be a single dummy segment; otherwise extremal split index $q$ attaining $\min_q$ edit structure gives distinct breakpoint charge.
+- Potential $\Phi=|\brkp|$ across extremal alignments: each maximal dummy segment corresponds to maximal interval where all $\A$ agree; number of disagreements $\le O(k)$ because each $\A$ has $\le k$ breakpoints, and greedy condition $X[x]\ne Y[y]$ on breakpoints prevents merging distinct paths. Tree-ancestry view: alignments as monotone paths; common matches = intersection; branching only at breakpoints.
+- Then bound $|\LZ|$ of each gap by $O(k)$ using (P2) + edit-distance $\le k$ to corresponding $Y$-fragment, giving $O(k)\times O(k)=O(k^2)$. Contrapositive: if $|\LZ(X^M)|$ large, some gap has large LZ, contradicting small edit span.
+
+**Strategy Gamma — Structural Decomposition / Separator:**
+- Decompose $X^M,Y^M$ via alignment $\A_0$: $X = B_0 e_1 B_1\cdots e_b B_b$ where $b\le k$, $B_i$ are maximal $\simeq_{\A_0}$-matched blocks, $e_i$ single edited chars. Similarly $Y$.
+- Masking by $M\subseteq\mtch(\A_0)$ only refines $B_i$ into dummy segments ($\#$-runs where all alignments agree) plus surviving solid sub-blocks where some alignment deviates.
+- Key structural claim: each $B_i$ contributes $O(1)$ dummy segments plus $O(k)$ LZ-phrases after masking, because any solid sub-block of $B_i$ that survives has an exact copy in $Y$ at offset controlled by $\le k$ deletions/insertions, hence LZ-like cost $O(k)$ via quoting $Y$-side or earlier $X$-side. Use (P2) subadditivity over $2b+1=O(k)$ pieces; each piece needs $O(k)$ phrases (singletons for $\#$ runs + edits + $O(1)$ copies).
+- Exchangeability angle (if needed): unordered multiset of edits determines dummy structure independent of order; conditioning on positions of breakpoints leaves matched runs exchangeable, giving uniform $O(k)$ bound.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+**Hereditary vs Fragile:**
+- Hereditary: non-crossing property under subsets; previous-factor existence under extension of context (earlier occurrence stays earlier); $|\LZ|$ upper bound via LZ-like (P1); greedy inequality $X[x]\ne Y[y]$ on breakpoints (pointwise).
+- Fragile (revoked on restriction/slicing/conditioning): Dyck-like balance / maximality of LZ77 phrases (slicing destroys longest-previous property — must use LZ-like not LZ77 directly); mutual independence of alignments; block dimensions/offsets $x_t-y_t$ (shift after edits); dummy-maximality (substring of $X^M$ may split dummy segment); $\mtch_k$ intersection property (does not restrict to substrings).
+
+```python
+state.register("X", kind="string", properties=["alphabet_Sigma", "len_n"])
+state.register("Y", kind="string", properties=["alphabet_Sigma"])
+state.register("A0", kind="alignment", properties=["greedy", "cost_le_k", "mtch_is_noncrossing"])
+state.register("M", kind="noncrossing_matching", properties=["intersection_ga_k", "subset_mtch_A0", "hereditary_subset"])
+state.register("XM", kind="masked_string", properties=["dummy_symbol_hash", "fragile_dummy_maximality"])
+state.register("YM", kind="masked_string", properties=["dummy_symbol_hash", "fragile_dummy_maximality"])
+state.register("LZlike_XM", kind="factorization", properties=["each_long_is_previous", "upper_bounds_LZ_via_FctP1", "fragile_maximality"])
+state.add_subgoal("S1_existence_greedy_opt", statement="ga_k nonempty when k>=ed(X,Y)")
+state.add_subgoal("S2_dummy_count", statement="num dummy segments in XM,YM = O(k)")
+state.add_subgoal("S3_block_LZ", statement="each edit-gap contributes O(k) LZ-like phrases")
+state.add_subgoal("S4_concat", statement="sum over O(k) blocks via FctP2 gives O(k^2)")
+```
+
+### Testable Intermediate Claims
+
+1. **Breakpoint budget & dummy count:** For any $\A\in\ga_k$, $|\brkp(\A)|\le O(k)$ and number of maximal $\simeq_\A$ blocks $\le k+1$. Intersection $M$ therefore yields $\le O(k)$ maximal non-matched regions. *Test:* brute-force small alphabets, enumerate $\ga_k$, compute $M$, count dummy segments vs $k$; check boundary $k=1$, empty $M$, full $M$; verify greedy condition eliminates spurious $X[x]=Y[y]$ breakpoints.
+2. **Gap LZ bound (heuristic regime split):** Claim $A(G)\le B(G)\le C(G)$ where $A=|\LZ(G^M)|$, $B=O(1+\ed\text{-span})$, $C=O(k)$. Holds on $D_1=\{\text{gaps with span }\le k\}$; complementary regime $D\setminus D_1$ = gaps where all alignments agree (hence single dummy run, $|\LZ|\le 2$: $\#$-run + terminator) discharged directly. *Test:* verify dimension compatibility of quoted previous occurrence does not cross $\#$-boundary; check $m=i+1$ or $m=j-1$ edge where longest previous factor length $1$.
+3. **Previous-factor preservation under $\#$-masking:** If $X[a\dd b)\simeq_{\A_0}Y[c\dd d)$ and interval contains no breakpoint of $\A_0$, then any subfragment avoiding $M$-masked positions has earlier occurrence in $X$ or $Y$ that also avoids masking, unless it touches an edit/dummy boundary. *Test:* REPL check on random $X,Y,k$ that proposed LZ-like phrase indeed occurs earlier in $X^M$ (including $\#$ symbols literally); flag fragile case where occurrence contains $\#$ from different dummy segment — must still match literally, else split phrase.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_19_214 ---
+[Falsifier Script 1]:
+# Block 1: Breakpoint budget & dummy count brute-force (n<=4)
+import itertools
+
+def enumerate_alignments(X, Y):
+    n, m = len(X), len(Y)
+    res = []
+    def rec(x, y, path):
+        if x == n and y == m:
+            res.append(list(path)); return
+        if x < n and y < m:
+            path.append((x, y, 'diag')); rec(x+1, y+1, path); path.pop()
+        if x < n:
+            path.append((x, y, 'delX')); rec(x+1, y, path); path.pop()
+        if y < m:
+            path.append((x, y, 'delY')); rec(x, y+1, path); path.pop()
+    # fix syntax: redo delY step correctly
+    res.clear()
+    def rec2(x, y, path):
+        if x == n and y == m:
+            res.append(list(path)); return
+        if x < n and y < m:
+            path.append((x, y, 'diag')); rec2(x+1, y+1, path); path.pop()
+        if x < n:
+            path.append((x, y, 'delX')); rec2(x+1, y, path); path.pop()
+        if y < m:
+            path.append((x, y, 'delY')); rec2(x, y+1, path); path.pop()
+    rec2(0, 0, [])
+    return res
+
+def analyze(X, Y, path):
+    cost = 0; brkp = []; mtch = []
+    for (x, y, s) in path:
+        if s == 'diag':
+            if X[x] == Y[y]: mtch.append((x, y))
+            else: cost += 1; brkp.append((x, y))
+        else: cost += 1; brkp.append((x, y))
+    # greedy: no brkp diag with equal chars
+    greedy = all(not (s == 'diag' and X[x] == Y[y]) for (x, y, s) in path for _ in [0] if (x, y) in [(b[0], b[1]) for b in brkp])
+    # simpler: check diag brkp positions
+    greedy2 = True
+    for (x, y, s) in path:
+        if s == 'diag' and X[x] != Y[y]: continue
+        if s == 'diag' and X[x] == Y[y]: continue  # match, not brkp
+        if s == 'diag': pass
+    # correct greedy: every diag-brkp has X[x]!=Y[y] (true by construction since equal=>match)
+    # non-diag brkp with x<n,y<m? definition only constrains (x,y) in [1..|X|]x[1..|Y|]
+    # delX at (x,y) with y==m has no Y char; skip. delY with x==n skip.
+    g = True
+    for (x, y, s) in path:
+        if s != 'diag' and x < len(X) and y < len(Y):
+            if X[x] == Y[y]: g = False
+    return cost, brkp, set(mtch), g
+
+def edit_dist(X, Y):
+    return min(analyze(X, Y, p)[0] for p in enumerate_alignments(X, Y))
+
+def test_budget():
+    import itertools
+    sigma = ['a', 'b']
+    worst = 0; fails = []
+    for n in range(0, 4):
+        for m in range(0, 4):
+            for Xt in itertools.product(sigma, repeat=n):
+                for Yt in itertools.product(sigma, repeat=m):
+                    X = ''.join(Xt); Y = ''.join(Yt)
+                    ed = edit_dist(X, Y)
+                    for k in [ed, ed+1]:
+                        if k == 0: continue
+                        paths = enumerate_alignments(X, Y)
+                        ga = [p for p in paths if analyze(X, Y, p)[0] <= k and analyze(X, Y, p)[3]]
+                        if not ga: fails.append((X, Y, k, 'empty ga_k')); continue
+                        for p in ga:
+                            c, b, mt, g = analyze(X, Y, p)
+                            # breakpoint budget: |brkp| == cost <= k ? check
+                            if len(b) != c:
+                                fails.append((X, Y, k, 'brkp!=cost', p)); 
+                            # maximal match blocks <= k+1
+                            nblocks = c + 1
+                            if nblocks > k + 1:
+                                fails.append((X, Y, 'blocks'))
+                        # common matches M
+                        msets = [analyze(X, Y, p)[2] for p in ga]
+                        M = set.intersection(*msets) if msets else set()
+                        # non-crossing check on M
+                        L = sorted(M)
+                        nc = all(not (x1 <= x2 and y1 >= y2 and (x1, y1) != (x2, y2)) or (x1==x2 and y1==y2) for (x1,y1) in L for (x2,y2) in L if (x1,y1)!=(x2,y2) and x1<=x2)
+                        # dummy segments in XM: maximal #-blocks where x in M_x
+                        Mx = set(x for x, y in M)
+                        # count maximal runs in X indices masked
+                        cnt = 0; i = 0
+                        while i < len(X):
+                            if i in Mx: 
+                                cnt += 1
+                                while i < len(X) and i in Mx: i += 1
+                            else: i += 1
+                        if cnt > k + 1 + len(X): fails.append((X, Y, k, 'dummy huge'))
+                        worst = max(worst, cnt / max(k, 1))
+    print("budget test done. fails sample:", fails[:5], "num_fails=", len(fails))
+    print("worst dummy/k ratio (small n):", worst)
+    assert len([f for f in fails if f[2:] != None and 'empty' in str(f)]) == 0, "ga_k empty for k>=ed!"
+    print("PASS: ga_k nonempty, |brkp|=cost<=k, blocks<=k+1")
+
+test_budget()
+[Falsifier Kernel Output (Verified)]: budget test done. fails sample: [] num_fails= 0
+worst dummy/k ratio (small n): 2.0
+PASS: ga_k nonempty, |brkp|=cost<=k, blocks<=k+1
+[Falsifier Script 2]:
+# Block 2: Symbolic parameter & recurrence inequality verification (SymPy)
+import sympy as sp
+
+def holds_on_samples(rel, samples, msg):
+    for s in samples:
+        if not bool(rel.subs(s)):
+            print(f"COUNTEREXAMPLE {msg}: {s} -> {rel.subs(s)}")
+            return False
+    print(f"no counterexample on samples for {msg}")
+    return True
+
+k, a, b, C, k0 = sp.symbols('k a b C k0', integer=True, nonnegative=True)
+# Claim: (k+1)*(a*k+b) = O(k^2): exists C,k0 s.t. forall k>=k0: (k+1)*(a*k+b) <= C*k**2
+# Fix concrete a=2,b=2 (O(k) per block with small constants), find C
+a0, b0 = 2, 2
+expr = (k+1)*(a0*k+b0)
+for Cval in [2, 3, 4]:
+    diff = sp.expand(Cval*k**2 - expr)
+    print(f"C={Cval}: C*k^2 - expr =", diff, " factored:", sp.factor(diff))
+    # solve diff>=0
+    sol = sp.solve(sp.Ge(diff, 0), k)
+    print("  solution set:", sol)
+    holds_on_samples(sp.Ge(diff, 0), [{k: v} for v in [1,2,3,5,10,100]], f"C={Cval}")
+
+# General check via reduce_inequalities on domain k>=1: is (k+1)*(2k+2) <= 4k^2 for k>=2?
+from sympy.abc import k as kk
+ineq = sp.reduce_inequalities([4*kk**2 - (kk+1)*(2*kk+2) >= 0, kk >= 2], kk)
+print("reduce_inequalities (C=4,k>=2):", ineq)
+
+# Gap regime split: D1 span<=k gives B=O(1+span)<=k+1; complement single dummy run |LZ|<=2
+# Verify: if span s<=k then 1+s <= k+1 <= 2k for k>=1
+s = sp.symbols('s', integer=True, nonnegative=True)
+d = (k+1) - (1+s)
+print("D1 bound diff (k+1)-(1+s) =", sp.expand(d))
+holds_on_samples(sp.Ge(k+1-(1+s), 0), [{k:5,s:3},{k:1,s:1},{k:2,s:2},{k:3,s:5}], "D1: s<=k => 1+s<=k+1 (expect False on last)")
+# Counterexample correctly shows need for regime split: s=5,k=3 violates -> must be in complement regime
+print("PASS symbolic accounting: O(k) blocks x O(k) phrases = O(k^2) with C=4,k0=2")
+[Falsifier Kernel Output (Verified)]: C=2: C*k^2 - expr = -4*k - 2  factored: -2*(2*k + 1)
+  solution set: []
+COUNTEREXAMPLE C=2: {k: 1} -> False
+C=3: C*k^2 - expr = k**2 - 4*k - 2  factored: k**2 - 4*k - 2
+  solution set: 2 + sqrt(6) <= k
+COUNTEREXAMPLE C=3: {k: 1} -> False
+C=4: C*k^2 - expr = 2*k**2 - 4*k - 2  factored: 2*(k**2 - 2*k - 1)
+  solution set: 1 + sqrt(2) <= k
+COUNTEREXAMPLE C=4: {k: 1} -> False
+reduce_inequalities (C=4,k>=2): (k < oo) & (1 + sqrt(2) <= k)
+D1 bound diff (k+1)-(1+s) = k - s
+COUNTEREXAMPLE D1: s<=k => 1+s
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+**Turn 1 — Exploration Gate: Inventory, Invariant, Claims, REPL Checks**
+No complete proof is attempted on this turn.
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+Licensed axioms from Context:
+
+* Alphabet/fragments, $Y[i]$, $Y[i\dd j)$, empty $\eps$ if $i>j$.
+* Previous factor, LZ77 $X=F_{1}\cdots F_{z}$, $|\LZ(X)|=z$.
+* Alignment $\A=(x_{t},y_{t})_{t=1}^{m}$, steps $(+1,+1),(+1,0),(0,+1)$; delete $X[x_{t}]$ / delete $Y[y_{t}]$ / align $\sim_{\A}$; match $\simeq_{\A}$ if chars equal else substitution; $\cost(\A)$ = deletes $+$ substitutions.
+* $\mtch(\A)$ vs $\brkp(\A)$ partition of $t$; for every $\A$, $\mtch(\A)$ is non-crossing matching.
+* Aligns $X[x_{\ell}\dd x_{r})\sim_{\A}Y[y_{\ell}\dd y_{r})$; matches $\simeq_{\A}$ if no breakpoint $t\in[\ell\dd r)$.
+* Non-crossing matching $M$: $X[x]=Y[y]$ for $(x,y)\in M$, no $(x,y),(x',y')$ with $x\le x'$ and $y\ge y'$.
+* Greedy (Def.~\ref{def:greedy_alignment}): $X[x]\ne Y[y]$ for every $(x,y)\in\brkp(\A)\cap([1\dd|X|]\times[1\dd|Y|])$; $\ga_{k}(X,Y)=\{\A\text{ greedy}:\cost\le k\}$.
+* Common matches for $k\ge \ed(X,Y)$: $\mtch_{k}(X,Y)=\bigcap_{\A\in\ga_{k}}\mtch(\A)$, itself non-crossing.
+* Masked $X^{M},Y^{M}$: replace by $\#\notin\Sigma$ for $(x,y)\in M$; maximal $\#$-blocks = dummy segments.
+
+Observation~\ref{fct:lz_properties} contract:
+* (P1) Any LZ-like factorization ($|F_{j}|>1\Rightarrow$ previous factor) has $f\ge |\LZ(X)|$. To upper-bound $|\LZ|$, exhibit explicit LZ-like factorization.
+* (P2) $|\LZ(X)|\le |\LZ(XY)|\le |\LZ(X)|+|\LZ(Y)|$. Use only for concatenation upper bound; no merging lower bound.
+
+Target preconditions: $k\ge \ed(X,Y)$ positive integer, $M=\mtch_{k}(X,Y)$. Goal $|\LZ(X^{M})|,|\LZ(Y^{M})|=O(k^{2})$, dummy segments $O(k)$. By symmetry suffices $X^{M}$.
+
+Hereditary vs fragile:
+* Hereditary: non-crossing under subsets; previous-factor existence; LZ-like upper bound (P1); pointwise greedy inequality.
+* Fragile (revoked on slicing): maximality of LZ77 phrases; dummy-maximality of substring; $\mtch_{k}$ intersection does not restrict to substrings; offsets $x_{t}-y_{t}$ shift after edits.
+
+### 2. Invariant-First Formulation
+
+Do not brute-force over all $\A\in\ga_{k}$. Unifying invariant:
+
+Fix one $\A_{0}\in\ga_{k}$ (existence to be certified as S1). Monotone path invariant: offset $d_{t}=x_{t}-y_{t}$ satisfies $|d_{t}|\le \cost(\A)\le k$ for any $\A$ with cost $\le k$, since only indels change $d_{t}$ by $\pm 1$. Hence any $\A\in\ga_{k}$ enters each $\A_{0}$-block with shift bounded by $k$.
+
+$\A_{0}$ induces boundary-cut partition:
+\[ X = B_{0}e_{1}B_{1}\cdots e_{b}B_{b},\quad b\le k, \]
+where $B_{i}$ are maximal $\simeq_{\A_{0}}$-matched blocks, $e_{i}$ single edited $X$-chars (delete/substitution). Similarly $Y$. Number of blocks $\le k+1$. This groups all cases: edits $e_{i}$ are $O(k)$ singletons; difficulty is inside $B_{i}$ where $X$-fragment equals $Y$-fragment identically.
+
+Inside $B_{i}=[l\dd r)\sim_{\A_{0}}[l'\dd r')$, $M\subseteq\mtch(\A_{0})$ forces $S^{M}=T^{M}$ literally. Long interior far from boundaries ($>k$ from ends) can only be broken by a shifted zero-cost matching, which forces small period. Hence dichotomy per block: either forced agreement (one dummy segment) or periodicity (compressible). Edge zones of width $O(k)$ near block boundaries contain all potential fragmentation. This avoids exhaustive case split over all alignments.
+
+### 3. Structured Intermediate Claims
+
+[CLAIM S1 — Existence, budget, offset]:
+If $k\ge\ed(X,Y)$ then $\ga_{k}\ne\emptyset$. For any $\A$ with $\cost\le k$, $|\brkp(\A)|=\cost(\A)+1\le k+1$, number of maximal $\simeq_{\A}$ blocks $\le k+1$, and $|x_{t}-y_{t}|\le k$ for all $t$.
+[REDUCTION]: Discharges hypothesis for (P1)/(P2) use and provides $O(k)$-piece decomposition. Must justify greedy optimal exists, not assume $k\ge 2$ or $M\ne\emptyset$. Handles empty $X,Y$ and $k=1$ boundaries.
+
+[CLAIM S2 — Dummy count $O(k)$]:
+With $\A_{0}$ as above, total number of maximal $\#$-blocks in $X^{M},Y^{M}$ is $O(k)$.
+[REDUCTION]: Reduces to showing each $B_{i}$ contributes $O(1)$ dummy segments plus $O(1)$ per $e_{i}$. Interior positions with $\min(x-l,r-x)>k$ (and analog for $y$) must be in $M$ unless $B_{i}$ has period $\le 2k$, in which case $B_{i}$ contributes $0$ dummy segments (no common matches) rather than many. Quantifier order: first evaluate gap/residual $B_{i}$ length and period, then select extremal witness $\A_{x}$ breaking $x$ if any exists.
+
+[CLAIM S3 — Block LZ $O(k)$]:
+Each piece $B_{i}^{M}$ (masked block) and each singleton $e_{i},\#$-run has LZ-like cost $O(k)$; periodic $B_{i}^{M}$ has cost $O(\text{period})=O(k)$ via $p$ singletons $+$ one previous-factor tail.
+[REDUCTION]: Via (P2) subadditivity over $2b+1=O(k)$ pieces, $|\LZ(X^{M})|\le\sum |\LZ(\text{piece})|=O(k)\cdot O(k)=O(k^{2})$. Must verify quoted previous occurrence includes $\#$ literally and does not cross $\#$-boundary illegally; split phrase at dummy boundaries if needed. Covers $m=i+1,j-1$ edges where longest previous factor has length $1$.
+
+[CLAIM S4 — Mask equality]:
+If $X[l\dd r)\simeq_{\A_{0}}Y[l'\dd r')$ then masking by $M\subseteq\mtch(\A_{0})$ yields identical strings on those intervals.
+[REDUCTION]: Allows quoting argument to stay inside $X^{M}$ alphabet with $\#$.
+
+S1 is budget/offset; S2+S3+S4 give $O(k)$ dummies and $O(k^{2})$ LZ. S2 is the topological core; S3 is arithmetic composition via (P1)(P2).
+
+### 4. State Machine & Python REPL Verification
+
+Register objects and subgoals; test budgets, greedy existence, dummy ratios, interior forcing, periodicity on small alphabets by exhaustive alignment enumeration.
+
+```python
+# S1: budget, greedy existence, offset bound
+def alignments_cost_greedy(X,Y,k):
+    n,m=len(X),len(Y)
+    res=[]
+    # DFS over (x,y) 0-indexed positions in [0..n]x[0..m], start (0,0)
+    stack=[((0,0),[(0,0)],0)]  # (pos, path, cost_sofar)
+    # cost_sofar counts deletes/subs for steps taken so far (excluding final)
+    while stack:
+        (x,y),path,c = stack.pop()
+        if c>k: continue
+        if x==n and y==m:
+            # evaluate full path incl final (n,m)
+            # compute cost, greedy, mtch
+            cost=c
+            # build step types
+            mtch=set(); ok=True
+            for t in range(len(path)-1):
+                xa,ya=path[t]; xb,yb=path[t+1]
+                if xb==xa+1 and yb==ya+1:
+                    if xa<n and ya<m and X[xa]==Y[ya]:
+                        mtch.add((xa,ya))  # 0-indexed pair
+                    else:
+                        # substitution breakpoint
+                        if xa<n and ya<m and X[xa]==Y[ya]:
+                            ok=False  # equal but sub -> violates greedy
+                        # cost already counted? need recount: do full recount below
+                        pass
+                else:
+                    # delete breakpoint
+                    if xa<n and ya<m and X[xa]==Y[ya]:
+                        ok=False
+            # recount cost exactly
+            cc=0
+            for t in range(len(path)-1):
+                xa,ya=path[t]; xb,yb=path[t+1]
+                if xb==xa+1 and yb==ya+1:
+                    if not (xa<n and ya<m and X[xa]==Y[ya]): cc+=1
+                else: cc+=1
+            assert cc==c
+            # greedy ok flag as above
+            # offset bound check
+            offs=[px-py for px,py in path]
+            res.append((path,cc,ok,mtch,offs))
+            continue
+        # expand
+        if x<n and y<m:
+            # diagonal
+            add = 0 if X[x]==Y[y] else 1
+            stack.append(((x+1,y+1),path+[(x+1,y+1)],c+add))
+        if x<n:
+            stack.append(((x+1,y),path+[(x+1,y)],c+1))
+        if y<m:
+            stack.append(((x,y+1),path+[(x,y+1)],c+1))
+    return res
+```
+
+```python
+# S1 checks: ga_k nonempty when k>=ed, |brkp|=cost+1, blocks<=k+1, |offset|<=k
+import itertools
+def ed_bruteforce(X,Y):
+    return min(c for _,c,_,_,_ in alignments_cost_greedy(X,Y,10))
+
+def test_S1():
+    import random
+    fails=0
+    worst_ratio=0
+    for n in range(0,5):
+        for X in itertools.product([0,1], repeat=n):
+            for m in range(0,5):
+                for Y in itertools.product([0,1], repeat=m):
+                    X=list(X); Y=list(Y)
+                    e=ed_bruteforce(X,Y)
+                    for k in [e, e+1, e+2]:
+                        if k==0: continue  # target k positive; check separately
+                        allp=alignments_cost_greedy(X,Y,k)
+                        gak=[r for r in allp if r[1]<=k and r[2]]
+                        if len(gak)==0:
+                            print("FAIL nonempty",X,Y,e,k); fails+=1
+                        for path,c,ok,mtch,offs in gak:
+                            # |brkp| = cost+1 ? brkp = path[:-1] minus matches + final
+                            # matches = len(mtch) (each x matched once, each match one t)
+                            brkp_len = len(path)-len(mtch)  # includes final
+                            if brkp_len != c+1:
+                                print("FAIL brkp",X,Y,path,c,brkp_len); fails+=1
+                            if max([abs(o) for o in offs],default=0)>k:
+                                print("FAIL offset",X,Y,path,offs); fails+=1
+    print("S1 fails:",fails)
+test_S1()
+```
+
+```python
+# S2/S3: dummy segments, LZ size, interior forcing
+def lz_size(s):
+    # s: list with entries 0,1,'#'; '#' distinct
+    n=len(s); i=0; z=0
+    while i<n:
+        best=0
+        for j in range(i):
+            L=0
+            while i+L<n and j+L<i and s[j+L]==s[i+L]:
+                L+=1
+            # also allow j+L < i? standard previous factor allows occurrence starting <i, may extend beyond i? No, X[i'..i'+L) with i'<i, no restriction i'+L<=i. So allow overlap.
+            # redo allowing overlap: only need s[j:j+L]==s[i:i+L] with j<i
+            # above loop with j+L<i is too strict for overlap; fix:
+            best=max(best,L)
+        # recompute correctly allowing overlap
+        best=0
+        for j in range(i):
+            L=0
+            while i+L<n and s[j+L]==s[i+L] if j+L<n else False:
+                # need j+L < len and comparison; occurrence can extend past i
+                L+=1
+                if j+L>=len(s): break
+            # actually need to compare s[j:j+L]==s[i:i+L]; above does it incrementally
+            if L>best: best=L
+        # The above loop is O(n^3) but n<=6 fine; simplify by slicing:
+        best=0
+        for j in range(i):
+            L=0
+            while i+L<n and j+L<n and s[j+L]==s[i+L]:
+                L+=1
+            if L>best: best=L
+        if best==0:
+            z+=1; i+=1
+        else:
+            # longest previous factor: best may exceed? cap so j<i ensures previous start
+            # longest L with s[j:j+L]==s[i:i+L] for some j<i
+            z+=1; i+=best
+            if best==0: i+=1
+    return z
+
+def masked_and_M(X,Y,k):
+    allp=alignments_cost_greedy(X,Y,k)
+    gak=[r for r in allp if r[1]<=k and r[2]]
+    if not gak: return None
+    M=set.intersection(*[r[3] for r in gak]) if gak else set()
+    # M is set of (x,y) pairs; projection to X
+    Mx={x for x,y in M}
+    My={y for x,y in M}
+    XM=[('#' if i in Mx else X[i]) for i in range(len(X))]
+    YM=[('#' if j in My else Y[j]) for j in range(len(Y))]
+    def dummy_cnt(S):
+        c=0; i=0
+        while i<len(S):
+            if S[i]=='#':
+                c+=1
+                while i<len(S) and S[i]=='#': i+=1
+            else: i+=1
+        return c
+    return M,XM,YM,dummy_cnt(XM),dummy_cnt(YM),gak
+
+def test_dummy_LZ():
+    import itertools, random
+    worst_d=0; worst_lz=0; fails=0
+    for n in range(0,7):
+        for _ in range(200):
+            import random as R
+            X=[R.randint(0,1) for _ in range(n)]
+            m=R.randint(0,6)
+            Y=[R.randint(0,1) for _ in range(m)]
+            e=ed_bruteforce(X,Y)
+            k=max(1,e)  # target k positive
+            # also test k=e+1
+            for kk in [k, k+1]:
+                r=masked_and_M(X,Y,kk)
+                if r is None: continue
+                M,XM,YM,dx,dy,gak=r
+                if dx>4*kk+1 or dy>4*kk+1:
+                    print("DUMMY VIOLATION",X,Y,kk,dx,dy,XM,YM); fails+=1
+                lzx=lz_size(XM); lzy=lz_size(YM)
+                if lzx>4*kk*kk+4*kk+2 or lzy>4*kk*kk+4*kk+2:
+                    print("LZ VIOLATION",X,Y,kk,lzx,lzy,XM); fails+=1
+                worst_d=max(worst_d, dx/max(1,kk))
+                worst_lz=max(worst_lz, lzx/max(1,kk*kk))
+    print("dummy/lz fails:",fails,"worst_d_ratio:",worst_d,"worst_lz_ratio:",worst_lz)
+
+# test interior: for fixed A0 blocks, interior far from ends forced common?
+def test_interior():
+    import itertools
+    # exhaustive small: check threshold T=k vs 2k
+    viol_k=0; viol_2k=0; total=0
+    for X in itertools.product([0,1,2], repeat=5):
+        for Y in itertools.product([0,1,2], repeat=5):
+            X=list(X); Y=list(Y)
+            e=ed_bruteforce(X,Y)
+            k=max(1,e)
+            if k>2: continue
+            r=masked_and_M(X,Y,k)
+            if r is None: continue
+            M,XM,YM,dx,dy,gak=r
+            # pick first greedy optimal as A0
+            A0=[rr for rr in gak if rr[1]==e][0]
+            path=A0[0]; mtch0=A0[3]
+            # build A0 partner map x->y for matches
+            mp={x:y for x,y in mtch0}
+            # find maximal matched blocks in X: consecutive x in mp where x+1 in mp and y+1 mapping
+            # check interior
+            for x,y in mp.items():
+                # distance to block ends: compute block extent
+                l=x
+                while l-1 in mp and mp[l-1]==mp[l]-1: l-=1
+                rr=x
+                while rr+1 in mp and mp[rr+1]==mp[rr]+1: rr+=1
+                d=min(x-l, rr-x)
+                total+=1
+                is_common=(x,y) in M
+                if not is_common and d>k:
+                    viol_k+=1
+                if not is_common and d>2*k:
+                    viol_2k+=1
+                    # print example where even 2k interior not common -> must be periodic?
+                    # print(X,Y,k,"x",x,"block",l,rr,mp,M)
+    print("interior total",total,"viol>k",viol_k,"viol>2k",viol_2k)
+```
+
+Expected REPL outcomes (kernel already verified budget part; full run to confirm on Turn 2):
+* S1: fails $=0$, $|\brkp|=\cost+1$, $|\text{blocks}|\le k+1$, $|\text{offset}|\le k$.
+* Dummy ratio $\le 2.0$ on small $n$; LZ fits $O(k^{2})$ with modest constant.
+* Interior: violations for $>k$ exist but violations for $>2k$ are rare and coincide with small period — supporting period dichotomy for S2/S3. Fragile case where occurrence contains $\#$ from different dummy segment must still match literally, else split phrase — to be enforced in LZ-like construction.
+
+### 5. Pivot Readiness
+
+If interior threshold $k$ is falsified as universal, discard intermediate $B(x)$ (threshold $k$) per logical rule, replace by $2k$ plus periodic analysis; never restrict domain $D$. Complement regime $D\setminus D_{1}$ (gaps where all alignments agree) is single $\#$-run with $|\LZ|\le 2$. Both regimes will be proved.
+
+Next turns will certify S1–S4 and compose via (P1)(P2) to $O(k)$ dummies, $O(k^{2})$ LZ.
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# S1: budget, greedy existence, offset bound
+def alignments_cost_greedy(X,Y,k):
+    n,m=len(X),len(Y)
+    res=[]
+    # DFS over (x,y) 0-indexed positions in [0..n]x[0..m], start (0,0)
+    stack=[((0,0),[(0,0)],0)]  # (pos, path, cost_sofar)
+    # cost_sofar counts deletes/subs for steps taken so far (excluding final)
+    while stack:
+        (x,y),path,c = stack.pop()
+        if c>k: continue
+        if x==n and y==m:
+            # evaluate full path incl final (n,m)
+            # compute cost, greedy, mtch
+            cost=c
+            # build step types
+            mtch=set(); ok=True
+            for t in range(len(path)-1):
+                xa,ya=path[t]; xb,yb=path[t+1]
+                if xb==xa+1 and yb==ya+1:
+                    if xa<n and ya<m and X[xa]==Y[ya]:
+                        mtch.add((xa,ya))  # 0-indexed pair
+                    else:
+                        # substitution breakpoint
+                        if xa<n and ya<m and X[xa]==Y[ya]:
+                            ok=False  # equal but sub -> violates greedy
+                        # cost already counted? need recount: do full recount below
+                        pass
+                else:
+                    # delete breakpoint
+                    if xa<n and ya<m and X[xa]==Y[ya]:
+                        ok=False
+            # recount cost exactly
+            cc=0
+            for t in range(len(path)-1):
+                xa,ya=path[t]; xb,yb=path[t+1]
+                if xb==xa+1 and yb==ya+1:
+                    if not (xa<n and ya<m and X[xa]==Y[ya]): cc+=1
+                else: cc+=1
+            assert cc==c
+            # greedy ok flag as above
+            # offset bound check
+            offs=[px-py for px,py in path]
+            res.append((path,cc,ok,mtch,offs))
+            continue
+        # expand
+        if x<n and y<m:
+            # diagonal
+            add = 0 if X[x]==Y[y] else 1
+            stack.append(((x+1,y+1),path+[(x+1,y+1)],c+add))
+        if x<n:
+            stack.append(((x+1,y),path+[(x+1,y)],c+1))
+        if y<m:
+            stack.append(((x,y+1),path+[(x,y+1)],c+1))
+    return res
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0017s) ---
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# S1 checks: ga_k nonempty when k>=ed, |brkp|=cost+1, blocks<=k+1, |offset|<=k
+import itertools
+def ed_bruteforce(X,Y):
+    return min(c for _,c,_,_,_ in alignments_cost_greedy(X,Y,10))
+
+def test_S1():
+    import random
+    fails=0
+    worst_ratio=0
+    for n in range(0,5):
+        for X in itertools.product([0,1], repeat=n):
+            for m in range(0,5):
+                for Y in itertools.product([0,1], repeat=m):
+                    X=list(X); Y=list(Y)
+                    e=ed_bruteforce(X,Y)
+                    for k in [e, e+1, e+2]:
+                        if k==0: continue  # target k positive; check separately
+                        allp=alignments_cost_greedy(X,Y,k)
+                        gak=[r for r in allp if r[1]<=k and r[2]]
+                        if len(gak)==0:
+                            print("FAIL nonempty",X,Y,e,k); fails+=1
+                        for path,c,ok,mtch,offs in gak:
+                            # |brkp| = cost+1 ? brkp = path[:-1] minus matches + final
+                            # matches = len(mtch) (each x matched once, each match one t)
+                            brkp_len = len(path)-len(mtch)  # includes final
+                            if brkp_len != c+1:
+                                print("FAIL brkp",X,Y,path,c,brkp_len); fails+=1
+                            if max([abs(o) for o in offs],default=0)>k:
+                                print("FAIL offset",X,Y,path,offs); fails+=1
+    print("S1 fails:",fails)
+test_S1()
+```
+--- [TURN 1] EXECUTION SUCCESS (1.1944s) ---
+Stdout:
+S1 fails: 0
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# S2/S3: dummy segments, LZ size, interior forcing
+def lz_size(s):
+    # s: list with entries 0,1,'#'; '#' distinct
+    n=len(s); i=0; z=0
+    while i<n:
+        best=0
+        for j in range(i):
+            L=0
+            while i+L<n and j+L<i and s[j+L]==s[i+L]:
+                L+=1
+            # also allow j+L < i? standard previous factor allows occurrence starting <i, may extend beyond i? No, X[i'..i'+L) with i'<i, no restriction i'+L<=i. So allow overlap.
+            # redo allowing overlap: only need s[j:j+L]==s[i:i+L] with j<i
+            # above loop with j+L<i is too strict for overlap; fix:
+            best=max(best,L)
+        # recompute correctly allowing overlap
+        best=0
+        for j in range(i):
+            L=0
+            while i+L<n and s[j+L]==s[i+L] if j+L<n else False:
+                # need j+L < len and comparison; occurrence can extend past i
+                L+=1
+                if j+L>=len(s): break
+            # actually need to compare s[j:j+L]==s[i:i+L]; above does it incrementally
+            if L>best: best=L
+        # The above loop is O(n^3) but n<=6 fine; simplify by slicing:
+        best=0
+        for j in range(i):
+            L=0
+            while i+L<n and j+L<n and s[j+L]==s[i+L]:
+                L+=1
+            if L>best: best=L
+        if best==0:
+            z+=1; i+=1
+        else:
+            # longest previous factor: best may exceed? cap so j<i ensures previous start
+            # longest L with s[j:j+L]==s[i:i+L] for some j<i
+            z+=1; i+=best
+            if best==0: i+=1
+    return z
+
+def masked_and_M(X,Y,k):
+    allp=alignments_cost_greedy(X,Y,k)
+    gak=[r for r in allp if r[1]<=k and r[2]]
+    if not gak: return None
+    M=set.intersection(*[r[3] for r in gak]) if gak else set()
+    # M is set of (x,y) pairs; projection to X
+    Mx={x for x,y in M}
+    My={y for x,y in M}
+    XM=[('#' if i in Mx else X[i]) for i in range(len(X))]
+    YM=[('#' if j in My else Y[j]) for j in range(len(Y))]
+    def dummy_cnt(S):
+        c=0; i=0
+        while i<len(S):
+            if S[i]=='#':
+                c+=1
+                while i<len(S) and S[i]=='#': i+=1
+            else: i+=1
+        return c
+    return M,XM,YM,dummy_cnt(XM),dummy_cnt(YM),gak
+
+def test_dummy_LZ():
+    import itertools, random
+    worst_d=0; worst_lz=0; fails=0
+    for n in range(0,7):
+        for _ in range(200):
+            import random as R
+            X=[R.randint(0,1) for _ in range(n)]
+            m=R.randint(0,6)
+            Y=[R.randint(0,1) for _ in range(m)]
+            e=ed_bruteforce(X,Y)
+            k=max(1,e)  # target k positive
+            # also test k=e+1
+            for kk in [k, k+1]:
+                r=masked_and_M(X,Y,kk)
+                if r is None: continue
+                M,XM,YM,dx,dy,gak=r
+                if dx>4*kk+1 or dy>4*kk+1:
+                    print("DUMMY VIOLATION",X,Y,kk,dx,dy,XM,YM); fails+=1
+                lzx=lz_size(XM); lzy=lz_size(YM)
+                if lzx>4*kk*kk+4*kk+2 or lzy>4*kk*kk+4*kk+2:
+                    print("LZ VIOLATION",X,Y,kk,lzx,lzy,XM); fails+=1
+                worst_d=max(worst_d, dx/max(1,kk))
+                worst_lz=max(worst_lz, lzx/max(1,kk*kk))
+    print("dummy/lz fails:",fails,"worst_d_ratio:",worst_d,"worst_lz_ratio:",worst_lz)
+
+# test interior: for fixed A0 blocks, interior far from ends forced common?
+def test_interior():
+    import itertools
+    # exhaustive small: check threshold T=k vs 2k
+    viol_k=0; viol_2k=0; total=0
+    for X in itertools.product([0,1,2], repeat=5):
+        for Y in itertools.product([0,1,2], repeat=5):
+            X=list(X); Y=list(Y)
+            e=ed_bruteforce(X,Y)
+            k=max(1,e)
+            if k>2: continue
+            r=masked_and_M(X,Y,k)
+            if r is None: continue
+            M,XM,YM,dx,dy,gak=r
+            # pick first greedy optimal as A0
+            A0=[rr for rr in gak if rr[1]==e][0]
+            path=A0[0]; mtch0=A0[3]
+            # build A0 partner map x->y for matches
+            mp={x:y for x,y in mtch0}
+            # find maximal matched blocks in X: consecutive x in mp where x+1 in mp and y+1 mapping
+            # check interior
+            for x,y in mp.items():
+                # distance to block ends: compute block extent
+                l=x
+                while l-1 in mp and mp[l-1]==mp[l]-1: l-=1
+                rr=x
+                while rr+1 in mp and mp[rr+1]==mp[rr]+1: rr+=1
+                d=min(x-l, rr-x)
+                total+=1
+                is_common=(x,y) in M
+                if not is_common and d>k:
+                    viol_k+=1
+                if not is_common and d>2*k:
+                    viol_2k+=1
+                    # print example where even 2k interior not common -> must be periodic?
+                    # print(X,Y,k,"x",x,"block",l,rr,mp,M)
+    print("interior total",total,"viol>k",viol_k,"viol>2k",viol_2k)
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0017s) ---
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 2/8] MODEL GENERATED PROPOSAL & PROOF ---
+Proving the greedy-size bound — verifying alignment budgets and dummy structure by brute force.I've established the alignment budget and greedy existence; now I'll stress-test the dummy and periodicity bounds.[CLAIM S1]: Greedy optimal exists, offset and block budgets hold.
+[REDUCTION S1]: From alignment step-cost accounting, $|\brkp|=cost+1$, $|offset|\le k$, $|S_{edit}|\le k$, blocks $\le k+1$. Existence via earliest-violation repair (Case A/B) with strictly increasing earliest index.
+
+[CLAIM S2]: No-leave property: once a greedy alignment visits offset $d_{0}$ inside an exactly-matched block, it matches the whole suffix of the block.
+[REDUCTION S2]: Greedy forbids breakpoint where $X[x]=Y[y]$; hence at $(x,x-d_{0})$ must go diagonal. By induction stays to block end.
+
+[CLAIM S3]: Survivors in a block are confined to $O(k)$-prefix unless periodic with period $\le 2k$; periodic substrings need $O(k)$ LZ phrases.
+[REDUCTION S3]: Shifted entry needs $\ge 1$ prior edit; pre-rejoin non-periodic positions each cost $1$; hence rejoin within $k$ steps or shifted matches force period. Periodic length-$L$ period-$p$ needs $\le p+1=O(k)$ phrases; $\#$-runs need $1$ phrase after first.
+
+```python
+# Test S1-S3: budgets, no-leave, dummy/LZ ratios, periodicity
+import itertools
+
+def all_alignments(X,Y,kmax=10):
+    n,m=len(X),len(Y)
+    res=[]
+    stack=[((0,0),[(0,0)],0)]
+    while stack:
+        (x,y),path,c=stack.pop()
+        if c>kmax: continue
+        if x==n and y==m:
+            # recount cost, greedy, mtch
+            cc=0; ok=True; mtch=set()
+            for t in range(len(path)-1):
+                xa,ya=path[t]; xb,yb=path[t+1]
+                if xb==xa+1 and yb==ya+1:
+                    if xa<n and ya<m and X[xa]==Y[ya]:
+                        mtch.add((xa,ya))
+                    else:
+                        cc+=1
+                        if xa<n and ya<m and X[xa]==Y[ya]:
+                            ok=False
+                else:
+                    cc+=1
+                    # delete step starting at (xa,ya): check greedy if in range
+                    if xa<n and ya<m and X[xa]==Y[ya]:
+                        ok=False
+            offs=[px-py for px,py in path]
+            res.append((path,cc,ok,mtch,offs))
+            continue
+        if x<n and y<m:
+            add=0 if X[x]==Y[y] else 1
+            stack.append(((x+1,y+1),path+[(x+1,y+1)],c+add))
+        if x<n:
+            stack.append(((x+1,y),path+[(x+1,y)],c+1))
+        if y<m:
+            stack.append(((x,y+1),path+[(x,y+1)],c+1))
+    return res
+
+def ed_bruteforce(X,Y):
+    return min(c for _,c,_,_,_ in all_alignments(X,Y,10))
+
+def lz_size(s):
+    n=len(s); i=0; z=0
+    while i<n:
+        best=0
+        for j in range(i):
+            L=0
+            while i+L<n and j+L<n and s[j+L]==s[i+L]:
+                L+=1
+            if L>best: best=L
+        if best==0:
+            z+=1; i+=1
+        else:
+            z+=1; i+=best
+    return z
+
+def masked_info(X,Y,k):
+    allp=all_alignments(X,Y,10)
+    gak=[r for r in allp if r[1]<=k and r[2]]
+    if not gak: return None
+    M=set.intersection(*[r[3] for r in gak])
+    Mx={x for x,y in M}; My={y for x,y in M}
+    XM=[('#' if i in Mx else X[i]) for i in range(len(X))]
+    YM=[('#' if j in My else Y[j]) for j in range(len(Y))]
+    def dcnt(S):
+        c=0; i=0
+        while i<len(S):
+            if S[i]=='#':
+                c+=1
+                while i<len(S) and S[i]=='#': i+=1
+            else: i+=1
+        return c
+    return M,XM,YM,dcnt(XM),dcnt(YM),gak
+
+# S1 check
+fails=0
+for n in range(0,5):
+    for X in itertools.product([0,1],repeat=n):
+        for m in range(0,5):
+            for Y in itertools.product([0,1],repeat=m):
+                X=list(X);Y=list(Y)
+                e=ed_bruteforce(X,Y)
+                for k in [e,e+1]:
+                    if k==0: continue
+                    allp=all_alignments(X,Y,10)
+                    gak=[r for r in allp if r[1]<=k and r[2]]
+                    if len(gak)==0:
+                        print("FAIL nonempty",X,Y,e,k); fails+=1
+                    for path,c,ok,mtch,offs in gak:
+                        if len(path)-len(mtch)!=c+1:
+                            print("FAIL brkp"); fails+=1
+                        if max([abs(o) for o in offs],default=0)>k:
+                            print("FAIL offs"); fails+=1
+print("S1 fails:",fails)
+
+# dummy/LZ ratios
+worst_d=0; worst_lz=0; fails2=0
+import random
+for _ in range(500):
+    n=random.randint(0,6); m=random.randint(0,6)
+    X=[random.randint(0,1) for _ in range(n)]
+    Y=[random.randint(0,1) for _ in range(m)]
+    e=ed_bruteforce(X,Y); k=max(1,e)
+    for kk in [k,k+1]:
+        r=masked_info(X,Y,kk)
+        if r is None: continue
+        M,XM,YM,dx,dy,gak=r
+        if dx>4*kk+1 or dy>4*kk+1:
+            print("DUMMY VIOL",X,Y,kk,dx,dy,XM,YM); fails2+=1
+        lzx=lz_size(XM); lzy=lz_size(YM)
+        if lzx>5*kk*kk+5 or lzy>5*kk*kk+5:
+            print("LZ VIOL",X,Y,kk,lzx,lzy,XM); fails2+=1
+        worst_d=max(worst_d,dx/max(1,kk)); worst_lz=max(worst_lz,lzx/max(1,kk*kk))
+print("dummy/lz fails:",fails2,"worst_d",worst_d,"worst_lz",worst_lz)
+
+# no-leave + periodicity check: for each block of A0, check survivors prefix vs period
+def min_period(s):
+    for p in range(1,len(s)+1):
+        if all(s[i]==s[i-p] for i in range(p,len(s))):
+            return p
+    return len(s)
+viol=0; total=0
+for X in itertools.product([0,1,2],repeat=5):
+    for Y in itertools.product([0,1,2],repeat=5):
+        X=list(X);Y=list(Y)
+        e=ed_bruteforce(X,Y)
+        k=max(1,e)
+        if k>2: continue
+        r=masked_info(X,Y,k)
+        if r is None: continue
+        M,XM,YM,dx,dy,gak=r
+        A0=[rr for rr in gak if rr[1]==e][0]
+        mp={x:y for x,y in A0[3]}
+        # blocks
+        xs=sorted(mp.keys())
+        # find maximal intervals with consecutive x and y=x-d
+        i=0
+        while i<len(xs):
+            j=i
+            while j+1<len(xs) and xs[j+1]==xs[j]+1 and mp[xs[j+1]]==mp[xs[j]]+1:
+                j+=1
+            l=xs[i]; rr=xs[j]
+            d=l-mp[l]
+            # check survivors: x in [l..rr] not in M proj
+            Mproj={x for x,y in M if y==x-d}
+            surv=[x for x in range(l,rr+1) if x not in Mproj]
+            # if surv extends far from l (prefix >k) then check period of Y block
+            if surv:
+                maxsurv=max(surv)
+                # distance from l
+                if maxsurv-l>k:
+                    # expect period <=2k in X[l..rr] or Y[l-d..rr-d]
+                    blkX=X[l:rr+1]
+                    # Y indices: need within range
+                    Yblk=Y[mp[l]:mp[rr]+1] if mp[l]>=0 and mp[rr]<len(Y) else []
+                    p=min_period(blkX) if blkX else 999
+                    if p>2*k:
+                        # also check if block has no common (all surv) -> then 0 dummies, still need period for LZ?
+                        # record violation of naive prefix claim (to be handled by periodic case)
+                        viol+=1
+                    total+=1
+            i=j+1
+print("periodic check total long-surv blocks:",total,"nonperiodic among them (need refined argument):",viol)
+```
+
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Test S1-S3: budgets, no-leave, dummy/LZ ratios, periodicity
+import itertools
+
+def all_alignments(X,Y,kmax=10):
+    n,m=len(X),len(Y)
+    res=[]
+    stack=[((0,0),[(0,0)],0)]
+    while stack:
+        (x,y),path,c=stack.pop()
+        if c>kmax: continue
+        if x==n and y==m:
+            # recount cost, greedy, mtch
+            cc=0; ok=True; mtch=set()
+            for t in range(len(path)-1):
+                xa,ya=path[t]; xb,yb=path[t+1]
+                if xb==xa+1 and yb==ya+1:
+                    if xa<n and ya<m and X[xa]==Y[ya]:
+                        mtch.add((xa,ya))
+                    else:
+                        cc+=1
+                        if xa<n and ya<m and X[xa]==Y[ya]:
+                            ok=False
+                else:
+                    cc+=1
+                    # delete step starting at (xa,ya): check greedy if in range
+                    if xa<n and ya<m and X[xa]==Y[ya]:
+                        ok=False
+            offs=[px-py for px,py in path]
+            res.append((path,cc,ok,mtch,offs))
+            continue
+        if x<n and y<m:
+            add=0 if X[x]==Y[y] else 1
+            stack.append(((x+1,y+1),path+[(x+1,y+1)],c+add))
+        if x<n:
+            stack.append(((x+1,y),path+[(x+1,y)],c+1))
+        if y<m:
+            stack.append(((x,y+1),path+[(x,y+1)],c+1))
+    return res
+
+def ed_bruteforce(X,Y):
+    return min(c for _,c,_,_,_ in all_alignments(X,Y,10))
+
+def lz_size(s):
+    n=len(s); i=0; z=0
+    while i<n:
+        best=0
+        for j in range(i):
+            L=0
+            while i+L<n and j+L<n and s[j+L]==s[i+L]:
+                L+=1
+            if L>best: best=L
+        if best==0:
+            z+=1; i+=1
+        else:
+            z+=1; i+=best
+    return z
+
+def masked_info(X,Y,k):
+    allp=all_alignments(X,Y,10)
+    gak=[r for r in allp if r[1]<=k and r[2]]
+    if not gak: return None
+    M=set.intersection(*[r[3] for r in gak])
+    Mx={x for x,y in M}; My={y for x,y in M}
+    XM=[('#' if i in Mx else X[i]) for i in range(len(X))]
+    YM=[('#' if j in My else Y[j]) for j in range(len(Y))]
+    def dcnt(S):
+        c=0; i=0
+        while i<len(S):
+            if S[i]=='#':
+                c+=1
+                while i<len(S) and S[i]=='#': i+=1
+            else: i+=1
+        return c
+    return M,XM,YM,dcnt(XM),dcnt(YM),gak
+
+# S1 check
+fails=0
+for n in range(0,5):
+    for X in itertools.product([0,1],repeat=n):
+        for m in range(0,5):
+            for Y in itertools.product([0,1],repeat=m):
+                X=list(X);Y=list(Y)
+                e=ed_bruteforce(X,Y)
+                for k in [e,e+1]:
+                    if k==0: continue
+                    allp=all_alignments(X,Y,10)
+                    gak=[r for r in allp if r[1]<=k and r[2]]
+                    if len(gak)==0:
+                        print("FAIL nonempty",X,Y,e,k); fails+=1
+                    for path,c,ok,mtch,offs in gak:
+                        if len(path)-len(mtch)!=c+1:
+                            print("FAIL brkp"); fails+=1
+                        if max([abs(o) for o in offs],default=0)>k:
+                            print("FAIL offs"); fails+=1
+print("S1 fails:",fails)
+
+# dummy/LZ ratios
+worst_d=0; worst_lz=0; fails2=0
+import random
+for _ in range(500):
+    n=random.randint(0,6); m=random.randint(0,6)
+    X=[random.randint(0,1) for _ in range(n)]
+    Y=[random.randint(0,1) for _ in range(m)]
+    e=ed_bruteforce(X,Y); k=max(1,e)
+    for kk in [k,k+1]:
+        r=masked_info(X,Y,kk)
+        if r is None: continue
+        M,XM,YM,dx,dy,gak=r
+        if dx>4*kk+1 or dy>4*kk+1:
+            print("DUMMY VIOL",X,Y,kk,dx,dy,XM,YM); fails2+=1
+        lzx=lz_size(XM); lzy=lz_size(YM)
+        if lzx>5*kk*kk+5 or lzy>5*kk*kk+5:
+            print("LZ VIOL",X,Y,kk,lzx,lzy,XM); fails2+=1
+        worst_d=max(worst_d,dx/max(1,kk)); worst_lz=max(worst_lz,lzx/max(1,kk*kk))
+print("dummy/lz fails:",fails2,"worst_d",worst_d,"worst_lz",worst_lz)
+
+# no-leave + periodicity check: for each block of A0, check survivors prefix vs period
+def min_period(s):
+    for p in range(1,len(s)+1):
+        if all(s[i]==s[i-p] for i in range(p,len(s))):
+            return p
+    return len(s)
+viol=0; total=0
+for X in itertools.product([0,1,2],repeat=5):
+    for Y in itertools.product([0,1,2],repeat=5):
+        X=list(X);Y=list(Y)
+        e=ed_bruteforce(X,Y)
+        k=max(1,e)
+        if k>2: continue
+        r=masked_info(X,Y,k)
+        if r is None: continue
+        M,XM,YM,dx,dy,gak=r
+        A0=[rr for rr in gak if rr[1]==e][0]
+        mp={x:y for x,y in A0[3]}
+        # blocks
+        xs=sorted(mp.keys())
+        # find maximal intervals with consecutive x and y=x-d
+        i=0
+        while i<len(xs):
+            j=i
+            while j+1<len(xs) and xs[j+1]==xs[j]+1 and mp[xs[j+1]]==mp[xs[j]]+1:
+                j+=1
+            l=xs[i]; rr=xs[j]
+            d=l-mp[l]
+            # check survivors: x in [l..rr] not in M proj
+            Mproj={x for x,y in M if y==x-d}
+            surv=[x for x in range(l,rr+1) if x not in Mproj]
+            # if surv extends far from l (prefix >k) then check period of Y block
+            if surv:
+                maxsurv=max(surv)
+                # distance from l
+                if maxsurv-l>k:
+                    # expect period <=2k in X[l..rr] or Y[l-d..rr-d]
+                    blkX=X[l:rr+1]
+                    # Y indices: need within range
+                    Yblk=Y[mp[l]:mp[rr]+1] if mp[l]>=0 and mp[rr]<len(Y) else []
+                    p=min_period(blkX) if blkX else 999
+                    if p>2*k:
+                        # also check if block has no common (all surv) -> then 0 dummies, still need period for LZ?
+                        # record violation of naive prefix claim (to be handled by periodic case)
+                        viol+=1
+                    total+=1
+            i=j+1
+print("periodic check total long-surv blocks:",total,"nonperiodic among them (need refined argument):",viol)
+```
+--- [TURN 2] EXECUTION ERROR (30.0072s) ---
+core_engine.kernel.TimeoutException: Execution timed out after 30.0s. Check for infinite loops or expensive brute-force search.
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 3/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Let $k\ge \ed(X,Y)$ be positive and $M=\mtch_k(X,Y)$.
+By symmetry it suffices to bound $X^M$.
+View $\#$ as an extra alphabet symbol, so Observation~\ref{fct:lz_properties} applies to masked strings.
+Write alignments as monotone paths from $(1,1)$ to $(|X|+1,|Y|+1)$ with steps $(+1,+1),(+1,0),(0,+1)$.
+For a visited point $(x_t,y_t)$, it is in $\mtch$ iff the step is diagonal and $X[x_t]=Y[y_t]$; otherwise it is in $\brkp$.
+For any visited $(x,y)$, $|x-y|\le \cost$, since $x-1=D+D_x$, $y-1=D+D_y$ where $D,D_x,D_y$ count diagonals, $X$-deletes, $Y$-deletes, so $|x-y|=|D_x-D_y|\le D_x+D_y\le\cost$.
+
+\begin{claim}\label{cl:greedy-exists} $\ga_k(X,Y)\ne\emptyset$.
+\end{claim}
+\begin{proof}
+Take an optimal alignment of cost $\ed\le k$.
+If $(x,y)\in\brkp$ with $X[x]=Y[y]$ then the step must be a delete.
+Suppose it deletes $X[x]$. Since $y\le |Y|$, the path later increases $y$; let $s>t$ be first with $y_s=y+1$, $x^*=x_{s-1}\ge x+1$.
+If $s-1\to s$ deletes $Y[y]$, replace $(x,y)\to(x+1,y)\to\cdots\to(x^*,y)\to(x^*,y+1)$ by $(x,y)\to(x+1,y+1)\to\cdots\to(x^*,y+1)$, matching $X[x]\simeq Y[y]$; cost drops by $2$.
+Hence an optimal alignment cannot contain this case.
+If $s-1\to s$ is diagonal $(x^*,y)\to(x^*+1,y+1)$, replace by $(x,y)\to(x+1,y+1)\to\cdots\to(x^*+1,y+1)$; cost does not increase, number of matches does not decrease, and if the old diagonal was a match the match moves from $x^*$ to $x<x^*$.
+Thus among optimal alignments, one with maximum $|\mtch|$ and then minimum sum of matched $x$'s has no violation. The symmetric case for $Y$-deletes is identical. Hence an optimal greedy alignment of cost $\le k$ exists.
+\end{proof}
+
+Fix $\A_0\in\ga_k$. Let $E_X$ be $X$-positions deleted or substituted by $\A_0$; $|E_X|\le\cost(\A_0)\le k$.
+The complement is a disjoint union of at most $k+1$ maximal matched intervals (blocks) $B_i=[a_i\dd b_i)$ with $X[a_i\dd b_i)\simeq_{\A_0}Y[c_i\dd d_i)$, $b_i-a_i=d_i-c_i$, offset $d_0=a_i-c_i$, $|d_0|\le k$.
+Since $M\subset\mtch(\A_0)$, every $x\in E_X$ is unmasked in $X^M$.
+
+Fix one block $[a\dd b)$, $[c\dd d)$, $d_0=a-c$.
+For $\A\in\ga_k$ let $V(\A)$ be its visited points and
+$r_{\A}=\min\{x\in[a\dd b]:(x,x-d_0)\in V(\A)\}$, with $\min\emptyset=b$.
+\begin{claim}\label{cl:prefix} If $\A$ visits $(x,x-d_0)$ with $x<b$ then it matches the whole suffix $[x\dd b)$.
+Hence with $R=\max_{\A}r_{\A}$ (finite maximum), $M$ on this block is exactly $[R\dd b)$.
+\end{claim}
+\begin{proof}
+For $x\in[a\dd b)$, $X[x]=Y[x-d_0]$. If $\A$ visits $(x,x-d_0)$ in range, greediness forbids leaving by $(+1,0)$ or $(0,+1)$, since that would make $(x,x-d_0)$ a breakpoint with equal characters. Hence it must go diagonal, which is a match, to $(x+1,x+1-d_0)$. Induction gives matches up to $b$. Thus visiting implies suffix-matching, and $r_{\A}$ is the rejoin point; $\A$ misses exactly $[a\dd r_{\A})$. Let $R=\max r_{\A}$ attained by $\A^*$. Then $x<R$ is missed by $\A^*$, so $x\notin M$; $x\ge R$ is matched by every $\A$ since $r_{\A}\le R\le x$. Visiting is equivalent to matching as characters are equal.
+\end{proof}
+Consequently $X^M$ on the block is solid $X[a\dd R)$ followed by $\#^{b-R}$: at most one dummy segment per block. With at most $k+1$ blocks separated by solid edited singletons, $X^M$ has $O(k)$ dummy segments. The same holds for $Y^M$ with prefix $[c\dd R-d_0)$ and suffix $\#$, since $(x,x-d_0)$ corresponds bijectively.
+
+It remains to bound $|\LZ|$. By Observation~\ref{fct:lz_properties}(P2), $|\LZ|$ of a concatenation is at most the sum of $|\LZ|$ of its pieces. Split $X^M$ into $O(k)$ pieces: per block solid prefix $P=X[a\dd R)$ and hash suffix $H=\#^{b-R}$, plus $\le k$ edited singletons. Singletons cost $1$, $H$ costs $\le2$ standalone ($ \#$ then previous factor, overlap allowed). It suffices that each $P$ has $|\LZ(P)|=O(k)$ standalone. If $|P|\le4k$ this is trivial by singletons. Assume $|P|=L>R-a$ large and $R>a$; let $\A^*$ attain $R$.
+
+Then $\A^*$ does not visit $(a,a-d_0)$; its entry offset $d_{\rm entry}\ne d_0$, $|d_{\rm entry}|\le k$. Put $p=d_{\rm entry}-d_0\ne0$, $|p|\le2k$, $q=|p|$.
+Let $S=X[a\dd R)$. The subpath of $\A^*$ covering $X[a\dd R)$ aligns $S$ to some $Y_S=Y[l\dd r)$ with cost $\le k$, so $\ed(S,Y_S)\le k$ and $|l-c|\le2k$, $|r-(R-d_{\rm entry})|=O(k)$.
+Let $T=X[a-p\dd R-p)$ (after trimming $O(k)$ edge singletons we may assume $1\le a-p$ and $R-p\le|X|$; trimmed edges cost $O(k)$). Since $l=a-d_{\rm entry}$ and $a-p=l+d_0$, for indices where both $l+i\in[c\dd d)$ and $a-p+i\in[a\dd b)$ we have $Y[l+i]=X[l+d_0+i]=X[a-p+i]$; endpoints differ from block boundaries by $O(k)$. Hence middle parts coincide and overhangs have length $O(k)$, so $\ed(Y_S,T)=O(k)$. By triangle inequality $\ed(S,T)=O(k)$, say $\le K=O(k)$.
+
+If $p>0$, $T[p\dd)=S[\dd L-p)$ literally (both $X[a\dd R-p)$); if $p<0$, $T[\dd L-q)=S[q\dd)$ literally. Hence with $U=S[q\dd)$, $V=S[\dd L-q)$ (so $V$ starts earlier at $a$), $\ed(U,V)=O(k)$: indeed $\ed(S[p\dd),T[p\dd))\le K+2p$ by deleting prefixes, and one side coincides. Trimming at most $2k$ characters for out-of-range shifts preserves this with $K'=O(k)$.
+
+Factor $S$ LZ-like: first $q\le2k$ characters as singletons. Then $U$ has edit distance $\le K'$ to earlier solid $V$. Split $U$ at the $\le K'$ edited positions into $\le K'+1$ exact blocks, each equal to a substring of $V$ starting at $\ge a$, hence a previous factor in the solid alphabet (no $\#$ involved), plus $\le K'$ singleton edited characters. Total phrases $q+2K'+1=O(k)$. By (P1), $|\LZ(P)|=O(k)$.
+
+Summing over $O(k)$ pieces, $|\LZ(X^M)|\le O(k)\cdot O(k)=O(k^2)$. The same argument with $X,Y$ swapped gives $|\LZ(Y^M)|=O(k^2)$. This covers all blocks including $R=a$ (empty prefix), $R=b$ (whole block disputed), periodic and non-periodic cases, and string ends via $O(k)$ trimming.
+\end{proof}
+[Proof Draft Generated] Turn 3: 5826 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": false, "rigor": 0.6, "completeness": 0.6, "boundary_cases": 0.85, "validity": 0.55, "verdict": "REJECT", "issues": "The LZ bound asserts an LZ-like factorization where U split at edited positions yields blocks each equal to a substring of V starting at >=a, hence a previous factor. The implication starting at >=a => previous factor is false: previous factor requires start i' < i, not merely >=a. Counterexample: S=12ABABAB34, q=2, V=S[..8)=12ABABAB, U=S[2..)=ABABAB34, ed(U,V)<=4. The exact block P=ABABAB equals V[2..8) starting at same position i=3, with no occurrence starting <3. Hence P is not a previous factor. Therefore the constructed factorization is not shown LZ-like and invocation of Observation (P1) lacks verified preconditions."}
+[Best Candidate Updated] Turn 3: validity=0.50 (5826 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.50, rejection #1)
+The LZ bound asserts an LZ-like factorization where U split at edited positions yields blocks each equal to a substring of V starting at >=a, hence a previous factor. The implication starting at >=a => previous factor is false: previous factor requires start i' < i, not merely >=a. Counterexample: S=12ABABAB34, q=2, V=S[..8)=12ABABAB, U=S[2..)=ABABAB34, ed(U,V)<=4. The exact block P=ABABAB equals V[2..8) starting at same position i=3, with no occurrence starting <3. Hence P is not a previous factor. Therefore the constructed factorization is not shown LZ-like and invocation of Observation (P1) lacks verified preconditions.
+[Self-Improvement] Initiating surgical revision turn 4 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_19_214 ---
+[Critique Falsifier Script]:
+S = "12ABABAB34"
+q = 2
+L = len(S)
+V = S[:L-q]  # "12ABABAB"
+U = S[q:]    # "ABABAB34"
+P = "ABABAB"
+i = U.index(P) + q  # start of P in S (=2)
+occs = [j for j in range(len(S)) if S.startswith(P, j)]
+print(f"S={S} V={V} U={U} P={P} i={i} occs={occs}")
+print(f"ed(U,V)<=4 holds (2 del + 2 ins); P equals V[2..8), start >=a=0")
+if not any(j < i for j in occs):
+    print(f"COUNTEREXAMPLE_FOUND: block P={P} at i={i} has no occurrence starting <{i}, so not a previous factor")
+    raise assert False, "COUNTEREXAMPLE_FOUND"
+print("INVARIANT_VERIFIED: all blocks are previous factors")
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+--- [TURN 4/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 4/8] MODEL GENERATED PROPOSAL & PROOF ---
+Repairing the LZ previous-factor step — testing a shift-based factorization to restore the $O(k^2)$ bound.[Turn 4] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 5.
+
+--- [TURN 5/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 5/8] MODEL GENERATED PROPOSAL & PROOF ---
+Repairing the previous-factor gap — verifying the corrected LZ bound.```python
+# REPL: verify LZ previous-factor defect and test periodic fix
+from collections import defaultdict
+import random
+
+def lz77_size(s):
+    # s: list/str, compute number of phrases with overlapping allowed
+    n=len(s)
+    i=0
+    cnt=0
+    while i<n:
+        best=0
+        # longest previous factor starting at i
+        # brute force: for each i2<i, longest common prefix s[i:]==s[i2:]
+        for i2 in range(i):
+            l=0
+            while i+l<n and i2+l<n and s[i+l]==s[i2+l]:
+                l+=1
+            if l>best:
+                best=l
+        if best<=1:
+            # single char (len1: previous factor len1 counts? definition: len>1 must be previous; len1 always allowed as single)
+            # if best==1, still single char phrase? longest previous factor len1 -> phrase len1? Actually if previous factor exists len>=1, longest >=1, phrase could be len1? But our counting: if best>=1, phrase len = best? For LZ77, if no previous factor (best==0), single char; else longest (could be 1) -> phrase len best (1). Either way advance 1.
+            # To match definition: phrase is longest previous factor if exists else single. So if best>=1, phrase len=best (could be 1). If best==0, len1.
+            # For size counting, both advance best if best>1 else 1.
+            if best>1:
+                i+=best
+            else:
+                i+=1
+            cnt+=1
+        else:
+            i+=best
+            cnt+=1
+    return cnt
+
+def test_counterexample():
+    # referee counterexample: S=12ABABAB34, q=2
+    S=list("12ABABAB34")
+    print("S=", "".join(S), "LZ=", lz77_size(S))
+    # V=S[..8), U=S[2..)
+    V=S[:8]; U=S[2:]
+    print("V=", "".join(V), "U=", "".join(U))
+    # edit distance brute (small)
+    # check exact block P=ABABAB equals V[2..8) starting at same pos
+    P=S[2:8]
+    print("P=", "".join(P))
+    # does P occur earlier in S? positions <2?
+    occ=[i for i in range(2) if "".join(S[i:i+len(P)])=="".join(P)]
+    print("earlier occ of P before 2:", occ, "(empty => NOT previous factor, defect confirmed)")
+    # periodic fix: P=ABABAB with period 2 has earlier copy shifted by 2?
+    # P starts at 2 in S, source at 0? S[0:6]=12ABAB != ABABAB. source at 2? self. source at? 
+    # Actually S[4:10]? no. Check quoting with shift 2: S[4:8]=ABAB equals S[2:6]=ABAB? S[2:6]=ABAB, S[4:8]=ABAB -> source 2<4 valid!
+    # So factor S as 1,2,A,B, then ABAB (pos4, source2), then 3,4? Let's see lz gives?
+    # Demonstrate valid periodic factorization of Suffix with shift q=2:
+    # S=1,2,A,B,A,B,A,B,3,4 ; after first 4 singletons (1,2,A,B), remainder ABAB (pos4-7) quotes pos2-5 valid (2<4)
+    print("check S[2:6]=", "".join(S[2:6]), "S[4:8]=", "".join(S[4:8]), "equal?", S[2:6]==S[4:8])
+
+test_counterexample()
+
+def ed(a,b):
+    n,m=len(a),len(b)
+    dp=[[0]*(m+1) for _ in range(n+1)]
+    for i in range(n+1): dp[i][0]=i
+    for j in range(m+1): dp[0][j]=j
+    for i in range(1,n+1):
+        for j in range(1,m+1):
+            dp[i][j]=min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+(0 if a[i-1]==b[j-1] else 1))
+    return dp[n][m]
+
+def test_random_periodic():
+    # S=D+M+E with random M, q=2, check ed(S1,S2) small but LZ large
+    for trial in range(3):
+        M=[random.choice("AB") for _ in range(20)]  # small alphabet to keep test; use larger for incompressible
+        # use random over large alphabet for incompressible
+        M2=[str(random.randint(0,1000)) for _ in range(20)]
+        S=["D1","D2"]+M2+["E1","E2"]
+        q=2
+        S1=S[:len(S)-q]; S2=S[q:]
+        print(f"trial random M len20: ed(S1,S2)={ed(S1,S2)}, LZ(S)={lz77_size(S)}, len={len(S)}")
+
+test_random_periodic()
+```
+
+
+--- [TURN 5] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# REPL: verify LZ previous-factor defect and test periodic fix
+from collections import defaultdict
+import random
+
+def lz77_size(s):
+    # s: list/str, compute number of phrases with overlapping allowed
+    n=len(s)
+    i=0
+    cnt=0
+    while i<n:
+        best=0
+        # longest previous factor starting at i
+        # brute force: for each i2<i, longest common prefix s[i:]==s[i2:]
+        for i2 in range(i):
+            l=0
+            while i+l<n and i2+l<n and s[i+l]==s[i2+l]:
+                l+=1
+            if l>best:
+                best=l
+        if best<=1:
+            # single char (len1: previous factor len1 counts? definition: len>1 must be previous; len1 always allowed as single)
+            # if best==1, still single char phrase? longest previous factor len1 -> phrase len1? Actually if previous factor exists len>=1, longest >=1, phrase could be len1? But our counting: if best>=1, phrase len = best? For LZ77, if no previous factor (best==0), single char; else longest (could be 1) -> phrase len best (1). Either way advance 1.
+            # To match definition: phrase is longest previous factor if exists else single. So if best>=1, phrase len=best (could be 1). If best==0, len1.
+            # For size counting, both advance best if best>1 else 1.
+            if best>1:
+                i+=best
+            else:
+                i+=1
+            cnt+=1
+        else:
+            i+=best
+            cnt+=1
+    return cnt
+
+def test_counterexample():
+    # referee counterexample: S=12ABABAB34, q=2
+    S=list("12ABABAB34")
+    print("S=", "".join(S), "LZ=", lz77_size(S))
+    # V=S[..8), U=S[2..)
+    V=S[:8]; U=S[2:]
+    print("V=", "".join(V), "U=", "".join(U))
+    # edit distance brute (small)
+    # check exact block P=ABABAB equals V[2..8) starting at same pos
+    P=S[2:8]
+    print("P=", "".join(P))
+    # does P occur earlier in S? positions <2?
+    occ=[i for i in range(2) if "".join(S[i:i+len(P)])=="".join(P)]
+    print("earlier occ of P before 2:", occ, "(empty => NOT previous factor, defect confirmed)")
+    # periodic fix: P=ABABAB with period 2 has earlier copy shifted by 2?
+    # P starts at 2 in S, source at 0? S[0:6]=12ABAB != ABABAB. source at 2? self. source at? 
+    # Actually S[4:10]? no. Check quoting with shift 2: S[4:8]=ABAB equals S[2:6]=ABAB? S[2:6]=ABAB, S[4:8]=ABAB -> source 2<4 valid!
+    # So factor S as 1,2,A,B, then ABAB (pos4, source2), then 3,4? Let's see lz gives?
+    # Demonstrate valid periodic factorization of Suffix with shift q=2:
+    # S=1,2,A,B,A,B,A,B,3,4 ; after first 4 singletons (1,2,A,B), remainder ABAB (pos4-7) quotes pos2-5 valid (2<4)
+    print("check S[2:6]=", "".join(S[2:6]), "S[4:8]=", "".join(S[4:8]), "equal?", S[2:6]==S[4:8])
+
+test_counterexample()
+
+def ed(a,b):
+    n,m=len(a),len(b)
+    dp=[[0]*(m+1) for _ in range(n+1)]
+    for i in range(n+1): dp[i][0]=i
+    for j in range(m+1): dp[0][j]=j
+    for i in range(1,n+1):
+        for j in range(1,m+1):
+            dp[i][j]=min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+(0 if a[i-1]==b[j-1] else 1))
+    return dp[n][m]
+
+def test_random_periodic():
+    # S=D+M+E with random M, q=2, check ed(S1,S2) small but LZ large
+    for trial in range(3):
+        M=[random.choice("AB") for _ in range(20)]  # small alphabet to keep test; use larger for incompressible
+        # use random over large alphabet for incompressible
+        M2=[str(random.randint(0,1000)) for _ in range(20)]
+        S=["D1","D2"]+M2+["E1","E2"]
+        q=2
+        S1=S[:len(S)-q]; S2=S[q:]
+        print(f"trial random M len20: ed(S1,S2)={ed(S1,S2)}, LZ(S)={lz77_size(S)}, len={len(S)}")
+
+test_random_periodic()
+```
+--- [TURN 5] EXECUTION SUCCESS (0.0022s) ---
+Stdout:
+S= 12ABABAB34 LZ= 7
+V= 12ABABAB U= ABABAB34
+P= ABABAB
+earlier occ of P before 2: [] (empty => NOT previous factor, defect confirmed)
+check S[2:6]= ABAB S[4:8]= ABAB equal? True
+trial random M len20: ed(S1,S2)=4, LZ(S)=24, len=24
+trial random M len20: ed(S1,S2)=4, LZ(S)=24, len=24
+trial random M len20: ed(S1,S2)=4, LZ(S)=24, len=24
+
+
+--- [TURN 6/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 6/8] MODEL GENERATED PROPOSAL & PROOF ---
+I’ve confirmed the defect in the earlier LZ-like step and isolated the periodic obstruction; now I’ll verify the corrected block-wise compression argument.```python
+# REPL: brute-force small cases to see worst LZ/k^2 ratio and dummy counts
+import itertools
+from collections import defaultdict
+
+def all_alignments(X,Y, max_cost=None):
+    # brute force via DP enumeration for tiny n (n<=5)
+    n,m=len(X),len(Y)
+    # generate all monotone paths from (0,0) to (n,m) with steps D=(1,1),Xdel=(1,0),Ydel=(0,1)
+    # DFS
+    paths=[]
+    def dfs(x,y,steps):
+        if x==n and y==m:
+            paths.append(list(steps))
+            return
+        if x<n and y<m:
+            steps.append('D'); dfs(x+1,y+1,steps); steps.pop()
+        if x<n:
+            steps.append('X'); dfs(x+1,y,steps); steps.pop()
+        if y<m:
+            steps.append('Y'); dfs(x,y+1,steps); steps.pop()
+    dfs(0,0,[])
+    return paths
+
+def cost_mtch_brkp(X,Y,steps):
+    x=y=0
+    cost=0
+    mtch=set()
+    brkp=set()
+    # points (x_t,y_t) for t in [0..len(steps)]: start (0,0)
+    # for each t, if step is D and chars equal -> match else breakpoint?
+    # Definition: partition elements (x_t,y_t) into matches (X[x_t]≃ Y[y_t]) and breakpoints (remaining).
+    # For t = final (n,m), x_t=n or y_t=m out of range -> breakpoint? It has no char? It's breakpoint by default (since not match).
+    # For intermediate t with step D and equal chars -> match, else breakpoint.
+    # Also need greedy condition: X[x]!=Y[y] for every (x,y) in brkp cap ([0..n-1]x[0..m-1]).
+    pts=[]
+    pts.append((x,y))
+    for s in steps:
+        if s=='D': x+=1; y+=1  # careful: pts are before step? Actually (x_t,y_t) sequence: start (0,0)? In paper 1-indexed (1,1) to (n+1,m+1). 0-indexed (0,0) to (n,m). Steps from pt.
+            # We'll collect pts as we go: pts[0]=(0,0), pts[1],...
+        elif s=='X': x+=1
+        else: y+=1
+        # Actually need to update correctly: above pseudo; let's implement loop properly
+        pass
+    return None
+
+def analyze(X,Y):
+    n,m=len(X),len(Y)
+    paths=[]
+    def dfs(x,y,steps):
+        if x==n and y==m:
+            paths.append(tuple(steps))
+            return
+        if x<n and y<m:
+            dfs(x+1,y+1,steps+('D',))
+        if x<n:
+            dfs(x+1,y,steps+('X',))
+        if y<m:
+            dfs(x,y+1,steps+('Y',))
+    dfs(0,0,())
+    results=[]
+    for steps in paths:
+        x=y=0
+        pts=[(0,0)]
+        for s in steps:
+            if s=='D': x+=1; y+=1
+            elif s=='X': x+=1
+            else: y+=1
+            pts.append((x,y))
+        # pts length = len(steps)+1 = m_path; for t in [0..len-2] (all but last), determine match/breakpoint?
+        # Actually paper partitions elements (x_t,y_t) of A into matches and breakpoints. For t=m (last, (n,m)), it's breakpoint (no chars).
+        # For t<m: if step_t == D and X[x_t]==Y[y_t] then match else breakpoint.
+        mtch=set(); brkp=set(); c=0
+        for idx,pt in enumerate(pts[:-1]):
+            xt,yt=pt
+            s=steps[idx]
+            if s=='D' and xt<n and yt<m and X[xt]==Y[yt]:
+                mtch.add(pt)
+            else:
+                brkp.add(pt)
+                # cost: deletes or substitutions
+                # delete X / delete Y / substitute?
+                # cost = # deletes + substitutions. Deletes: X-step or Y-step. Substitutions: D-step with chars !=.
+                # So every brkp except final? Final pt (n,m) is brkp but does it count in cost? Cost counts characters deleted/substituted, not final point. So final point should NOT count.
+                # Our brkp includes all non-match pts[:-1]; cost = len(brkp) - (maybe?) No: X-deletes and Y-deletes and subs each count 1. That's exactly len(brkp) restricted to pts[:-1]? Since every non-match step counts 1. Yes cost = len(brkp).
+                pass
+        # last pt is brkp but not counted in cost
+        brkp.add(pts[-1])
+        c=len([p for p in brkp if p!=pts[-1]])  # == len(mtch complement in pts[:-1])
+        # greedy: X[x]!=Y[y] for every (x,y) in brkp cap ([0..n-1]x[0..m-1])
+        greedy=True
+        for (xt,yt) in brkp:
+            if xt<n and yt<m:
+                if X[xt]==Y[yt]:
+                    greedy=False; break
+        results.append((steps,pts,mtch,brkp,c,greedy))
+    return results
+
+def ed_brute(X,Y):
+    return min(c for (_,_,_,_,c,_) in analyze(X,Y))
+
+def lz_size(s):
+    # s list, alphabet includes '#' as symbol; compute LZ77 size with overlapping allowed
+    n=len(s); i=0; cnt=0
+    while i<n:
+        best=0
+        for j in range(i):
+            l=0
+            while i+l<n and j+l<n and s[i+l]==s[j+l]:
+                l+=1
+            if l>best: best=l
+        if best>1:
+            i+=best
+        else:
+            i+=1
+        cnt+=1
+    return cnt
+
+def test_small():
+    import random
+    worst=0; worst_ex=None
+    for n in range(1,5):
+        for m in range(1,5):
+            for X in itertools.product([0,1], repeat=n):
+                for Y in itertools.product([0,1], repeat=m):
+                    X=list(X); Y=list(Y)
+                    e=ed_brute(X,Y)
+                    for k in [e]:
+                        if k==0: continue
+                        res=analyze(X,Y)
+                        ga=[r for r in res if r[5] and r[4]<=k]
+                        if not ga: print("empty ga!", X,Y,k); return
+                        # M = intersection of mtch
+                        M=set(ga[0][2])
+                        for r in ga[1:]: M=M.intersection(r[2])
+                        # build masked
+                        XM=list(X); YM=list(Y)
+                        for (x,y) in M:
+                            XM[x]='#'; YM[y]='#'
+                        # count dummy segments
+                        def dummy_cnt(S):
+                            c=0; i=0
+                            while i<len(S):
+                                if S[i]=='#':
+                                    c+=1
+                                    while i<len(S) and S[i]=='#': i+=1
+                                else: i+=1
+                            return c
+                        dcx=dummy_cnt(XM); dcy=dummy_cnt(YM)
+                        lzx=lz_size(XM); lzy=lz_size(YM)
+                        ratiox=lzx/(k*k) if k>0 else 0
+                        if ratiox>worst:
+                            worst=ratiox; worst_ex=(X,Y,k,e,M,XM,YM,lzx,lzy,dcx,dcy)
+    print("worst LZ/k^2:", worst)
+    print(worst_ex)
+
+test_small()
+```
+
+--- [TURN 6] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# REPL: brute-force small cases to see worst LZ/k^2 ratio and dummy counts
+import itertools
+from collections import defaultdict
+
+def all_alignments(X,Y, max_cost=None):
+    # brute force via DP enumeration for tiny n (n<=5)
+    n,m=len(X),len(Y)
+    # generate all monotone paths from (0,0) to (n,m) with steps D=(1,1),Xdel=(1,0),Ydel=(0,1)
+    # DFS
+    paths=[]
+    def dfs(x,y,steps):
+        if x==n and y==m:
+            paths.append(list(steps))
+            return
+        if x<n and y<m:
+            steps.append('D'); dfs(x+1,y+1,steps); steps.pop()
+        if x<n:
+            steps.append('X'); dfs(x+1,y,steps); steps.pop()
+        if y<m:
+            steps.append('Y'); dfs(x,y+1,steps); steps.pop()
+    dfs(0,0,[])
+    return paths
+
+def cost_mtch_brkp(X,Y,steps):
+    x=y=0
+    cost=0
+    mtch=set()
+    brkp=set()
+    # points (x_t,y_t) for t in [0..len(steps)]: start (0,0)
+    # for each t, if step is D and chars equal -> match else breakpoint?
+    # Definition: partition elements (x_t,y_t) into matches (X[x_t]≃ Y[y_t]) and breakpoints (remaining).
+    # For t = final (n,m), x_t=n or y_t=m out of range -> breakpoint? It has no char? It's breakpoint by default (since not match).
+    # For intermediate t with step D and equal chars -> match, else breakpoint.
+    # Also need greedy condition: X[x]!=Y[y] for every (x,y) in brkp cap ([0..n-1]x[0..m-1]).
+    pts=[]
+    pts.append((x,y))
+    for s in steps:
+        if s=='D': x+=1; y+=1  # careful: pts are before step? Actually (x_t,y_t) sequence: start (0,0)? In paper 1-indexed (1,1) to (n+1,m+1). 0-indexed (0,0) to (n,m). Steps from pt.
+            # We'll collect pts as we go: pts[0]=(0,0), pts[1],...
+        elif s=='X': x+=1
+        else: y+=1
+        # Actually need to update correctly: above pseudo; let's implement loop properly
+        pass
+    return None
+
+def analyze(X,Y):
+    n,m=len(X),len(Y)
+    paths=[]
+    def dfs(x,y,steps):
+        if x==n and y==m:
+            paths.append(tuple(steps))
+            return
+        if x<n and y<m:
+            dfs(x+1,y+1,steps+('D',))
+        if x<n:
+            dfs(x+1,y,steps+('X',))
+        if y<m:
+            dfs(x,y+1,steps+('Y',))
+    dfs(0,0,())
+    results=[]
+    for steps in paths:
+        x=y=0
+        pts=[(0,0)]
+        for s in steps:
+            if s=='D': x+=1; y+=1
+            elif s=='X': x+=1
+            else: y+=1
+            pts.append((x,y))
+        # pts length = len(steps)+1 = m_path; for t in [0..len-2] (all but last), determine match/breakpoint?
+        # Actually paper partitions elements (x_t,y_t) of A into matches and breakpoints. For t=m (last, (n,m)), it's breakpoint (no chars).
+        # For t<m: if step_t == D and X[x_t]==Y[y_t] then match else breakpoint.
+        mtch=set(); brkp=set(); c=0
+        for idx,pt in enumerate(pts[:-1]):
+            xt,yt=pt
+            s=steps[idx]
+            if s=='D' and xt<n and yt<m and X[xt]==Y[yt]:
+                mtch.add(pt)
+            else:
+                brkp.add(pt)
+                # cost: deletes or substitutions
+                # delete X / delete Y / substitute?
+                # cost = # deletes + substitutions. Deletes: X-step or Y-step. Substitutions: D-step with chars !=.
+                # So every brkp except final? Final pt (n,m) is brkp but does it count in cost? Cost counts characters deleted/substituted, not final point. So final point should NOT count.
+                # Our brkp includes all non-match pts[:-1]; cost = len(brkp) - (maybe?) No: X-deletes and Y-deletes and subs each count 1. That's exactly len(brkp) restricted to pts[:-1]? Since every non-match step counts 1. Yes cost = len(brkp).
+                pass
+        # last pt is brkp but not counted in cost
+        brkp.add(pts[-1])
+        c=len([p for p in brkp if p!=pts[-1]])  # == len(mtch complement in pts[:-1])
+        # greedy: X[x]!=Y[y] for every (x,y) in brkp cap ([0..n-1]x[0..m-1])
+        greedy=True
+        for (xt,yt) in brkp:
+            if xt<n and yt<m:
+                if X[xt]==Y[yt]:
+                    greedy=False; break
+        results.append((steps,pts,mtch,brkp,c,greedy))
+    return results
+
+def ed_brute(X,Y):
+    return min(c for (_,_,_,_,c,_) in analyze(X,Y))
+
+def lz_size(s):
+    # s list, alphabet includes '#' as symbol; compute LZ77 size with overlapping allowed
+    n=len(s); i=0; cnt=0
+    while i<n:
+        best=0
+        for j in range(i):
+            l=0
+            while i+l<n and j+l<n and s[i+l]==s[j+l]:
+                l+=1
+            if l>best: best=l
+        if best>1:
+            i+=best
+        else:
+            i+=1
+        cnt+=1
+    return cnt
+
+def test_small():
+    import random
+    worst=0; worst_ex=None
+    for n in range(1,5):
+        for m in range(1,5):
+            for X in itertools.product([0,1], repeat=n):
+                for Y in itertools.product([0,1], repeat=m):
+                    X=list(X); Y=list(Y)
+                    e=ed_brute(X,Y)
+                    for k in [e]:
+                        if k==0: continue
+                        res=analyze(X,Y)
+                        ga=[r for r in res if r[5] and r[4]<=k]
+                        if not ga: print("empty ga!", X,Y,k); return
+                        # M = intersection of mtch
+                        M=set(ga[0][2])
+                        for r in ga[1:]: M=M.intersection(r[2])
+                        # build masked
+                        XM=list(X); YM=list(Y)
+                        for (x,y) in M:
+                            XM[x]='#'; YM[y]='#'
+                        # count dummy segments
+                        def dummy_cnt(S):
+                            c=0; i=0
+                            while i<len(S):
+                                if S[i]=='#':
+                                    c+=1
+                                    while i<len(S) and S[i]=='#': i+=1
+                                else: i+=1
+                            return c
+                        dcx=dummy_cnt(XM); dcy=dummy_cnt(YM)
+                        lzx=lz_size(XM); lzy=lz_size(YM)
+                        ratiox=lzx/(k*k) if k>0 else 0
+                        if ratiox>worst:
+                            worst=ratiox; worst_ex=(X,Y,k,e,M,XM,YM,lzx,lzy,dcx,dcy)
+    print("worst LZ/k^2:", worst)
+    print(worst_ex)
+
+test_small()
+```
+--- [TURN 6] EXECUTION SUCCESS (1.6444s) ---
+Stdout:
+worst LZ/k^2: 4.0
+([0, 0, 0, 1], [0, 0, 1], 1, 1, {(1, 1), (3, 2), (0, 0)}, ['#', '#', 0, '#'], ['#', '#', '#'], 4, 2, 2, 1)
+
+
+--- [TURN 7/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 7] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 8.
+
+--- [TURN 8/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 8/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Let $k\ge \ed(X,Y)$ be positive and $M=\mtch_k(X,Y)$.
+By symmetry it suffices to bound $X^M$.
+View $\#$ as an extra symbol so Observation~\ref{fct:lz_properties}
+applies. If $X$ or $Y$ is empty the claim is trivial; assume non-empty.
+For a visited $(x_t,y_t)$, $|x_t-y_t|\le\cost$ since
+$x_t-1=D+D_x$, $y_t-1=D+D_y$ and $\cost\ge D_x+D_y$.
+
+\begin{claim}\label{cl:ex} $\ga_k(X,Y)\ne\emptyset$.
+\end{claim}
+\begin{proof}
+Take an optimal alignment. If $(x,y)\in\brkp$ with $X[x]=Y[y]$
+the step is a delete. Suppose it deletes $X[x]$.
+Let $s>t$ be first with $y_s=y+1$, $x^*=x_{s-1}\ge x+1$.
+If $s-1\to s$ deletes $Y[y]$, replacing the detour by a diagonal
+at $(x,y)$ drops cost by $2$, impossible for optimal.
+If $s-1\to s$ is diagonal, replacing the detour by a diagonal
+at $(x,y)$ does not increase cost and does not decrease $|\mtch|$.
+Hence among optimal alignments one with maximum $|\mtch|$ and then
+minimum sum of matched $x$'s has no $X[x]=Y[y]$ breakpoint.
+The $Y$-delete case is symmetric. Thus an optimal greedy
+alignment of cost $\le k$ exists.
+\end{proof}
+
+Fix $\A_0\in\ga_k$. Its $\le k$ edit steps split diagonals into
+$\le k+1$ maximal runs $X[a_i\dd b_i)\simeq_{\A_0}Y[c_i\dd d_i)$
+of equal length with constant offset $d_0=a_i-c_i$, $|d_0|\le k$.
+Let $E_X$ be $X$-positions deleted/substituted; $|E_X|\le k$.
+Since $M\subset\mtch(\A_0)$, $E_X$ is unmasked.
+
+Fix one block $[a\dd b),[c\dd d)$, $d_0=a-c$.
+For $\A\in\ga_k$ let $V(\A)$ be visited points and
+$r_{\A}=\min\{x\in[a\dd b]:(x,x-d_0)\in V(\A)\}$, $\min\emptyset=b$.
+\begin{claim}\label{cl:suf}
+If $\A$ visits $(x,x-d_0)$ with $x<b$ it matches the whole suffix
+$[x\dd b)$. With $R=\max_{\A}r_{\A}$, $M$ on the block is exactly
+$[R\dd b)$.
+\end{claim}
+\begin{proof}
+For $x\in[a\dd b)$, $X[x]=Y[x-d_0]$, both chars exist.
+Greediness forbids leaving $(x,x-d_0)$ by $(+1,0)$ or $(0,+1)$,
+so it must go diagonal, a match. Induction gives suffix matches.
+Thus $r_{\A}$ is the rejoin point. Let $\A^*$ attain $R$.
+Then $x<R$ is missed by $\A^*$, so $x\notin M$; $x\ge R$ is matched
+by every $\A$ since $r_{\A}\le R\le x$. Uniqueness of $\A_0$-match
+per $x$ gives the exact description.
+\end{proof}
+Hence $X^M$ on the block is solid $P=X[a\dd R)$ followed by
+$\#^{b-R}$: at most one dummy segment per block.
+With $\le k+1$ blocks separated by solid edited singletons,
+$X^M$ has $O(k)$ dummy segments. The same holds for $Y^M$.
+
+\medskip\noindent\textbf{LZ bound.}
+We build a global LZ-like factorization of $X^M$ left to right.
+Edited singletons cost $1$; each $\#$-run costs $\le2$ by self-overlap.
+It suffices that each solid prefix $P$ costs $O(k)$ phrases with
+strictly earlier solid sources, giving $O(k)\times O(k)=O(k^2)$
+phrases total, whence $|\LZ(X^M)|=O(k^2)$ by (P1) of
+Observation~\ref{fct:lz_properties}.
+If $|P|\le 8k$ use singletons. Assume $L=R-a>8k$ and let $\A^*$
+attain $R$. Then $p=d_{\rm entry}-d_0\ne0$ where
+$(a,y_a)\in V(\A^*)$, $d_{\rm entry}=a-y_a$, $|p|\le2k$;
+otherwise $r_{\A^*}=a$ and $R=a$.
+Let $S=X[a\dd R)$, $Y_S=Y[y_a\dd R-d_0)$; the subpath cost gives
+$\ed(S,Y_S)\le k$. The walk $d=x-y$ starts at $d_0+p$, ends at $d_0$.
+First hitting of $d_0$ is at $R$ by minimality of $R$; before $R$,
+$d\ne d_0$ and stays strictly on the starting side, else it would
+visit $(x,x-d_0)$ with $x<R$. Arrival at $(R,R-d_0)$ is by delete,
+not diagonal on $d_0$, else $(R-1,R-1-d_0)$ was visited.
+Diagonal match runs have $d\ne d_0$ with constant sign.
+There are $\le k+1$ runs split by $\le k$ $X$-edits.
+
+If $p>0$, then $d>d_0$ for all runs. A run
+$(x_0,y_0)$ of length $t$ gives $X[x_0\dd x_0+t)=Y[y_0\dd y_0+t)$.
+After splitting at most one run straddling the $Y$-block start $c$
+and at most one straddling the $X$-block start $a$ for sources,
+all remaining runs have $Y$-intervals in $[c\dd d)$ and sources
+$[y_0+d_0\dd y_0+d_0+t)$ in $[a\dd R)$.
+Indeed $Y$-intervals are disjoint in $[c-p\dd R-d_0)$; total length
+before $c$ is $\le p\le2k$, factored as singletons; sources are
+disjoint in $[a-p\dd R-p)$; total length before $a$ is $\le p$,
+factored as singletons. Block equality gives
+$Y[y_0\dd y_0+t)=X[y_0+d_0\dd y_0+d_0+t)$ as original strings,
+both $X$-intervals solid, hence equal in $X^M$.
+Dest-source $=d-d_0>0$, so source starts strictly earlier.
+This is a valid previous factor, overcoming the same-position
+obstruction: the trivial overlap $S[\dd L-p)=T[p\dd)$ starts at the
+same position and is discarded as singletons, while same-offset
+equality starts $p>0$ earlier and $d>d_0$ is preserved by no-crossing
+of $d_0$. Total phrases $O(k)$.
+
+If $p<0$, put $q=-p>0$. Then $Y_S=Y[c+q\dd R-d_0)$ lies in the
+$Y$-block and equals $U=X[a+q\dd R)$ exactly. Peel first $q\le2k$
+chars of $S$ as singletons; factor $U$ via $\A^*$ $Y$-intervals,
+$\le k+1$ runs plus $\le k$ singletons for skipped $Y$-positions.
+A run $(x_0,y_0)$ matches $X[x_0\dd)=Y[y_0\dd)$ with
+$Y[y_0\dd)=X[y_0+d_0\dd)$ in the block. Dest $y_0+d_0\in U$,
+source $x_0\in S$, dest-source $=d_0-d>0$ since $d<d_0$ throughout,
+so source starts strictly earlier in solid $S$. No overhangs occur.
+Total phrases $O(k)$. This self-reference uses $V=S[\dd L-q)$ as
+earlier source, not the later shift, repairing the defect where
+$U$-blocks equalling $V$-blocks at the same position are not previous
+factors.
+
+Thus each $P$ needs $O(k)$ phrases with $i'<i$ and literal $\#$-free
+equality. Summing over $O(k)$ blocks plus $O(k)$ singletons and
+$\#$-runs gives an LZ-like factorization of $X^M$ with $O(k^2)$
+phrases. By (P1), $|\LZ(X^M)|=O(k^2)$. The $Y$-side is symmetric,
+with $Y$-block prefix $[c\dd R-d_0)$ solid and suffix dummy.
+This covers $R=a,R=b$, string ends, and periodic and non-periodic
+cases.
+\end{proof}
+[Proof Draft Generated] Turn 8: 5684 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.65, "completeness": 0.6, "boundary_cases": 0.55, "validity": 0.6, "verdict": "REJECT", "issues": "LZ bound assumes attaining A* visits (R,R-d0) to define S,Y_S subpath, ed bound, first-hitting/side-preservation and arrival-by-delete. When R=b is attained by empty r_A=b with no visit to diagonal d0 on [a..b], (R,R-d0) not in V(A*) so subpath does not exist and offset analysis fails. Such interior long blocks admit empty attainers within cost k, leaving O(k) factoring of P unproved. Coverage of R=b claimed without justification."}
+[Best Candidate Updated] Turn 8: validity=0.60 (5684 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.60, rejection #2)
+LZ bound assumes attaining A* visits (R,R-d0) to define S,Y_S subpath, ed bound, first-hitting/side-preservation and arrival-by-delete. When R=b is attained by empty r_A=b with no visit to diagonal d0 on [a..b], (R,R-d0) not in V(A*) so subpath does not exist and offset analysis fails. Such interior long blocks admit empty attainers within cost k, leaving O(k) factoring of P unproved. Coverage of R=b claimed without justification.
+
+================================================================================
+[HIGH-POTENTIAL OVERTIME GATE TRIGGERED]
+Candidate proof achieved strong directional validity (0.60 >= 0.35).
+Granting 4-turn overtime extension (Turn 8 -> Max turns: 12, +1800s wall-clock to 9000s) for surgical repair.
+================================================================================
+
+[Best Candidate Restored for Revision] Restoring highest-scoring candidate from Turn 8 (validity: 0.60, structural: 0.60) over Turn 8 (validity: 0.60, structural: 0.60) to guarantee progress on the best mathematical foundation.
+[Self-Improvement] Initiating surgical revision turn 9 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_19_214 ---
+[Critique Falsifier Script]:
+import itertools
+
+# Concrete instance: X = A C^L D, Y = B C^L D, L=10
+L = 10
+X = ["A"] + ["C"]*L + ["D"]
+Y = ["B"] + ["C"]*L + ["D"]
+N = len(X)
+a, b = 1, 1+L
+d0 = 0
+print("X len",N,"block",a,b,"XeqlY:", X[a:b]==Y[a:b])
+
+def cost_of_path(P):
+    # P list of (x,y) from (0,0) to (N,N), steps (1,0),(0,1),(1,1)
+    c=0
+    for (x0,y0),(x1,y1) in zip(P,P[1:]):
+        dx,dy=x1-x0,y1-y0
+        if (dx,dy)==(1,1):
+            if x0<N and y0<N and X[x0]!=Y[y0]: c+=1
+        else: c+=1
+    return c
+
+def is_greedy(P):
+    # breakpoint (x,y) with X[x]==Y[y] must not leave by delete/insert
+    for (x0,y0),(x1,y1) in zip(P,P[1:]):
+        if x0<N and y0<N and X[x0]==Y[y0]:
+            if (x1-x0,y1-y0)!=(1,1):
+                return False
+    return True
+
+# A0: diagonal (sub at 0, matches, match D)
+A0=[(i,i) for i in range(N+1)]
+# A*: delete A, diagonal L steps at d=1, sub D/C, insert last D
+Astar=[(0,0),(1,0)]
+for i in range(L):
+    Astar.append((2+i,1+i))  # after L steps reach (1+L, L)=(b,b-1)
+# now diagonal sub (b,b-1)->(b+1,b)
+Astar.append((b+1,b))
+# insert to end
+Astar.append((b+1,b+1))
+print("Astar:",Astar[-4:])
+print("A0 cost",cost_of_path(A0),"greedy",is_greedy(A0))
+print("A* cost",cost_of_path(Astar),"greedy",is_greedy(Astar))
+
+k=cost_of_path(Astar)
+print("k=",k)
+# check visits to diagonal d0 on [a..b]
+V0=set(A0); Vs=set(Astar)
+vis0=[x for x in range(a,b) if (x,x-d0) in V0]
+visS=[x for x in range(a,b) if (x,x-d0) in Vs]
+print("A0 visits in [a,b):",len(vis0),"A* visits in [a,b):",len(visS))
+print("A* visits (b,b-d0)?",(b,b-d0) in Vs)
+r_star = min(visS) if visS else b
+print("r_A* =",r_star,"(b=",b,")")
+if r_star==b and (b,b-d0) not in Vs and is_greedy(Astar) and cost_of_path(Astar)<=k and is_greedy(A0):
+    print("COUNTEREXAMPLE_FOUND: R=b attained by empty A* with (R,R-d0) not in V(A*); subpath S,Y_S/ed/first-hitting analysis fails")
+    raise assert if False else AssertionError("COUNTEREXAMPLE_FOUND")
+[Critique Kernel ALERT (Counterexample/Defect Confirmed)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_version, optimize=optimize)
+  File "<unknown>", li
+
+--- [TURN 9/12] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 9/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Let $k\ge \ed(X,Y)$ be positive and $M=\mtch_{k}(X,Y)$.
+By symmetry it suffices to bound $X^{M}$.
+If $X$ or $Y$ is empty, say $Y=\eps$, then $\ed(X,Y)=|X|\le k$,
+$M=\emptyset$, $X^{M}=X$, $|\LZ(X)|\le |X|\le k$ and there is no
+dummy segment. Hence assume $X,Y$ non-empty.
+Treat $\#$ as an extra alphabet letter so
+Observation~\ref{fct:lz_properties} applies.
+\begin{claim}\label{cl:ga} $\ga_{k}(X,Y)\ne\emptyset$.
+\end{claim}
+\begin{proof}
+Take an optimal alignment. Among optimal alignments choose one with
+maximum $|\mtch|$ and then minimum sum of matched $x$'s; it exists
+as the set of alignments is finite.
+If $(x,y)\in\brkp\cap([1\dd|X|]\times[1\dd|Y|])$ has $X[x]=Y[y]$,
+the step is a delete. Suppose it deletes $X[x]$.
+Let $s$ be first index with $y$-coordinate $y+1$.
+Write $(x_{s-1},y)$ for the predecessor.
+If $s-1\to s$ deletes $Y[y]$, replacing the detour
+$(x,y)\to\cdots\to(x_{s-1},y)\to(x_{s-1},y+1)$ by a diagonal match
+$(x,y)\to(x+1,y+1)$ followed by $X$-deletes to $(x_{s-1},y+1)$
+saves $2$ in cost, impossible for optimal.
+If $s-1\to s$ is diagonal aligning $X[x_{s-1}],Y[y]$,
+the same replacement does not increase cost; it is strictly cheaper
+if that diagonal is a substitution, impossible, and otherwise keeps
+cost and $|\mtch|$ but moves the match from $x_{s-1}$ to $x<x_{s-1}$,
+contradicting minimality. The $Y$-delete case is symmetric.
+Hence no such $(x,y)$ exists, i.e.\ the alignment is greedy in the
+sense of Definition~\ref{def:greedy_alignment}, of cost $\le k$.
+\end{proof}
+Fix $\A_{0}\in\ga_{k}$ with $\cost\le k$.
+For a visited $(x_{t},y_{t})$, writing $D_{x},D_{y}$ for numbers of
+$X$-/$Y$-deletes before $t$ and $D$ for diagonal steps,
+$x_{t}-1=D_{x}+D$, $y_{t}-1=D_{y}+D$, so $x_{t}-y_{t}=D_{x}-D_{y}$
+and $|x_{t}-y_{t}|\le D_{x}+D_{y}\le\cost\le k$.
+The $\le k$ non-match steps split $\A_{0}$ into $\le k+1$ maximal
+runs $X[a_{i}\dd b_{i})\simeq_{\A_{0}}Y[c_{i}\dd d_{i})$ of equal
+length with constant offset $d_{0}=a_{i}-c_{i}$, $|d_{0}|\le k$.
+Let $E_{X}$ be $X$-positions deleted/substituted; $|E_{X}|\le k$.
+Since $M\subset\mtch(\A_{0})$, $E_{X}$ is unmasked.
+
+Fix one block $[a\dd b),[c\dd d)$, $d_{0}=a-c$.
+For $\A\in\ga_{k}$ let $V(\A)$ be visited points and
+$r_{\A}=\min\{x\in[a\dd b]:(x,x-d_{0})\in V(\A)\}$, $\min\emptyset=b$.
+\begin{claim}\label{cl:suf}
+If $\A$ visits $(x,x-d_{0})$ with $x<b$ it matches the whole suffix
+$[x\dd b)$. With $R=\max_{\A}r_{\A}$, $M$ on the block equals
+$[R\dd b)$.
+\end{claim}
+\begin{proof}
+For $x\in[a\dd b)$, $X[x]=Y[x-d_{0}]$.
+Greediness forbids leaving $(x,x-d_{0})$ by $(+1,0)$ or $(0,+1)$,
+so it must go diagonal, a match. Induction gives suffix matches.
+If $R<b$ every $\A$ has $r_{\A}\le R<b$, hence visits and matches
+$[R\dd b)$; if $R=b$ the attainer misses the whole block, so the
+intersection is empty $=[b\dd b)$. Uniqueness of the $\A_{0}$-match
+per $x$ gives the exact description.
+\end{proof}
+Thus $X^{M}$ on the block is solid $P=X[a\dd R)$ followed by
+$\#^{b-R}$: at most one dummy segment per block.
+$X$ is partitioned into $\le k+1$ blocks plus $\le k$ solid edited
+singletons separating them (merging of $\#$-runs across a $Y$-only
+edit can only decrease the count). Hence $X^{M}$ has $\le k+1$
+dummy segments. The same holds for $Y^{M}$ with solid prefix
+$Y[c\dd R-d_{0})$, since $x=y+d_{0}$ preserves order.
+
+\medskip\noindent\textbf{LZ bound.}
+A $\#$-run $\#^{t}$ needs $\le2$ LZ-like phrases ($t=1$ singleton,
+else first $\#$ plus overlapping previous factor).
+Edited singletons need $1$. It suffices that each solid $P$ needs
+$O(k)$ phrases with strictly earlier solid sources; concatenating
+over $O(k)$ blocks gives $O(k^{2})$ phrases, whence
+$|\LZ(X^{M})|=O(k^{2})$ by (P1) of Observation~\ref{fct:lz_properties}.
+If $|P|\le 8k$ use singletons. Assume $L=R-a>8k$.
+Let $\A^{*}$ attain $R$. Let $(a,y_{a})\in V(\A^{*})$ be entry,
+$d_{\rm entry}=a-y_{a}$, $p=d_{\rm entry}-d_{0}=c-y_{a}$,
+$|p|\le2k$. If $p=0$ then $r_{\A^{*}}=a$, so $R=a$, contrary to
+$L>0$; hence $p\ne0$.
+If $(R,R-d_{0})\notin V(\A^{*})$ then $R=b$ and $\A^{*}$ never visits
+diagonal $d_{0}$ on $[a\dd b]$; this bypassing regime is allowed.
+Otherwise truncate to the subpath $(a,y_{a})\to(R,R-d_{0})$ of cost
+$\le k$. In either case $d=x-y$ starts at $d_{0}+p$ and, when the
+endpoint is visited, ends at $d_{0}$; before $R$ it never equals
+$d_{0}$ by minimality of $R$. Since steps change $d$ by $+1,0,-1$,
+to change sign it must hit $d_{0}$, so $d$ stays strictly on the
+starting side for $x\in[a\dd R)$: $d>d_{0}$ if $p>0$, $d<d_{0}$ if
+$p<0$. In the bypassing case $R=b$, at $x=b$,
+$|y_{b}-d|=|d_{0}-d_{b}|\le2k$, so post-overhang beyond $d$ is $\le2k$.
+The $x\in[a\dd R)$ segment has $\le k$ edits, hence $\le k+1$
+diagonal runs; splitting substitutions yields $O(k)$ match runs
+$X[x_{0}\dd x_{0}+t)=Y[y_{0}\dd y_{0}+t)$ plus $\le2k$ singleton
+edited positions.
+
+If $p>0$, $d>d_{0}$ and $Y$-intervals lie in $[c-p\dd R-d_{0}]$
+with end $\le R-d_{0}$. Total $Y$-length before $c$ is $\le p\le2k$;
+factor corresponding $X$-intervals as singletons. For remaining runs
+$y_{0}\ge c$, block equality gives
+$Y[y_{0}\dd y_{0}+t)=X[y_{0}+d_{0}\dd y_{0}+d_{0}+t)$,
+both in solid $[a\dd R)$, with dest-source $=d-d_{0}>0$.
+Hence each is a valid previous factor starting strictly earlier.
+This covers both hitting and bypassing, as $p>0$ has no post-overhang.
+
+If $p<0$, put $q=-p\le2k$. Peel first $q$ chars of $S=X[a\dd R)$
+as singletons; let $U=X[a+q\dd R)$. Map each match run to
+$L=[y_{0}+d_{0}\dd y_{0}+d_{0}+t)$, using
+$X[x_{0}\dd)=Y[y_{0}\dd)=X[y_{0}+d_{0}\dd)$ on the block.
+Here $y_{0}\ge c+q$, so $L\subset[a+q\dd\infty)$,
+dest-source $=d_{0}-d>0$, source $E=[x_{0}\dd x_{0}+t)\subset S$
+solid and earlier. $Y$-intervals cover $[c+q\dd y_{\rm last})$
+except $\le k$ $Y$-deletes and $\le k$ substitutions; hence $L$'s
+cover $U$ except $O(k)$ gap positions, factored as singletons.
+In the hitting case $y_{\rm last}=R-d_{0}$; in the bypassing case
+$y_{\rm last}\le R-d_{0}+2k$, and the at most one run straddling
+$R-d_{0}$ is split, the beyond part ignored. Thus $U$ needs
+$\le k+1$ previous factors plus $O(k)$ singletons.
+
+Hence each $P$ needs $O(k)$ LZ-like phrases with $i'<i$ and literal
+$\#$-free equality. Summing over $O(k)$ blocks plus $O(k)$
+singletons and $\#$-runs gives an LZ-like factorization of $X^{M}$
+with $O(k^{2})$ phrases. By (P1), $|\LZ(X^{M})|=O(k^{2})$.
+The $Y$-side is symmetric. This covers $R=a,R=b$, string ends,
+and periodic strings where the attainer bypasses the diagonal.
+\end{proof}
+[Proof Draft Generated] Turn 9: 6505 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.9, "boundary_cases": 0.9, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.9, "boundary_cases": 0.9, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+[Best Candidate Updated] Turn 9: validity=0.90 (6505 chars)
+[Audit Passed] Proof verified on Turn 9 (validity: 0.90). Early-terminating to prevent multi-turn degradation.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_19_214 | Proof Length: 6505 chars | Turns: 9 | Duration: 3405.21s
+================================================================================

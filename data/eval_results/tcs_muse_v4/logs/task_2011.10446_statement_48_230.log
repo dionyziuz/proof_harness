@@ -1,0 +1,560 @@
+
+
+================================================================================
+[2026-11-01 15:37:33] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_48_230
+================================================================================
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_48_230 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**Licensed truths — apply directly, do not re-derive:**
+
+1. **Def. \ref{def:oblivious-routing} Routing scheme:** $R=\{R_{u,v}\}$ distributions over $u$-$v$ paths. No stretch/congestion built-in.
+2. **General/Weighted graphs:** $G=(V,E,w)$, $w:E\to[1/L,L]$, $L=\poly(n)$. Complete $G$ w.l.o.g. via $L'=n^2L$ penalty for non-edges. Capacitated $G=(V,E,c)$ same range. Notation $w_e,\vec w,\vec c,w_G,C_G$.
+3. **Distances/hops:** $\hop(p)=\ell$, $w(p)$ sum. $\dist(u,v)=\min w(p)$. $\dist\at{h}(u,v)=\min\{w(p):\hop(p)\le h\}$, $=\infty$ if infeasible. Precondition: $h>0$.
+4. **Trees:** $T_{u,v}$ unique tree path; $d_T=w_T(T_{u,v})$ if weighted.
+5. **Def. \ref{def:PartialTreeEmbedding} Partial tree embedding:** $(T,T^G)$, $V(T)\subseteq V(G)$, $T^G:e\in E(T)\mapsto$ $G$-path with same endpoints. Extension $T^G_{u,v}=\oplus_i T^G_{e_i}$ along $T_{u,v}$ ordered $u\to v$.
+6. **Def. \ref{def:DominatingEmbedding} Dominating:** Requires (i) weighted $G$, (ii) weighted $T$, (iii) $w_G(T^G_{u,v})\le d_T(u,v)$ for all $\{u,v\}\in E(T)$. Must discharge (i)-(iii) before claiming domination.
+7. **Def. \ref{def:partialEmbeddingDistrib} $h$-hop partial embedding distribution $\calT$:** distribution over dominating partial embeddings. Three separate annotations:
+   - hop stretch $\beta$: $\forall (T,T^G)\in\supp(\calT),\forall u,v\in V(T): \hop(T^G_{u,v})\le\beta h$.
+   - exclusion $\eps$: $\forall v: \Pr_{(T,\cdot)\sim\calT}[v\in V(T)]\ge 1-\eps$.
+   - expected distance stretch $\alpha$: $\forall u,v: \E[d_T(u,v)\1{u,v\in V(T)}]\le\alpha\cdot d_G\at{h}(u,v)$.
+8. **Thm. \ref{thm:hst}:** Preconditions: (complete) weighted $G$ poly-bounded weights, $h\ge 1$, $0<\eps<1/3$. Conclusion: exists $h$-hop partial embedding distribution with hop stretch $O(\log^3 n/\eps)$, expected stretch $O(\log n\cdot\log(\log n/\eps))$, exclusion $\eps$, polytime samplable. Must verify completeness, $h$, $\eps$-range before invocation.
+9. **Flows:** $f\in\R_{\ge0}^{E(G)}$, $\flow(p)_e=$ multiplicity of $e$ in $p$ (non-simple allowed). Partial order $f\le g$ element-wise.
+10. **Congestion:** $\cong(f)=\max_e f_e/c_e$.
+11. **Optimal $h$-hop routing:** $\flow(\calD,R)=\sum_{s,t}\E_{p\sim R_{s,t}}[\flow(p)\calD_{s,t}]$. $\cong(\calD,R)=\cong(\flow(\calD,R))$. $\opt\at{h}(\calD)=\min_R\cong(\calD,R)$ over $R$ supported on $\le h$ hops.
+12. **Def. \ref{def:d1-router} $\calD\at{1}$-router $\calT$:** distribution over partial embeddings on capacitated $G$ with dilation $\beta$: $\hop(T^G_{u,v})\le\beta$ $\forall u,v\in V(T)$; exclusion $\eps$ as above; congestion $\alpha$: $\sum_{\{u,v\}\in E(G)}\E[\1{u,v\in V(T)}\flow(T^G_{u,v})c_{\{u,v\}}]\le\alpha\vec c_G$ vector inequality.
+13. **$\gamma$-subdistribution:** $Y$ over $U\cup\{\bot\}$ of $X$ over $U$ iff $\forall u:\Pr[Y=u]\le\Pr[X=u]$ and $\Pr[Y=\bot]\le\gamma$. Note direction $\le$, not equality.
+14. **Def. \ref{def:subflow} $h$-hop $\gamma$-subflow routing $R$:** $\forall\calD\exists R'(\calD)$ with each $R'_{s,t}$ $\gamma$-subdistribution of $R_{s,t}$ and $\cong_G(\sum_{s,t}\E[\1{R'_{s,t}\ne\bot}\flow(R'_{s,t})\calD_{s,t}])\le\alpha\opt\at{h}(\calD)$. Hop stretch $\beta$: $\forall s,t,\forall p\in\supp(R_{s,t}):\hop(p)\le\beta h$.
+
+> Contract: to use \ref{thm:hst} need to construct complete weighted $G'$ with poly weights and pick $\eps\in(0,1/3)$; to claim $F$ is $h$-hop $(\gamma^r)$-subflow need to exhibit for every $\calD$ a per-pair $\gamma^r$-subdistribution with congestion bound; hop stretch needs uniform bound on $\supp(F)$.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Goal:** From $R$ (failure $\gamma$, hop $\beta h$, congestion $\alpha$) build $F$ (failure $\gamma^r$, hop $O(r\beta\log^3 n)$, congestion $O(\alpha/(1-\gamma)\cdot\log n\log(rh\beta\log n))$), $r\ge 2$.
+
+**Strategy Alpha — Constructive / Inductive Invariant (iterated residual + tree lifting):**
+Construct $F$ as composition of $R$-paths lifted through sampled $h'$-hop partial trees where $h'=O(r\beta h)$. Steps: (1) Define complete weighted graph $H$ with $w_H\approx$ $R$-hop cost to invoke \ref{thm:hst} with $h':=r\beta h$ (or $\Theta(r\beta h)$) and small $\eps\ll 1$. (2) Sample $(T,\cdot)\sim\calT$; for $u,v\in V(T)$, define $F_{u,v}$ as concatenation of $R$-samples along tree edges of $T_{u,v}$ (i.e., replace each tree edge by independent $R$-path, then expand via $T^G$). Inductively maintain invariant that after $k\le r$ rounds residual unrouted mass $\le\gamma^k$; rank-1/flow linearity $\flow(\oplus p_i)=\sum\flow(p_i)$ gives congestion additive. Hop bound: $\hop(T^G)\le O(\log^3 n/\eps)\cdot h'$ times $R$-dilation $\beta$ yields $O(r\beta\log^3 n)$. Do not assume one branch of any $\min$ is optimal without boundary check.
+
+**Strategy Beta — Extremal Split / Canonical Witness / Potential:**
+View failure event as needing $r$ independent failures to persist. Define potential $\Phi_k=\gamma^{-k}\cdot$ residual demand. Choose extremal tree path decomposition: for pair $s,t\in V(T)$, let $T_{s,t}=(e_1,\dots,e_\ell)$; route each $e_i$ via $R$ with its own $\gamma$-subflow $R'(e_i\text{-demand})$. If any edge fails, declare $s$-$t$ failed. Then $\Pr[\text{fail}]\le \sum$? To get product $\gamma^r$ need $r$ disjoint attempts or exclusion+failure product: use minimal $q$ attaining tree-distance optimum so sub-interval cannot split further — canonical witness avoids double-counting congestion. Alternatively contrapositive: if $\opt\at{h}(\calD)$ small then tree-congestion small via expected stretch $\alpha_T=O(\log n\log(\cdot))$; failure probability multiplies because need exclusion failure or all $r$ $R$-failures. Lyapunov $\Phi\ge0$ controls geometric series $\sum_{i\ge0}\gamma^i=1/(1-\gamma)$ giving $\alpha/(1-\gamma)$ factor. Must handle boundary $m=i+1,j-1$ splits explicitly.
+
+**Strategy Gamma — Probabilistic Conditioning / Structural Decomposition:**
+Condition on unordered multiset of tree samples before revealing order; use exchangeability to decouple $\calT$-exclusion ($\eps$) from $R$-subflow failures ($\gamma$). Decomposition: total flow $=$ $\E_{\calT}[\text{tree-lifted }R'\text{-flow}]$. Bound $\E[d_T\cdot\1]\le\alpha_T d_H$ converts $h$-hop optimum to tree optimum; then $R$'s $\alpha$-approximation converts tree demand (which is $1$-hop in tree metric / $\calD\at{1}$-router sense) back to $G$-congestion with factor $\alpha/(1-\gamma)$. Separator: failures across $r$ repetitions are conditionally independent given $\calT$, yielding $\gamma^r+O(r\eps)$; choose $\eps\ll\gamma^r/r$ (but staying $<1/3$ for \ref{thm:hst}) to absorb into $O(\gamma^r)$. Dependency graph has degree $O(\log n)$ from tree congestion.
+
+*Preferred spine:* Alpha construction + Gamma analysis; Beta as fallback for congestion accounting if direct linearity overcounts.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+Hereditary: domination inequality $w_G(T^G_e)\le d_T(e)$; flow linearity; $\gamma$-subdistribution dominance $\Pr[Y=u]\le\Pr[X=u]$; hop-count additivity under $\oplus$; vector inequality $\le\alpha\vec c$.
+Fragile (revoked on restriction/slicing/conditioning): Dyck-like balance / tree-connectivity ($u,v\in V(T)$ fails after conditioning on subtree); mutual independence of $R$-samples (lost if reusing randomness across tree edges); matrix block dimensions ($\flow\in\R^{E(G)}$ vs $\R^{E(T)}$ — must map via $T^G$); exclusion probability (only marginal, not joint); $\dist\at{h}=\infty$ regime when $h$-hop infeasible.
+
+```python
+state.register("G_cap", kind="capacitated_complete_graph", properties=["poly_aspect_L","complete"])
+state.register("R", kind="routing_scheme", properties=["h-hop_gamma-subflow","hop_stretch_beta","cong_alpha"])
+state.register("H_w", kind="weighted_complete_graph", properties=["poly_weights","hop_hprime=r*beta*h"])
+state.register("Tdist", kind="hprime-hop_partial_embedding_dist", properties=["dominating","hop_stretch_O_log3/eps","exp_stretch","exclusion_eps"])
+state.register("F", kind="routing_scheme", properties=["to_prove_gamma^r-subflow","hop_stretch_O_r_beta_log3"])
+state.register("flow_map", kind="linear_map", properties=["hereditary_linearity","fragile_dimension_E(T)_vs_E(G)"])
+state.add_subgoal("S1", "Thm_hst_applicable_to_H_with_eps_in_(0,1/3)")
+state.add_subgoal("S2", "F_paths_have_hop_O(r_beta_log3n)")
+state.add_subgoal("S3", "per-demand_Rprime_gives_gamma^r-subdist_of_F")
+state.add_subgoal("S4", "congestion_<=_O(alpha/(1-gamma)*logn*log(...))*opt_h")
+```
+
+### Testable Intermediate Claims
+
+1. **Hop composition identity:** If $\hop(T^G_{u,v})\le\beta_T h'$ with $h'=r\beta h$ and each $R$-path has $\hop\le\beta h$, does lifted path satisfy $\hop(F_{u,v})\le O(r\beta\log^3 n\cdot h)$? Check: $\beta_T=O(\log^3 n/\eps)$ with constant $\eps$ (e.g., $\eps=1/4<1/3$) gives $O(r\beta\log^3 n)$. Verify dimension: $\flow(T^G_{u,v})\in\R^{E(G)}$ compatible with $\cong_G$. Test in REPL with symbolic $n,r,\beta,h$.
+2. **Failure product $\gamma\to\gamma^r$:** Claim $\Pr[F'_{s,t}=\bot]\le\gamma^r+O(r\eps)$ conditioned on $s,t\in V(T)$, and unconditional $\le\gamma^r$ after tuning $\eps$ vs $r$. Heuristic inequality $A\le B\le C$ only on $D_1=\{\eps<1/3\}$; complementary regime $D\setminus D_1$ (tiny $\gamma^r$) must be discharged by choosing $\eps=\Theta(1)$ not $\to0$. Verify geometric series $\sum_{i=0}^{r-1}\gamma^i\le1/(1-\gamma)$ for $\gamma\in[0,1)$ and boundary $\gamma\to1$ (factor blows up, allowed).
+3. **Congestion transfer:** $\E_{\calT}[d_T\cdot\1]\le\alpha_T d_H$ with $\alpha_T=O(\log n\log(rh\beta\log n))$ implies tree-demand routable with congestion $\le\alpha_T\opt\at{h}(\calD)$, then $R$-lifting multiplies by $\alpha/(1-\gamma)$. Check boundary where $\dist\at{h}(u,v)=\infty$ (infeasible demand): inequality holds vacuously ($\infty$ RHS); do not claim finite stretch there. Test vector inequality $\sum c_{uv}\E[\1\flow(T^G_{uv})]\le\alpha_T\vec c$ numerically on small complete graph.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_48_230 ---
+[Falsifier Script 1]:
+import random
+# 5-line Monte Carlo: repeating with per-trial failure q
+# "all r fail" (need >=1 success) fails with q^r, NOT 1-(1-q)^r (which is ">=1 fails")
+def est(q, r, N=200000):
+    return sum(all(random.random() < q for _ in range(r)) for _ in range(N)) / N
+for q, r in [(0.5, 3), (0.3, 4), (0.7, 2)]:
+    e = est(q, r)
+    print(f"q={q} r={r} MC_all_fail={e:.4f} q^r={q**r:.4f} 1-(1-q)^r={1-(1-q)**r:.4f}")
+    assert abs(e - q**r) < 0.02, "q^r model falsified"
+    assert abs(e - (1-(1-q)**r)) > 0.05 or q**r == 1-(1-q)**r, "confused conditioning"
+print("PASS: 'need 1 of r to succeed' failure = q^r; 'need all r to succeed' failure = 1-(1-q)^r")
+[Falsifier Kernel Output (Verified)]: q=0.5 r=3 MC_all_fail=0.1252 q^r=0.1250 1-(1-q)^r=0.8750
+q=0.3 r=4 MC_all_fail=0.0083 q^r=0.0081 1-(1-q)^r=0.7599
+q=0.7 r=2 MC_all_fail=0.4899 q^r=0.4900 1-(1-q)^r=0.9100
+PASS: 'need 1 of r to succeed' failure = q^r; 'need all r to succeed' failure = 1-(1-q)^r
+[Falsifier Script 2]:
+import sympy as sp
+import math
+
+def holds_on_samples(rel_fn, samples):
+    for s in samples:
+        if not bool(rel_fn(*s)):
+            return False, s
+    return True, None
+
+gamma, r = sp.symbols('gamma r', real=True)
+# Geometric partial sum identity: sum_{i=0}^{r-1} gamma^i = (1-gamma^r)/(1-gamma)
+# Check difference 1/(1-gamma) - partial = gamma^r/(1-gamma) >= 0 on gamma in [0,1)
+g = sp.symbols('g', real=True)
+diff = 1/(1-g) - (1-g**3)/(1-g)  # r=3 concrete
+print("r=3 diff simplified:", sp.simplify(diff), "=", sp.factor(diff))
+assert sp.simplify(diff - g**3/(1-g)) == 0
+ok, ce = holds_on_samples(lambda v: (1/(1-v) - (1-v**3)/(1-v)) >= -1e-12, [(0.0,),(0.5,),(0.9,),(0.99,)])
+print("geometric bound spot-check (r=3):", ok, ce)
+assert ok
+
+# Hop composition: beta_T = C*log^3(n)/eps, h'=r*beta*h, hop(T^G)<=beta_T*h'
+# With eps=1/4 (<1/3) => hop = C*4*log^3(n)*r*beta*h = O(r*beta*log^3(n))*h
+n, beta, h, rr, C = sp.symbols('n beta h rr C', positive=True)
+eps0 = sp.Rational(1,4)
+betaT = C*sp.log(n)**3/eps0
+hop = betaT*rr*beta*h
+print("hop expression:", hop, " ratio hop/(rr*beta*h*log^3 n):", sp.simplify(hop/(rr*beta*h*sp.log(n)**3)))
+assert sp.simplify(hop/(rr*beta*h*sp.log(n)**3) - 4*C) == 0
+# Thm hst precondition eps in (0,1/3):
+print("eps0 in (0,1/3)?", bool(eps0 > 0 and eps0 < sp.Rational(1,3)))
+assert eps0 > 0 and eps0 < sp.Rational(1,3)
+
+# Failure tuning falsifier: unconditional Pr<=gamma^r is FALSE with constant eps;
+# true bound is gamma^r + O(r*eps). Need eps << gamma^r/r to absorb.
+def total_fail(gamma_v, rr_v, eps_v):
+    return gamma_v**rr_v + rr_v*eps_v  # union bound over r exclusions + product
+# counterexample: gamma=0.1, r=5 => gamma^r=1e-5, but eps=1/4 gives total ~1.25 >> 2*gamma^r
+gv, rv, ev = 0.1, 5, 0.25
+tv = total_fail(gv, rv, ev)
+print(f"gamma^r={gv**rv:.2e} total~{tv:.4f} 2*gamma^r={2*gv**rv:.2e} absorbs? {tv <= 2*gv**rv}")
+assert not (tv <= 2*gv**rv), "expected failure of absorption with constant eps"
+# but tuned eps = gamma^r/(2r) stays in (0,1/3) and absorbs:
+eps_tuned = gv**rv/(2*rv)
+print(f"tuned eps={eps_tuned:.2e} in (0,1/3)? {0 < eps_tuned < 1/3} total={total_fail(gv,rv,eps_tuned):.2e}")
+assert 0 < eps_tuned < 1/3 and total_fail(gv,rv,eps_tuned) <= 2*gv**rv
+print("PASS: geometric series holds; hop O(); failure needs eps tuning, constant eps falsified unconditionally")
+[Falsifier Kernel Output (Verified)]: r=3 diff simplified: -g**3/(g - 1) = -g**3/(g - 1)
+geometric bound spot-check (r=3): True None
+hop expression: 4*C*beta*h*rr*log(n)**3  ratio hop/(rr*beta*h*log^3 n): 4*C
+eps0 in (0,1/3)? True
+gamma^r=1.00e-05 total~1.2500 2*gamma^r=2.00e-05 absorbs? False
+tuned eps=1.00e-06 in (0,1/3)? True total=1.50e-05
+PASS: geometric series holds; hop O(); failure needs eps tuning, constant eps falsified unconditionally
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+## Turn 1 — Exploration Gate: Inventory, Invariant, Claims, REPL Checks
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+Licensed truths to compose (do not re-derive):
+
+* **Routing scheme** Def.1: $R=\{R_{u,v}\}$ distributions over $u$-$v$ paths.
+* **Graphs:** capacitated/weighted $G=(V,E,c/w)$, $c,w\in[1/L,L]$, $L=\poly(n)$. Complete $G$ w.l.o.g. via $L'=n^{2}L$ penalty. Target assumes complete capacitated $G$.
+* **Distances:** $\hop(p)$, $w(p)$, $\dist$, $\dist\at{h}$ with $h>0$, $=\infty$ if infeasible.
+* **Trees:** $T_{u,v}$ unique, $d_{T}=w_{T}(T_{u,v})$.
+* **Partial embedding** Def.5: $(T,T^{G})$, $V(T)\subseteq V(G)$, $T^{G}_{e}$ $G$-path, extension $T^{G}_{u,v}=\oplus_{i}T^{G}_{e_{i}}$.
+* **Dominating** Def.6: needs (i) weighted $G$, (ii) weighted $T$, (iii) $w_{G}(T^{G}_{u,v})\le d_{T}(u,v)$ for tree edges. Must discharge (i)-(iii).
+* **$h$-hop partial distribution** Def.7: three separate annotations — hop stretch $\beta$ ($\hop(T^{G}_{u,v})\le\beta h$), exclusion $\eps$ ($\Pr[v\in V(T)]\ge 1-\eps$), expected stretch $\alpha$ ($\E[d_{T}\1]\le\alpha d_{G}\at{h}$).
+* **Thm HST:** preconditions: complete weighted $G$ poly weights, $h\ge 1$, $0<\eps<1/3$. Conclusion: hop stretch $O(\log^{3}n/\eps)$, expected stretch $O(\log n\log(\log n/\eps))$, exclusion $\eps$, polytime samplable. Must verify all three preconditions.
+* **Flows:** $f\in\R_{\ge0}^{E(G)}$, $\flow(p)_{e}$ multiplicity, $f\le g$ elementwise.
+* **Congestion:** $\cong(f)=\max_{e}f_{e}/c_{e}$.
+* **Optimal $h$-hop:** $\flow({\cal D},R)=\sum_{s,t}\E[\flow(p){\cal D}_{s,t}]$, $\cong({\cal D},R)$, $\opt\at{h}({\cal D})=\min_{R:\hop\le h}\cong$.
+* **${\cal D}\at{1}$-router** Def.12: dilation $\beta$ ($\hop(T^{G}_{u,v})\le\beta$), exclusion $\eps$, congestion $\alpha$ ($\sum_{uv}\E[\1\flow(T^{G}_{u,v})c_{uv}]\le\alpha\vec c$).
+* **$\gamma$-subdistribution:** $Y$ over $U\cup\{\bot\}$ of $X$ over $U$ iff $\Pr[Y=u]\le\Pr[X=u]$, $\Pr[Y=\bot]\le\gamma$. Direction $\le$.
+* **$h$-hop $\gamma$-subflow** Def.14: $\forall{\cal D}\exists R'({\cal D})$ each $R'_{s,t}$ $\gamma$-subdistribution of $R_{s,t}$ and $\cong_{G}(\sum\E[\1_{\ne\bot}\flow(R'){\cal D}])\le\alpha\opt\at{h}({\cal D})$. Hop stretch $\beta$: uniform $\hop(p)\le\beta h$ on $\supp(R)$.
+
+Contract to claim $F$ is $h$-hop $(\gamma^{r})$-subflow: exhibit for every ${\cal D}$ per-pair $(\gamma^{r})$-subdistributions with congestion bound; uniform hop bound on $\supp(F)$.
+
+No external theorems. No unauthorized $\eps$-smallness, no $k\ge2$ beyond $r\ge2$ given.
+
+### 2. Invariant-First Formulation
+
+Avoid brute-force case split over all demands/paths. Unifying invariant:
+
+* **Residual potential:** $\Phi_{k}=\gamma^{-k}\cdot$ residual demand mass. Maintains $\Phi_{k}\ge0$, geometric decay. Total congestion $\sum_{i<r}\gamma^{i}\le 1/(1-\gamma)$ if $\gamma<1$.
+* **Connectivity invariant:** tree-path concatenation preserves $s$-$t$ endpoints without $t\to s$ return edges; hop additivity under $\oplus$; flow linearity $\flow(\oplus p_{i})=\sum\flow(p_{i})$; dimension stays in $\R^{E(G)}$ via $T^{G}$ mapping.
+* **Failure dichotomy:** `need 1 of $r$ to succeed' gives failure $q^{r}$ vs `need all $r$' gives $1-(1-q)^{r}$. Only first yields boosting. Must condition correctly.
+
+Preferred spine: Alpha construction (iterated residual + tree lifting via HST) + Gamma analysis (conditional independence given trees, stretch transfer). Beta (extremal/canonical witness, Lyapunov $\sum\gamma^{i}$) as fallback for congestion accounting.
+
+### 3. Structured Intermediate Claims
+
+[CLAIM A — HST applicability]:
+There exists complete weighted $H$ on same $V$ with poly weights and parameters $h'\ge1$, $\eps_{0}\in(0,1/3)$ such that Thm HST applies. E.g. constant $\eps_{0}$ (like $1/4$) and $h'=r\beta h$ (so $h'\ge1$ since $r\ge2,\beta\ge1,h\ge1$).
+[REDUCTION]: Discharges Thm HST preconditions (completeness, poly weights, $h$, $\eps$-range). Yields ${\cal T}$ with hop stretch $O(\log^{3}n/\eps_{0})$, expected stretch $O(\log n\log(\log n/\eps_{0}))\le O(\log n\log(rh\beta\log n))$, exclusion $\eps_{0}$. Samplable in polytime.
+
+[CLAIM B — Hop composition]:
+If $\hop(T^{G}_{u,v})\le \beta_{T}h'$ with $\beta_{T}=O(\log^{3}n/\eps_{0})$, $h'=r\beta h$, then lifted $F$-paths satisfy $\hop\le O(r\beta\log^{3}n)\cdot h$. With constant $\eps_{0}$ ratio is $O(1)$.
+[REDUCTION]: Discharges hop-stretch part $O(r\beta\log^{3}n)$ of target. Needs uniform bound on $\supp(F)$, hop additivity, no $t\to s$ gaps. Boundary $s=t$ gives $0$ hops, holds.
+
+[CLAIM C — Failure product]:
+Conditioned on tree samples, $r$ independent $R$-attempts each with $\Pr[\bot]\le\gamma$ give $\Pr[\text{all fail}]\le\gamma^{r}$ by independence. Tree-exclusion overhead $O(r\eps_{0})$ handled by tuning $\eps_{0}$ vs $\gamma^{r}$ or by `first-successful-tree' selection where $F'$ declares $\bot$ iff no tree contains pair. Distinguishes $q^{r}$ from $1-(1-q)^{r}$.
+[REDUCTION]: Discharges $(\gamma^{r})$-subdistribution property: $\Pr[F'_{s,t}=u]\le\Pr[F_{s,t}=u]$, $\Pr[\bot]\le\gamma^{r}$. Must keep case $\gamma\ge1$ trivial ($\gamma^{r}\ge1$) separate from $\gamma<1$.
+
+[CLAIM D — Congestion transfer]:
+$\E_{\cal T}[d_{T}\1]\le\alpha_{T}d_{H}$ with $\alpha_{T}=O(\log n\log(rh\beta\log n))$ converts $h$-hop optimum to tree demand; $R$-lifting multiplies by $\alpha/(1-\gamma)$ via geometric series $\sum_{i<r}\gamma^{i}\le1/(1-\gamma)$. If $\dist\at{h}=\infty$ inequality vacuous (RHS $\infty$). Complete $G$ ensures $\opt\at{h}({\cal D})<\infty$ via direct edges.
+[REDUCTION]: Discharges congestion $O(\alpha/(1-\gamma)\cdot\log n\log(rh\beta\log n))$. Needs vector inequality in $\R^{E(G)}$, fragile dimension $E(T)$ vs $E(G)$ mapped via $T^{G}$, domination (i)-(iii).
+
+Boundary integrity: $r\ge2$ given; $h\ge1$; $n=1$ ($\log n=0$, bounds vacuous but valid); empty demand; infeasible $\dist\at{h}$; self-pairs; $\gamma\to1$ blow-up allowed; $\gamma\ge1$ trivial branch.
+
+### 4. State Machine & Python REPL Verification
+
+```python
+# S0: register objects, checkpoint
+try:
+    state.register("G_cap", domain="capacitated_complete_graph", properties=["poly_aspect_L","complete"])
+    state.register("R", domain="routing_scheme", properties=["h-hop_gamma-subflow","hop_stretch_beta","cong_alpha"])
+    state.register("H_w", domain="weighted_complete_graph", properties=["poly_weights","hop_hprime"])
+    state.register("Tdist", domain="hprime-hop_partial_embedding_dist", properties=["dominating","hop_stretch","exp_stretch","exclusion"])
+    state.register("F", domain="routing_scheme", properties=["to_prove_gamma^r-subflow","hop_stretch_target"])
+    state.checkpoint("init")
+    print("register ok")
+    print(state.status())
+except Exception as e:
+    print("state api fallback:", e)
+```
+
+```python
+# S2 hop composition + eps range + geometric series (symbolic + numeric)
+import sympy as sp, math
+n, rr, beta, h = sp.symbols('n rr beta h', positive=True)
+C, eps0 = sp.symbols('C eps0', positive=True)
+# hop: beta_T = C*log^3 n / eps0, hprime = rr*beta*h
+betaT = C*sp.log(n)**3/eps0
+hop = betaT * (rr*beta*h)
+sp.simplify(hop)
+print("hop expr:", hop)
+print("ratio hop/(rr*beta*h*log^3 n):", sp.simplify(hop/(rr*beta*h*sp.log(n)**3)))
+# eps0 constant in (0,1/3)?
+for e in [0.25, 0.1, 1/(2*3), 1e-6]:
+    print(f"eps0={e} in (0,1/3)? {0<e<1/3}")
+# geometric sum bound
+g = sp.symbols('g', real=True)
+r_sym = 3
+s = sum(g**i for i in range(r_sym))
+print("geom r=3 sum:", sp.simplify(s - (1-g**r_sym)/(1-g)))
+# numeric spot checks, including gamma->1 boundary
+for gamma in [0.0, 0.3, 0.5, 0.9, 0.99]:
+    r=4
+    s_num = sum(gamma**i for i in range(r))
+    bound = 1/(1-gamma) if gamma<1 else float('inf')
+    print(f"gamma={gamma} r={r} sum={s_num:.4f} <=1/(1-g)={bound:.4f}? {s_num<=bound+1e-12}")
+# gamma>=1 trivial branch
+for gamma in [1.0, 1.5]:
+    print(f"gamma={gamma} gamma^r>=1? {gamma**2>=1} -> trivial subflow")
+```
+
+```python
+# S3 failure product: need-1-of-r vs need-all-r (Monte Carlo)
+import random
+def mc(q, r, trials=200000, mode="need1"):
+    cnt=0
+    for _ in range(trials):
+        fails=[random.random()<q for _ in range(r)]
+        if mode=="need1":
+            all_fail=all(fails)  # fail iff all r fail
+        else:
+            all_fail=not all([not f for f in fails])  # fail iff any fails? =1-(1-q)^r
+            # actually need-all-to-succeed failure = any fails
+            all_fail=any(fails)
+        cnt+=all_fail
+    return cnt/trials
+
+for q,r in [(0.5,3),(0.3,4),(0.7,2)]:
+    e1=mc(q,r, trials=80000, mode="need1")
+    e2=mc(q,r, trials=80000, mode="needall")
+    print(f"q={q} r={r} MC_need1={e1:.4f} q^r={q**r:.4f} MC_needAll={e2:.4f} 1-(1-q)^r={1-(1-q)**r:.4f}")
+print("PASS need1 failure = q^r" )
+```
+
+```python
+# S4 small complete-graph dimension check: flow vectors live in R^{E(G)}
+import itertools
+n_small=4
+V=list(range(n_small))
+E=[(i,j) for i in V for j in V if i<j]
+print("E(G):",E,"dim:",len(E))
+# star tree T centered at 0: V(T)=V, edges (0,i)
+T_edges=[(0,i) for i in [1,2,3]]
+# T^G_e = direct edge (1 hop); T_{1,2}= (1-0-2) => flow has 2 ones
+def flow_of_tree_path(u,v):
+    # star routing via 0
+    f={e:0 for e in E}
+    def add(a,b):
+        e=tuple(sorted((a,b)))
+        f[e]+=1
+    if u==v: return f
+    if u!=0: add(u,0)
+    if v!=0: add(0,v)
+    if u==0: add(0,v)
+    # careful double count when u==0 already added; fix:
+    return f
+# recompute correctly
+def flow_star(u,v):
+    f={e:0 for e in E}
+    def add(a,b):
+        e=tuple(sorted((a,b))); f[e]+=1
+    if u==v: return f
+    if u==0 and v!=0: add(0,v)
+    elif v==0 and u!=0: add(u,0)
+    else: add(u,0); add(0,v)
+    return f
+for u,v in [(1,2),(1,1),(0,3)]:
+    print(f"T^G_{u},{v} flow:",flow_star(u,v),"hop:",sum(flow_star(u,v).values()))
+# hop additivity: hop(concat)=sum hop
+print("hop additivity holds, vectors in R^{E(G)}, no E(T) confusion")
+# dist_h infeasible vacuous: complete => feasible via direct edge
+print("complete => 1-hop feasible, opt_h finite; if dist_h=inf, stretch ineq vacuous (finite<=inf)")
+```
+
+Next steps for Turn 2+: fix $H$ weights poly-bounded construction, define $F$ lifting precisely (mixture vs first-successful-tree vs concatenation along $T_{u,v}$), prove Claims A–D with precondition discharge, handle $\gamma\ge1$ vs $\gamma<1$ and $\eps_{0}<1/3$ branches separately without restricting universal domain.
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# S0: register objects, checkpoint
+try:
+    state.register("G_cap", domain="capacitated_complete_graph", properties=["poly_aspect_L","complete"])
+    state.register("R", domain="routing_scheme", properties=["h-hop_gamma-subflow","hop_stretch_beta","cong_alpha"])
+    state.register("H_w", domain="weighted_complete_graph", properties=["poly_weights","hop_hprime"])
+    state.register("Tdist", domain="hprime-hop_partial_embedding_dist", properties=["dominating","hop_stretch","exp_stretch","exclusion"])
+    state.register("F", domain="routing_scheme", properties=["to_prove_gamma^r-subflow","hop_stretch_target"])
+    state.checkpoint("init")
+    print("register ok")
+    print(state.status())
+except Exception as e:
+    print("state api fallback:", e)
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0013s) ---
+Stdout:
+register ok
+=== Mathematical State Machine Status ===
+Registered Objects (5):
+  • G_cap [capacitated_complete_graph]
+      Active Invariants: complete, poly_aspect_l
+  • R [routing_scheme]
+      Active Invariants: cong_alpha, h-hop_gamma-subflow, hop_stretch_beta
+  • H_w [weighted_complete_graph]
+      Active Invariants: hop_hprime, poly_weights
+  • Tdist [hprime-hop_partial_embedding_dist]
+      Active Invariants: dominating, exclusion, exp_stretch, hop_stretch
+  • F [routing_scheme]
+      Active Invariants: hop_stretch_target, to_prove_gamma^r-subflow
+
+Subgoals (0):
+
+Verified Lemmas (0):
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# S2 hop composition + eps range + geometric series (symbolic + numeric)
+import sympy as sp, math
+n, rr, beta, h = sp.symbols('n rr beta h', positive=True)
+C, eps0 = sp.symbols('C eps0', positive=True)
+# hop: beta_T = C*log^3 n / eps0, hprime = rr*beta*h
+betaT = C*sp.log(n)**3/eps0
+hop = betaT * (rr*beta*h)
+sp.simplify(hop)
+print("hop expr:", hop)
+print("ratio hop/(rr*beta*h*log^3 n):", sp.simplify(hop/(rr*beta*h*sp.log(n)**3)))
+# eps0 constant in (0,1/3)?
+for e in [0.25, 0.1, 1/(2*3), 1e-6]:
+    print(f"eps0={e} in (0,1/3)? {0<e<1/3}")
+# geometric sum bound
+g = sp.symbols('g', real=True)
+r_sym = 3
+s = sum(g**i for i in range(r_sym))
+print("geom r=3 sum:", sp.simplify(s - (1-g**r_sym)/(1-g)))
+# numeric spot checks, including gamma->1 boundary
+for gamma in [0.0, 0.3, 0.5, 0.9, 0.99]:
+    r=4
+    s_num = sum(gamma**i for i in range(r))
+    bound = 1/(1-gamma) if gamma<1 else float('inf')
+    print(f"gamma={gamma} r={r} sum={s_num:.4f} <=1/(1-g)={bound:.4f}? {s_num<=bound+1e-12}")
+# gamma>=1 trivial branch
+for gamma in [1.0, 1.5]:
+    print(f"gamma={gamma} gamma^r>=1? {gamma**2>=1} -> trivial subflow")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0406s) ---
+Stdout:
+hop expr: C*beta*h*rr*log(n)**3/eps0
+ratio hop/(rr*beta*h*log^3 n): C/eps0
+eps0=0.25 in (0,1/3)? True
+eps0=0.1 in (0,1/3)? True
+eps0=0.16666666666666666 in (0,1/3)? True
+eps0=1e-06 in (0,1/3)? True
+geom r=3 sum: 0
+gamma=0.0 r=4 sum=1.0000 <=1/(1-g)=1.0000? True
+gamma=0.3 r=4 sum=1.4170 <=1/(1-g)=1.4286? True
+gamma=0.5 r=4 sum=1.8750 <=1/(1-g)=2.0000? True
+gamma=0.9 r=4 sum=3.4390 <=1/(1-g)=10.0000? True
+gamma=0.99 r=4 sum=3.9404 <=1/(1-g)=100.0000? True
+gamma=1.0 gamma^r>=1? True -> trivial subflow
+gamma=1.5 gamma^r>=1? True -> trivial subflow
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# S3 failure product: need-1-of-r vs need-all-r (Monte Carlo)
+import random
+def mc(q, r, trials=200000, mode="need1"):
+    cnt=0
+    for _ in range(trials):
+        fails=[random.random()<q for _ in range(r)]
+        if mode=="need1":
+            all_fail=all(fails)  # fail iff all r fail
+        else:
+            all_fail=not all([not f for f in fails])  # fail iff any fails? =1-(1-q)^r
+            # actually need-all-to-succeed failure = any fails
+            all_fail=any(fails)
+        cnt+=all_fail
+    return cnt/trials
+
+for q,r in [(0.5,3),(0.3,4),(0.7,2)]:
+    e1=mc(q,r, trials=80000, mode="need1")
+    e2=mc(q,r, trials=80000, mode="needall")
+    print(f"q={q} r={r} MC_need1={e1:.4f} q^r={q**r:.4f} MC_needAll={e2:.4f} 1-(1-q)^r={1-(1-q)**r:.4f}")
+print("PASS need1 failure = q^r" )
+```
+--- [TURN 1] EXECUTION SUCCESS (0.5725s) ---
+Stdout:
+q=0.5 r=3 MC_need1=0.1256 q^r=0.1250 MC_needAll=0.8753 1-(1-q)^r=0.8750
+q=0.3 r=4 MC_need1=0.0086 q^r=0.0081 MC_needAll=0.7598 1-(1-q)^r=0.7599
+q=0.7 r=2 MC_need1=0.4899 q^r=0.4900 MC_needAll=0.9101 1-(1-q)^r=0.9100
+PASS need1 failure = q^r
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# S4 small complete-graph dimension check: flow vectors live in R^{E(G)}
+import itertools
+n_small=4
+V=list(range(n_small))
+E=[(i,j) for i in V for j in V if i<j]
+print("E(G):",E,"dim:",len(E))
+# star tree T centered at 0: V(T)=V, edges (0,i)
+T_edges=[(0,i) for i in [1,2,3]]
+# T^G_e = direct edge (1 hop); T_{1,2}= (1-0-2) => flow has 2 ones
+def flow_of_tree_path(u,v):
+    # star routing via 0
+    f={e:0 for e in E}
+    def add(a,b):
+        e=tuple(sorted((a,b)))
+        f[e]+=1
+    if u==v: return f
+    if u!=0: add(u,0)
+    if v!=0: add(0,v)
+    if u==0: add(0,v)
+    # careful double count when u==0 already added; fix:
+    return f
+# recompute correctly
+def flow_star(u,v):
+    f={e:0 for e in E}
+    def add(a,b):
+        e=tuple(sorted((a,b))); f[e]+=1
+    if u==v: return f
+    if u==0 and v!=0: add(0,v)
+    elif v==0 and u!=0: add(u,0)
+    else: add(u,0); add(0,v)
+    return f
+for u,v in [(1,2),(1,1),(0,3)]:
+    print(f"T^G_{u},{v} flow:",flow_star(u,v),"hop:",sum(flow_star(u,v).values()))
+# hop additivity: hop(concat)=sum hop
+print("hop additivity holds, vectors in R^{E(G)}, no E(T) confusion")
+# dist_h infeasible vacuous: complete => feasible via direct edge
+print("complete => 1-hop feasible, opt_h finite; if dist_h=inf, stretch ineq vacuous (finite<=inf)")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0009s) ---
+Stdout:
+E(G): [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)] dim: 6
+T^G_1,2 flow: {(0, 1): 1, (0, 2): 1, (0, 3): 0, (1, 2): 0, (1, 3): 0, (2, 3): 0} hop: 2
+T^G_1,1 flow: {(0, 1): 0, (0, 2): 0, (0, 3): 0, (1, 2): 0, (1, 3): 0, (2, 3): 0} hop: 0
+T^G_0,3 flow: {(0, 1): 0, (0, 2): 0, (0, 3): 1, (1, 2): 0, (1, 3): 0, (2, 3): 0} hop: 1
+hop additivity holds, vectors in R^{E(G)}, no E(T) confusion
+complete => 1-hop feasible, opt_h finite; if dist_h=inf, stretch ineq vacuous (finite<=inf)
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 2] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 3.
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 3] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 4.
+
+--- [TURN 4/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 4] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 5.
+
+--- [TURN 5/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 5] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 6.
+
+--- [TURN 6/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+[Stream Warning] Stream interrupted (RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)); retrying stream from start in 2.0s (attempt 1/5)...
+[Turn 6] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 7.
+
+--- [TURN 7/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 7] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 8.
+
+--- [TURN 8/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+[Cognitive Partitioning] Invoking Publication Scribe Subagent on Turn 8...
+
+--- [SUBAGENT: PUBLICATION SCRIBE] Typesetting publication LaTeX proof for task_[ID]_statement_48_230 ---
+
+--- [DEDICATED PUBLICATION SCRIBE SYNTHESIS TURN] ---
+
+--- [SUBAGENT: PUBLICATION SCRIBE] Typesetting publication LaTeX proof for task_[ID]_statement_48_230 ---
+
+[Synthesis Turn: Emitting Publication Proof]
+
+
+[Synthesis Notice] Direct extraction did not yield a valid publication proof. Invoking Journal Typesetter pass...
+[Synthesis Format Notice] - Format and Closure Defect: The previous generation failed publication proof validation. Either \begin{proof} ... \end{proof} was incomplete, truncated, or missing proper closure, or the body contained informal stream-of-consciousness/conversational remarks, unproven assertions, or internal self-doubt. You must construct a complete, self-contained, formal mathematical LaTeX proof enclosed strictly in \begin{proof} ... \end{proof}.
+
+[Synthesis Revision 1/2] Initiating referee revision pass to resolve flagged issues...
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_48_230 ---
+[Critique Falsifier Script]:
+candidate = ""  # Candidate Proof Under Review (empty/missing)
+has_begin = r"\begin{proof}" in candidate
+has_end = r"\end{proof}" in candidate
+closed = has_begin and has_end and candidate.strip().endswith(r"\end{proof}")
+informal = any(w in candidate.lower() for w in ["i think", "not sure", "todo", "???"])
+print(f"begin={has_begin}, end={has_end}, closed={closed}")
+if not closed or informal:
+    print("COUNTEREXAMPLE_FOUND: candidate proof lacks complete \\begin{proof}...\\end{proof} closure")
+    raise assert False, "COUNTEREXAMPLE_FOUND"
+print("INVARIANT_VERIFIED: proof format closure holds")
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+[Synthesis Revision Attempt 1] Revision did not yield a valid LaTeX proof; retaining previous draft.
+
+[Synthesis Revision 2/2] Initiating referee revision pass to resolve flagged issues...
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_48_230 ---
+[Critique Falsifier Script]:
+def valid(s):
+    f=["I think","maybe?","TODO","???","not sure","self-doubt"]
+    return s.strip().startswith(r"\begin{proof}") and s.strip().endswith(r"\end{proof}") and not any(x in s for x in f)
+good=r"\begin{proof} Let $x$ be given. Then $x=x$. \end{proof}"
+bad1=r"\begin{proof} Let $x$ be given. Then..."
+bad2=r"\begin{proof} I think maybe? TODO \end{proof}"
+assert valid(good), "good should pass"
+assert not valid(bad1), "truncated should fail"
+assert not valid(bad2), "informal should fail"
+print("INVARIANT_VERIFIED: format closure validator distinguishes complete formal proof from truncated/informal")
+[Critique Kernel Output (Verified)]: INVARIANT_VERIFIED: format closure validator distinguishes complete formal proof from truncated/informal
+[Synthesis Revision Attempt 2] Revision did not yield a valid LaTeX proof; retaining previous draft.
+[Fallback Notice] Attempting Journal Typesetter on best available draft...
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_48_230 | Proof Length: 0 chars | Turns: 8 | Duration: 11289.54s
+================================================================================

@@ -1,0 +1,795 @@
+
+
+================================================================================
+[2026-11-01 18:02:33] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_56_229
+================================================================================
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_56_229 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+- **Setup:** $[k]$, $\1{\cdot}$, undirected $G=(V,E)$, $n=|V|$. Weighted/capacitated $w,c:E\to[1/L,L]$, $L=\poly(n)$. $\hop(p)$, $w(p)$. Rooted trees, $T_{u,v}$, $T_{u,v}^G$ via concatenation $\oplus$.
+- **Def \ref{def:PartialTreeEmbedding}:** $(T,T^G)$: $V(T)\subseteq V(G)$, each $e\in E(T)$ maps to $G$-path $T_e^G$ with same endpoints. Extended to $T_{u,v}^G$ by concatenation. No bound assumed.
+- **Def \ref{def:oblivious-routing}, Flows, Congestion:** $R=\{R_{u,v}\}$ distributions over $u$-$v$ paths. $\flow(p)\in\mathbb R_{\ge0}^{E(G)}$ counts traversals. $f\le g$ element-wise. $\cong(f)=\max_e f_e/c_e$.
+- **Optimal $h$-hop:** $\flow({\cal D},R)=\sum_{s,t}\E_{p\sim R_{s,t}}[\flow(p){\cal D}_{s,t}]$, $\cong({\cal D},R)=\cong(\flow({\cal D},R))$. $\opt_h({\cal D})=\min_R\cong({\cal D},R)$ over $R$ supported on $\le h$ hops. Licensed for any demand ${\cal D}\ge0$.
+- **Def \ref{def:d1-router} ${\cal D}_1$-router:** Distribution ${\cal T}$ over partial tree embeddings with:
+  1. dilation $\beta$: $\hop(T^G_{u,v})\le\beta$ $\forall u,v\in V(T)$, $\forall (T,T^G)\in\supp$.
+  2. exclusion $\eps$: $\Pr[v\in V(T)]\ge1-\eps$ $\forall v$.
+  3. congestion $\alpha$: $\sum_{\{u,v\}\in E(G)}\E[\1{u,v\in V(T)}\cdot\flow(T^G_{u,v})\cdot c_{\{u,v\}}]\le\alpha\cdot\vec c_G$.
+  Preconditions: element-wise vector inequality.
+- **Lemma \ref{lemmaDOneRouter}:** Preconditions: (complete) capacitated $G$ with polynomially-bounded capacities, $0<\eps<1/3$. Guarantees: ${\cal D}_1$-router with dilation $O(\log^3 n/\eps)$, exclusion $\eps$, congestion $O(\log n\cdot\log(\log n/\eps))$. Must verify completeness, poly-capacity, $\eps<1/3$ before use. Do NOT re-derive; use as black box.
+- **$\gamma$-subdistribution:** $Y$ over $U\cup\{\bot\}$ with $\Pr[Y=u]\le\Pr[X=u]$ $\forall u$, $\Pr[Y=\bot]\le\gamma$. Note direction of inequality.
+- **Def \ref{def:subflow} $h$-hop $\gamma$-subflow:** $R=\{R_{u,v}\}$ s.t. $\forall{\cal D}$ $\exists R'({\cal D})$ with each $R'_{s,t}$ $\gamma$-subdistribution of $R_{s,t}$ and $\cong_G(\sum_{s,t}\E[\1{R'_{s,t}\ne\bot}\cdot\flow(R'_{s,t})\cdot{\cal D}_{s,t}])\le\alpha\cdot\opt_h({\cal D})$. Hop stretch $\beta$ if $\supp(R_{s,t})$ has $\hop\le\beta h$.
+- **Lemma \ref{lemma:d1-router-is-subflow}:** Preconditions: ${\cal T}$ is ${\cal D}_1$-router with dilation $\beta h$, exclusion $\le1/(4h)$, congestion $\alpha$. Conclusion: induced $R^{\cal T}$ (sample $(T,T^G)$, return $T^G_{s,t}$ if $s,t\in V(T)$ else arbitrary path) is $h$-hop $1/2$-subflow with approximation $\alpha$, stretch $\beta$. Must discharge dilation factored as $\beta h$, exclusion bound $1/(4h)$. Observation: $1/2$ comes from union bound over $\le h+1$ nodes on optimal $h$-hop path; licensed as truth, do not re-prove premise.
+
+Target: complete poly-capacity $G$, any $h\ge1$, $r=O(1)$: $h$-hop $(n^{-r})$-subflow with $\alpha=O(\log^2 n\cdot\log^2(h\log n))$, stretch $O(\log^7 n)$.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+- **Strategy Alpha (Constructive Inductive Retry / Boosting):** Start from $1/2$-subflow to $n^{-r}$-subflow by independent repetition.
+  1. Apply Lemma \ref{lemmaDOneRouter} with $\eps=\min\{1/(4h),c<1/3\}$ to get ${\cal T}$ with dilation $O(h\log^3 n)$, congestion $O(\log n\log(h\log n))$.
+  2. Apply Lemma \ref{lemma:d1-router-is-subflow} to get base $R_0$ $1/2$-subflow, stretch $\beta_0=O(\log^3 n)$.
+  3. Amplify: let $t=O(r\log n)=O(\log n)$ ($r=O(1)$). Define $R$ as $t$ i.i.d. trials of $R_0$ (sequential first-success / uniform mixture). Inductively maintain invariant: after $k$ trials failure $\le2^{-k}$, congestion $\le k\alpha_0\cdot\opt_h$. Step uses $R'_k({\cal D})$ conditioned on residual demand not yet routed. Conclude $2^{-t}\le n^{-r}$, congestion $t\cdot\alpha_0=O(\log^2 n\log(h\log n))$ up to squaring log factor, stretch unchanged $O(\log^3 n)\subseteq O(\log^7 n)$. Handles boundary $h=1$, large $h$ via $\eps$ cap.
+- **Strategy Beta (Extremal Residual / Potential Function):** View amplification as routing residual demand. Define potential $\Phi_k=$ unrouted mass. Given ${\cal D}$, define $R'$ adaptively: try copies $i=1..t$, route what succeeds, pass remainder onward. Choose extremal first successful index. Failure mass shrinks by $\ge1/2$ each round in expectation/congestion sense. Lyapunov $\Phi_{k+1}\le\frac12\Phi_k$ gives $t$ steps to $n^{-r}$. Congestion adds linearly by triangle inequality for $\cong(\cdot)$ (max over edges of sum $\le$ sum of max). Hop stretch preserved since each trial path obeys $\beta_0h$. Complementary regime $h\gg\log n$ vs $h=O(1)$ discharged by capping $\eps$ and noting $\log(h\log n)$ absorbs.
+- **Strategy Gamma (Probabilistic Mixture / Structural Decomposition):** Define $R$ as uniform mixture over $t$ independent ${\cal T}^{(i)}$ draws. For fixed ${\cal D}$, let $R'_{s,t}$ sample $i\sim[t]$ then sample $R_0'$-success; $\Pr[\bot]\le(1/2)^t$ by independence across trials (dependency graph is empty across $i$). Conditioning on unordered multiset of trees before revealing order preserves marginals (exchangeability). Linearity of $\flow({\cal D},\cdot)$ gives congestion $t\alpha_0$. Separator view: failures across different $(s,t)$ share only capacity constraints, handled by linearity of expectation + element-wise $\le$. Yields same quantitative bounds; verifies $\gamma$-subdistribution property $\Pr[Y=u]\le\Pr[X=u]$ holds for mixture-first-success rule.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+Hereditary: element-wise flow dominance $f\le g$, congestion monotonicity, hop bound on subpaths, completeness of $G$, poly-capacity bound. Fragile: exclusion probability under conditioning/restriction (revoked after conditioning on $s,t\in V(T)$), independence across trials (revoked if reusing same $T$), tree-path concatenation dimensions, $\gamma$-subdistribution inequality direction, dilation factorization $\beta h$ vs $\beta$.
+```python
+state.register("G_complete_poly", kind="graph", properties=["hereditary_complete","hereditary_poly_capacity","n_nodes"])
+state.register("T_router", kind="distribution", properties=["fragile_exclusion","dilation_beta_h","congestion_alpha"])
+state.register("R_base", kind="routing_scheme", properties=["hereditary_hop_stretch","fragile_subdist_half"])
+state.register("R_boosted", kind="routing_scheme", properties=["hereditary_hop_stretch","fragile_subdist_n^-r"])
+state.add_subgoal("S1", "eps=min(1/(4h),const<1/3) valid for LemmaDOneRouter")
+state.add_subgoal("S2", "base 1/2-subflow with alpha0, beta0")
+state.add_subgoal("S3", "t-fold retry gives failure 2^-t <= n^-r, congestion t*alpha0, stretch beta0")
+```
+
+### Testable Intermediate Claims
+1. **Retry failure & congestion scaling:** For $t=C r\log n$, $(1/2)^t\le n^{-r}$; $\cong(\sum_{i=1}^t f_i)\le\sum_i\cong(f_i)$ gives factor $t$. Check $r=O(1)\Rightarrow t=O(\log n)$, $\alpha=t\cdot O(\log n\log(\log n/\eps))=O(\log^2 n\log^2(h\log n))$ after squaring heuristic; verify complementary regime $h$ large/small for $\eps$ cap. Never claim one retry branch universally optimal without checking boundary trial $i=t$.
+2. **Dilation-to-stretch conversion:** With $\eps=1/(4h)$, dilation $O(\log^3 n/\eps)=O(h\log^3 n)=\beta_0 h$ so $\beta_0=O(\log^3 n)\subseteq O(\log^7 n)$. Test dimension: $\hop(T^G_{s,t})\le\beta_0 h$ preserved under first-success selection; arbitrary fallback path must also be truncated to $\le\beta_0 h$ or excluded via $\bot$.
+3. **$\gamma$-subdistribution validity:** First-success $R'$ satisfies $\Pr[R'_{s,t}=p]\le\Pr[R_{s,t}=p]$ and $\Pr[\bot]\le2^{-t}$. Test on small $t=1,2$ via enumeration that mixture does not inflate point masses; note inequality is only heuristic on part of path space if fallback arbitrary path included — discharge by mapping fallback to $\bot$ in $R'$.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_56_229 ---
+[Falsifier Script 1]:
+import random, math
+# Protocol 1: conditioning stress-test - first-success (need >=1 success) vs need-all-succeed
+random.seed(0)
+q = 0.5  # per-trial failure (bot) prob for base 1/2-subflow
+for t in [1, 2, 5, 10]:
+    N = 200000
+    fail_first_success = sum(1 for _ in range(N) if all(random.random() < q for _ in range(t))) / N
+    fail_all_succeed = sum(1 for _ in range(N) if any(random.random() < q for _ in range(t))) / N
+    print(f"t={t} emp_first_success_fail={fail_first_success:.4f} vs q^t={q**t:.4f} | emp_all_succeed_fail={fail_all_succeed:.4f} vs 1-(1-q)^t={1-(1-q)**t:.4f}")
+    assert abs(fail_first_success - q**t) < 0.02, "first-success scaling must be q^t"
+    assert abs(fail_all_succeed - (1-(1-q)**t)) < 0.02, "all-succeed scaling differs"
+print("PASS: retry needs >=1 success -> failure q^t; needing all succeed would be 1-(1-q)^t (much larger). Blueprint's 2^-t is correct ONLY for first-success/uniform-mixture rule.")
+[Falsifier Kernel Output (Verified)]: t=1 emp_first_success_fail=0.5009 vs q^t=0.5000 | emp_all_succeed_fail=0.5002 vs 1-(1-q)^t=0.5000
+t=2 emp_first_success_fail=0.2502 vs q^t=0.2500 | emp_all_succeed_fail=0.7515 vs 1-(1-q)^t=0.7500
+t=5 emp_first_success_fail=0.0316 vs q^t=0.0312 | emp_all_succeed_fail=0.9689 vs 1-(1-q)^t=0.9688
+t=10 emp_first_success_fail=0.0010 vs q^t=0.0010 | emp_all_succeed_fail=0.9991 vs 1-(1-q)^t=0.9990
+PASS: retry needs >=1 success -> failure q^t; needing all succeed would be 1-(1-q)^t (much larger). Bluepri
+[Falsifier Script 2]:
+import sympy as sp
+import math
+# Protocol 2: symbolic parameter & recurrence verification
+n, r, C, h = sp.symbols('n r C h', positive=True, real=True)
+
+# Claim 1a: t = C*r*ln(n) gives (1/2)^t <= n^{-r} iff C >= 1/ln2
+# (1/2)^t <= n^{-r} <=> t*ln2 >= r*ln n <=> C >= 1/ln2
+print("1/ln2 =", 1/math.log(2))
+for Cc, nn, rr in [(2, 100, 1), (2, 1000, 3), (1.0, 100, 1), (1.4427, 1024, 2)]:
+    t = Cc*rr*math.log(nn)
+    lhs = (0.5)**t
+    rhs = nn**(-rr)
+    print(f"C={Cc} n={nn} r={rr} t={t:.3f} (1/2)^t={lhs:.2e} n^-r={rhs:.2e} holds={lhs<=rhs}")
+assert (0.5)**(2*1*math.log(100)) <= 100**(-1), "C=2 should work"
+assert not ((0.5)**(1.0*1*math.log(100)) <= 100**(-1)), "C=1.0 < 1/ln2 must FAIL (counterexample to bare t=O(r log n) without large constant)"
+print("PASS: need C >= 1/ln2 ~1.4427; blueprint t=O(r log n) valid only with large enough constant.")
+
+# Claim 1b/2: dilation -> stretch with eps cap eps=min(1/(4h),c), c<1/3
+# dilation D = K*log^3(n)/eps ; need D = beta0*h with beta0=O(log^3 n)
+def holds_on_samples(rel, samples): return all(bool(rel.subs(s)) for s in samples)
+K = sp.Symbol('K', positive=True)
+logn = sp.log(n)
+for hh_val, nn_val in [(1, 100), (5, 1000), (1000, 100)]:
+    eps_small_h = min(1/(4*hh_val), 0.3)
+    D_over_h = (math.log(nn_val)**3)/eps_small_h/hh_val
+    print(f"h={hh_val} n={nn_val} eps={eps_small_h:.4f} D/h /log^3n = {D_over_h/(math.log(nn_val)**3):.3f}")
+# symbolic: case h large => eps=1/(4h) => D/h = 4K log^3 n exactly; case h small => eps=c => D/h = K log^3 n/(c h) blows up as h->0 but h>=1 so <= K/c log^3 n
+eps = sp.Symbol('eps', positive=True)
+D = logn**3/eps
+print("large-h branch D/h:", sp.simplify(D.subs(eps, 1/(4*h))/h))  # = 4 log^3 n
+print("small-h branch D/h with eps=1/4:", sp.simplify(D.subs(eps, sp.Rational(1,4))/h))  # log^3/(h/4)
+# spot check beta0=O(log^3 n) subset O(log^7 n) for n>=2
+for nn_val in [2, 10, 1000]:
+    assert math.log(nn_val)**3 <= math.log(nn_val)**7 or nn_val <= math.e, "log^3 subset log^7"
+print("PASS: beta0=O(log^3 n) subset O(log^7 n); small-h cap keeps eps<1/3 valid, large-h gives exact factorization.")
+
+# Claim 1c: congestion t*alpha0 accounting, triangle inequality cong(sum f_i) <= sum cong(f_i)
+import random as _r
+_r.seed(1)
+c = [2.0, 3.0, 1.5]  # capacities
+fs = [[1.0, 2.0, 0.5], [0.5, 1.0, 2.0], [2.0, 0.5, 1.0]]
+def cong(f): return max(f[i]/c[i] for i in range(3))
+lhs = cong([sum(f[i] for f in fs) for i in range(3)])
+rhs = sum(cong(f) for f in fs)
+print(f"cong(sum)={lhs:.3f} sum cong={rhs:.3f} holds={lhs<=rhs+1e-9}")
+assert lhs <= rhs + 1e-9
+# quantitative: alpha0=O(log n log(h log n)) [absorbing log(log n/eps)], t=O(log n) => t*alpha0 = O(log^2 n log(h log n)) <= O(log^2 n log^2(...)) (squaring is loose upper bound, valid)
+for nn_val, hh_val in [(100, 1), (1000, 100), (100, 10000)]:
+    epsv = min(1/(4*hh_val), 0.3)
+    a0 = math.log(nn_val)*math.log(math.log(nn_val)/epsv if math.log(nn_val)/epsv>1 else 2)
+    t = 2*1*math.log(nn_val)
+    print(f"n={nn_val} h={hh_val} eps={epsv:.4f} t*a0={t*a0:.1f} log^2n*log^2(h logn)={math.log(nn_val)**2*(math.log(hh_val*math.log(nn_val)+2)**2):.1f}")
+print("PASS: congestion linear scaling via triangle inequality; squaring log factor is valid (loose) upper bound.")
+[Falsifier Kernel ALERT (Contradiction Found in Output)]: 1/ln2 = 1.4426950408889634
+C=2 n=100 r=1 t=9.210 (1/2)^t=1.69e-03 n^-r=1.00e-02 holds=True
+C=2 n=1000 r=3 t=41.447 (1/2)^t=3.34e-13 n^-r=1.00e-09 holds=True
+C=1.0 n=100 r=1 t=4.605 (1/2)^t=4.11e-02 n^-r=1.00e-02 holds=False
+C=1.4427 n=1024 r=2 t=20.000 (1/2)^t=9.54e-07 n^-r=9.54e-07 holds=True
+PASS: need C >= 1/ln2 ~1.4427; blueprint t=O(r log n) valid only with large enough constant.
+h=1 n=100 ep
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+**Turn 1 — Exploration Gate: Inventory, Invariants, Claims (no full proof)**
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+* **Setup:** $[k]$, $\1{\cdot}$, undirected $G=(V,E)$, $n=|V|$. Capacities $c:E\to[1/L,L]$, $L=\poly(n)$. $\hop(p)$, $w(p)$. Trees, $T_{u,v}$, $T_{u,v}^{G}$ via $\oplus$.
+* **Def PartialTreeEmbedding:** $(T,T^{G})$: $V(T)\subseteq V(G)$, each $e\in E(T)$ maps to $G$-path with same endpoints. Extended by concatenation. No bound assumed.
+* **Def Oblivious Routing / Flows / Congestion:** $R=\{R_{u,v}\}$ distributions over $u$-$v$ paths. $\flow(p)$ counts traversals. $f\le g$ element-wise. $\cong(f)=\max_{e}f_{e}/c_{e}$.
+* **Optimal $h$-hop:** $\flow({\cal D},R)=\sum_{s,t}\E[\flow(p){\cal D}_{s,t}]$, $\cong({\cal D},R)=\cong(\flow({\cal D},R))$. $\opt_{h}({\cal D})=\min_{R}\cong({\cal D},R)$ over $\le h$ hops.
+* **Def ${\cal D}_{1}$-router:** Distribution ${\cal T}$ over partial embeddings with (1) dilation $\beta$: $\hop(T^{G}_{u,v})\le\beta$ $\forall u,v\in V(T)$, (2) exclusion $\eps$: $\Pr[v\in V(T)]\ge 1-\eps$, (3) congestion $\alpha$: $\sum_{\{u,v\}}\E[\1{u,v\in V(T)}\flow(T^{G}_{u,v})c_{\{u,v\}}]\le\alpha\vec c_{G}$.
+* **Lemma DOneRouter:** Preconditions: complete $G$, polynomially-bounded capacities, $0<\eps<1/3$. Guarantees: router with dilation $O(\log^{3}n/\eps)$, exclusion $\eps$, congestion $O(\log n\cdot\log(\log n/\eps))$. Black box.
+* **$\gamma$-subdistribution:** $Y$ over $U\cup\{\bot\}$ with $\Pr[Y=u]\le\Pr[X=u]$, $\Pr[Y=\bot]\le\gamma$. Direction critical.
+* **Def $h$-hop $\gamma$-subflow:** $R$ s.t. $\forall{\cal D}$ $\exists R'({\cal D})$ each $R'_{s,t}$ $\gamma$-subdistribution of $R_{s,t}$ and $\cong(\sum\E[\1{R'\ne\bot}\flow(R'){\cal D}])\le\alpha\opt_{h}({\cal D})$. Stretch $\beta$ if $\supp(R_{s,t})$ has $\hop\le\beta h$.
+* **Lemma d1-router-is-subflow:** Preconditions: ${\cal T}$ router with dilation $\beta h$, exclusion $\le 1/(4h)$, congestion $\alpha$. Conclusion: induced $R^{{\cal T}}$ (sample $(T,T^{G})$, return $T^{G}_{s,t}$ if $s,t\in V(T)$ else arbitrary) is $h$-hop $1/2$-subflow with approximation $\alpha$, stretch $\beta$. Licensed union-bound over $\le h+1$ nodes.
+
+Target: complete poly-capacity $G$, any $h\ge 1$, $r=O(1)$: $h$-hop $(n^{-r})$-subflow with $\alpha=O(\log^{2}n\cdot\log^{2}(h\log n))$, stretch $O(\log^{7}n)$.
+
+Key observation: for all $h\ge 1$, $\eps=1/(4h)\le 1/4<1/3$. Hence single choice satisfies LemmaDOneRouter precondition universally — no domain split needed.
+
+### 2. Invariant-First Reduction Idea
+
+Unifying invariant: residual failure mass $\Phi_{k}\le 2^{-k}$ after $k$ independent trials, congestion adds linearly $\cong(\sum f_{i})\le\sum\cong(f_{i})$, hop bound preserved under first-success selection. This groups all $(s,t)$ pairs without brute-force case split.
+
+### 3. Structured Intermediate Claims
+
+[CLAIM A — Valid eps and base router]:
+With $\eps=1/(4h)$, LemmaDOneRouter applies and yields dilation $O(h\log^{3}n)$, congestion $O(\log n\log(h\log n))$.
+[REDUCTION]: Discharges completeness, poly-capacity, $\eps<1/3$ preconditions; factors dilation as $\beta_{0}h$ with $\beta_{0}=O(\log^{3}n)$.
+
+[CLAIM B — Base 1/2-subflow]:
+Induced $R_{0}=R^{{\cal T}}$ is $h$-hop $1/2$-subflow with $\alpha_{0}=O(\log n\log(h\log n))$, stretch $\beta_{0}=O(\log^{3}n)$.
+[REDUCTION]: Verifies dilation $=\beta_{0}h$, exclusion $\le 1/(4h)$ for Lemma d1-router-is-subflow.
+
+[CLAIM C — Boosting to $n^{-r}$]:
+Let $t=C\,r\log n$ with $C$ large enough ($C=2$ suffices for any log base), $r=O(1)$ so $t=O(\log n)$. $t$-fold independent retry gives failure $\le (1/2)^{t}\le n^{-r}$, congestion $\le t\alpha_{0}=O(\log^{2}n\log(h\log n))$, stretch unchanged $\beta_{0}$.
+[REDUCTION]: Failure exponential decay + linear congestion via triangle inequality for $\cong$; hop stretch preserved since each trial path obeys $\beta_{0}h$; loose $O(\log^{2}\log^{2})$, $O(\log^{7})$ targets follow when log-factor $\ge 1$ (large $n$), small $n$ absorbed in $O(\cdot)$ constants.
+
+Skeptic audit needed: (i) constant $C$ for $(1/2)^{t}\le n^{-r}$, (ii) congestion squaring $L\le L^{2}$ when $L\ge 1$, (iii) stretch inclusion $\log^{3}\subseteq\log^{7}$, (iv) $\gamma$-subdistribution inequality direction under first-success/mixture.
+
+### 4. REPL Verification
+
+```python
+import math
+# Check retry constant: need (1/2)^t <= n^{-r} with t = C*r*log(n)
+# log base matters: test both natural and base-2
+for logbase, logfn in [("natural", math.log), ("base2", math.log2)]:
+    print("== log:", logbase)
+    for C in [1.0, 1.4426950408889634, 2.0, 3.0]:
+        for n,r in [(100,1),(1000,3),(1024,2),(10,5)]:
+            t = C*r*logfn(n)
+            fail = 0.5**t
+            target = n**(-r)
+            print(f" C={C} n={n} r={r} t={t:.3f} fail={fail:.2e} target={target:.2e} holds={fail<=target}")
+        print("---")
+```
+
+```python
+import math
+# Check eps validity and dilation/congestion forms
+for h in [1,2,5,100,1000]:
+    eps = 1/(4*h)
+    print(f"h={h} eps={eps:.5f} <1/3? {eps<1/3} dil/h ~ {1/eps:.1f} cong-log-arg={(math.log(max(n,2)) if (n:=1000) else 0)/eps:.1f}")
+# Check L = log(h log n) >=1 regime
+for n in [2,3,4,8,100,1000]:
+    for h in [1,2,10]:
+        ln = math.log2(n)
+        L = math.log2(max(h*ln,1e-9))
+        print(f"n={n} h={h} logn={ln:.2f} L={L:.2f} L<=L^2? {L<=L**2 if L>=0 else 'neg'}")
+    print("---")
+```
+
+```python
+# State machine registration for fragile invariants
+try:
+    state.register("G_complete_poly", kind="graph", properties=["hereditary_complete","hereditary_poly_capacity"])
+    state.register("T_router", kind="distribution", properties=["fragile_exclusion","dilation_beta_h","congestion_alpha"])
+    state.register("R_base", kind="routing_scheme", properties=["hereditary_hop_stretch","fragile_subdist_half"])
+    state.register("R_boosted", kind="routing_scheme", properties=["hereditary_hop_stretch","fragile_subdist_n^-r"])
+    state.add_subgoal("S1", "eps=1/(4h) valid for LemmaDOneRouter")
+    state.add_subgoal("S2", "base 1/2-subflow with alpha0, beta0")
+    state.add_subgoal("S3", "t-fold retry gives 2^-t <= n^-r, t*alpha0, stretch beta0")
+    print(state.status())
+except Exception as e:
+    print("state-machine unavailable:", e)
+```
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# Check retry constant: need (1/2)^t <= n^{-r} with t = C*r*log(n)
+# log base matters: test both natural and base-2
+for logbase, logfn in [("natural", math.log), ("base2", math.log2)]:
+    print("== log:", logbase)
+    for C in [1.0, 1.4426950408889634, 2.0, 3.0]:
+        for n,r in [(100,1),(1000,3),(1024,2),(10,5)]:
+            t = C*r*logfn(n)
+            fail = 0.5**t
+            target = n**(-r)
+            print(f" C={C} n={n} r={r} t={t:.3f} fail={fail:.2e} target={target:.2e} holds={fail<=target}")
+        print("---")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0011s) ---
+Stdout:
+== log: natural
+ C=1.0 n=100 r=1 t=4.605 fail=4.11e-02 target=1.00e-02 holds=False
+ C=1.0 n=1000 r=3 t=20.723 fail=5.78e-07 target=1.00e-09 holds=False
+ C=1.0 n=1024 r=2 t=13.863 fail=6.71e-05 target=9.54e-07 holds=False
+ C=1.0 n=10 r=5 t=11.513 fail=3.42e-04 target=1.00e-05 holds=False
+---
+ C=1.4426950408889634 n=100 r=1 t=6.644 fail=1.00e-02 target=1.00e-02 holds=True
+ C=1.4426950408889634 n=1000 r=3 t=29.897 fail=1.00e-09 target=1.00e-09 holds=False
+ C=1.4426950408889634 n=1024 r=2 t=20.000 fail=9.54e-07 target=9.54e-07 holds=True
+ C=1.4426950408889634 n=10 r=5 t=16.610 fail=1.00e-05 target=1.00e-05 holds=True
+---
+ C=2.0 n=100 r=1 t=9.210 fail=1.69e-03 target=1.00e-02 holds=True
+ C=2.0 n=1000 r=3 t=41.447 fail=3.34e-13 target=1.00e-09 holds=True
+ C=2.0 n=1024 r=2 t=27.726 fail=4.50e-09 target=9.54e-07 holds=True
+ C=2.0 n=10 r=5 t=23.026 fail=1.17e-07 target=1.00e-05 holds=True
+---
+ C=3.0 n=100 r=1 t=13.816 fail=6.94e-05 target=1.00e-02 holds=True
+ C=3.0 n=1000 r=3 t=62.170 fail=1.93e-19 target=1.00e-09 holds=True
+ C=3.0 n=1024 r=2 t=41.589 fail=3.02e-13 target=9.54e-07 holds=True
+ C=3.0 n=10 r=5 t=34.539 fail=4.01e-11 target=1.00e-05 holds=True
+---
+== log: base2
+ C=1.0 n=100 r=1 t=6.644 fail=1.00e-02 target=1.00e-02 holds=False
+ C=1.0 n=1000 r=3 t=29.897 fail=1.00e-09 target=1.00e-09 holds=True
+ C=1.0 n=1024 r=2 t=20.000 fail=9.54e-07 target=9.54e-07 holds=True
+ C=1.0 n=10 r=5 t=16.610 fail=1.00e-05 target=1.00e-05 holds=True
+---
+ C=1.4426950408889634 n=100 r=1 t=9.585 fail=1.30e-03 target=1.00e-02 holds=True
+ C=1.4426950408889634 n=1000 r=3 t=43.133 fail=1.04e-13 target=1.00e-09 holds=True
+ C=1.4426950408889634 n=1024 r=2 t=28.854 fail=2.06e-09 target=9.54e-07 holds=True
+ C=1.4426950408889634 n=10 r=5 t=23.963 fail=6.12e-08 target=1.00e-05 holds=True
+---
+ C=2.0 n=100 r=1 t=13.288 fail=1.00e-04 target=1.00e-02 holds=True
+ C=2.0 n=1000 r=3 t=59.795 fail=1.00e-18 target=1.00e-09 holds=True
+ C=2.0 n=1024 r=2 t=40.000 fail=9.09e-13 target=9.54e-07 holds=True
+ C=2.0 n=10 r=5 t=33.219 fail=1.00e-10 target=1.00e-05 holds=True
+---
+ C=3.0 n=100 r=1 t=19.932 fail=1.00e-06 target=1.00e-02 holds=True
+ C=3.0 n=1000 r=3 t=89.692 fail=1.00e-27 target=1.00e-09 holds=True
+ C=3.0 n=1024 r=2 t=60.000 fail=8.67e-19 target=9.54e-07 holds=True
+ C=3.0 n=10 r=5 t=49.829 fail=1.00e-15 target=1.00e-05 holds=True
+---
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# Check eps validity and dilation/congestion forms
+for h in [1,2,5,100,1000]:
+    eps = 1/(4*h)
+    print(f"h={h} eps={eps:.5f} <1/3? {eps<1/3} dil/h ~ {1/eps:.1f} cong-log-arg={(math.log(max(n,2)) if (n:=1000) else 0)/eps:.1f}")
+# Check L = log(h log n) >=1 regime
+for n in [2,3,4,8,100,1000]:
+    for h in [1,2,10]:
+        ln = math.log2(n)
+        L = math.log2(max(h*ln,1e-9))
+        print(f"n={n} h={h} logn={ln:.2f} L={L:.2f} L<=L^2? {L<=L**2 if L>=0 else 'neg'}")
+    print("---")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0008s) ---
+Stdout:
+h=1 eps=0.25000 <1/3? True dil/h ~ 4.0 cong-log-arg=27.6
+h=2 eps=0.12500 <1/3? True dil/h ~ 8.0 cong-log-arg=55.3
+h=5 eps=0.05000 <1/3? True dil/h ~ 20.0 cong-log-arg=138.2
+h=100 eps=0.00250 <1/3? True dil/h ~ 400.0 cong-log-arg=2763.1
+h=1000 eps=0.00025 <1/3? True dil/h ~ 4000.0 cong-log-arg=27631.0
+n=2 h=1 logn=1.00 L=0.00 L<=L^2? True
+n=2 h=2 logn=1.00 L=1.00 L<=L^2? True
+n=2 h=10 logn=1.00 L=3.32 L<=L^2? True
+---
+n=3 h=1 logn=1.58 L=0.66 L<=L^2? False
+n=3 h=2 logn=1.58 L=1.66 L<=L^2? True
+n=3 h=10 logn=1.58 L=3.99 L<=L^2? True
+---
+n=4 h=1 logn=2.00 L=1.00 L<=L^2? True
+n=4 h=2 logn=2.00 L=2.00 L<=L^2? True
+n=4 h=10 logn=2.00 L=4.32 L<=L^2? True
+---
+n=8 h=1 logn=3.00 L=1.58 L<=L^2? True
+n=8 h=2 logn=3.00 L=2.58 L<=L^2? True
+n=8 h=10 logn=3.00 L=4.91 L<=L^2? True
+---
+n=100 h=1 logn=6.64 L=2.73 L<=L^2? True
+n=100 h=2 logn=6.64 L=3.73 L<=L^2? True
+n=100 h=10 logn=6.64 L=6.05 L<=L^2? True
+---
+n=1000 h=1 logn=9.97 L=3.32 L<=L^2? True
+n=1000 h=2 logn=9.97 L=4.32 L<=L^2? True
+n=1000 h=10 logn=9.97 L=6.64 L<=L^2? True
+---
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# State machine registration for fragile invariants
+try:
+    state.register("G_complete_poly", kind="graph", properties=["hereditary_complete","hereditary_poly_capacity"])
+    state.register("T_router", kind="distribution", properties=["fragile_exclusion","dilation_beta_h","congestion_alpha"])
+    state.register("R_base", kind="routing_scheme", properties=["hereditary_hop_stretch","fragile_subdist_half"])
+    state.register("R_boosted", kind="routing_scheme", properties=["hereditary_hop_stretch","fragile_subdist_n^-r"])
+    state.add_subgoal("S1", "eps=1/(4h) valid for LemmaDOneRouter")
+    state.add_subgoal("S2", "base 1/2-subflow with alpha0, beta0")
+    state.add_subgoal("S3", "t-fold retry gives 2^-t <= n^-r, t*alpha0, stretch beta0")
+    print(state.status())
+except Exception as e:
+    print("state-machine unavailable:", e)
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0013s) ---
+Stdout:
+state-machine unavailable: MathStateMachine.register() got an unexpected keyword argument 'kind'
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 2] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 3.
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 3] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 4.
+
+--- [TURN 4/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 4] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 5.
+
+--- [TURN 5/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 5] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 6.
+
+--- [TURN 6/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 6] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 7.
+
+--- [TURN 7/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 7] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 8.
+
+--- [TURN 8/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+[Cognitive Partitioning] Invoking Publication Scribe Subagent on Turn 8...
+
+--- [SUBAGENT: PUBLICATION SCRIBE] Typesetting publication LaTeX proof for task_[ID]_statement_56_229 ---
+
+--- [DEDICATED PUBLICATION SCRIBE SYNTHESIS TURN] ---
+
+--- [SUBAGENT: PUBLICATION SCRIBE] Typesetting publication LaTeX proof for task_[ID]_statement_56_229 ---
+
+[Synthesis Turn: Emitting Publication Proof]
+
+
+[Synthesis Notice] Direct extraction did not yield a valid publication proof. Invoking Journal Typesetter pass...
+
+================================================================================
+[CHECKPOINT RESUME] Task: task_[ID]_statement_56_229 | Stage: synthesis | Completed Turn: 8 | Prior Elapsed: 5757.5s
+================================================================================
+
+--- [DEDICATED PUBLICATION SCRIBE SYNTHESIS TURN] ---
+
+[Synthesis Turn: Emitting Publication Proof]
+
+[Empty Stream Alert] Stream completed with 0 tokens under reasoning_effort='xhigh'; auto stepping down to reasoning_effort='high' (retry 1/5)...
+\begin{proof}
+Let $G=(V,E,c)$ be complete with polynomially bounded capacities,
+$n=|V|$, $h\ge 1$, $r=O(1)$. For $n\le 2$ all quantities are
+positive constants except the degenerate $n=1$ where routing is
+trivial, hence the claim follows by taking constants large enough.
+Assume $n\ge 3$ so $\log n>1$.
+We use Lemma~\ref{lemmaDOneRouter} and
+Lemma~\ref{lemma:d1-router-is-subflow} as black boxes.
+
+\medskip\noindent\textbf{Base $1/2$-subflow.}
+Set $\eps=1/(4h)$. Then $0<\eps\le 1/4<1/3$.
+Completeness and polynomial capacities hold by hypothesis, so
+Lemma~\ref{lemmaDOneRouter} applies and yields a
+${\cal D}_{1}$-router ${\cal T}$ with exclusion $\eps$,
+dilation $O(\log^{3}n/\eps)=O(h\log^{3}n)$ and congestion
+$\alpha_{0}=O(\log n\cdot\log(\log n/\eps))$.
+Since $1/\eps=4h$,
+$\log(\log n/\eps)=\log(4h\log n)$ and
+$\alpha_{0}=O(\log n\cdot\log(4h\log n))$.
+Write dilation as $\beta_{0}h$ with $\beta_{0}=O(\log^{3}n)$.
+Exclusion is $1/(4h)$ as required by
+Lemma~\ref{lemma:d1-router-is-subflow}. Hence the induced
+$R^{{\cal T}}$ is an $h$-hop $1/2$-subflow with approximation
+$\alpha_{0}$ and hop stretch $\beta_{0}$: every
+$T^{G}_{s,t}$ has $\hop\le\beta_{0}h$, and the arbitrary fallback
+can be taken as the direct edge, $1$ hop $\le\beta_{0}h$.
+
+Indeed, for fixed demand ${\cal D}$ let $R^{\star}$ attain
+$\opt_{h}({\cal D})$ up to arbitrarily small error, supported on
+$\le h$ hops. Sample $q_{s,t}\sim R^{\star}_{s,t}$; then
+$|V(q_{s,t})|\le h+1$. The subflow keeps $T^{G}_{s,t}$ iff
+$V(q_{s,t})\subseteq V(T)$, else $\bot$. By union bound,
+$\Pr_{T}[V(q)\not\subseteq V(T)]\le (h+1)\eps=(h+1)/(4h)\le 1/2$.
+Moreover in a tree $T_{s,t}\subseteq\bigcup_{(a,b)\in q}T_{a,b}$,
+so $\flow(T^{G}_{s,t})\le\sum_{(a,b)\in q}\flow(T^{G}_{a,b})$
+whenever $V(q)\subseteq V(T)$. Charging the optimal edge loads
+$F_{a,b}\le\opt_{h}({\cal D})c_{a,b}$ through the
+${\cal D}_{1}$-congestion gives $\alpha_{0}$ approximation.
+This is Lemma~\ref{lemma:d1-router-is-subflow}.
+
+\medskip\noindent\textbf{Amplification to $n^{-r}$.}
+Let $t=\lceil 2r\ln n\rceil+1=O(\log n)$ since $r=O(1)$.
+Then $2^{-t}\le n^{-r}$: indeed $2^{-t}=e^{-t\ln2}$ and
+$2\ln2>1$. Let $T^{(1)},\dots,T^{(t)}\sim{\cal T}$ i.i.d.
+Define routing $R$: for $s,t$, let
+$i^{\star}=\min\{i:s,t\in V(T^{(i)})\}$ if any, output
+$T^{(i^{\star})G}_{s,t}$, else the direct edge. Every output has
+$\hop\le\max(\beta_{0}h,1)=\beta_{0}h$. So hop stretch stays
+$\beta_{0}=O(\log^{3}n)\subseteq O(\log^{7}n)$.
+
+Fix ${\cal D}$ and $R^{\star},q$ as above. Define
+$R'({\cal D})$: sample the same $t$ trees and $q_{s,t}$;
+let $j^{\star}=\min\{i:V(q_{s,t})\subseteq V(T^{(i)})\}$ if any,
+output $T^{(j^{\star})G}_{s,t}$, else $\bot$.
+On success $R'$ returns a tree $s$-$t$ path in $\supp(R_{s,t})$,
+requiring the stronger containment $V(q)\subseteq V(T)$ rather
+than $s,t\in V(T)$; hence
+$\Pr[R'_{s,t}=p]\le\Pr[R_{s,t}=p]$ for all $p$, i.e.\ $R'_{s,t}$
+is a subdistribution of $R_{s,t}$.
+Per fixed $q$ with $\le h+1$ nodes,
+$\Pr_{T}[V(q)\not\subseteq V(T)]\le 1/2$ as above, and by
+independence over $i$,
+$\Pr[\bot\mid q]\le (1/2)^{t}\le n^{-r}$. Averaging over $q$
+gives $\Pr[R'_{s,t}=\bot]\le n^{-r}$. Thus $R'$ is an
+$n^{-r}$-subdistribution.
+
+It remains to bound congestion. Let $G_{i}=\{V(q)\subseteq
+V(T^{(i)})\}$. If $j^{\star}$ exists,
+$\1_{\{j^{\star}\text{ exists}\}}\flow(T^{(j^{\star})G}_{s,t})
+\le\sum_{i=1}^{t}\1_{G_{i}}\flow(T^{(i)G}_{s,t})$ element-wise,
+since the right side contains the $j^{\star}$ term plus
+nonnegative terms. By the tree inclusion,
+$\1_{G_{i}}\flow(T^{(i)G}_{s,t})
+\le\sum_{(a,b)\in q}\1_{a,b\in V(T^{(i)})}
+\flow(T^{(i)G}_{a,b})$.
+Hence with ${\cal D}_{s,t}$ weights and expectation over $q$
+and trees, the flow routed by $R'$ is element-wise at most
+$\sum_{i=1}^{t}H^{(i)}$ where each $H^{(i)}$ is a single-tree
+good flow. As in the base lemma, writing
+$F_{a,b}=\sum_{s,t}\E_{q}[\1_{(a,b)\in q}]{\cal D}_{s,t}
+\le\opt_{h}({\cal D})c_{a,b}$,
+$\E[H^{(i)}]=\sum_{a,b}\E[\1_{a,b\in V(T)}\flow(T^{G}_{a,b})]
+F_{a,b}\le\opt_{h}({\cal D})\sum_{a,b}\E[\cdots]c_{a,b}
+\le\alpha_{0}\opt_{h}({\cal D})\vec c_{G}$ by
+${\cal D}_{1}$-congestion. Summing $t$ copies and using
+$\cong(\sum f_{i})\le\sum\cong(f_{i})$ gives
+$\cong_{G}(\flow(R'))\le t\alpha_{0}\opt_{h}({\cal D})$.
+
+Thus $R$ is an $h$-hop $n^{-r}$-subflow with approximation
+$t\alpha_{0}$ and stretch $\beta_{0}$.
+Now $t=O(\log n)$ and
+$\alpha_{0}=O(\log n\cdot\log(4h\log n))$.
+For any real $y$, $y\le y^{2}+1/4$, so
+$\log(4h\log n)=O(\log^{2}(h\log n)+1)$.
+For $n\ge3$, $h\ge1$, $\log^{2}(h\log n)$ is bounded below by a
+positive constant except for finitely many small values absorbed
+by constants, and $\log n>1$; hence
+$t\alpha_{0}=O(\log^{2}n\cdot\log^{2}(h\log n))$.
+Similarly $\beta_{0}=O(\log^{3}n)\subseteq O(\log^{7}n)$.
+This is the required $h$-hop $(n^{-r})$-subflow routing with
+congestion approximation $O(\log^{2}n\cdot\log^{2}(h\log n))$
+and hop stretch $O(\log^{7}n)$.
+\end{proof}
+\begin{proof}
+Let $G=(V,E,c)$ be complete with polynomially bounded capacities,
+$n=|V|$, $h\ge 1$, $r=O(1)$. For $n\le 2$ all quantities are
+positive constants except the degenerate $n=1$ where routing is
+trivial, hence the claim follows by taking constants large enough.
+Assume $n\ge 3$ so $\log n>1$.
+We use Lemma~\ref{lemmaDOneRouter} and
+Lemma~\ref{lemma:d1-router-is-subflow} as black boxes.
+
+\medskip\noindent\textbf{Base $1/2$-subflow.}
+Set $\eps=1/(4h)$. Then $0<\eps\le 1/4<1/3$.
+Completeness and polynomial capacities hold by hypothesis, so
+Lemma~\ref{lemmaDOneRouter} applies and yields a
+${\cal D}_{1}$-router ${\cal T}$ with exclusion $\eps$,
+dilation $O(\log^{3}n/\eps)=O(h\log^{3}n)$ and congestion
+$\alpha_{0}=O(\log n\cdot\log(\log n/\eps))$.
+Since $1/\eps=4h$,
+$\log(\log n/\eps)=\log(4h\log n)$ and
+$\alpha_{0}=O(\log n\cdot\log(4h\log n))$.
+Write dilation as $\beta_{0}h$ with $\beta_{0}=O(\log^{3}n)$.
+Exclusion is $1/(4h)$ as required by
+Lemma~\ref{lemma:d1-router-is-subflow}. Hence the induced
+$R^{{\cal T}}$ is an $h$-hop $1/2$-subflow with approximation
+$\alpha_{0}$ and hop stretch $\beta_{0}$: every
+$T^{G}_{s,t}$ has $\hop\le\beta_{0}h$, and the arbitrary fallback
+can be taken as the direct edge, $1$ hop $\le\beta_{0}h$.
+
+Indeed, for fixed demand ${\cal D}$ let $R^{\star}$ attain
+$\opt_{h}({\cal D})$ up to arbitrarily small error, supported on
+$\le h$ hops. Sample $q_{s,t}\sim R^{\star}_{s,t}$; then
+$|V(q_{s,t})|\le h+1$. The subflow keeps $T^{G}_{s,t}$ iff
+$V(q_{s,t})\subseteq V(T)$, else $\bot$. By union bound,
+$\Pr_{T}[V(q)\not\subseteq V(T)]\le (h+1)\eps=(h+1)/(4h)\le 1/2$.
+Moreover in a tree $T_{s,t}\subseteq\bigcup_{(a,b)\in q}T_{a,b}$,
+so $\flow(T^{G}_{s,t})\le\sum_{(a,b)\in q}\flow(T^{G}_{a,b})$
+whenever $V(q)\subseteq V(T)$. Charging the optimal edge loads
+$F_{a,b}\le\opt_{h}({\cal D})c_{a,b}$ through the
+${\cal D}_{1}$-congestion gives $\alpha_{0}$ approximation.
+This is Lemma~\ref{lemma:d1-router-is-subflow}.
+
+\medskip\noindent\textbf{Amplification to $n^{-r}$.}
+Let $t=\lceil 2r\ln n\rceil+1=O(\log n)$ since $r=O(1)$.
+Then $2^{-t}\le n^{-r}$: indeed $2^{-t}=e^{-t\ln2}$ and
+$2\ln2>1$. Let $T^{(1)},\dots,T^{(t)}\sim{\cal T}$ i.i.d.
+Define routing $R$: for $s,t$, let
+$i^{\star}=\min\{i:s,t\in V(T^{(i)})\}$ if any, output
+$T^{(i^{\star})G}_{s,t}$, else the direct edge. Every output has
+$\hop\le\max(\beta_{0}h,1)=\beta_{0}h$. So hop stretch stays
+$\beta_{0}=O(\log^{3}n)\subseteq O(\log^{7}n)$.
+
+Fix ${\cal D}$ and $R^{\star},q$ as above. Define
+$R'({\cal D})$: sample the same $t$ trees and $q_{s,t}$;
+let $j^{\star}=\min\{i:V(q_{s,t})\subseteq V(T^{(i)})\}$ if any,
+output $T^{(j^{\star})G}_{s,t}$, else $\bot$.
+On success $R'$ returns a tree $s$-$t$ path in $\supp(R_{s,t})$,
+requiring the stronger containment $V(q)\subseteq V(T)$ rather
+than $s,t\in V(T)$; hence
+$\Pr[R'_{s,t}=p]\le\Pr[R_{s,t}=p]$ for all $p$, i.e.\ $R'_{s,t}$
+is a subdistribution of $R_{s,t}$.
+Per fixed $q$ with $\le h+1$ nodes,
+$\Pr_{T}[V(q)\not\subseteq V(T)]\le 1/2$ as above, and by
+independence over $i$,
+$\Pr[\bot\mid q]\le (1/2)^{t}\le n^{-r}$. Averaging over $q$
+gives $\Pr[R'_{s,t}=\bot]\le n^{-r}$. Thus $R'$ is an
+$n^{-r}$-subdistribution.
+
+It remains to bound congestion. Let $G_{i}=\{V(q)\subseteq
+V(T^{(i)})\}$. If $j^{\star}$ exists,
+$\1_{\{j^{\star}\text{ exists}\}}\flow(T^{(j^{\star})G}_{s,t})
+\le\sum_{i=1}^{t}\1_{G_{i}}\flow(T^{(i)G}_{s,t})$ element-wise,
+since the right side contains the $j^{\star}$ term plus
+nonnegative terms. By the tree inclusion,
+$\1_{G_{i}}\flow(T^{(i)G}_{s,t})
+\le\sum_{(a,b)\in q}\1_{a,b\in V(T^{(i)})}
+\flow(T^{(i)G}_{a,b})$.
+Hence with ${\cal D}_{s,t}$ weights and expectation over $q$
+and trees, the flow routed by $R'$ is element-wise at most
+$\sum_{i=1}^{t}H^{(i)}$ where each $H^{(i)}$ is a single-tree
+good flow. As in the base lemma, writing
+$F_{a,b}=\sum_{s,t}\E_{q}[\1_{(a,b)\in q}]{\cal D}_{s,t}
+\le\opt_{h}({\cal D})c_{a,b}$,
+$\E[H^{(i)}]=\sum_{a,b}\E[\1_{a,b\in V(T)}\flow(T^{G}_{a,b})]
+F_{a,b}\le\opt_{h}({\cal D})\sum_{a,b}\E[\cdots]c_{a,b}
+\le\alpha_{0}\opt_{h}({\cal D})\vec c_{G}$ by
+${\cal D}_{1}$-congestion. Summing $t$ copies and using
+$\cong(\sum f_{i})\le\sum\cong(f_{i})$ gives
+$\cong_{G}(\flow(R'))\le t\alpha_{0}\opt_{h}({\cal D})$.
+
+Thus $R$ is an $h$-hop $n^{-r}$-subflow with approximation
+$t\alpha_{0}$ and stretch $\beta_{0}$.
+Now $t=O(\log n)$ and
+$\alpha_{0}=O(\log n\cdot\log(4h\log n))$.
+For any real $y$, $y\le y^{2}+1/4$, so
+$\log(4h\log n)=O(\log^{2}(h\log n)+1)$.
+For $n\ge3$, $h\ge1$, $\log^{2}(h\log n)$ is bounded below by a
+positive constant except for finitely many small values absorbed
+by constants, and $\log n>1$; hence
+$t\alpha_{0}=O(\log^{2}n\cdot\log^{2}(h\log n))$.
+Similarly $\beta_{0}=O(\log^{3}n)\subseteq O(\log^{7}n)$.
+This is the required $h$-hop $(n^{-r})$-subflow routing with
+congestion approximation $O(\log^{2}n\cdot\log^{2}(h\log n))$
+and hop stretch $O(\log^{7}n)$.
+\end{proof}
+
+[Auditing Synthesized Proof Draft]...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": false, "theorem_hypotheses_verified": true, "rigor": 0.4, "completeness": 0.5, "boundary_cases": 0.8, "validity": 0.25, "verdict": "REJECT", "issues": "The amplification claims R' is a subdistribution of R because R' requires stronger containment V(q) subset V(T) rather than s,t in V(T) and returns a path in supp(R), hence Pr[R'=p]<=Pr[R=p] for all p. This implication is false. Support inclusion does not imply pointwise probability domination when selection indices differ: R uses i*=first i with s,t in V(T^{(i)}), R' uses j*=first i with V(q) subset V(T^{(i)}), so j*>=i* in general and outputs come from different trees. Counterexample with t=2, deterministic q: each tree w.p. 1/2 contains only s,t and yields path p1, w.p. 1/2 contains V(q) and yields distinct path p2. Then Pr[R=p2]=1/2 while Pr[R'=p2]=1-(1/2)^2=3/4, violating the claimed inequality. Thus the gamma-subdistribution requirement of Def. subflow is not proved; failure bound Pr[bot|q]<=(1/2)^t and congestion bound via sum of H^{(i)} alone do not suffice."}
+[Best Candidate Updated in Synthesis] validity=0.25 (4924 chars)
+[Synthesis Audit Notes] (validity: 0.25) The amplification claims R' is a subdistribution of R because R' requires stronger containment V(q) subset V(T) rather than s,t in V(T) and returns a path in supp(R), hence Pr[R'=p]<=Pr[R=p] for all p. This implication is false. Support inclusion does not imply pointwise probability domination when selection indices differ: R uses i*=first i with s,t in V(T^{(i)}), R' uses j*=first i with V(q) subset V(T^{(i)}), so j*>=i* in general and outputs come from different trees. Counterexample with t=2, deterministic q: each tree w.p. 1/2 contains only s,t and yields path p1, w.p. 1/2 contains V(q) and yields distinct path p2. Then Pr[R=p2]=1/2 while Pr[R'=p2]=1-(1/2)^2=3/4, violating the claimed inequality. Thus the gamma-subdistribution requirement of Def. subflow is not proved; failure bound Pr[bot|q]<=(1/2)^t and congestion bound via sum of H^{(i)} alone do not suffice.
+
+[Synthesis Revision 1/2] Initiating referee revision pass to resolve flagged issues...
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_56_229 ---
+[Critique Falsifier Script]:
+import itertools
+# Referee's counterexample: t=2, deterministic q, two tree types
+# Type A (prob 1/2): contains s,t only -> path p1; Type B (prob 1/2): contains V(q) -> path p2
+t = 2
+prob = 0.0
+prob_prime = 0.0
+for trees in itertools.product(['A','B'], repeat=t):
+    w = (0.5)**t  # each tree i.i.d.
+    # R: i* = first i with s,t in V (both types contain s,t) => i*=0 always
+    out_R = 'p1' if trees[0]=='A' else 'p2'
+    # R': j* = first i with V(q) subset V (only B qualifies)
+    jstar = next((i for i,x in enumerate(trees) if x=='B'), None)
+    out_Rp = 'p2' if jstar is not None else 'bot'
+    if out_R=='p2': prob += w
+    if out_Rp=='p2': prob_prime += w
+print(f"Pr[R=p2]={prob}, Pr[R'=p2]={prob_prime}")
+if prob_prime > prob + 1e-9:
+    print(f"COUNTEREXAMPLE_FOUND: Pr[R'=p2]={prob_prime} > Pr[R=p2]={prob}, subdistribution inequality fails")
+    raise assert False, "COUNTEREXAMPLE_FOUND"
+print("INVARIANT_VERIFIED: subdistribution holds")
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+[Empty Stream Alert] Stream completed with 0 tokens under reasoning_effort='xhigh'; auto stepping down to reasoning_effort='high' (retry 1/5)...
+
+[Empty Stream Alert] Stream completed with 0 tokens under reasoning_effort='high'; auto stepping down to reasoning_effort='medium' (retry 2/5)...
+\begin{proof}
+Let $G=(V,E,c)$ be complete with polynomially bounded capacities,
+$n=|V|$, $h\ge 1$, $r=O(1)$. For $n\le 2$ the claim holds by taking
+constants large. Assume $n\ge 3$ so $\log n>1$.
+We use Lemma~\ref{lemmaDOneRouter} and
+Lemma~\ref{lemma:d1-router-is-subflow} as black boxes.
+
+\medskip\noindent\textbf{Base $1/2$-subflow.}
+Set $\eps=1/(4h)$. Then $0<\eps\le 1/4<1/3$.
+Completeness and polynomial capacities hold, so
+Lemma~\ref{lemmaDOneRouter} gives a ${\cal D}_{1}$-router
+${\cal T}$ with exclusion $\eps$, dilation $O(\log^{3}n/\eps)
+=O(h\log^{3}n)$ and congestion
+$\alpha_{0}=O(\log n\cdot\log(\log n/\eps))$.
+Since $1/\eps=4h$, $\alpha_{0}=O(\log n\cdot\log(4h\log n))$.
+Write dilation as $\beta_{0}h$ with $\beta_{0}=O(\log^{3}n)$.
+Lemma~\ref{lemma:d1-router-is-subflow} then applies, since dilation
+is $\beta_{0}h$, exclusion is $1/(4h)$, congestion $\alpha_{0}$.
+Its conclusion is an $h$-hop $1/2$-subflow with approximation
+$\alpha_{0}$ and stretch $\beta_{0}$. Recall the mechanism:
+for demand ${\cal D}$ let $R^{\star}$ attain $\opt_{h}({\cal D})$
+supported on $\le h$ hops, sample $q_{s,t}\sim R^{\star}_{s,t}$,
+so $|V(q_{s,t})|\le h+1$. Keeping $T^{G}_{s,t}$ iff
+$V(q_{s,t})\subseteq V(T)$ fails with probability at most
+$(h+1)\eps\le 1/2$ by union bound, and tree inclusion
+$T_{s,t}\subseteq\bigcup_{(a,b)\in q}T_{a,b}$ charges optimal
+loads through the ${\cal D}_{1}$-congestion to give $\alpha_{0}$.
+
+\medskip\noindent\textbf{Amplification to $n^{-r}$ via concatenation.}
+Let $t=\lceil 2r\ln n\rceil+1=O(\log n)$ since $r=O(1)$.
+Then $2^{-t}\le n^{-r}$, as $2^{-t}=e^{-t\ln2}$ and $2\ln2>1$.
+Let $T^{(1)},\dots,T^{(t)}\sim{\cal T}$ i.i.d.
+For fixed $s,t$ and vector $\vec T$, let
+$S(\vec T)=\{i:s,t\in V(T^{(i)})\}$ and for $i\in S$ let
+$p_{i}=T^{(i)G}_{s,t}$, with $\hop(p_{i})\le\beta_{0}h$.
+Define routing $R_{s,t}$ as the concatenation
+$P(\vec T)=\bigoplus_{i\in S(\vec T)}p_{i}$ if $S\ne\emptyset$,
+and the direct edge $(s,t)$ (present by completeness, $1$ hop)
+if $S=\emptyset$. Each $p_{i}$ is an $s$-$t$ path, so the
+concatenation is an $s$-$t$ walk; non-simple walks are allowed.
+Hence every $P\in\supp(R_{s,t})$ has
+$\hop(P)\le t\beta_{0}h$. Hop stretch is $t\beta_{0}
+=O(\log^{4}n)\subseteq O(\log^{7}n)$.
+
+Fix demand ${\cal D}$ with near-optimal $R^{\star},q$ as above.
+Define $R'({\cal D})$ by sampling $\vec T$ and $q$ independently:
+let $j^{\star}=\min\{i:V(q_{s,t})\subseteq V(T^{(i)})\}$ if any.
+If $j^{\star}$ exists output $P(\vec T)$, else output $\bot$.
+Note $V(q)\subseteq V(T)$ implies $s,t\in V(T)$, so success
+implies $S(\vec T)\ne\emptyset$ and $P(\vec T)$ is the same
+concatenation used by $R$. The fallback direct edge never
+appears in a successful $R'$ flow.
+
+\begin{claim}
+$R'_{s,t}$ is an $n^{-r}$-subdistribution of $R_{s,t}$.
+\end{claim}
+\begin{proof}
+Couple $R$ and $R'$ on the same $\vec T$, with $q$ independent.
+$R$ is $P(\vec T)$ deterministically given $\vec T$;
+$R'$ is $P(\vec T)$ if $\mathrm{succ}(\vec T,q)$ holds and
+$\bot$ otherwise, where $\mathrm{succ}$ is existence of $j^{\star}$.
+Hence $\{R'=P_{0}\}\subseteq\{R=P_{0}\}$ for every walk $P_{0}$,
+so $\Pr[R'=P_{0}]\le\Pr[R=P_{0}]$.
+Moreover, conditional on $q$, $\Pr_{\vec T}[\text{no }i\text{ succeeds}\mid q]
+\le (1/2)^{t}$: per $i$, $\Pr_{T}[V(q)\not\subseteq V(T)]\le
+(h+1)\eps\le 1/2$ by union bound since $|V(q)|\le h+1$, and the
+$t$ trials are independent. Averaging over $q$ gives
+$\Pr[R'_{s,t}=\bot]\le 2^{-t}\le n^{-r}$.
+\end{proof}
+Thus the $\gamma$-subdistribution property holds with
+$\gamma=n^{-r}$; the previous first-success single-path
+comparison is avoided by outputting the same concatenation.
+
+It remains to bound congestion. On success,
+$\flow(P(\vec T))=\sum_{i\in S(\vec T)}\flow(p_{i})$ element-wise,
+and $0$ on failure (mapped to $\bot$). Hence with
+$\1_{i}=\1_{\{s,t\in V(T^{(i)})\}}$,
+\[
+\1_{\mathrm{succ}}\flow(P)\le\sum_{i=1}^{t}\1_{i}\flow(T^{(i)G}_{s,t}).
+\]
+By tree inclusion, when $V(q)\subseteq V(T^{(i)})$ the stronger
+bound holds, but for an upper bound we use
+$\1_{i}\flow(T^{(i)G}_{s,t})$ directly. Taking expectation over
+$\vec T,q$ with weights ${\cal D}_{s,t}$, the $R'$-flow is
+element-wise at most $\sum_{i=1}^{t}H^{(i)}$ where
+$H^{(i)}=\sum_{s,t}\E[\1_{i}\flow(T^{(i)G}_{s,t})]{\cal D}_{s,t}$.
+Write $F_{a,b}=\sum_{s,t}\E_{q}[\1_{\{(a,b)\in q\}}]{\cal D}_{s,t}$,
+the optimal edge load, with $F_{a,b}\le\opt_{h}({\cal D})c_{a,b}$.
+By the single-tree analysis,
+$\E[H^{(i)}]=\sum_{a,b}\E[\1_{a,b\in V(T)}\flow(T^{G}_{a,b})]F_{a,b}
+\le\opt_{h}({\cal D})\sum_{a,b}\E[\cdots]c_{a,b}
+\le\alpha_{0}\opt_{h}({\cal D})\vec c_{G}$ by
+${\cal D}_{1}$-congestion. The fallback edge contributes nothing
+since $\1_{\mathrm{succ}}=0$ when $S=\emptyset$.
+Using $\cong(\sum f_{i})\le\sum\cong(f_{i})$,
+$\cong_{G}(\flow(R'))\le t\alpha_{0}\opt_{h}({\cal D})$.
+
+Hence $R$ is an $h$-hop $n^{-r}$-subflow with approximation
+$t\alpha_{0}$ and stretch $t\beta_{0}$.
+Now $t=O(\log n)$, $\alpha_{0}=O(\log n\cdot\log(4h\log n))$,
+so $t\alpha_{0}=O(\log^{2}n\cdot\log(4h\log n))$.
+For $n\ge3$, $h\ge1$, $h\log n$ is bounded below by a positive
+constant, so $1=O(\log^{2}(h\log n))$ and
+$\log(4h\log n)=O(\log^{2}(h\log n)+1)
+=O(\log^{2}(h\log n))$. Thus
+$t\alpha_{0}=O(\log^{2}n\cdot\log^{2}(h\log n))$.
+Stretch $t\beta_{0}=O(\log^{4}n)\subseteq O(\log^{7}n)$.
+This proves the required $h$-hop $(n^{-r})$-subflow routing.
+\end{proof}
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": false, "theorem_hypotheses_verified": true, "rigor": 0.35, "completeness": 0.35, "boundary_cases": 0.8, "validity": 0.25, "verdict": "REJECT", "issues": "Prior subdistribution index-mismatch is avoided by outputting the same concatenation P(vecT) for R and R': {R'=P0} subset {R=P0} holds, and Pr[bot]<=2^{-t} via union bound is correct. However congestion bound is false. The proof upper-bounds 1_succ flow(P) <= sum_i 1_{s,t in V(T^{(i)})} flow(T^{(i)G}_{s,t}) dropping all dependence on q/V(q), defines H^{(i)} with arbitrary demand D, then asserts E[H^{(i)}]=sum_{a,b}E[1_{a,b in V(T)}flow(T^G_{a,b})]F_{a,b}. This equality is false. LHS is sum_{s,t}E_T[...]D_{s,t}; RHS is sum_{s,t}D_{s,t}E_{q,T}[sum_{(a,b) in q}...]. They differ as vectors: e.g. single-pair demand D_{s,t}=1 routed optimally as q=s-k-t gives F_{s,k}=F_{k,t}=1,F_{s,t}=0, so LHS is flow on (s,t) while RHS is flows on (s,k),(k,t). Without the indicator V(q) subset V(T) tree inclusion flow(T^G_{s,t})<=sum_{(a,b) in q}flow(T^G_{a,b}) does not apply, and D1-congestion (capacity-weighted sum over E(G)) cannot be applied to arbitrary D. Hence claimed cong<=t alpha0 opt is unproved and globally false."}
+[Revised Proof Audit Notes Attempt 1] (validity: 0.25) Prior subdistribution index-mismatch is avoided by outputting the same concatenation P(vecT) for R and R': {R'=P0} subset {R=P0} holds, and Pr[bot]<=2^{-t} via union bound is correct. However congestion bound is false. The proof upper-bounds 1_succ flow(P) <= sum_i 1_{s,t in V(T^{(i)})} flow(T^{(i)G}_{s,t}) dropping all dependence on q/V(q), defines H^{(i)} with arbitrary demand D, then asserts E[H^{(i)}]=sum_{a,b}E[1_{a,b in V(T)}flow(T^G_{a,b})]F_{a,b}. This equality is false. LHS is sum_{s,t}E_T[...]D_{s,t}; RHS is sum_{s,t}D_{s,t}E_{q,T}[sum_{(a,b) in q}...]. They differ as vectors: e.g. single-pair demand D_{s,t}=1 routed optimally as q=s-k-t gives F_{s,k}=F_{k,t}=1,F_{s,t}=0, so LHS is flow on (s,t) while RHS is flows on (s,k),(k,t). Without the indicator V(q) subset V(T) tree inclusion flow(T^G_{s,t})<=sum_{(a,b) in q}flow(T^G_{a,b}) does not apply, and D1-congestion (capacity-weighted sum over E(G)) cannot be applied to arbitrary D. Hence claimed cong<=t alpha0 opt is unproved and globally false.
+
+[Synthesis Revision 2/2] Initiating referee revision pass to resolve flagged issues...
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_56_229 ---
+[Critique Falsifier Script]:
+V = ['s','k','t']
+# deterministic tree T containing all vertices; tree-induced paths:
+TG = {('s','t'):[('s','t')], ('s','k'):[('s','k')], ('k','t'):[('k','t')]}
+D = {('s','t'):1}  # single-pair demand
+# optimal 2-hop routing q = s-k-t, so edge loads F:
+F = {('s','k'):1, ('k','t'):1, ('s','t'):0}
+def vec(load_dict):
+    return {e: load_dict.get(e,0) for e in [('s','t'),('s','k'),('k','t')]}
+# LHS = sum_{s,t} E[1 flow(T^G_{s,t})] D_{s,t}  (indicator=1 here)
+LHS = vec({('s','t'): D[('s','t')]*1})
+# claimed RHS = sum_{a,b} E[1 flow(T^G_{a,b})] F_{a,b}
+RHS = vec({('s','k'): F[('s','k')]*1, ('k','t'): F[('k','t')]*1})
+print("LHS", LHS, "RHS", RHS)
+if LHS != RHS:
+    print(f"COUNTEREXAMPLE_FOUND: LHS={LHS} != RHS={RHS}; equality E[H]=sum F E[...] is false")
+    raise assert False, "COUNTEREXAMPLE_FOUND"
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+[Empty Stream Alert] Stream completed with 0 tokens under reasoning_effort='xhigh'; auto stepping down to reasoning_effort='high' (retry 1/5)...
+
+[Stream Warning] Stream interrupted (RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)); retrying stream from start in 4.0s (attempt 2/5)...
+
+[Empty Stream Alert] Stream completed with 0 tokens under reasoning_effort='high'; auto stepping down to reasoning_effort='medium' (retry 3/5)...
+
+[Empty Stream Alert] Stream completed with 0 tokens under reasoning_effort='medium'; auto stepping down to reasoning_effort='low' (retry 4/5)...
+[Synthesis Revision Attempt 2] Revision did not yield a valid LaTeX proof; retaining previous draft.
+[Best Candidate Recovery] Restoring highest-scoring candidate from Turn 990 (validity: 0.25, 4924 chars).
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_56_229 | Proof Length: 4924 chars | Turns: 8 | Duration: 12648.93s
+================================================================================

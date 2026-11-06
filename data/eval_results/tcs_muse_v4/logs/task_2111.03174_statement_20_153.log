@@ -1,0 +1,1308 @@
+
+
+================================================================================
+[2026-10-24 19:14:20] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_20_153
+================================================================================
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_20_153 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**Granted process & tie-breaking:**
+- For each $e$, $s_e\sim D_e$, $r_e\sim D_e$ independently across $e$.
+- Ties broken by uniform random permutation $\pi$; strict total order on $2|E|$ draws. Licensed for direct use; no re-derivation.
+- Weighted sets: $\Eprime,\Ms,\M$ carry weights $r_e$ resp. $s_e$.
+
+**AlgoOn objects:**
+- $\Ms=$ greedy matching on $S$ (non-increasing weight, feasibility).
+- $p_u=p_v=s_e$ if $\{u,v\}\in\Ms$; $p_u=0$ if $u$ unmatched in $\Ms$.
+- Online: $e=\{u,v\}$ with $r_e\ge \max\{p_u,p_v\}$ added to $\Eprime$ (analysis only); added to $\M$ iff $u,v$ free in $\M$.
+
+**Offline Simulation AlgoOff:**
+- Stage 1: draw $a_{e,1},a_{e,2}\sim D_e$ i.i.d. per $e$. Stage 2: sort $A=\{a_{e,1},a_{e,2}\}$ decreasing with random tie-break. Stage 3: first occurrence of $e$ gets fair coin $R$-used vs $S$-used; second occurrence gets opposite category with prob. 1.
+- Rule: first-occurrence $R$-used $+u,v\in V^S \Rightarrow \Eprime$; first-occurrence $S$-used $+u,v\in V^S \Rightarrow \Ms$ + delete $u,v$ from $V^S$; second-occurrence $R$-used $+u,v\in V^S \Rightarrow \Ms$ + delete.
+- Final $\M$: iterate edges in AlgoOn arrival order, add $e\in\Eprime$ iff $\M\cup\{e\}$ matching.
+
+**Claim \ref{claim:equivalence} (Equivalence):**
+- Precondition: none beyond construction. Conclusion: $(\Eprime,\Ms,\M)$ same distribution under AlgoOn and AlgoOff. Hypothesis to discharge: none; licensed to transfer expectations between algorithms. Henceforth refer to AlgoOff.
+
+**Greedy 2-approximation (offline, granted):**
+- Precondition: fixed weights, greedy in non-increasing order maintaining matching feasibility. Conclusion: $w(\text{greedy})\ge \frac12 w(\text{OPT(weights)})$. Must verify greedy order matches $\Ms$ construction on $S$.
+
+**Definition \ref{def:safe} + $e_v$:**
+- $e_v=$ max-weight edge in $\Eprime$ incident to $v$ if exists; $r_{e_v}$ its $R$-weight, else $0$.
+- $e=\{u,v\}$ safe for $v$ iff (i) unique $\Eprime$-edge at $v$, (ii) no $\Eprime$-edge at $u$ with weight $<r_e$.
+
+**Lemma \ref{lem:matching:safeprob}:**
+- Precondition: $v$ fixed, $e\ni v$ with $\P[e_v=e]>0$. Conclusion: $\P[e_v\text{ safe for }v\mid e_v=e]\ge 1/4$. Must condition exactly on $\{e_v=e\}$; cannot upgrade to conditioning on values without justification.
+
+**Lemma \ref{lem:matching:safecollect}:**
+- Precondition: any run of AlgoOff. Conclusion: $\E[w(\M)]\ge \frac12\E[\sum_v r_{e_v}{\bf1}\{e_v\text{ safe for }v\}]$. Must apply to same $\M,\Eprime$ as equivalence; no extra independence assumed.
+
+**Target \ref{thm:edgeGen}:** $16\E[w(\M)]\ge \E[\OPT]$, $\OPT=$ optimum matching weight on $R$-weights.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Strategy Alpha (Constructive coupling chain OPT $\to$ Ms $\to$ Eprime $\to$ safe $\to$ M):**
+1. $S\stackrel{d}=R$ by two-draws+coin construction; hence $\E[\OPT(R)]=\E[\OPT(S)]$.
+2. Pointwise on $S$-weights, $\Ms$ is greedy $\Rightarrow w(\Ms)\ge \frac12\OPT(S)$. Take expectation: $\E[w(\Ms)]\ge \frac12\E[\OPT]$.
+3. Relate $\E[w(\Ms)]$ to $\E[w(\Eprime)]$ via first-occurrence symmetry: each first-seen edge equally likely $R/S$ while $V^S$ membership depends only on larger values. Deduce $\E[w(\Eprime)]\ge c\,\E[w(\Ms)]$ (target $c=1/2$ or $1$).
+4. Relate $\sum_v r_{e_v}$ to $w(\Eprime)$: each $e\in\Eprime$ is candidate for $e_u,e_v$ maxima, so $\sum_v r_{e_v}\ge w(\Eprime)$ up to factor 2.
+5. Apply Lemma safeprob + safecollect to convert $\sum_v r_{e_v}$ to $\E[w(\M)]$ losing factor $8$ ($4\times 2$). Chain gives $16$.
+
+**Strategy Beta (Extremal maximal-edge + charging / potential):**
+1. Fix run; define $e_v$ as extremal (maximal) $\Eprime$-edge at $v$. This is canonical witness: no split index issue, maximality absorbs all smaller incident edges.
+2. Safe Definition (i)+(ii) ensures safe edges are nearly matching-like: if $e=\{u,v\}$ safe for $v$, then any conflicting $\Eprime$-edge that could block $e$ from $\M$ must be heavier at the other endpoint.
+3. Charging: each $e'\in\M$ can be charged for at most two safe $e_v$'s with $r_{e_v}\le r_{e'}$ (one per endpoint), because safe edges incident to same vertex are unique by (i) and lighter competitors at opposite endpoint excluded by (ii). This is content of Lemma safecollect: $\E[w(\M)]\ge \frac12\E[\sum \text{safe}]$.
+4. Combine with Lemma safeprob extremal conditioning: $\E[\sum r_{e_v}{\bf1}_{\text{safe}}]\ge \frac14\E[\sum r_{e_v}]$. Then lower-bound $\E[\sum r_{e_v}]$ by $\E[w(\Ms)]$ or $\E[w(\Eprime)]$ directly, closing to OPT via greedy 2-approx. Verifies boundary: vertices with no $e_v$ contribute $0$, no non-empty assumption.
+
+**Strategy Gamma (Probabilistic conditioning / exchangeability decomposition):**
+1. Condition on unordered multiset $\{\{a_{e,1},a_{e,2}\}\}_e$ and total order before coin tosses. $V^S$ evolution above a threshold depends only on $S/R$ labels of larger values.
+2. For fixed $v,e$ with $e_v=e$, safe failure requires a later competing $S$-used or $R$-used edge at $v$ or lighter edge at $u$. By fair-coin symmetry of first occurrences, each competing configuration has prob $\le 3/4$ to destroy safety; formalizes $\ge 1/4$.
+3. Decompose $\E[r_{e_v}{\bf1}_{\text{safe}}]=\E[\E[r_e{\bf1}_{\{e_v=e\}}{\bf1}_{\text{safe}}\mid A,\text{order}]]$. Use coin independence to factor $1/4$ out after conditioning on values, handling that Lemma as stated is marginal over values: need to check $r_e$ factor preserved.
+4. Uncondition and sum over $v,e$ by linearity; connect to $\E[w(\M)]$ via AlgoOff second loop (arrival-order greedy on $\Eprime$). Yields same factor $8$ from $\Eprime$ to $\M$.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+Hereditary: total order on $A$; $S\stackrel{d}=R$; greedy 2-approx pointwise; linearity of expectation.
+Fragile (revoked on restriction/conditioning): $V^S$ membership (shrinks monotonically; cannot assume $u\in V^S$ after slicing to smaller values); Dyck-like feasibility of $\Eprime$ (arbitrary subsets of $\Eprime$ need not be matchings); independence of $R/S$ labels after conditioning on $e_v=e$ (first-occurrence coin correlated with order); matrix/block dimensions N/A; mutual independence of $s_e,r_e$ lost after sorting.
+
+```python
+state.register("G_S_R", kind="graph_weights", properties=["hereditary_dist_equal", "independent_across_e"])
+state.register("A_order", kind="total_order", properties=["hereditary_tie_broken", "fragile_coin_labels"])
+state.register("Vs", kind="vertex_set", properties=["fragile_monotone_shrinking"])
+state.register("Eprime", kind="weighted_set", properties=["fragile_not_matching", "threshold_ge_p"])
+state.register("Ms", kind="matching", properties=["hereditary_greedy_on_S", "hereditary_2approx"])
+state.register("M", kind="matching", properties=["hereditary_subset_Eprime_order_greedy"])
+state.register("e_v_safe", kind="extremal_witness", properties=["fragile_unique_max", "fragile_safe_conditions"])
+state.add_subgoal("S1", "E[w(Ms)] >= 1/2 E[OPT]")
+state.add_subgoal("S2", "E[sum_v r_{e_v}] >= c E[w(Ms)] or >= c' E[w(Eprime)]")
+state.add_subgoal("S3", "E[sum safe] >= 1/4 E[sum r_{e_v}] via lem:safeprob")
+state.add_subgoal("S4", "E[w(M)] >= 1/2 E[sum safe] via lem:safecollect => 16-competitive")
+```
+
+### Testable Intermediate Claims
+
+1. **Max-to-sum domination:** $\sum_{v} r_{e_v} \ge w(\Eprime)$ (or $\ge w(\Eprime)/2$) pointwise per run, with $r_{e_v}=0$ if undefined. Check: each $e=\{u,v\}\in\Eprime$ satisfies $r_{e_u}\ge r_e$ or $r_{e_v}\ge r_e$? Actually both endpoints have $e$ as candidate so maxima dominate; verify double-count factor. Test in REPL on small graphs by brute-force $\Eprime$.
+2. **Symmetry $E[w(\Eprime)]$ vs $E[w(\Ms)]$:** first-occurrence $R/S$ equally likely $\Rightarrow$ $\E[w(\Eprime)]\ge \frac12\E[w(\Ms)]$ (or similar). Check boundary where second-occurrence $R$-used additions to $\Ms$ only increase $\Ms$; must not double-count. Verify via simulation of AlgoOff coin process on fixed $A$.
+3. **Safe expectation lifting:** $\E[\sum_v r_{e_v}{\bf1}_{\text{safe}}]\ge \frac14\E[\sum_v r_{e_v}]$. Lemma gives $\P[\text{safe}\mid e_v=e]\ge1/4$ marginal; test whether weight factor $r_e$ lifts: need $\E[r_e{\bf1}_{\{e_v=e\}}{\bf1}_{\text{safe}}]\ge \frac14\E[r_e{\bf1}_{\{e_v=e\}}]$. Note heuristic only if safe independent of value given identity; specify complementary regime: condition further on $r_e=x$ and verify uniformity over coin tosses holds for all $x$ in domain $D$, else discharge small-value regime directly via $p_v$ thresholds. Test via conditional Monte Carlo fixing $a_{e,1},a_{e,2}$.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_20_153 ---
+[Falsifier Script 1]:
+import networkx as nx
+import itertools
+
+def sum_vs_w(n, edges, wdict, Eprime):
+    # e_v = max-weight Eprime edge at v
+    s = 0
+    for v in range(n):
+        inc = [(e, wdict[e]) for e in Eprime if v in e]
+        if inc:
+            s += max(w for _, w in inc)
+    wsum = sum(wdict[e] for e in Eprime)
+    return s, wsum
+
+# exhaustive check on n<=5: all Eprime subsets, small weight values {1,2,3}
+counter = None
+for n in [3, 4, 5]:
+    G = nx.complete_graph(n)
+    E = list(G.edges())
+    # test a few weight assignments (not all 3^10: sample)
+    import random
+    random.seed(0)
+    for trial in range(200):
+        wdict = {e: random.choice([1,2,3,10]) for e in E}
+        # random Eprime subsets
+        for _ in range(20):
+            Eprime = [e for e in E if random.random() < 0.4]
+            s, wsum = sum_vs_w(n, E, wdict, Eprime)
+            if not (s >= wsum - 1e-9):
+                counter = (n, wdict, Eprime, s, wsum)
+                break
+        if counter: break
+    if counter: break
+print("claim1 sum>=w counterexample:", counter)
+print("claim1 sum>=w holds on samples:", counter is None)
+
+# check weaker sum >= w/2 (should always hold if sum>=w holds)
+# also check per-edge domination: each e in Eprime has r_e <= max(r_eu, r_ev)
+def check_domination():
+    import random
+    random.seed(1)
+    ok = True
+    for _ in range(1000):
+        n = 4
+        G = nx.complete_graph(n); E = list(G.edges())
+        wdict = {e: random.randint(1,10) for e in E}
+        Eprime = [e for e in E if random.random()<0.5]
+        # build e_v map
+        ev = {}
+        for v in range(n):
+            inc = [(e,wdict[e]) for e in Eprime if v in e]
+            ev[v] = max(inc, key=lambda x: x[1])[0] if inc else None
+        for e in Eprime:
+            u,v = e
+            ru = wdict[ev[u]] if ev[u] else 0
+            rv = wdict[ev[v]] if ev[v] else 0
+            if not (wdict[e] <= max(ru,rv)+1e-9):
+                ok=False; print("domination fail",e,ru,rv)
+                break
+    print("per-edge max-domination holds:", ok)
+check_domination()
+assert counter is None, "FOUND counterexample to sum>=w"
+[Falsifier Kernel ALERT (Contradiction Found)]: Traceback (most recent call last):
+  File "<prime_math>", line 61, in <module>
+AssertionError: FOUND counterexample to sum>=w
+[Falsifier Script 2]:
+import random
+import sympy as sp
+
+# Symbolic check: claimed chain factor 8 from Eprime to M and 2 from Ms to OPT => 16.
+# Verify arithmetic: (1/2)[greedy] * c * (1/4)[safe] * (1/2)[collect] inverse = 16 iff c=1.
+# Solve for c needed.
+c = sp.symbols('c', positive=True)
+# E[w(M)] >= 1/2 * 1/4 * E[sum r_ev]; need E[sum r_ev] >= k*E[w(Ms)], E[w(Ms)]>=1/2 E[OPT]
+# So E[w(M)] >= k*E[OPT]/16. For 16-competitiveness need k>=1.
+sol = sp.solve(sp.Eq(16/(2*4*2), c), c)
+print("required c for factor-16:", sol)  # expect c=1
+# Check claimed c=1/2 only gives 32-competitive:
+print("competitive ratio if c=1/2:", float(2*4*2/(sp.Rational(1,2)))))
+
+# Monte Carlo: first-occurrence symmetry E[w(Eprime)] vs E[w(Ms)] on fixed A-order
+# Tiny instance: 2 edges sharing a vertex, values fixed, only coins random.
+def trial_once():
+    # order descending: values v1>v2>v3>v4 with edge labels
+    # e1 has values 10,0 ; e2 has values 9,8 . Order: 10(e1),9(e2),8(e2),0(e1)
+    seq = [('e1',10,1),('e2',9,1),('e2',8,2),('e1',0,2)]  # (edge,val,occ)
+    Vs = {'a','b','c'}  # e1={a,b}, e2={b,c}
+    import random
+    label = {}
+    wE = 0.0; wMs = 0.0
+    seen = set()
+    for e,val,occ in seq:
+        if e not in seen:
+            seen.add(e)
+            label[e] = 'R' if random.random()<0.5 else 'S'
+        else:
+            # second occurrence gets opposite with prob 1
+            lab = 'S' if label[e]=='R' else 'R'
+            label[e+'_2'] = lab
+            # apply rules simplified: first-occ R + both in Vs -> Eprime
+            # first-occ S + both in Vs -> Ms + delete; second-occ R + both in Vs -> Ms + delete
+            continue
+    # redo properly with Vs evolution
+    Vs = {'a','b','c'}
+    seen=set(); wE=0; wMs=0
+    first_lab={}
+    for e,val,occ in seq:
+        if e not in seen:
+            seen.add(e)
+            fl = 'R' if random.random()<0.5 else 'S'
+            first_lab[e]=fl
+            if e=='e1': u,v='a','b'
+            else: u,v='b','c'
+            if u in Vs and v in Vs:
+                if fl=='R': wE+=val
+                else: wMs+=val; Vs.discard(u); Vs.discard(v)
+        else:
+            fl2 = 'S' if first_lab[e]=='R' else 'R'
+            if e=='e1': u,v='a','b'
+            else: u,v='b','c'
+            if u in Vs and v in Vs and fl2=='R':
+                # second-occurrence R-used => Ms + delete (per spec)
+                wMs+=val; Vs.discard(u); Vs.discard(v)
+            # second-occ S-used does nothing
+    return wE, wMs
+
+N=20000
+sE=sM=0.0
+for _ in range(N):
+    a,b = trial_once()
+    sE+=a; sM+=b
+print(f"MonteCarlo E[Eprime]={sE/N:.3f} E[Ms]={sM/N:.3f} ratio={sE/max(sM,1e-9):.3f}")
+print("c>=1/2 holds on this instance:", (sE/N) >= 0.5*(sM/N)-0.15)
+[Falsifier Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+**Turn 1 — Exploration Gate: Inventory, Invariant, Claims, REPL Checks**
+
+No complete proof is attempted on this turn. We catalog context tools, isolate the unifying invariant, and formulate testable reductions.
+
+**Context Lemma Inventory & Preconditions:**
+
+* Granted: $s_e,r_e\sim D_e$ independent across $e$; total order via random $\pi$ tie-break.
+* AlgoOn: $\Ms=$ greedy on $S$; $p_u=s_e$ if matched in $\Ms$ else $0$; $\Eprime=\{e:r_e\ge\max p\}$; $\M\subseteq\Eprime$ greedy in arrival order.
+* AlgoOff: two draws $a_{e,1},a_{e,2}$; sorted $A$ decreasing; first occurrence fair coin $R$-used vs $S$-used; second gets opposite. First $R$-used + $V^S\ni u,v\Rightarrow\Eprime$; first $S$-used + $V^S\ni u,v\Rightarrow\Ms$ + delete; second occurrence of $R$-used edge + $V^S\ni u,v\Rightarrow\Ms$ + delete. Final $\M$ arrival-greedy on $\Eprime$.
+* Claim equivalence: $(\Eprime,\Ms,\M)$ same law under both; precondition none. Licensed to work in AlgoOff.
+* Greedy 2-approx: fixed weights, greedy non-increasing feasible $\Rightarrow w(\text{greedy})\ge \tfrac12 w(\text{OPT})$. Must verify $\Ms$ is exactly that greedy on $S$-weights.
+* Def safe + $e_v$: $e_v=\arg\max_{e\in\Eprime\ni v} r_e$ (0 if none); safe iff (i) unique $\Eprime$ at $v$, (ii) no $\Eprime$ at $u$ lighter than $r_e$.
+* Lemma safeprob: fixed $v,e\ni v$ with $\P[e_v=e]>0\Rightarrow \P[\text{safe}\mid e_v=e]\ge 1/4$. Must condition exactly on $\{e_v=e\}$.
+* Lemma safecollect: any AlgoOff run, $\E[w(\M)]\ge \tfrac12\E[\sum_v r_{e_v}{\bf1}_{\text{safe}}]$. Same $\M,\Eprime$.
+
+Unifying invariant (not case split): $V^S$ monotone shrinking; processing $A$ decreasing; first-occurrence coin symmetric conditional on history of larger values. Extremal witness $e_v$ (maximal $\Eprime$ at $v$) absorbs all smaller incident edges. Blueprint step $\sum_v r_{e_v}\ge w(\Eprime)$ is **discarded** — REPL falsified it (complete graph equal weights: $\sum=n$, $w=m\gg n$). We pivot to $\sum$ vs $\Ms$ (matching vs star of maxima), not vs $\Eprime$.
+
+[CLAIM 1]: $S\stackrel{d}=R$, $\E[\OPT(S)]=\E[\OPT(R)]=\E[\OPT]$, and pointwise greedy gives $w(\Ms)\ge \tfrac12\OPT(S)$, hence $\E[w(\Ms)]\ge \tfrac12\E[\OPT]$.
+[REDUCTION]: Discharges greedy precondition; reduces target to $\E[w(\Ms)]\le 8\E[w(\M)]$.
+
+[CLAIM 2]: $\E[\sum_v r_{e_v}]\ge \E[w(\Ms)]$ (candidate, to be REPL-tested). First-occurrence symmetry: conditional on $V^S$ before value $a=\max_e$, $a$ goes to $\Eprime$ vs $\Ms$ with $1/2$ each; $V^S$ evolution above $a$ depends only on larger values. Maxima sum dominates matching weight in expectation though not pointwise vs $w(\Eprime)$.
+[REDUCTION]: If certified, $\E[\sum]\ge \tfrac12\E[\OPT]$. Combined with Claims 3–4 gives $2\cdot1\cdot4\cdot2=16$.
+
+[CLAIM 3 — weighted lifting]: $\E[\sum_v r_{e_v}{\bf1}_{\text{safe}}]\ge \tfrac14\E[\sum_v r_{e_v}]$. Lemma safeprob is marginal $\P[\text{safe}\mid e_v=e]\ge1/4$; need $r_e$-weighted version $\E[r_e{\bf1}_{e_v=e}{\bf1}_{\text{safe}}]\ge \tfrac14\E[r_e{\bf1}_{e_v=e}]$. Requires uniformity over coin tosses conditional on unordered values $A$.
+[REDUCTION]: Converts extremal sum to safe sum losing factor $4$.
+
+[CLAIM 4]: Lemma safecollect applies directly to AlgoOff $\M,\Eprime$ giving $\E[w(\M)]\ge \tfrac12\E[\sum\text{safe}]$.
+[REDUCTION]: Closes chain to $16$.
+
+REPL verification below tests Claim 2 and Claim 3 empirically and checks $V^S$ monotonicity invariant:
+
+```python
+import random, collections
+random.seed(0)
+import math
+
+# state machine registration
+try:
+    state.register("G_S_R", domain="graph_weights", properties=["hereditary_dist_equal", "independent_across_e"])
+    state.register("A_order", domain="total_order", properties=["hereditary_tie_broken"])
+    state.register("Vs", domain="vertex_set", properties=["fragile_monotone_shrinking"])
+    state.register("Eprime", domain="weighted_set", properties=["fragile_not_matching"])
+    state.register("Ms", domain="matching", properties=["hereditary_greedy_on_S", "hereditary_2approx"])
+    state.register("M", domain="matching", properties=["hereditary_subset_Eprime_order_greedy"])
+    state.register("e_v_safe", domain="extremal_witness", properties=["fragile_unique_max"])
+    print("state registered:", state.status())
+except Exception as e:
+    print("state reg note:", e)
+
+def algo_off_once(n, edges, sampler):
+    # sampler(e)-> (a1,a2)
+    draws = []  # (value, tie, e)
+    avals = {}
+    for e in edges:
+        a1,a2 = sampler(e)
+        avals[e]=(a1,a2)
+        draws.append((a1, random.random(), e))
+        draws.append((a2, random.random(), e))
+    # sort decreasing by value, tie random
+    draws.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    Vs = set(range(n))
+    Ms = {}  # e->w
+    Eprime = {} # e->w
+    seen = set()
+    r_used = {}  # e->True if R-used (max is R)
+    # also track s_vals, r_vals
+    s_val = {}; r_val = {}
+    for val,tie,e in draws:
+        u,v = e
+        if e not in seen:
+            seen.add(e)
+            isR = (random.random()<0.5)
+            r_used[e]=isR
+            a1,a2 = avals[e]
+            mx, mn = max(a1,a2), min(a1,a2)
+            if isR:
+                r_val[e]=mx; s_val[e]=mn
+                if u in Vs and v in Vs:
+                    Eprime[e]=val  # val==mx
+            else:
+                r_val[e]=mn; s_val[e]=mx
+                if u in Vs and v in Vs:
+                    Ms[e]=val
+                    Vs.discard(u); Vs.discard(v)
+        else:
+            # second occurrence
+            isR = r_used[e]
+            if isR:
+                # second is S (mn); add to Ms if free
+                if u in Vs and v in Vs:
+                    Ms[e]=val
+                    Vs.discard(u); Vs.discard(v)
+            else:
+                # second is R (mn); never added to Eprime per AlgoOff
+                pass
+    # compute e_v and sum
+    # Eprime adjacency
+    best = {}  # v -> (w,e)
+    for e,w in Eprime.items():
+        u,v = e
+        for x in (u,v):
+            if x not in best or w > best[x][0]:
+                best[x]=(w,e)
+    sum_max = sum(best[v][0] for v in range(n) if v in best)
+    wMs = sum(Ms.values())
+    wEp = sum(Eprime.values())
+    # safe check
+    # count incident Eprime per vertex
+    from collections import defaultdict
+    inc = defaultdict(list)
+    for e,w in Eprime.items():
+        u,v=e
+        inc[u].append((e,w)); inc[v].append((e,w))
+    safe_sum=0
+    for v in range(n):
+        if v not in best: continue
+        w,e = best[v]
+        u = e[0] if e[1]==v else e[1]
+        cond_i = (len(inc[v])==1)
+        cond_ii = all(ww >= w for (ee,ww) in inc[u])
+        if cond_i and cond_ii:
+            safe_sum+=w
+    # greedy M in fixed arrival order (edges order)
+    M={}; matched=set()
+    for e in edges:
+        if e in Eprime:
+            u,v=e
+            if u not in matched and v not in matched:
+                M[e]=Eprime[e]
+                matched.add(u); matched.add(v)
+    wM=sum(M.values())
+    return dict(wMs=wMs,wEp=wEp,sum_max=sum_max,safe_sum=safe_sum,wM=wM,Ms=Ms,Eprime=Eprime)
+
+def test_claim2():
+    # small graphs, uniform draws
+    for trial, (n,edges) in enumerate([
+        (4, [(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)]),
+        (3, [(0,1),(1,2),(0,2)]),
+        (5, [(0,1),(1,2),(2,3),(3,4)]),
+        (4, [(0,1),(2,3)]),
+    ]):
+        def sampler(e, lo=0, hi=10):
+            return (random.random()*hi, random.random()*hi)
+        N=2000
+        s_sum=0; ms_sum=0; ep_sum=0; safe_sum=0; m_sum=0
+        for _ in range(N):
+            r=algo_off_once(n,edges,sampler)
+            s_sum+=r['sum_max']; ms_sum+=r['wMs']; ep_sum+=r['wEp']; safe_sum+=r['safe_sum']; m_sum+=r['wM']
+        print(f"graph{trial} n={n} E={len(edges)} E[sum]={s_sum/N:.3f} E[Ms]={ms_sum/N:.3f} E[Ep]={ep_sum/N:.3f} E[safe]={safe_sum/N:.3f} E[M]={m_sum/N:.3f} ratio sum/Ms={(s_sum/max(1,ms_sum)):.3f}")
+        # check falsification of sum>=wEp pointwise? and sum>=Ms in expectation?
+    test_counterexample_sum_vs_Ep()
+
+def test_counterexample_sum_vs_Ep():
+    # replicate blueprint falsification: fixed values, check sum>=w pointwise fails
+    # complete graph equal weights in Eprime: force Eprime = all edges by setting Vs never shrinks? Actually Vs shrinks via Ms.
+    # Instead brute force: arbitrary Eprime subset, compute sum_max vs w
+    import itertools
+    n=4; edges=[(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)]
+    # Eprime = all edges weight 10 except one weight 1? example from warning
+    Eprime={(0,1):10,(0,2):10,(0,3):1,(1,2):3,(1,3):10,(2,3):10}
+    from collections import defaultdict
+    best={}
+    for e,w in Eprime.items():
+        for x in e:
+            if x not in best or w>best[x][0]:
+                best[x]=(w,e)
+    s=sum(best[v][0] for v in range(n) if v in best)
+    w=sum(Eprime.values())
+    print(f"fixed Eprime counterexample check: sum={s} w={w} sum>=w? {s>=w} (expect False for some config)")
+
+test_claim2()
+
+# Test weighted lifting: estimate P(safe|e_v=e) and E[r 1_safe]/E[r 1]
+def test_safeprob():
+    n=3; edges=[(0,1),(1,2),(0,2)]
+    def sampler(e):
+        return (random.random()*10, random.random()*10)
+    from collections import defaultdict
+    import collections
+    # fix v=0, e=(0,1): collect stats
+    N=20000
+    cnt_ev=0; cnt_safe=0; sum_r=0; sum_r_safe=0
+    for _ in range(N):
+        r=algo_off_once(n,edges,sampler)
+        # reconstruct e_v for v=0
+        Eprime=r['Eprime']
+        best=None; bw=-1
+        for e,w in Eprime.items():
+            if 0 in e and w>bw:
+                bw=w; best=e
+        if best==(0,1):
+            cnt_ev+=1
+            # check safe for v=0
+            inc0=[ee for ee in Eprime if 0 in ee]
+            u=1  # other endpoint? e=(0,1), v=0 so u=1
+            cond_i=(len(inc0)==1)
+            inc_u=[(ee,Eprime[ee]) for ee in Eprime if u in ee]
+            cond_ii=all(ww>=bw for (_,ww) in inc_u)
+            is_safe=cond_i and cond_ii
+            if is_safe:
+                cnt_safe+=1
+                sum_r_safe+=bw
+            sum_r+=bw
+    print(f"safeprob test v=0 e=(0,1): P(ev=e)={cnt_ev/N:.4f} P(safe|ev=e)={cnt_safe/max(1,cnt_ev):.4f} weighted ratio={sum_r_safe/max(1e-9,sum_r):.4f}")
+    print("marginal >=0.25?", cnt_safe/max(1,cnt_ev)>=0.25, "weighted >=0.25?", sum_r_safe/max(1e-9,sum_r)>=0.25)
+
+test_safeprob()
+```
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random, collections
+random.seed(0)
+import math
+
+# state machine registration
+try:
+    state.register("G_S_R", domain="graph_weights", properties=["hereditary_dist_equal", "independent_across_e"])
+    state.register("A_order", domain="total_order", properties=["hereditary_tie_broken"])
+    state.register("Vs", domain="vertex_set", properties=["fragile_monotone_shrinking"])
+    state.register("Eprime", domain="weighted_set", properties=["fragile_not_matching"])
+    state.register("Ms", domain="matching", properties=["hereditary_greedy_on_S", "hereditary_2approx"])
+    state.register("M", domain="matching", properties=["hereditary_subset_Eprime_order_greedy"])
+    state.register("e_v_safe", domain="extremal_witness", properties=["fragile_unique_max"])
+    print("state registered:", state.status())
+except Exception as e:
+    print("state reg note:", e)
+
+def algo_off_once(n, edges, sampler):
+    # sampler(e)-> (a1,a2)
+    draws = []  # (value, tie, e)
+    avals = {}
+    for e in edges:
+        a1,a2 = sampler(e)
+        avals[e]=(a1,a2)
+        draws.append((a1, random.random(), e))
+        draws.append((a2, random.random(), e))
+    # sort decreasing by value, tie random
+    draws.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    Vs = set(range(n))
+    Ms = {}  # e->w
+    Eprime = {} # e->w
+    seen = set()
+    r_used = {}  # e->True if R-used (max is R)
+    # also track s_vals, r_vals
+    s_val = {}; r_val = {}
+    for val,tie,e in draws:
+        u,v = e
+        if e not in seen:
+            seen.add(e)
+            isR = (random.random()<0.5)
+            r_used[e]=isR
+            a1,a2 = avals[e]
+            mx, mn = max(a1,a2), min(a1,a2)
+            if isR:
+                r_val[e]=mx; s_val[e]=mn
+                if u in Vs and v in Vs:
+                    Eprime[e]=val  # val==mx
+            else:
+                r_val[e]=mn; s_val[e]=mx
+                if u in Vs and v in Vs:
+                    Ms[e]=val
+                    Vs.discard(u); Vs.discard(v)
+        else:
+            # second occurrence
+            isR = r_used[e]
+            if isR:
+                # second is S (mn); add to Ms if free
+                if u in Vs and v in Vs:
+                    Ms[e]=val
+                    Vs.discard(u); Vs.discard(v)
+            else:
+                # second is R (mn); never added to Eprime per AlgoOff
+                pass
+    # compute e_v and sum
+    # Eprime adjacency
+    best = {}  # v -> (w,e)
+    for e,w in Eprime.items():
+        u,v = e
+        for x in (u,v):
+            if x not in best or w > best[x][0]:
+                best[x]=(w,e)
+    sum_max = sum(best[v][0] for v in range(n) if v in best)
+    wMs = sum(Ms.values())
+    wEp = sum(Eprime.values())
+    # safe check
+    # count incident Eprime per vertex
+    from collections import defaultdict
+    inc = defaultdict(list)
+    for e,w in Eprime.items():
+        u,v=e
+        inc[u].append((e,w)); inc[v].append((e,w))
+    safe_sum=0
+    for v in range(n):
+        if v not in best: continue
+        w,e = best[v]
+        u = e[0] if e[1]==v else e[1]
+        cond_i = (len(inc[v])==1)
+        cond_ii = all(ww >= w for (ee,ww) in inc[u])
+        if cond_i and cond_ii:
+            safe_sum+=w
+    # greedy M in fixed arrival order (edges order)
+    M={}; matched=set()
+    for e in edges:
+        if e in Eprime:
+            u,v=e
+            if u not in matched and v not in matched:
+                M[e]=Eprime[e]
+                matched.add(u); matched.add(v)
+    wM=sum(M.values())
+    return dict(wMs=wMs,wEp=wEp,sum_max=sum_max,safe_sum=safe_sum,wM=wM,Ms=Ms,Eprime=Eprime)
+
+def test_claim2():
+    # small graphs, uniform draws
+    for trial, (n,edges) in enumerate([
+        (4, [(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)]),
+        (3, [(0,1),(1,2),(0,2)]),
+        (5, [(0,1),(1,2),(2,3),(3,4)]),
+        (4, [(0,1),(2,3)]),
+    ]):
+        def sampler(e, lo=0, hi=10):
+            return (random.random()*hi, random.random()*hi)
+        N=2000
+        s_sum=0; ms_sum=0; ep_sum=0; safe_sum=0; m_sum=0
+        for _ in range(N):
+            r=algo_off_once(n,edges,sampler)
+            s_sum+=r['sum_max']; ms_sum+=r['wMs']; ep_sum+=r['wEp']; safe_sum+=r['safe_sum']; m_sum+=r['wM']
+        print(f"graph{trial} n={n} E={len(edges)} E[sum]={s_sum/N:.3f} E[Ms]={ms_sum/N:.3f} E[Ep]={ep_sum/N:.3f} E[safe]={safe_sum/N:.3f} E[M]={m_sum/N:.3f} ratio sum/Ms={(s_sum/max(1,ms_sum)):.3f}")
+        # check falsification of sum>=wEp pointwise? and sum>=Ms in expectation?
+    test_counterexample_sum_vs_Ep()
+
+def test_counterexample_sum_vs_Ep():
+    # replicate blueprint falsification: fixed values, check sum>=w pointwise fails
+    # complete graph equal weights in Eprime: force Eprime = all edges by setting Vs never shrinks? Actually Vs shrinks via Ms.
+    # Instead brute force: arbitrary Eprime subset, compute sum_max vs w
+    import itertools
+    n=4; edges=[(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)]
+    # Eprime = all edges weight 10 except one weight 1? example from warning
+    Eprime={(0,1):10,(0,2):10,(0,3):1,(1,2):3,(1,3):10,(2,3):10}
+    from collections import defaultdict
+    best={}
+    for e,w in Eprime.items():
+        for x in e:
+            if x not in best or w>best[x][0]:
+                best[x]=(w,e)
+    s=sum(best[v][0] for v in range(n) if v in best)
+    w=sum(Eprime.values())
+    print(f"fixed Eprime counterexample check: sum={s} w={w} sum>=w? {s>=w} (expect False for some config)")
+
+test_claim2()
+
+# Test weighted lifting: estimate P(safe|e_v=e) and E[r 1_safe]/E[r 1]
+def test_safeprob():
+    n=3; edges=[(0,1),(1,2),(0,2)]
+    def sampler(e):
+        return (random.random()*10, random.random()*10)
+    from collections import defaultdict
+    import collections
+    # fix v=0, e=(0,1): collect stats
+    N=20000
+    cnt_ev=0; cnt_safe=0; sum_r=0; sum_r_safe=0
+    for _ in range(N):
+        r=algo_off_once(n,edges,sampler)
+        # reconstruct e_v for v=0
+        Eprime=r['Eprime']
+        best=None; bw=-1
+        for e,w in Eprime.items():
+            if 0 in e and w>bw:
+                bw=w; best=e
+        if best==(0,1):
+            cnt_ev+=1
+            # check safe for v=0
+            inc0=[ee for ee in Eprime if 0 in ee]
+            u=1  # other endpoint? e=(0,1), v=0 so u=1
+            cond_i=(len(inc0)==1)
+            inc_u=[(ee,Eprime[ee]) for ee in Eprime if u in ee]
+            cond_ii=all(ww>=bw for (_,ww) in inc_u)
+            is_safe=cond_i and cond_ii
+            if is_safe:
+                cnt_safe+=1
+                sum_r_safe+=bw
+            sum_r+=bw
+    print(f"safeprob test v=0 e=(0,1): P(ev=e)={cnt_ev/N:.4f} P(safe|ev=e)={cnt_safe/max(1,cnt_ev):.4f} weighted ratio={sum_r_safe/max(1e-9,sum_r):.4f}")
+    print("marginal >=0.25?", cnt_safe/max(1,cnt_ev)>=0.25, "weighted >=0.25?", sum_r_safe/max(1e-9,sum_r)>=0.25)
+
+test_safeprob()
+```
+--- [TURN 1] EXECUTION SUCCESS (0.4604s) ---
+Stdout:
+state registered: === Mathematical State Machine Status ===
+Registered Objects (7):
+  • G_S_R [graph_weights]
+      Active Invariants: hereditary_dist_equal, independent_across_e
+  • A_order [total_order]
+      Active Invariants: hereditary_tie_broken
+  • Vs [vertex_set]
+      Active Invariants: fragile_monotone_shrinking
+  • Eprime [weighted_set]
+      Active Invariants: fragile_not_matching
+  • Ms [matching]
+      Active Invariants: hereditary_2approx, hereditary_greedy_on_s
+  • M [matching]
+      Active Invariants: hereditary_subset_eprime_order_greedy
+  • e_v_safe [extremal_witness]
+      Active Invariants: fragile_unique_max
+
+Subgoals (0):
+
+Verified Lemmas (0):
+graph0 n=4 E=6 E[sum]=15.770 E[Ms]=12.786 E[Ep]=9.907 E[safe]=8.743 E[M]=6.526 ratio sum/Ms=1.233
+graph1 n=3 E=3 E[sum]=9.763 E[Ms]=7.529 E[Ep]=5.901 E[safe]=5.932 E[M]=3.985 ratio sum/Ms=1.297
+graph2 n=5 E=4 E[sum]=17.130 E[Ms]=12.648 E[Ep]=9.725 E[safe]=11.779 E[M]=7.547 ratio sum/Ms=1.354
+graph3 n=4 E=2 E[sum]=13.256 E[Ms]=9.913 E[Ep]=6.628 E[safe]=13.256 E[M]=6.628 ratio sum/Ms=1.337
+fixed Eprime counterexample check: sum=40 w=44 sum>=w? False (expect False for some config)
+safeprob test v=0 e=(0,1): P(ev=e)=0.1968 P(safe|ev=e)=0.6294 weighted ratio=0.6243
+marginal >=0.25? True weighted >=0.25? True
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 2/8] MODEL GENERATED PROPOSAL & PROOF ---
+Proving the 16-competitive bound — chaining greedy, maxima, and safety lemmas.[Mathematical Analysis Summary (Turn 2)]:
+* Equivalence licensed; work in `AlgoOff`. `S\stackrel{d}=R`, greedy 2-approx pointwise.
+* Blueprint `sum>=w(Eprime)` discarded (falsified: complete graph). Pivot to per-vertex `E[r_{e_v}]>=1/2E[p_v]` giving `E[sum]>=E[Ms]`.
+* Weighted safe lifting needs conditional uniformity over values since `r_e=M_e` deterministic given `A` on `{e_v=e}`.
+
+[CLAIM 1]: `S\stackrel{d}=R`, `E[OPT(S)]=E[OPT(R)]`, `Ms` greedy on `S` in decreasing order `=> w(Ms)>=1/2OPT(S)` pointwise, `E[w(Ms)]>=1/2E[OPT]`.
+[REDUCTION]: Discharges greedy precondition; reduces target to `E[w(Ms)]<=8E[w(M)]`.
+
+[CLAIM 2]: Per-vertex `E[r_{e_v}]>=1/2E[p_v]` where `p_v=S`-weight of `Ms`-edge at `v` else `0`. Hence `E[sum_v r_{e_v}]>=E[w(Ms)]` since `sum p_v=2w(Ms)`.
+[REDUCTION]: Conditional on `A,C_ext`, first free incident max `M_(ik)` gives `E[r|A,C_ext]=M_(ik)/2`, `E[p|A,C_ext]<=M_(ik)`; monotonicity `V^S` shrinking ensures second-free `=>` first-free. To be REPL-tested per-vertex.
+
+[CLAIM 3 — weighted lifting]: `E[sum r_{e_v}1_{safe}]>=1/4E[sum r_{e_v}]`. Given `A`, `M_e` deterministic and `r_e1_{e_v=e}=M_e1_{e_v=e}` a.s. since `Eprime=>R`-used. Suffices `P_coins[e_v=e∧safe|A]>=1/4P_coins[e_v=e|A]`, i.e. `P_future[safe|A,H,Heads]>=1/4` for good history `H`. Single-side `>=1/2` each, helping monotonicity gives joint `>=1/4`.
+[REDUCTION]: Converts extremal sum to safe sum losing `4`. Combined with Claim 4 (`safecollect`) gives `2*1*4*2=16`.
+
+[CLAIM 4]: Lemma `safecollect` applies directly (`AlgoOff` run) giving `E[w(M)]>=1/2E[sum safe]`; transfer via equivalence.
+[REDUCTION]: Closes chain to `16`.
+
+REPL verification below tests Claim 2 per-vertex, `r_e=max` on event, monotonicity, and single-side `>=1/2`:
+
+```python
+import random
+from collections import defaultdict
+random.seed(1)
+
+def algo_off_full(n, edges, sampler):
+    avals={}
+    draws=[]
+    for e in edges:
+        a1,a2=sampler(e)
+        avals[e]=(a1,a2)
+        draws.append((a1, random.random(), e, 1))
+        draws.append((a2, random.random(), e, 2))
+    draws.sort(key=lambda x:(x[0],x[1]), reverse=True)
+    Vs=set(range(n))
+    Ms={}; Eprime={}
+    seen=set(); r_used={}
+    s_val={}; r_val={}
+    # track Vs history for monotonicity check
+    vs_sizes=[]
+    for val,tie,e,_ in draws:
+        vs_sizes.append(len(Vs))
+        u,v=e
+        if e not in seen:
+            seen.add(e)
+            isR=(random.random()<0.5)
+            r_used[e]=isR
+            a1,a2=avals[e]
+            mx,mn=(a1,a2) if a1>=a2 else (a2,a1)
+            if isR:
+                r_val[e]=mx; s_val[e]=mn
+                if u in Vs and v in Vs:
+                    Eprime[e]=val
+            else:
+                r_val[e]=mn; s_val[e]=mx
+                if u in Vs and v in Vs:
+                    Ms[e]=val
+                    Vs.discard(u); Vs.discard(v)
+        else:
+            isR=r_used[e]
+            if isR:
+                if u in Vs and v in Vs:
+                    Ms[e]=val
+                    Vs.discard(u); Vs.discard(v)
+            else:
+                pass
+    # check monotonic nonincreasing Vs
+    mono=all(vs_sizes[i]>=vs_sizes[i+1] for i in range(len(vs_sizes)-1))
+    # p_v, r_ev
+    p={v:0 for v in range(n)}
+    for e,w in Ms.items():
+        u,v=e
+        p[u]=w; p[v]=w
+    best={}
+    for e,w in Eprime.items():
+        for x in e:
+            if x not in best or w>best[x][0]:
+                best[x]=(w,e)
+    r_ev={v:(best[v][0] if v in best else 0) for v in range(n)}
+    # check r_e==max on e_v=e
+    max_check=True
+    for v in range(n):
+        if v in best:
+            w,e=best[v]
+            a1,a2=avals[e]
+            mx=max(a1,a2)
+            # Eprime weight should equal mx (first occurrence)
+            if abs(Eprime[e]-mx)>1e-9:
+                max_check=False
+            # r_val should equal mx since R-used
+            if abs(r_val[e]-mx)>1e-9:
+                max_check=False
+    # safe
+    inc=defaultdict(list)
+    for e,w in Eprime.items():
+        u,v=e
+        inc[u].append((e,w)); inc[v].append((e,w))
+    safe={}
+    for v in range(n):
+        if v not in best:
+            safe[v]=0
+        else:
+            w,e=best[v]
+            u=e[0] if e[1]==v else e[1]
+            ci=(len(inc[v])==1)
+            cii=all(ww>=w-1e-9 for (_,ww) in inc[u])
+            safe[v]=w if (ci and cii) else 0
+    # second-free => first-free check: for each e with Ms via second, first was free? 
+    # We verify monotonicity property indirectly: if edge second added to Ms then first must have been R-used free (Eprime contains e)
+    second_ok=True
+    for e in Ms:
+        # if Ms weight equals min, then it was second-occurrence => Eprime must contain e (first was free R-used)
+        a1,a2=avals[e]
+        mx,mn=max(a1,a2),min(a1,a2)
+        if abs(Ms[e]-mn)<1e-9 and abs(mx-mn)>1e-9:
+            # second-occurrence Ms => should be in Eprime
+            if e not in Eprime:
+                second_ok=False
+    return dict(p=p,r_ev=r_ev,Ms=Ms,Eprime=Eprime,mono=mono,max_check=max_check,second_ok=second_ok,avals=avals,r_val=r_val,s_val=s_val)
+
+def test_per_vertex():
+    n=4; edges=[(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)]
+    def sampler(e): return (random.random()*10, random.random()*10)
+    N=5000
+    sum_r=defaultdict(float); sum_p=defaultdict(float)
+    mono_all=True; max_all=True; sec_all=True
+    for _ in range(N):
+        r=algo_off_full(n,edges,sampler)
+        mono_all=mono_all and r['mono']
+        max_all=max_all and r['max_check']
+        sec_all=sec_all and r['second_ok']
+        for v in range(n):
+            sum_r[v]+=r['r_ev'][v]
+            sum_p[v]+=r['p'][v]
+    print(f"monotone Vs: {mono_all}, r==max on ev: {max_all}, second=>first-free(Eprime contains): {sec_all}")
+    for v in range(n):
+        Er=sum_r[v]/N; Ep=sum_p[v]/N
+        print(f"v={v} E[r]={Er:.3f} E[p]={Ep:.3f} E[p]/2={Ep/2:.3f} holds>=? {Er+1e-9>=Ep/2}")
+    # global
+    Ems=sum(sum_p[v] for v in range(n))/N/2
+    Esum=sum(sum_r[v] for v in range(n))/N
+    print(f"global E[sum]={Esum:.3f} E[Ms]={Ems:.3f} sum>=Ms? {Esum>=Ems}")
+
+test_per_vertex()
+
+def test_single_side():
+    # Fix A (values) then estimate P(success_v) for fixed history? Simplified: fix values, random coins, check uniqueness prob conditional on e_v=e
+    # Use triangle graph to include shared-neighbor coupling
+    n=3; edges=[(0,1),(1,2),(0,2)]
+    # fixed A
+    fixed={(0,1):(9.0,1.0),(1,2):(8.0,2.0),(0,2):(7.0,3.0)}
+    def sampler_fixed(e): return fixed[e]
+    N=10000
+    from collections import Counter
+    cnt_ev=0; cnt_safe=0
+    # focus v=0, e=(0,1) with max 9 (largest) => good history always (no larger at v)
+    for _ in range(N):
+        r=algo_off_full(n,edges,sampler_fixed)
+        # e_v for v=0?
+        Eprime=r['Eprime']
+        best=None; bw=-1
+        for e,w in Eprime.items():
+            if 0 in e and w>bw:
+                bw=w; best=e
+        if best==(0,1):
+            cnt_ev+=1
+            # check safe for v=0
+            inc0=[ee for ee in Eprime if 0 in ee]
+            # u=1
+            inc_u=[(ee,Eprime[ee]) for ee in Eprime if 1 in ee]
+            ci=(len(inc0)==1)
+            cii=all(ww>=bw-1e-9 for (_,ww) in inc_u)
+            if ci and cii:
+                cnt_safe+=1
+    print(f"fixed-A test v=0 e=(0,1): P(ev=e)={cnt_ev/N:.4f} P(safe|ev=e)={cnt_safe/max(1,cnt_ev):.4f} >=0.25? {cnt_safe/max(1,cnt_ev)>=0.25}")
+
+test_single_side()
+```
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random
+from collections import defaultdict
+random.seed(1)
+
+def algo_off_full(n, edges, sampler):
+    avals={}
+    draws=[]
+    for e in edges:
+        a1,a2=sampler(e)
+        avals[e]=(a1,a2)
+        draws.append((a1, random.random(), e, 1))
+        draws.append((a2, random.random(), e, 2))
+    draws.sort(key=lambda x:(x[0],x[1]), reverse=True)
+    Vs=set(range(n))
+    Ms={}; Eprime={}
+    seen=set(); r_used={}
+    s_val={}; r_val={}
+    # track Vs history for monotonicity check
+    vs_sizes=[]
+    for val,tie,e,_ in draws:
+        vs_sizes.append(len(Vs))
+        u,v=e
+        if e not in seen:
+            seen.add(e)
+            isR=(random.random()<0.5)
+            r_used[e]=isR
+            a1,a2=avals[e]
+            mx,mn=(a1,a2) if a1>=a2 else (a2,a1)
+            if isR:
+                r_val[e]=mx; s_val[e]=mn
+                if u in Vs and v in Vs:
+                    Eprime[e]=val
+            else:
+                r_val[e]=mn; s_val[e]=mx
+                if u in Vs and v in Vs:
+                    Ms[e]=val
+                    Vs.discard(u); Vs.discard(v)
+        else:
+            isR=r_used[e]
+            if isR:
+                if u in Vs and v in Vs:
+                    Ms[e]=val
+                    Vs.discard(u); Vs.discard(v)
+            else:
+                pass
+    # check monotonic nonincreasing Vs
+    mono=all(vs_sizes[i]>=vs_sizes[i+1] for i in range(len(vs_sizes)-1))
+    # p_v, r_ev
+    p={v:0 for v in range(n)}
+    for e,w in Ms.items():
+        u,v=e
+        p[u]=w; p[v]=w
+    best={}
+    for e,w in Eprime.items():
+        for x in e:
+            if x not in best or w>best[x][0]:
+                best[x]=(w,e)
+    r_ev={v:(best[v][0] if v in best else 0) for v in range(n)}
+    # check r_e==max on e_v=e
+    max_check=True
+    for v in range(n):
+        if v in best:
+            w,e=best[v]
+            a1,a2=avals[e]
+            mx=max(a1,a2)
+            # Eprime weight should equal mx (first occurrence)
+            if abs(Eprime[e]-mx)>1e-9:
+                max_check=False
+            # r_val should equal mx since R-used
+            if abs(r_val[e]-mx)>1e-9:
+                max_check=False
+    # safe
+    inc=defaultdict(list)
+    for e,w in Eprime.items():
+        u,v=e
+        inc[u].append((e,w)); inc[v].append((e,w))
+    safe={}
+    for v in range(n):
+        if v not in best:
+            safe[v]=0
+        else:
+            w,e=best[v]
+            u=e[0] if e[1]==v else e[1]
+            ci=(len(inc[v])==1)
+            cii=all(ww>=w-1e-9 for (_,ww) in inc[u])
+            safe[v]=w if (ci and cii) else 0
+    # second-free => first-free check: for each e with Ms via second, first was free? 
+    # We verify monotonicity property indirectly: if edge second added to Ms then first must have been R-used free (Eprime contains e)
+    second_ok=True
+    for e in Ms:
+        # if Ms weight equals min, then it was second-occurrence => Eprime must contain e (first was free R-used)
+        a1,a2=avals[e]
+        mx,mn=max(a1,a2),min(a1,a2)
+        if abs(Ms[e]-mn)<1e-9 and abs(mx-mn)>1e-9:
+            # second-occurrence Ms => should be in Eprime
+            if e not in Eprime:
+                second_ok=False
+    return dict(p=p,r_ev=r_ev,Ms=Ms,Eprime=Eprime,mono=mono,max_check=max_check,second_ok=second_ok,avals=avals,r_val=r_val,s_val=s_val)
+
+def test_per_vertex():
+    n=4; edges=[(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)]
+    def sampler(e): return (random.random()*10, random.random()*10)
+    N=5000
+    sum_r=defaultdict(float); sum_p=defaultdict(float)
+    mono_all=True; max_all=True; sec_all=True
+    for _ in range(N):
+        r=algo_off_full(n,edges,sampler)
+        mono_all=mono_all and r['mono']
+        max_all=max_all and r['max_check']
+        sec_all=sec_all and r['second_ok']
+        for v in range(n):
+            sum_r[v]+=r['r_ev'][v]
+            sum_p[v]+=r['p'][v]
+    print(f"monotone Vs: {mono_all}, r==max on ev: {max_all}, second=>first-free(Eprime contains): {sec_all}")
+    for v in range(n):
+        Er=sum_r[v]/N; Ep=sum_p[v]/N
+        print(f"v={v} E[r]={Er:.3f} E[p]={Ep:.3f} E[p]/2={Ep/2:.3f} holds>=? {Er+1e-9>=Ep/2}")
+    # global
+    Ems=sum(sum_p[v] for v in range(n))/N/2
+    Esum=sum(sum_r[v] for v in range(n))/N
+    print(f"global E[sum]={Esum:.3f} E[Ms]={Ems:.3f} sum>=Ms? {Esum>=Ems}")
+
+test_per_vertex()
+
+def test_single_side():
+    # Fix A (values) then estimate P(success_v) for fixed history? Simplified: fix values, random coins, check uniqueness prob conditional on e_v=e
+    # Use triangle graph to include shared-neighbor coupling
+    n=3; edges=[(0,1),(1,2),(0,2)]
+    # fixed A
+    fixed={(0,1):(9.0,1.0),(1,2):(8.0,2.0),(0,2):(7.0,3.0)}
+    def sampler_fixed(e): return fixed[e]
+    N=10000
+    from collections import Counter
+    cnt_ev=0; cnt_safe=0
+    # focus v=0, e=(0,1) with max 9 (largest) => good history always (no larger at v)
+    for _ in range(N):
+        r=algo_off_full(n,edges,sampler_fixed)
+        # e_v for v=0?
+        Eprime=r['Eprime']
+        best=None; bw=-1
+        for e,w in Eprime.items():
+            if 0 in e and w>bw:
+                bw=w; best=e
+        if best==(0,1):
+            cnt_ev+=1
+            # check safe for v=0
+            inc0=[ee for ee in Eprime if 0 in ee]
+            # u=1
+            inc_u=[(ee,Eprime[ee]) for ee in Eprime if 1 in ee]
+            ci=(len(inc0)==1)
+            cii=all(ww>=bw-1e-9 for (_,ww) in inc_u)
+            if ci and cii:
+                cnt_safe+=1
+    print(f"fixed-A test v=0 e=(0,1): P(ev=e)={cnt_ev/N:.4f} P(safe|ev=e)={cnt_safe/max(1,cnt_ev):.4f} >=0.25? {cnt_safe/max(1,cnt_ev)>=0.25}")
+
+test_single_side()
+```
+--- [TURN 2] EXECUTION SUCCESS (0.3815s) ---
+Stdout:
+monotone Vs: True, r==max on ev: True, second=>first-free(Eprime contains): True
+v=0 E[r]=3.943 E[p]=6.474 E[p]/2=3.237 holds>=? True
+v=1 E[r]=4.044 E[p]=6.398 E[p]/2=3.199 holds>=? True
+v=2 E[r]=4.084 E[p]=6.388 E[p]/2=3.194 holds>=? True
+v=3 E[r]=4.021 E[p]=6.404 E[p]/2=3.202 holds>=? True
+global E[sum]=16.091 E[Ms]=12.832 sum>=Ms? True
+fixed-A test v=0 e=(0,1): P(ev=e)=0.4950 P(safe|ev=e)=0.5079 >=0.25? True
+
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 3/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Work in \Cref{AlgoOff}. By \Cref{claim:equivalence} the laws of
+$\Eprime,\Ms,\M$ coincide with those of \Cref{AlgoOn}, so expectations
+transfer. Weights are non-negative. $V^{S}$ starts at $V$ and only
+shrinks when an edge is added to $\Ms$; hence $V^{S}$ is monotone
+decreasing along the decreasing order $A$ with random tie-break.
+First occurrence of $e$ has value $M_{e}=\max(a_{e,1},a_{e,2})$,
+second has $m_{e}=\min(a_{e,1},a_{e,2})$.
+Coins for distinct first occurrences are independent fair and
+independent of $A$ and the total order, second copies get the opposite
+label. $R$-used means max to $R$, $S$-used means max to $S$.
+
+\medskip\noindent\textbf{Greedy bound.}
+$S$ and $R$ are identically distributed: two i.i.d.\ draws per edge
+randomly assigned. Hence $\E{\opt(R)}=\E{\opt(S)}$ where $\opt$ is the
+optimum matching weight on $R$-weights. Each edge contributes exactly
+one $S$-copy with value $s_{e}$. Scanning $A$ decreasing encounters
+$S$-copies in decreasing $s_{e}$ order, and $V^{S}$ is exactly the set
+of vertices free in the $\Ms$ built so far. Thus $\Ms$ is the greedy
+matching on $S$-weights in non-increasing order. By the granted
+$2$-approximation, pointwise $w(\Ms)\ge \frac12\OPT(S)$. Hence
+$\E{w(\Ms)}\ge \frac12\E{\opt}$.
+
+Let $p_{v}$ be the $S$-weight of the $\Ms$-edge at $v$, $0$ if unmatched,
+so $\sum_{v}p_{v}=2w(\Ms)$. Let $e_{v}$ be the max-weight $\Eprime$-edge
+at $v$, $r_{e_{v}}$ its $R$-weight, $0$ if none. Then $e_{v}\in\Eprime$
+implies it is $R$-used, so $r_{e_{v}}=M_{e}$ on $\{e_{v}=e\}$.
+\begin{claim}\label{cl:ms-sum}
+$\E{r_{e_{v}}}\ge \frac12\E{p_{v}}$ for each $v$, hence
+$\E{\sum_{v}r_{e_{v}}}\ge \E{w(\Ms)}$.
+\end{claim}
+\begin{proof}
+Fix $v$ and condition on $A$, total order $O$, and external coins
+$C_{\rm ext}$ for edges not incident to $v$. If $v$ is isolated there
+is nothing to prove. Otherwise let $e_{j}=\{u_{j},v\}$, $j=1,\dots,k$,
+be incident edges in order of first occurrence in $O$, with values
+$M_{j}$. Distinct $j$ have distinct $u_{j}$. Removal of $u_{j}$ requires
+an $\Ms$-edge incident to $u_{j}$, which cannot be a prior $v$-incident
+edge. Hence whether $u_{j}$ is in $V^{S}$ just before its first depends
+only on $(A,O,C_{\rm ext})$; denote it $U_{j}$. Let
+$J=\min\{j:U_{j}\ {\rm holds}\}$, $\infty$ if none, determined by
+$(A,O,C_{\rm ext})$. Before $J$, $v$ stays free: earlier firsts had
+$u$ blocked so added nothing, and their seconds cannot add since
+$V^{S}$ shrinks, so blocked at larger value stays blocked at smaller
+value. Second copies of $S$-used edges are never added to $\Ms$ or
+$\Eprime$.
+
+If $J=\infty$, no incident first was ever an opportunity, and any
+incident $\Ms$ via second would imply its first was an opportunity with
+$R$, contradiction by monotonicity; similarly no $\Eprime$. Thus
+$p_{v}=r_{e_{v}}=0$.
+
+If $J=j^{*}$ finite with $M^{*}=M_{j^{*}}$, this is the first
+opportunity. Its coin $C_{j^{*}}$ is fair independent of the
+conditioning. If $S$, $v$ is matched with $p_{v}=M^{*}$ and no prior
+$\Eprime$ at $v$ exists, so $r_{e_{v}}=0$ and the process for $v$ stops.
+If $R$, $e_{j^{*}}$ joins $\Eprime$, so $r_{e_{v}}=M^{*}$ (first
+$\Eprime$ at $v$, later values $\le M^{*}$), $v$ stays free, and any
+future $\Ms$-edge at $v$ has value $\le M^{*}$. Hence
+$\E{r_{e_{v}}\mid A,O,C_{\rm ext}}=M^{*}/2$,
+$\E{p_{v}\mid A,O,C_{\rm ext}}=\frac12M^{*}+\frac12\E{p_{v}\mid R}
+\le M^{*}$. Thus $\E{r\mid\cdot}\ge \frac12\E{p\mid\cdot}$.
+Integrating gives the claim.
+\end{proof}
+\begin{claim}\label{cl:safe-weight}
+$\E{\sum_{v}r_{e_{v}}{\bf1}\{e_{v}\ {\rm safe\ for\ }v\}}
+\ge \frac14\E{\sum_{v}r_{e_{v}}}$.
+\end{claim}
+\begin{proof}
+Fix $A,O$. Then $M_{e}$ is deterministic. Fix $v,e=\{u,v\}$ with
+$\P[e_{v}=e\mid A,O]>0$. The event $\{e_{v}=e\}$ depends only on history
+$H$ before its first position $t_{e}$ (that $u,v\in V^{S}$, no earlier
+$\Eprime$ at $v$) and coin $R$ at $t_{e}$; future smaller values do not
+affect maximality. Hence it suffices to show for each good $H$,
+$\P_{\rm fut}[{\rm safe}\mid H,R]\ge \frac14$. Recall \Cref{def:safe}:
+(i) unique $\Eprime$ at $v$, (ii) no $\Eprime$ at $u$ with weight
+$<r_{e}$. Only future positions matter: earlier larger $\Eprime$ at $u$
+is allowed, any other $\Eprime$ at $v$ violates (i), any smaller
+$\Eprime$ at $u$ violates (ii). Equal weights do not violate (ii);
+equal $\Ms$ blockers only help.
+
+After $t_{e}$, consider $v$-side future opportunities in $O$ order
+(first or second copies incident to $v$ with both endpoints free).
+Let $K_{v}$ be the first such. If none, (i) holds. If $K_{v}$ is a
+second $S$-copy, it joins $\Ms$, blocks further $\Eprime$, so (i)
+holds. If $K_{v}$ is a first, (i) holds iff its coin is $S$ (blocking)
+and fails iff $R$ (new $\Eprime$). Conditional on all other future
+coins, existence/type of $K_{v}$ is determined and its own coin (if
+first) is fair independent. Hence conditional goodness is $1$ if no
+$K_{v}$ or second, $\frac12$ if first, so $\ge\frac12$ unconditionally:
+$\P[v{\rm -good}\mid H]\ge\frac12$. Edge sets incident to $v$ and to
+$u$ (other than $e$) are disjoint, so coins are independent; shared
+neighbours (triangles) only affect opportunity existence, handled by
+conditioning.
+
+Condition further on all $v$-side future coins. For $u$-side consider
+only values $<M_{e}$ (equal $\Eprime$ allowed, equal/second $\Ms$
+blockers only help, ignored for lower bound). Let $K_{u}$ be the first
+future opportunity incident to $u$ with value $<M_{e}$. If none, (ii)
+holds. If second, $\Ms$ blocks, (ii) holds. If first, (ii) holds iff
+coin $S$. Same argument gives conditional goodness $\ge\frac12$
+given $H$ and $v$-future. Therefore
+$\P[{\rm both\ good}\mid H]=\E[{\bf1}_{v{\rm -good}}
+\P[u{\rm -good}\mid H,v{\rm -fut}]]\ge \frac12\P[v{\rm -good}\mid H]
+\ge\frac14$.
+
+Thus $\P[e_{v}=e\wedge{\rm safe}\mid A,O]\ge\frac14\P[e_{v}=e\mid A,O)$.
+Multiplying by $M_{e}\ge0$ (deterministic given $A$) and integrating
+over $A,O$, $\E[r_{e}{\bf1}_{\{e_{v}=e\}}{\bf1}_{\rm safe}]
+\ge\frac14\E[r_{e}{\bf1}_{\{e_{v}=e\}}]$. Summing over $v,e\ni v$ by
+linearity, with $0$ when $e_{v}$ undefined, gives the claim.
+\end{proof}
+\medskip\noindent\textbf{Collection and chain.}
+\Cref{lem:matching:safecollect} applies to this $\Eprime,\M$ run:
+$\E{w(M)}\ge \frac12\E[\sum_{v}r_{e_{v}}{\bf1}_{\rm safe}]$.
+Combining,
+$\E{\opt}\le 2\E{w(\Ms)}\le 2\E{\sum_{v}r_{e_{v}}}
+\le 8\E{\sum_{v}r_{e_{v}}{\bf1}_{\rm safe}}
+\le 16\E{w(M)}$ in \Cref{AlgoOff}, hence by equivalence in
+\Cref{AlgoOn}. That is $16\E{w(\M)}\ge\E{\opt}$.
+\end{proof}
+[Proof Draft Generated] Turn 3: 6516 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.55, "completeness": 0.65, "boundary_cases": 0.85, "validity": 0.55, "verdict": "REJECT", "issues": "Intermediate claim in cl:ms-sum that each U_j depends only on (A,O,C_ext) is false as stated. Counterexample: V={v,a,b}, e1={v,a} M=100, f={a,b} M=90, e2={v,b} M=80 in that first-occurrence order. Fix A,O and C_ext with coin of f=S. Then U1=True always. If C1=S, e1 matches a,v, f blocked, b stays free so U2=True. If C1=R, e1 goes to Eprime, f matches a,b, so U2=False. Thus U2 depends on v-coin C1, not only C_ext. Hence J=min{j:U_j} determinism and independence of C_{j*} from conditioning are not established as written; the required inertness induction (blocked v-edges add nothing regardless of coin, so given prior U_i=False later U_j is external-only) is omitted. Core chain is salvageable but gap is fatal as stated."}
+[Best Candidate Updated] Turn 3: validity=0.55 (6516 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.55, rejection #1)
+Intermediate claim in cl:ms-sum that each U_j depends only on (A,O,C_ext) is false as stated. Counterexample: V={v,a,b}, e1={v,a} M=100, f={a,b} M=90, e2={v,b} M=80 in that first-occurrence order. Fix A,O and C_ext with coin of f=S. Then U1=True always. If C1=S, e1 matches a,v, f blocked, b stays free so U2=True. If C1=R, e1 goes to Eprime, f matches a,b, so U2=False. Thus U2 depends on v-coin C1, not only C_ext. Hence J=min{j:U_j} determinism and independence of C_{j*} from conditioning are not established as written; the required inertness induction (blocked v-edges add nothing regardless of coin, so given prior U_i=False later U_j is external-only) is omitted. Core chain is salvageable but gap is fatal as stated.
+[Self-Improvement] Initiating surgical revision turn 4 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_20_153 ---
+[Critique Falsifier Script]:
+# Test disputed claim: U_j depends only on (A,O,C_ext)
+def simulate(C1):
+    # order: e1={v,a}, f={a,b}, e2={v,b}; C_f=S fixed as C_ext
+    Vs = {'v','a','b'}
+    # e1
+    if 'v' in Vs and 'a' in Vs:
+        if C1=='S': Vs.remove('v'); Vs.remove('a')
+    # f with coin S
+    if 'a' in Vs and 'b' in Vs:
+        Vs.remove('a'); Vs.remove('b')
+    U2 = ('b' in Vs)  # u_2=b free just before e2?
+    return U2
+U2_S = simulate('S')
+U2_R = simulate('R')
+print(f"U2|C1=S={U2_S}, U2|C1=R={U2_R} with same (A,O,C_ext)")
+if U2_S != U2_R:
+    print("COUNTEREXAMPLE_FOUND: U2 depends on v-coin C1, not only C_ext")
+    raise assert False if False else AssertionError("COUNTEREXAMPLE_FOUND")
+[Critique Kernel ALERT (Counterexample/Defect Confirmed)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_version, optimize=optimize)
+  File "<unknown>", li
+
+--- [TURN 4/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 4/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Work in \Cref{AlgoOff}. By \Cref{claim:equivalence} the laws of
+$\Eprime,\Ms,\M$ coincide with those of \Cref{AlgoOn}.
+Fix the total order on $A=\{a_{e,1},a_{e,2}\}$ with random tie-break.
+First occurrence of $e$ has value $M_{e}=\max(a_{e,1},a_{e,2})$,
+second $m_{e}=\min$. Distinct first occurrences have independent fair
+coins, independent of $A$ and the order; second copies get the opposite
+label. $V^{S}$ starts at $V$ and only shrinks when an edge joins $\Ms$;
+blocked stays blocked. $\Eprime$ additions do not remove vertices.
+Second copies of $S$-used edges never join; blocked firsts imply
+blocked seconds.
+
+\medskip\noindent\textbf{Greedy bound.}
+Two i.i.d.\ draws randomly assigned give $S\stackrel{d}=R$, so
+$\E{\opt(R)}=\E{\opt(S)}$. Each edge contributes one $S$-copy of value
+$s_{e}$. Scanning $A$ decreasing encounters $S$-copies in decreasing
+$s_{e}$ order, and $V^{S}$ is exactly the set of vertices free in the
+$\Ms$ built so far: first $S$-used opportunities join $\Ms$, and second
+copies of $R$-used edges join $\Ms$ iff still free. Hence $\Ms$ is the
+greedy matching on $S$-weights. By the granted $2$-approximation,
+pointwise $w(\Ms)\ge \frac12\OPT(S)$, so $\E{w(\Ms)}\ge\frac12\E{\opt}$.
+Let $p_{v}$ be the $S$-weight of the $\Ms$-edge at $v$, $0$ if none, so
+$\sum_{v}p_{v}=2w(\Ms)$. Let $e_{v}$ be the max-weight $\Eprime$-edge
+at $v$, $r_{e_{v}}$ its $R$-weight, $0$ if none.
+
+\begin{claim}\label{cl:ms-sum}
+$\E{r_{e_{v}}}\ge\frac12\E{p_{v}}$ for each $v$, hence
+$\E{\sum_{v}r_{e_{v}}}\ge\E{w(\Ms)}$.
+\end{claim}
+\begin{proof}
+Fix $v$ and condition on $A$, order $O$, and coins $C_{\rm ext}$ of
+edges not incident to $v$. Let $e_{j}=\{u_{j},v\}$, $j=1,\dots,k$, be
+incident edges in first-occurrence order, so $M_{1}>\cdots>M_{k}$ in
+the strict total order. If $k=0$ there is nothing to prove.
+Let $t_{j}$ be the first-occurrence time and $U_{j}$ the event
+$u_{j},v\in V^{S}$ just before $t_{j}$. Let $J=\min\{j:U_{j}\}$,
+$\infty$ if none.
+
+We show $J$ is determined by $(A,O,C_{\rm ext})$.
+Before $t_{1}$ no incident edge has appeared, so $V^{S}$ depends only
+on external edges, and $U_{1}$ is determined. Suppose
+$F_{j}=\{U_{1}=\text{false},\dots,U_{j-1}=\text{false}\}$ holds.
+Then each $e_{i}$, $i<j$, added nothing at its first (blocked) and
+nothing at its second (still blocked by monotonicity), regardless of
+its coin; its coin is inert. Hence $V^{S}$ evolution up to $t_{j}$
+depends only on $(A,O,C_{\rm ext})$, so $U_{j}$ given $F_{j}$ is
+determined. By induction $\{J\ge j\}=F_{j}$ and the state before $t_{j}$
+given $F_{j}$ are determined; thus $J$ is determined. In particular
+$U_{2}$ may depend on $v$-coins, but only after $J$ is already $1$;
+the first opportunity is external-only.
+
+If $J=\infty$, all firsts were blocked, hence all seconds blocked, so
+$p_{v}=r_{e_{v}}=0$. Suppose $J=j^{\ast}$ finite with
+$M^{\ast}=M_{j^{\ast}}$, deterministic given $(A,O)$.
+Its coin $C_{j^{\ast}}$ is fair independent of the conditioning and of
+$\{J=j^{\ast}\}$. No earlier $\Eprime$ at $v$ exists. If $S$,
+$e_{j^{\ast}}$ joins $\Ms$, $p_{v}=M^{\ast}$, $v$ is removed so no
+$\Eprime$ at $v$ ever, $r_{e_{v}}=0$. If $R$, $e_{j^{\ast}}$ joins
+$\Eprime$, $r_{e_{v}}=M^{\ast}$ as first $\Eprime$ at $v$ and later
+values are $\le M^{\ast}$, while $v$ stays free.
+Any $\Ms$-edge at $v$ must be some $e_{i}$ via $M_{i}$ or
+$m_{e_{i}}\le M_{i}$: if $i<j^{\ast}$ it was blocked at first hence
+blocked at second and cannot join; if $i\ge j^{\ast}$,
+$M_{i}\le M^{\ast}$. Hence in both branches any future $\Ms$ at $v$
+is $\le M^{\ast}$. So $\E{r_{e_{v}}\mid A,O,C_{\rm ext}}=M^{\ast}/2$,
+$\E{p_{v}\mid A,O,C_{\rm ext}}=\frac12M^{\ast}
++\frac12\E{p_{v}\mid R}\le M^{\ast}$.
+Thus $\E{r\mid\cdot}\ge\frac12\E{p\mid\cdot}$. Integrating gives the
+claim; summing over $v$ uses $\sum p_{v}=2w(\Ms)$.
+\end{proof}
+
+\begin{claim}\label{cl:safe-weight}
+$\E{\sum_{v}r_{e_{v}}{\bf1}\{e_{v}\text{ safe for }v\}}
+\ge\frac14\E{\sum_{v}r_{e_{v}}}$.
+\end{claim}
+\begin{proof}
+Fix $A,O$, so $M_{e}$ is deterministic. Fix $v,e=\{u,v\}$ with
+$\P[e_{v}=e\mid A,O]>0$. Then $\{e_{v}=e\}$ depends only on history $H$
+before $t_{e}$ (that $u,v\in V^{S}$, no prior $\Eprime$ at $v$) and
+coin $R$ at $t_{e}$. It suffices to show for each good $H$,
+$\P_{\rm fut}[\text{safe}\mid H,R]\ge\frac14$, where safe is
+\Cref{def:safe}(i) unique $\Eprime$ at $v$, (ii) no $\Eprime$ at $u$
+with weight $<r_{e}=M_{e}$. Only future matters; past larger $\Eprime$
+at $u$ is allowed, equal future $\Eprime$ at $u$ is allowed, so for
+$u$ consider only values $<M_{e}$; equal $\Ms$ blockers only help and
+are ignored for a lower bound.
+
+Scan the future in $O$-order. Let $\tau_{v}$ be the first future
+$v$-opportunity, $\tau_{u}$ the first future $u$-small-opportunity
+($<M_{e}$), $\infty$ if none. Opportunity status depends only on prior
+coins, not the own coin; prior non-opportunities on the same side are
+inert (blocked edges add nothing). Coins on $v$-edges and $u$-edges
+are disjoint. Let $\tau=\min(\tau_{v},\tau_{u})$.
+If $\tau=\infty$, both (i)(ii) hold. Otherwise $\tau$ is a second-copy
+opportunity, which joins $\Ms$ and secures its side by removing its
+vertex with no new $\Eprime$, or a first-copy opportunity whose fair
+coin is independent of the past: $S$ secures its side, $R$ destroys it
+(new $\Eprime$ violating (i) or (ii)). Securing one side does not create
+$\Eprime$ on the other. Hence conditional on the past up to $\tau$,
+with probability $1$ (second-type or none) or $1/2$ (first-type) we
+continue with one side secured; if destroyed we fail. Given one side
+secured, the remaining side's first opportunity, if any, is still
+first/second with the same property, its first-type coin independent
+of all prior coins (disjoint edge), so secured with probability at
+least $1/2$ (blocking only helps). Thus joint goodness is at least
+$\frac12\cdot\frac12=\frac14$.
+
+Hence $\P[e_{v}=e\wedge\text{safe}\mid A,O]\ge\frac14\P[e_{v}=e\mid A,O]$.
+Multiplying by $M_{e}\ge0$ and integrating,
+$\E[r_{e}{\bf1}_{\{e_{v}=e\}}{\bf1}_{\rm safe}]
+\ge\frac14\E[r_{e}{\bf1}_{\{e_{v}=e\}}]$.
+Summing over $v,e\ni v$ by linearity ($0$ if undefined) gives the claim.
+\end{proof}
+
+\medskip\noindent\textbf{Collection and chain.}
+\Cref{lem:matching:safecollect} applies to this $\Eprime,\M$ run:
+$\E{w(M)}\ge\frac12\E[\sum_{v}r_{e_{v}}{\bf1}_{\rm safe}]$.
+Combining,
+$\E{\opt}\le2\E{w(\Ms)}\le2\E{\sum_{v}r_{e_{v}}}
+\le8\E{\sum_{v}r_{e_{v}}{\bf1}_{\rm safe}}\le16\E{w(M)}$
+in \Cref{AlgoOff}, hence by equivalence in \Cref{AlgoOn}.
+That is $16\E{w(\M)}\ge\E{\opt}$.
+\end{proof}
+[Proof Draft Generated] Turn 4: 6563 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.92, "completeness": 0.92, "boundary_cases": 0.9, "validity": 0.92, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.9, "boundary_cases": 0.9, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+[Best Candidate Updated] Turn 4: validity=0.90 (6563 chars)
+[Audit Passed] Proof verified on Turn 4 (validity: 0.90). Early-terminating to prevent multi-turn degradation.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_20_153 | Proof Length: 6563 chars | Turns: 4 | Duration: 1106.98s
+================================================================================

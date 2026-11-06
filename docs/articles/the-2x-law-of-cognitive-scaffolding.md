@@ -23,7 +23,7 @@ Across all three architectures, wrapping the model in **Proof Harness** produced
 
 ---
 
-## 1. The Empirical Discovery: The 2× Law Across Model Scales
+## 1. The Empirical Discovery: The 1.6×–2× Law Across Model Scales
 
 When evaluating LLMs on graduate-level mathematics, industry benchmarks overwhelmingly report **one-shot (T=1) accuracy**: the model receives a theorem statement, generates a single stream of reasoning and LaTeX tokens, and is graded by an automated referee.
 
@@ -38,16 +38,16 @@ Using this referee standard, every model is evaluated across two stages:
 1. **Step 1 — Unassisted One-Pass Triage (T=1)**: Every model attempts all 300 theorems in a single unassisted pass without external Python execution or multi-agent auditing. Theorems certified at ≥ 0.50 on Turn 1 are locked in immediately as authoritative first-turn wins.
 2. **Step 2 — Multi-Turn Proof Harness Escalation (T ≤ 12)**: Every theorem that fails Step 1 is escalated into the full neuro-symbolic **Proof Harness**, which pairs the model with a stateful Python/SymPy/Z3 execution kernel, an airgapped 7-role cognitive auditor, clean-slate route pivoting, and a bounded overtime horizon.
 
-![The 2x Law of Cognitive Scaffolding across Model Scales](../images/tcs_multiplier_bars.png)
+![The 1.6×–2× Law of Cognitive Scaffolding across Model Scales](../images/tcs_multiplier_bars.png)
 
 ### Table 1: Canonical TCS-300 Benchmark Scorecard (Step 1 vs. Step 2 Unified v4)
 
-| Model Architecture | Total Params (Est.)* | Active Params / Token* | Step 1: 1-Pass (T=1) | Step 2: Harness Pass (≥ 0.50) | Harness Multiplier | Unsolved Problems Reduced (Error Cut)** | Multiplicative Decrease in Failures | Directionally Sound (≥ 0.40) | Near-Miss Reservoir [0.30, 0.50) |
+| Model Architecture | Total Params (Est.)* | Active Params / Token* | Step 1: 1-Pass Certified (≥ 0.50) | Step 1: 1-Pass Directional (≥ 0.40) | Step 2: Harness Pass (≥ 0.50) | Harness Multiplier | Unsolved Problems Reduced (Error Cut)** | Multiplicative Decrease in Failures | Step 2: Directionally Sound (≥ 0.40) | Near-Miss Reservoir [0.30, 0.50) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Qwen-3.8-27B** *(Dense)* | **27.0B** *(Dense)* | **27.0B** *(100%)* | 12.67% *(38/300)* | **26.67%** *(80/300)* | **2.11×** *(+110.5%)* | **16.03%** *(42 / 262 cut)* | **1.19× fewer unsolved** | **36.33%** *(109/300)* | **56 tasks** *(29 dir + 27 part)* |
-| **Meta Muse 1.3** *(Sparse MoE)* | **~800B–1T** *(MoE, Est.)* | **~45B–55B** *(~6%)* | 22.00% *(66/300)* | **46.33%** *(139/300)* | **2.11×** *(+110.6%)* | **31.20%** *(73 / 234 cut)* | **1.45× fewer unsolved** | **50.67%** *(152/300)* | **32 tasks** *(13 dir + 19 part)* |
-| **Gemini 3.8 Flash** *(Sparse MoE)* | **~1.2T** *(MoE, Est.)* | **~35B–45B** *(~3.5%)* | 33.67% *(101/300)* | **55.33%** *(166/300)* | **1.64×** *(+64.4%)* | **32.66%** *(65 / 199 cut)* | **1.49× fewer unsolved** | **62.67%** *(188/300)* | **30 tasks** *(22 dir + 8 part)* |
-| **3-Model Oracle Portfolio Union** *(Ensemble)* | — | — | 41.33% *(124/300)* | **65.67%** *(197/300)* | **1.59×** *(+58.9%)* | **41.48%** *(73 / 176 cut)* | **1.71× fewer unsolved** | **73.00%** *(219/300)* | — |
+| **Qwen-3.8-27B** *(Dense)* | **27.0B** *(Dense)* | **27.0B** *(100%)* | 12.67% *(38/300)* | **18.00%** *(54/300)* | **26.67%** *(80/300)* | **2.11×** *(+110.5%)* | **16.03%** *(42 / 262 cut)* | **1.19× fewer unsolved** | **36.33%** *(109/300)* | **56 tasks** *(29 dir + 27 part)* |
+| **Meta Muse 1.3** *(Sparse MoE)* | **~800B–1T** *(MoE, Est.)* | **~45B–55B** *(~6%)* | 22.00% *(66/300)* | **26.00%** *(78/300)* | **46.33%** *(139/300)* | **2.11×** *(+110.6%)* | **31.20%** *(73 / 234 cut)* | **1.45× fewer unsolved** | **50.67%** *(152/300)* | **32 tasks** *(13 dir + 19 part)* |
+| **Gemini 3.8 Flash** *(Sparse MoE)* | **~1.2T** *(MoE, Est.)* | **~35B–45B** *(~3.5%)* | 33.67% *(101/300)* | **39.67%** *(119/300)* | **55.33%** *(166/300)* | **1.64×** *(+64.4%)* | **32.66%** *(65 / 199 cut)* | **1.49× fewer unsolved** | **62.67%** *(188/300)* | **30 tasks** *(22 dir + 8 part)* |
+| **3-Model Oracle Portfolio Union** *(Ensemble)* | — | — | 41.33% *(124/300)* | **48.33%** *(145/300)* | **65.67%** *(197/300)* | **1.59×** *(+58.9%)* | **41.48%** *(73 / 176 cut)* | **1.71× fewer unsolved** | **73.00%** *(219/300)* | — |
 
 *\*Note: Exact parameter counts and active routing budgets for Meta Muse 1.3 and Gemini 3.8 Flash are proprietary and not publicly disclosed; figures reported represent widely accepted community and architectural estimates based on MoE sizing and latency footprints.*
 *\*\*Note: **Unsolved Problems Reduced (Error Cut)** measures the percentage of Step-1 failures (300 − One-Pass Solved) that the Proof Harness successfully rescues into certified passes (score ≥ 0.50) during Step 2. The **Multiplicative Decrease in Failures** represents the ratio of unsolved problems before vs. after harness deployment (Unsolved_1Pass / Unsolved_Harness).*
@@ -130,7 +130,7 @@ As illustrated in **Figure 2**, Proof Harness breaks autoregressive lock-in by s
 1. **Guardrail 1 — The Turn-1 Exploration Gate (Premature Drafting Ban)**:
    On Turn 1 of Step 2, the harness physically blocks the solver from emitting a `\begin{proof}...\end{proof}` block. Instead, the model is forced to act as a **Strategic Architect**: it inventories the exact definitions and context lemmas from the source paper, queries the semantic vector store for related proof heuristics, identifies whether the target property is *hereditary* or *fragile* under subgraph operations, and formulates falsifiable intermediate `[CLAIM]` invariants.
 2. **Guardrail 2 — The Zero-Trust Symbolic & Numerical Kernel (`exec_python`)**:
-   Before any conjectured lemma is accepted into the proof ledger, the solver must write executable Python verification scripts using **SymPy**, **Z3**, **NetworkX**, and **50-digit `mpmath`**. If an inequality fails on a random 6-vertex graph or a 4×4 non-Hermitian matrix in 20 milliseconds of CPU time, the kernel returns an immediate counterexample traceback—killing the hallucinated path *before* the model wastes thousands of tokens drafting prose around it.
+   Before any conjectured lemma is accepted into the proof ledger, the solver must write executable Python verification scripts using **SymPy**, **Z3**, **NetworkX**, and **50-digit `mpmath`**. If an inequality fails on a random 6-vertex graph or a 4×4 non-Hermitian matrix in 20 milliseconds of CPU time, the kernel returns an immediate counterexample traceback—killing the hallucinated path *before* the model wastes thousands of tokens drafting prose around it. (Drawing architectural inspiration from the persistent execution environments used in long-horizon coding agents like **Prime Agent**, Proof Harness adapts stateful Python execution from software engineering to zero-trust mathematical verification).
 3. **Guardrail 3 — Dual-Kernel Ephemeral Isolation & The 7-Role Cognitive Auditor**:
    As the proof progresses across turns, the model rotates through seven specialized cognitive roles (**Strategic Architect, Constructive Explorer, Formal Logician, Adversarial Skeptic, Pivot Strategist, Counterexample Hunter, and Publication Scribe**). Crucially, when the **Adversarial Skeptic / Auditor** evaluates a candidate proof, it executes inside a **fresh, airgapped ephemeral Python kernel** (`run_isolated_verification`). Why? Because in single-kernel harnesses, a solver's earlier helper variables and buggy assumptions remain in global Python scope, causing self-verification scripts to pass trivially due to state contamination. Dual-kernel isolation guarantees zero-trust auditing.
 4. **Guardrail 4 — Clean-Slate Route Pivoting & The Overtime Gate (T=8 → 12)**:
@@ -238,7 +238,7 @@ However, the proof trajectories point to another major contributing factor: **th
 
 While model scale and architecture certainly play a role, a model's familiarity with domain-specific lemma templates can be significantly augmented without modifying model weights:
 
-* **Externalizing Domain Heuristics via Vector Memory (`TurboVec`)**: To support smaller or less familiar models, Proof Harness integrates a semantic **Vector Database (`TurboVec` / `vector_store.py`)** populated with compiled domain proof heuristics, canonical reduction templates (e.g., Golden-Thompson, Russo-Dye, Fuchs-van de Graaf, Wedin sin Θ, and Finetti homogenization), and verified lemma schemas.
+* **Externalizing Domain Heuristics via Vector Memory (`TurboVec`)**: To support smaller or less familiar models, Proof Harness integrates a semantic **Vector Database (`TurboVec` / `vector_store.py`)** inspired by the **CoALA** (Cognitive Architectures for Language Agents) procedural memory framework, populated with compiled domain proof heuristics, canonical reduction templates (e.g., Golden-Thompson, Russo-Dye, Fuchs-van de Graaf, Wedin sin Θ, and Finetti homogenization), and verified lemma schemas.
 * **Injecting Context at the Turn-1 Exploration Gate**: Retrieving relevant domain heuristics and standard reduction templates before the first derivation step equips the model with useful mathematical context, reducing the need to re-derive elementary tools and allowing the model to focus its reasoning budget directly on the novel aspects of the theorem.
 
 ---
@@ -344,13 +344,19 @@ Our 300-theorem empirical campaign across **Qwen-3.8-27B**, **Meta Muse 1.3**, a
 
 ---
 
-### Open-Source Repository & Reproducibility
+### Open-Source Repository & Published Evaluation Logs
 * **Source Code & Pipelines**: Proof Harness is open-source at [github.com/dionyziuz/proof_harness](https://github.com/dionyziuz/proof_harness).
+* **Published Evaluation Logs & Scorecards**: Complete raw evaluation records—including per-problem candidate proofs, execution traces, and calibrated referee judgments for all 300 TCS-Bench theorems across all three models—are available in the [`data/eval_results/`](../../data/eval_results/) directory:
+  * Gemini 3.8 Flash V4: [`data/eval_results/tcs_flash_v4/`](../../data/eval_results/tcs_flash_v4/)
+  * Meta Muse 1.3 V4: [`data/eval_results/tcs_muse_v4/`](../../data/eval_results/tcs_muse_v4/)
+  * Qwen-3.8-27B V4: [`data/eval_results/tcs_qwen_v4/`](../../data/eval_results/tcs_qwen_v4/)
 * **Evaluation Scripts**: Complete orchestration pipelines, referee prompts, and benchmark execution harnesses are available in the [`scripts/`](../../scripts/) directory (`run_tcs_onepass_baseline.py`, `run_tcs_continuous_pipeline.py`, and `combine_tcs_runs.py`).
 
 ---
 
-### References
+### References & Architectural Influences
 * **TCS-Bench**: *Benchmarking Large Language Models on Research-Level Theoretical Computer Science* ([arXiv:2608.09538](https://arxiv.org/abs/2608.09538)).
+* **CoALA (Cognitive Architectures for Language Agents)**: Theodore R. Sumers, Shunyu Yao, Karthik Narasimhan, Thomas L. Griffiths (Princeton University & Google DeepMind, 2023), [arXiv:2309.02427](https://arxiv.org/abs/2309.02427). Formulates the cognitive architecture taxonomy separating working, episodic, semantic, and procedural memory for autonomous agents.
+* **Prime Agent**: Prime Intellect (2024), *A Cognitive Agent Platform for Long-Horizon Engineering with Persistent REPL Kernels*, [github.com/PrimeIntellect-ai/prime-agent](https://github.com/PrimeIntellect-ai/prime-agent). Pioneered the integration of persistent Python execution environments and CoALA memory consolidation for long-horizon agentic task solving.
 * **Towards Autonomous Mathematics Research**: Tony Feng, Trieu H. Trinh, Demis Hassabis, Thang Luong, et al. (Google DeepMind, 2026), [arXiv:2602.10177](https://arxiv.org/abs/2602.10177). Investigates the Aletheia agentic harness, natural language verification, and inference-time scaling for research-level mathematics.
 * **Stellar Colosseum**: H. Lin et al. (Google Research & CMU, 2026), *A Many-Agent Harness for Long-Horizon Research in Mathematics and Theoretical Computer Science*, [arXiv:2609.15983](https://arxiv.org/abs/2609.15983).

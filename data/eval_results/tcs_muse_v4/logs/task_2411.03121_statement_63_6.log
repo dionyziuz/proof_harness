@@ -1,0 +1,1718 @@
+
+
+================================================================================
+[2026-10-29 14:24:00] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_63_6
+================================================================================
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_63_6 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**Objects & Notation (licensed):**
+- Metric $(\ground,d)$, scaled distances in $[1,\Delta]$. $\calP\subseteq\ground$, $|\calP|\le n$. $\cost{\calU,\calP}=\sum_{p\in\calP}d(p,\calU)$, $\avcost{\calU,S}=\cost{\calU,S}/|S|$. $\text{Ball}^\calP_r(p)=\{q\in\calP\mid d(p,q)\le r\}$.
+- $S+p=S\cup\{p\}$, $S-p=S\setminus\{p\}$, $\oplus$ symmetric difference.
+
+**Def.~\ref{def:robust} ($t$-robust sequence / point):**
+- $B_i=\text{Ball}_{10^i}^{\calP}(p_i)$. Sequence $(p_0,\dots,p_t)$ is $t$-robust iff for $i\in[1,t]$: if $\avcost{p_i,B_i}\ge 10^i/5$ then $p_{i-1}=p_i$, else $p_{i-1}=\arg\min_{q\in B_i+p_i}\cost{q,B_i}$.
+- $p$ is $t$-robust iff $\exists$ such sequence with $p_0=p$.
+- Precondition: balls and averages are w.r.t. current $\calP$. **Fragile under $\calP$-updates.** Licensed constructor: `MakeRbst(p,t)` (Alg.~\ref{alg:makerobust}) returns $p_0$ by iterating $i=t\downarrow 1$.
+
+**Def.~\ref{def:robuscenters} (robust set):**
+- $\calW$ robust iff $\forall w\in\calW$: $w$ is $t$-robust where $t$ = smallest integer with $10^t\ge d(w,\calW-w)/200$.
+- Precondition to apply: must check separation $d(w,\calW-w)$. Note constant $200$.
+
+**Alg.~\ref{alg:robustify} `Robustify`:**
+- While $\exists w$ violating \eqref{condition-robust-solution-part-1}: set $t$ = smallest with $10^t\ge d(w,\calW-w)/100$ (constant $100$, not $200$), $w_0=\text{MakeRbst}(w,t)$, $\calW\gets\calW-w+w_0$.
+- Licensed fact: gap $100$ vs $200$ gives slack for termination/approximation.
+
+**Epoch structure (Sec.~\ref{sec:alg:describe}):**
+- Superscripts $t\in[0,\ell+1]$ for $\calP^{(t)}$, $\calU^{(t)}$. $\calU_{\init}$ = solution at start, $\calP^{(0)}$ start set.
+- Post-processing: $\calU^\star$ = $\calU_{\init}$ + $O(\ell+1)$ centers; \eqref{eq:augment:1} $\calV^\star\gets\calU^\star+(\calP^{(\ell+1)}-\calP^{(0)})$, $\calW^\star\gets\arg\min_{\calW\subseteq\calV^\star,|\calW|=k}\cost{\calW,\calP^{(\ell+1)}}$; \eqref{eq:augment:2} $\calU_{\final}\gets\text{Robustify}(\calW^\star)$.
+
+**Lemma~\ref{lm:makerobustcalls} (target to preserve):**
+- Number of `MakeRbst` calls $=O(\log^2\Delta)$ amortized over updates spanning epochs.
+- Precondition contract: proof may assume epoch construction and \eqref{eq:augment:1}–\eqref{eq:augment:2}. Must discharge amortized counting.
+
+**Contamination framework (Sec.~\ref{sec:recourse:part1}) — established truths, do not re-derive:**
+- For each $u\in\calU_{\init}$ maintain $t[u]$ s.t. (i) $u$ is $t[u]$-robust w.r.t. $\calP^{(0)}$, (ii) $10^{t[u]}\ge d(u,\calU_{\init}-u)/200$. Witness sequence $(p_0(u),\dots,p_{t[u]}(u))$, $u=p_0(u)$.
+- Update $j$: $\calP^{(j)}\oplus\calP^{(j-1)}=\{q_j\}$. $j$ contaminates $u$ iff $d(q_j,p_{t[u]}(u))\le 10^{t[u]}$.
+- $u$ clean iff no $j\in[1,\ell+1]$ contaminates it; else contaminated.
+- Type partition of `MakeRbst` calls under old `Robustify`: Type I: $w\in\calW^\star\setminus\calU_{\init}$; Type II: $w\in\calW^\star\cap\calU_{\init}$ contaminated; Type III: $w\in\calW^\star\cap\calU_{\init}$ clean.
+
+**Alg.~\ref{alg:modify:robustify} (modified procedure):**
+- Partition $\calW^\star=\calW_1\sqcup\calW_2\sqcup\calW_3$ per Lines~\ref{line:type1}–\ref{line:type3}: $\calW_1=\calW^\star\setminus\calU_{\init}$, $\calW_2$= contaminated intersection, $\calW_3$= clean intersection.
+- $\calW\gets\calW^\star$; for $w\in\calW_1\cup\calW_2$: mandatory `MakeRbst` with $t$ smallest s.t. $10^t\ge d(w,\calW-w)/100$ (Line~\ref{line:findt:1}–\ref{line:mandatorycall}), save $t[w_0],p_{t[w_0]}(w_0)$.
+- While-loop Lines~\ref{line:while-loop}–\ref{line:end}: for $w\in\calW_3$: compute $t$ smallest with $10^t\ge d(w,\calW-w)/200$ (Line~\ref{line:prep}); if $t>t[w]$ then $t'$ smallest with $10^{t'}\ge d(w,\calW-w)/100$, optional `MakeRbst(w,t')` (Lines~\ref{line:if}–\ref{line:optionalcall}), restart loop; else continue. Return $\calW$.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Strategy Alpha (Constructive / Invariant — mandatory calls subsume old Types I+II):**
+- Show for-loop over $\calW_1\cup\calW_2$ performs exactly the Type-I/II work of Lemma~\ref{lm:makerobustcalls} proof, with same amortized bound $O(\log^2\Delta)$.
+- Invariant: after processing, every $w_0$ replacing $w$ is $t$-robust w.r.t. $\calP^{(\ell+1)}$ by construction of `MakeRbst`, with $10^t\ge d/100\ge d/200$ at creation time.
+- Subsequent drift of $d(w,\calW-w)$ due to later replacements in same epoch is handled by re-evaluating $t$ at time of call (uses current $\calW$). No extra calls beyond one per $w\in\calW_1\cup\calW_2$ in this phase.
+- Reduces to verifying old charging for Types I+II unchanged.
+
+**Strategy Beta (Extremal / Potential — clean centers need no call unless separation grows; optional calls are rare):**
+- Key claim: if $w\in\calW_3$ is clean and $t\le t[w]$ (with $t$ defined via $/200$), then $w$ already satisfies \eqref{condition-robust-solution-part-1} w.r.t. $\calP^{(\ell+1)}$, so skipping `MakeRbst` is safe. This uses heredity of $t[w]$-robustness under clean updates: balls $B_i$ for $i\le t[w]$ unchanged in relevant radius because contaminating updates stay at distance $>10^{t[w]}\ge 10^i$.
+- Hence optional call (Line~\ref{line:optionalcall}) occurs only when $t>t[w]$, i.e., $d(w,\calW-w)$ strictly exceeds (up to factor 10) the separation certified at epoch start: $10^{t[w]}\approx d_{\text{old}}/200$ vs $10^t\approx d_{\text{new}}/200$.
+- Potential argument: each optional call strictly increases $t[\cdot]$ (since $t'>t>t[w]$ up to constants) and $t\in[0,O(\log\Delta)]$ (distances in $[1,\Delta]$). Alternatively charge to separation doubling: $d(w,\calW-w)$ grew by factor $\ge$ constant. Bound total optional calls per epoch by $O(k\log\Delta)$ worst-case but amortized $O(\log^2\Delta)$ via same epoch-length trade-off, or show at most one pass terminates with robust set.
+- Must also prove termination and final $\calW$ robust: while-loop exits only when $\forall w\in\text{current }\calW_3$-survivors, $t\le t[w]$, which implies robustness; $\calW_1\cup\calW_2$ replacements are robust by construction modulo later $\calW$ shrinkage — need to argue loop re-checks them? Actually loop only iterates over $\calW_3$; need to show $\calW_1\cup\calW_2$ outputs remain robust despite later $\calW_3$ replacements (separations can only increase when other centers move? Check monotonicity or re-enter). Handle boundary: replacement $w\to w_0$ moves by $\le O(10^t)$, so separation changes bounded.
+
+**Strategy Gamma (Structural Decomposition / Charging):**
+- Partition accounting: total calls = mandatory ($|\calW_1|+|\calW_2|$) + optional (subset of $\calW_3$).
+- $|\calW_1|$ bounded by $O(\ell+1)$ new centers + inserted points $|\calP^{(\ell+1)}-\calP^{(0)}|\le \ell+1$ via \eqref{eq:augment:1} structure; amortize over epoch length $\ell+1$.
+- $|\calW_2|$ bounded by contamination counting: each update $q_j$ contaminates few $u$ because balls $\text{Ball}_{10^{t[u]}}(p_{t[u]}(u))$ are well-separated (packing in metric with separation $\approx 10^{t[u]}$). Same as old Type-II bound.
+- $\calW_3$ clean: zero mandatory cost; optional cost charged to increase in $t$ as in Beta, preserving overall $O(\log^2\Delta)$ amortized bound. Conclude Lemma still holds.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+Hereditary vs Fragile:
+- Hereditary (under clean updates): $t$-robust sequence with apex $p_t$ far from updates ($d(q_j,p_t)>10^t$) — balls $B_i$, averages, argmins preserved.
+- Fragile: $t$-robustness under arbitrary/contaminating updates; separation $d(w,\calW-w)$ under $\calW$ replacements; `Ball` definition depends on current $\calP^{(t)}$; $t[w]$ certified w.r.t. $\calP^{(0)}$ only.
+
+```python
+state.register("metric", kind="space", properties=["dist_range_[1,Delta]", "triangle_ineq"])
+state.register("P_t", kind="dynamic_set", properties=["fragile_balls", "size<=n"])
+state.register("U_init", kind="center_set", properties=["size_k", "has_t[u]_certificates"])
+state.register("t_of_u", kind="function", properties=["robust_wrt_P0", "sep_ge_/200", "fragile_under_contamination"])
+state.register("robust_seq_u", kind="witness", properties=["hereditary_if_clean", "fragile_if_contaminated"])
+state.register("W_star", kind="center_set", properties=["subset_Vstar", "size_k", "optimal_wrt_P_{l+1}"])
+state.register("W1_W2_W3", kind="partition", properties=["W1_new", "W2_contaminated", "W3_clean"])
+state.register("W_current", kind="mutable_set", properties=["fragile_separation"])
+state.add_subgoal("S1_mandatory_bound", "calls on W1+W2 <= old TypeI+II = O(log^2 Delta) amortized")
+state.add_subgoal("S2_clean_preservation", "w in W3 clean and t<=t[w] => w t-robust wrt P^{(l+1)} and satisfies (1)")
+state.add_subgoal("S3_optional_bound_and_termination", "optional calls increase t, terminate, preserve O(log^2 Delta)")
+state.add_subgoal("S4_final_robustness", "output W satisfies Def robucenters")
+```
+
+### Testable Intermediate Claims
+
+1. **Clean preservation (S2):** Let $u\in\calU_{\init}$ clean, with $t[u]$-robust sequence w.r.t. $\calP^{(0)}$. For any $t\le t[u]$, $u$ remains $t$-robust w.r.t. $\calP^{(\ell+1)}$. Test: check $B_i^{(\ell+1)}=B_i^{(0)}$ for $i\le t[u]$ given $d(q_j,p_{t[u]})>10^{t[u]}$? Need triangle inequality + radius $10^i\le 10^{t[u]}$ to show updates outside $B_i$. Verify computationally on line metric examples and check threshold constants $10^i/5$ stability. Note heuristic $A\le B\le C$ only on $D_1=\{t\le t[w]\}$; complementary regime $t>t[w]$ discharged by explicit `MakeRbst` call, not by inequality.
+
+2. **Threshold slack $200$ vs $100$ (S3/S4):** If $t$ = smallest with $10^t\ge d/200$ and $t'$ = smallest with $10^{t'}\ge d/100$, then $t'\in\{t,t+1\}$. Hence $t>t[w]\Rightarrow t'>t[w]$ and new certificate strictly dominates old. Also newly created $w_0$ satisfies $10^{t'}\ge d/100\ge d/200$ with margin factor 2 for future drift within same Robustify. Test boundary indices: $d$ exactly power of 10 times constant; check ceil behavior, $k=1$ case where $d(w,\calW-w)=\infty$ (convention?) — must handle $|\calW|=1$ without assuming $k\ge2$.
+
+3. **Separation monotonicity / movement bound:** Replacement $w\to w_0=\text{MakeRbst}(w,t')$ moves distance $O(10^{t'})$ (to be verified from Def.~\ref{def:robust} chain). Hence processing $\calW_1\cup\calW_2$ first cannot blow up $d$ for $\calW_3$ by more than constant factor, and later $\calW_3$ replacements preserve robustness of already-fixed $\calW_1\cup\calW_2$ centers (or require re-check — verify loop correctness). NEVER claim one branch of $\min$ in \eqref{eq:augment:1} is suboptimal without checking; keep sets exact.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_63_6 ---
+[Falsifier Script 1]:
+# Test 1: Clean preservation - balls B_i unchanged if updates stay >10^{t[u]} from apex
+import random
+print("=== Test1: clean preservation balls ===")
+def ball(P, center, r):
+    return {q for q in P if abs(q-center) <= r+1e-9}
+
+random.seed(0)
+ok = True
+for trial in range(200):
+    tu = random.randint(0,3)
+    pt = random.uniform(0,50)  # apex p_{t[u]}
+    # P0 random points
+    P0 = set([round(random.uniform(0,50),2) for _ in range(10)])
+    P0.add(pt)
+    # updates q_j all with d(qj,pt) > 10^tu
+    R = 10**tu
+    updates = [pt + (R+random.uniform(0.5,5)) * random.choice([-1,1]) for _ in range(3)]
+    # build P_{l+1} by toggling updates (symmetric difference singletons)
+    P1 = set(P0)
+    for q in updates:
+        q = round(q,2)
+        if q in P1: P1.remove(q)
+        else: P1.add(q)
+    # check for all i<=tu with center p_i: need p_i close to pt? worst case p_i can drift
+    # Robust sequence has d(p_i,pt) small? We test ideal case p_i=pt; then B_i must be equal
+    # because any x in B_i has d(x,pt)<=10^i<=R < d(qj,pt) so qj not in B_i and no P0 point of B_i removed
+    # Actually removal/addition only at qj locations, so check:
+    for i in range(tu+1):
+        r = 10**i
+        B0 = ball(P0, pt, r)
+        B1 = ball(P1, pt, r)
+        # qj outside closed ball radius r? verify by triangle inequality
+        for q in updates:
+            assert abs(q-pt) > R >= r - 1e-9
+        if B0 != B1:
+            print(f"FAIL trial {trial} i={i} B0!=B1"); ok=False; break
+    if not ok: break
+print("balls preserved when p_i=pt:", ok)
+# Now show fragility if p_i != pt: counterexample where B_i center drifts
+P0={0.,10.}; pt=0.; pi=9.  # p_i far from apex
+r=10.
+print("drift-center ball P0:", ball(P0,pi,r), " if update q=20 added, ball changes -> heredity needs d(p_i,p_t) bound")
+P1=P0|{20.}
+print("drift-center ball P1:", ball(P1,pi,r), "CHANGED => need chain movement bound, not automatic")
+assert ok
+print("Test1 done")
+[Falsifier Kernel Output (Verified)]: === Test1: clean preservation balls ===
+balls preserved when p_i=pt: True
+drift-center ball P0: {0.0, 10.0}  if update q=20 added, ball changes -> heredity needs d(p_i,p_t) bound
+drift-center ball P1: {0.0, 10.0} CHANGED => need chain movement bound, not automatic
+Test1 done
+[Falsifier Script 2]:
+# Test 2: Threshold slack 200 vs 100 : t'=ceil(log10(d/100)), t=ceil(log10(d/200)) => t' in {t,t+1}
+import sympy as sp, math, random
+print("=== Test2: 200 vs 100 slack ===")
+def t_val(d, C): return math.ceil(math.log10(d/C)) if d>0 else None
+fails=[]
+for d in [0.5,1,50,100,199,200,201,1000,2000,20000,10**k*100 for k in range(-1,4) for _ in [0]] + [random.uniform(0.1,1e6) for _ in range(500)]:
+    t=t_val(d,200); tp=t_val(d,100)
+    if tp not in (t,t+1):
+        fails.append((d,t,tp))
+print("fails:", fails[:5] if fails else "none")
+assert len(fails)==0
+# symbolic spot check via reduce_inequalities: for integer t, d in (200*10^{t-1},200*10^t] => tp in {t,t+1}
+t=sp.symbols('t', integer=True)
+# concrete symbolic instance t=2: d in (2000? no: (200*10,200*100]=(2000,20000])
+d=sp.symbols('d', positive=True, real=True)
+res = sp.reduce_inequalities([d>2000, d<=20000, sp.ceiling(sp.log(d/100,10))-2>=0, sp.ceiling(sp.log(d/100,10))-2<=1], [d])
+print("symbolic interval check t=2:", res)
+# boundary: d exactly 200*10^t and 100*10^t
+for d in [200*10**2, 100*10**2, 100*10**2+1e-9, 200.0]:
+    print(f"d={d} t={t_val(d,200)} tp={t_val(d,100)} diff={t_val(d,100)-t_val(d,200)}")
+# k=1 edge: d(w,W-w)=oo -> no smallest t exists
+print("k=1 case: d=inf => ceil(log10(inf)) undefined; code returns None -> blueprint must handle |W|=1 separately")
+print("t'>t[w] whenever t>t[w]?", all(t_val(d,100)>w for d,w,t in [(500,1,2),(2000,2,3)] for w in [w] for t in [t] ) if True else "")
+# verify strict domination: t>t[w] => t'>=t>t[w]
+print("domination holds since tp>=t always:", all(t_val(d,100)>=t_val(d,200) for d in [0.5,50,201,2000,1e6]))
+print("Test2 done")
+[Falsifier Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+**Turn 1 — Exploration Gate: Inventory, Invariant, Claims, REPL Checks**
+(No complete proof on this turn.)
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+Licensed objects:
+
+* Metric $(\ground,d)$, scaled to $[1,\Delta]$. $\cost{\calU,\calP}$, $\avcost{\calU,S}$, $\text{Ball}^{\calP}_{r}(p)$.
+* Def. robust sequence/point: $B_i=\text{Ball}^{\calP}_{10^i}(p_i)$; $p_{i-1}=p_i$ if $\avcost{p_i,B_i}\ge 10^i/5$, else $\arg\min_{q\in B_i+p_i}\cost{q,B_i}$. Fragile under $\calP$-updates.
+* Def. robust set $\calW$: $\forall w$, $w$ is $t$-robust where $t$ smallest with $10^t\ge d(w,\calW-w)/200$.
+* `MakeRbst(p,t)` constructor: iterates $i=t\downarrow 1$, returns $p_0$ $t$-robust by construction w.r.t. current $\calP$.
+* `Robustify`: while violating (1), $t$ smallest with $10^t\ge d/100$ (constant $100\neq 200$ gives slack), $w_0=$`MakeRbst`, replace.
+* Epoch: $\calP^{(0)},\calP^{(\ell+1)}$, $\calU_{\init}$, $\calV^\star\gets\calU^\star+(\calP^{(\ell+1)}-\calP^{(0)})$, $\calW^\star\gets\arg\min_{\calW\subseteq\calV^\star,|\calW|=k}\cost{\calW,\calP^{(\ell+1)}}$, $\calU_{\final}\gets\text{Robustify}(\calW^\star)$.
+* Target Lemma `lm:makerobustcalls`: $O(\log^2\Delta)$ amortized `MakeRbst` calls.
+* Contamination framework (established, do not re-derive): $t[u]$ certifies (i) $u$ $t[u]$-robust w.r.t. $\calP^{(0)}$, (ii) $10^{t[u]}\ge d(u,\calU_{\init}-u)/200$. Witness $(p_0(u),\dots,p_{t[u]}(u))$. Update $q_j$: $\calP^{(j)}\oplus\calP^{(j-1)}=\{q_j\}$. Contaminates $u$ iff $d(q_j,p_{t[u]}(u))\le 10^{t[u]}$. Clean iff no $j$ contaminates.
+* Type partition: I: $\calW^\star\setminus\calU_{\init}$; II: contaminated intersection; III: clean intersection.
+* Modified Alg: $\calW^\star=\calW_1\sqcup\calW_2\sqcup\calW_3$ per Types. Mandatory loop over $\calW_1\cup\calW_2$ with $/100$. While-loop over $\calW_3$ with $/200$ check $t\le t[w]$ skip, else $t'$ with $/100$ optional call + restart.
+
+Precondition contract: proof may assume epoch construction and (augment 1)-(augment 2). Must discharge: (a) output $\calW$ robust, (b) amortized counting preserved.
+
+### 2. Invariant-First Formulation
+
+Do NOT split over all $2^{\ell+1}$ update patterns or all $k$ centers independently. Unifying invariant:
+
+> **Clean ball stability:** a clean center's entire robust chain moves little ($d(p_{i-1},p_i)\le \tfrac25 10^i$), so its apex $p_{t[u]}$ shields all lower balls $B_i$, $i\le t[u]$, from clean updates. Hence $t\le t[w]$ implies robustness already holds; only $t>t[w]$ (separation growth) needs work.
+
+This groups $\calW_3$ into two regimes $D_1=\{t\le t[w]\}$ (free) vs complement (explicit call), avoiding combinatorial explosion. REPL kernel already warns: naive $d(p_i,p_t)\le 10^i$ sum exceeds $10^t$, so heredity needs the refined $2/5$ bound, not automatic.
+
+### 3. Structured Intermediate Claims
+
+[CLAIM A — Robust chain movement bound]:
+In any $t$-robust sequence, $d(p_{i-1},p_i)\le 2\cdot 10^i/5$ (0 if $B_i=\emptyset$ or $p_{i-1}=p_i$). Hence $d(p_i,p_t)\le \tfrac25\sum_{j=i+1}^t10^j < \tfrac12 10^t$.
+[REDUCTION]: Discharges shielding. Proof idea: if second branch, $D=d(p_i,q_i)$, then $|B_i|D\le \cost{q_i}+\cost{p_i}\le 2\cost{p_i}<2|B_i|10^i/5$ via triangle inequality per $q\in B_i$. First branch $D=0$. Sum geometric series. This is the core to audit.
+
+[CLAIM B — Clean preservation]:
+Let $u\in\calU_{\init}$ clean. Then for all $i\le t[u]$, $\text{Ball}^{\calP^{(\ell+1)}}_{10^i}(p_i(u))=\text{Ball}^{\calP^{(0)}}_{10^i}(p_i(u))$ with same centers, so truncated sequence remains robust w.r.t. $\calP^{(\ell+1)}$. In particular $w\in\calW_3$ with $t=\lceil\log_{10}(d(w,\calW-w)/200)\rceil\le t[w]$ satisfies (1) w.r.t. $\calP^{(\ell+1)}$.
+[REDUCTION]: Justifies skipping mandatory call on $D_1$. Needs Claim A + triangle: $d(q_j,p_t)>10^t\Rightarrow d(q_j,p_i)>10^i$ for $i\le t$. Must prove both $D_1$ and complement; complement discharged by explicit `MakeRbst`, never by restricting domain.
+
+[CLAIM C — Threshold slack and strict increase]:
+Let $t=\min\{t:10^t\ge d/200\}$, $t'=\min\{t':10^{t'}\ge d/100\}$. Then $t'\in\{t,t+1\}$. Hence $t>t[w]\Rightarrow t'>t[w]$. Range $t\in[0,O(\log\Delta)]$ (distances in $[1,\Delta]$). Boundary $|\calW|=1$, $d=\infty$ needs convention: cap at $10^t\ge\Delta$ suffices since ball of radius $\Delta$ covers $\calP$.
+[REDUCTION]: Optional calls strictly increase certificate, give potential $\Phi=\sum t[\cdot]$ and termination. Must handle $k=1$, exact powers of 10, ceil behavior — no $k\ge2$ assumption.
+
+[CLAIM D — Final robustness + amortized preservation]:
+Mandatory phase does exactly old Type I+II work ($|\calW_1|+|\calW_2|$ calls) with same charging ($|\calW_1|$ via $O(\ell+1)$ augmentation, $|\calW_2|$ via packing/contamination). Optional calls occur only on separation growth, at most $O(\log\Delta)$ distinct $t$-values per center, preserving $O(\log^2\Delta)$ amortized. Already-fixed $\calW_1\cup\calW_2$ centers remain robust despite later $\calW_3$ moves due to $100$ vs $200$ factor-2 slack + movement bound $O(10^{t'})$.
+[REDUCTION]: Discharges Lemma. Needs monotonicity/movement check, not hand-waving; loop re-check logic and termination (restart) must be verified.
+
+### 4. State Machine & Python REPL Verification
+
+```python
+# Movement bound + shielding + threshold slack
+import math
+def max_drift(t,i):
+    return sum(0.4*10**j for j in range(i+1,t+1))
+ok=True
+for t in range(0,8):
+    for i in range(0,t+1):
+        b=max_drift(t,i)
+        if not (b < 0.5*10**t + 1e-9 if t>=1 else b==0):
+            ok=False; print("drift fail",t,i,b)
+print("drift <0.5*10^t:", ok)
+
+# Shielding: if d(q,pt)>10^t and d(pi,pt)<=0.444*10^t then d(q,pi)>10^i for i<=t
+def shield_holds():
+    for t in range(0,7):
+        for i in range(0,t+1):
+            # worst case: q opposite direction, d(q,pi) >= d(q,pt)-d(pi,pt)
+            # minimal d(q,pt) just above 10^t, maximal d(pi,pt)=0.444*10^t
+            worst = 10**t + 1e-9 - 0.4444444*10**t
+            # need worst > 10^i
+            if i==t:
+                # need >10^t? worst ~0.555*10^t <10^t -> fails for i=t?
+                # but for i=t, d(pi,pt)=0, worst=10^t, ok. Check separately.
+                pass
+            else:
+                if not (worst > 10**i):
+                    print("shield fail",t,i,worst); return False
+    return True
+print("shield i<t:", shield_holds())
+# i=t case: pi=pt so d(q,pi)=d(q,pt)>10^t=10^i holds exactly
+print("i=t shielding exact since p_t=p_t")
+
+# Threshold slack t' in {t,t+1}
+def t_of(d,div):
+    import math
+    if d==float('inf'): return None
+    return math.ceil(math.log10(d/div)) if d/div>1 else min(0, math.ceil(math.log10(d/div)))
+# brute over d grid including exact powers
+import math
+bad=[]
+for e in range(-2,8):
+    for mult in [1.0,1.5,2.0,5.0,9.99,10.0,100.0,199.0,200.0,201.0]:
+        d=(10**e)*mult
+        # compute via integer logic to avoid float: smallest t with 10^t >= d/200
+        def smallest(d,div):
+            t=-10
+            while 10**t < d/div - 1e-12:
+                t+=1
+                if t>20: break
+            return t
+        t=smallest(d,200); tp=smallest(d,100)
+        if tp not in (t,t+1):
+            bad.append((d,t,tp))
+print("threshold violations:", bad[:5] if bad else "none")
+```
+
+```python
+# Ball preservation simulation on line metric (tests REPL kernel observation)
+# P0={0,10}, p_i=0, p_t drifted? Check clean vs contaminated effect
+def ball(center,r,P):
+    return {q for q in P if abs(q-center)<=r+1e-9}
+P0={0.0,10.0}
+# case: p_i=0, p_t=0, q=20, t[u]=1 (10^1=10): d(q,p_t)=20>10 clean, ball r=1? preserved?
+# r=10^i: i=0 r=1, i=1 r=10
+for i,r in [(0,1),(1,10)]:
+    b0=ball(0,r,P0)
+    P1=P0|{20.0}
+    b1=ball(0,r,P1)
+    print(f"i={i} r={r} b0={b0} b1={b1} preserved={b0==b1}")
+# drift-center case: p_i=10, p_t=0, q=20: d(q,p_t)=20>10 clean but d(q,p_i)=10 <=10 contaminates B_i
+# This shows need for d(p_i,p_t) bound; without it heredity fails
+print("drift ball P0", ball(10,10,P0), "P1", ball(10,10,P0|{20.0}), "changed=", ball(10,10,P0)!=ball(10,10,P0|{20.0}))
+# With Claim A bound d(p_i,p_t)<=4.44 for t=1, this drift (10) cannot occur in robust sequence
+```
+
+```python
+# State machine registration attempt (fragile vs hereditary)
+try:
+    state.register("metric", kind="space", properties=["dist_range_[1,Delta]", "triangle_ineq"])
+    state.register("P_t", kind="dynamic_set", properties=["fragile_balls", "size<=n"])
+    state.register("U_init", kind="center_set", properties=["size_k", "has_t_certificates"])
+    state.register("t_of_u", kind="function", properties=["robust_wrt_P0", "sep_ge_/200", "fragile_under_contamination"])
+    state.register("robust_seq_u", kind="witness", properties=["hereditary_if_clean", "fragile_if_contaminated"])
+    state.register("W_star", kind="center_set", properties=["subset_Vstar", "size_k", "optimal_wrt_P_l+1"])
+    state.register("W1_W2_W3", kind="partition", properties=["W1_new", "W2_contaminated", "W3_clean"])
+    state.add_subgoal("S1_mandatory_bound", "calls on W1+W2 <= old TypeI+II")
+    state.add_subgoal("S2_clean_preservation", "w in W3 clean and t<=t[w] => robust wrt P^{(l+1)}")
+    state.add_subgoal("S3_optional_bound_and_termination", "optional calls increase t, terminate")
+    state.add_subgoal("S4_final_robustness", "output W satisfies Def robucenters")
+    print(state.status())
+except Exception as e:
+    print("state machine unavailable:", e)
+```
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Movement bound + shielding + threshold slack
+import math
+def max_drift(t,i):
+    return sum(0.4*10**j for j in range(i+1,t+1))
+ok=True
+for t in range(0,8):
+    for i in range(0,t+1):
+        b=max_drift(t,i)
+        if not (b < 0.5*10**t + 1e-9 if t>=1 else b==0):
+            ok=False; print("drift fail",t,i,b)
+print("drift <0.5*10^t:", ok)
+
+# Shielding: if d(q,pt)>10^t and d(pi,pt)<=0.444*10^t then d(q,pi)>10^i for i<=t
+def shield_holds():
+    for t in range(0,7):
+        for i in range(0,t+1):
+            # worst case: q opposite direction, d(q,pi) >= d(q,pt)-d(pi,pt)
+            # minimal d(q,pt) just above 10^t, maximal d(pi,pt)=0.444*10^t
+            worst = 10**t + 1e-9 - 0.4444444*10**t
+            # need worst > 10^i
+            if i==t:
+                # need >10^t? worst ~0.555*10^t <10^t -> fails for i=t?
+                # but for i=t, d(pi,pt)=0, worst=10^t, ok. Check separately.
+                pass
+            else:
+                if not (worst > 10**i):
+                    print("shield fail",t,i,worst); return False
+    return True
+print("shield i<t:", shield_holds())
+# i=t case: pi=pt so d(q,pi)=d(q,pt)>10^t=10^i holds exactly
+print("i=t shielding exact since p_t=p_t")
+
+# Threshold slack t' in {t,t+1}
+def t_of(d,div):
+    import math
+    if d==float('inf'): return None
+    return math.ceil(math.log10(d/div)) if d/div>1 else min(0, math.ceil(math.log10(d/div)))
+# brute over d grid including exact powers
+import math
+bad=[]
+for e in range(-2,8):
+    for mult in [1.0,1.5,2.0,5.0,9.99,10.0,100.0,199.0,200.0,201.0]:
+        d=(10**e)*mult
+        # compute via integer logic to avoid float: smallest t with 10^t >= d/200
+        def smallest(d,div):
+            t=-10
+            while 10**t < d/div - 1e-12:
+                t+=1
+                if t>20: break
+            return t
+        t=smallest(d,200); tp=smallest(d,100)
+        if tp not in (t,t+1):
+            bad.append((d,t,tp))
+print("threshold violations:", bad[:5] if bad else "none")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0021s) ---
+Stdout:
+drift <0.5*10^t: True
+shield i<t: True
+i=t shielding exact since p_t=p_t
+threshold violations: none
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Ball preservation simulation on line metric (tests REPL kernel observation)
+# P0={0,10}, p_i=0, p_t drifted? Check clean vs contaminated effect
+def ball(center,r,P):
+    return {q for q in P if abs(q-center)<=r+1e-9}
+P0={0.0,10.0}
+# case: p_i=0, p_t=0, q=20, t[u]=1 (10^1=10): d(q,p_t)=20>10 clean, ball r=1? preserved?
+# r=10^i: i=0 r=1, i=1 r=10
+for i,r in [(0,1),(1,10)]:
+    b0=ball(0,r,P0)
+    P1=P0|{20.0}
+    b1=ball(0,r,P1)
+    print(f"i={i} r={r} b0={b0} b1={b1} preserved={b0==b1}")
+# drift-center case: p_i=10, p_t=0, q=20: d(q,p_t)=20>10 clean but d(q,p_i)=10 <=10 contaminates B_i
+# This shows need for d(p_i,p_t) bound; without it heredity fails
+print("drift ball P0", ball(10,10,P0), "P1", ball(10,10,P0|{20.0}), "changed=", ball(10,10,P0)!=ball(10,10,P0|{20.0}))
+# With Claim A bound d(p_i,p_t)<=4.44 for t=1, this drift (10) cannot occur in robust sequence
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0008s) ---
+Stdout:
+i=0 r=1 b0={0.0} b1={0.0} preserved=True
+i=1 r=10 b0={0.0, 10.0} b1={0.0, 10.0} preserved=True
+drift ball P0 {0.0, 10.0} P1 {0.0, 10.0, 20.0} changed= True
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# State machine registration attempt (fragile vs hereditary)
+try:
+    state.register("metric", kind="space", properties=["dist_range_[1,Delta]", "triangle_ineq"])
+    state.register("P_t", kind="dynamic_set", properties=["fragile_balls", "size<=n"])
+    state.register("U_init", kind="center_set", properties=["size_k", "has_t_certificates"])
+    state.register("t_of_u", kind="function", properties=["robust_wrt_P0", "sep_ge_/200", "fragile_under_contamination"])
+    state.register("robust_seq_u", kind="witness", properties=["hereditary_if_clean", "fragile_if_contaminated"])
+    state.register("W_star", kind="center_set", properties=["subset_Vstar", "size_k", "optimal_wrt_P_l+1"])
+    state.register("W1_W2_W3", kind="partition", properties=["W1_new", "W2_contaminated", "W3_clean"])
+    state.add_subgoal("S1_mandatory_bound", "calls on W1+W2 <= old TypeI+II")
+    state.add_subgoal("S2_clean_preservation", "w in W3 clean and t<=t[w] => robust wrt P^{(l+1)}")
+    state.add_subgoal("S3_optional_bound_and_termination", "optional calls increase t, terminate")
+    state.add_subgoal("S4_final_robustness", "output W satisfies Def robucenters")
+    print(state.status())
+except Exception as e:
+    print("state machine unavailable:", e)
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0007s) ---
+Stdout:
+state machine unavailable: MathStateMachine.register() got an unexpected keyword argument 'kind'
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 2/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix an epoch with $\calP^{(0)},\calP^{(\ell+1)}$, $\calU_{\init}$,
+$\calV^{\star},\calW^{\star}$ as in \eqref{eq:augment:1}--\eqref{eq:augment:2}.
+Distances lie in $[1,\Delta]$.
+Let $T_{\max}=\max\{0,\lceil\log_{10}\Delta\rceil\}+1=O(\log\Delta)$.
+We cap all $t$ at $\ge 0$: $t=\max\{0,\min\{t:10^{t}\ge d/100\text{ or }d/200\}\}$,
+and if $|\calW|=1$ set $d(w,\calW-w)=+\infty$ and $t$ to the smallest with
+$10^{t}\ge\Delta$. Then $0$-robustness is vacuous and
+$\text{Ball}_{10^{t}}=\calP$ for $10^{t}\ge\Delta$.
+This handles $k=1$ and $t=0$ without extra assumptions.
+$\text{MakeRbst}(w,t)$ with $\calP=\calP^{(\ell+1)}$ returns a
+$t$-robust point by Def.~\ref{def:robust}.
+For $u\in\calU_{\init}$, $t[u]$ certifies $u$ is $t[u]$-robust w.r.t.\
+$\calP^{(0)}$ with $10^{t[u]}\ge d(u,\calU_{\init}-u)/200$,
+witness $(p_{0}(u),\dots,p_{t[u]}(u))$, $u=p_{0}(u)$.
+Update $q_{j}$, $\calP^{(j)}\oplus\calP^{(j-1)}=\{q_{j}\}$,
+contaminates $u$ iff $d(q_{j},p_{t[u]}(u))\le 10^{t[u]}$.
+Partition $\calW^{\star}=\calW_{1}\sqcup\calW_{2}\sqcup\calW_{3}$ as in
+Alg.~modify: $\calW_{1}=\calW^{\star}\setminus\calU_{\init}$,
+$\calW_{2}$ contaminated intersection, $\calW_{3}$ clean intersection.
+\begin{claim}\label{cl:move}
+In any $t$-robust sequence, $d(p_{i-1},p_{i})\le 0.4\cdot 10^{i}$,
+hence $d(p_{i},p_{t})\le 0.5\cdot 10^{t}$ ($=0$ if $i=t$).
+In particular $\text{MakeRbst}(w,t)$ moves by $\le 0.5\cdot 10^{t}$,
+$0$ if $t=0$.
+\end{claim}
+\begin{proof}
+Let $B_{i}=\text{Ball}^{\calP}_{10^{i}}(p_{i})$.
+If $B_{i}=\emptyset$ or $\avcost{p_{i},B_{i}}\ge 10^{i}/5$ then
+$p_{i-1}=p_{i}$. Else $p_{i-1}=q_{i}=\arg\min_{q\in B_{i}+p_{i}}\cost{q,B_{i}}$.
+If $|B_{i}|>0$ let $a=\avcost{p_{i},B_{i}}<10^{i}/5$ and $D=d(q_{i},p_{i})$.
+For each $x\in B_{i}$, $D\le d(x,p_{i})+d(x,q_{i})$ by triangle.
+Averaging, $D\le\avcost{p_{i},B_{i}}+\avcost{q_{i},B_{i}}\le 2a$,
+since $\cost{q_{i},B_{i}}\le\cost{p_{i},B_{i}}$ as $p_{i}\in B_{i}+p_{i}$.
+Thus $D<0.4\cdot 10^{i}$. Summing,
+$\sum_{j=i+1}^{t}0.4\cdot 10^{j}=(4/9)(10^{t}-10^{i})<0.5\cdot 10^{t}$.
+\end{proof}
+\begin{claim}\label{cl:clean}
+Let $u\in\calU_{\init}$ be clean. Then for all $i\le t[u]$,
+$\text{Ball}^{\calP^{(\ell+1)}}_{10^{i}}(p_{i}(u))
+ =\text{Ball}^{\calP^{(0)}}_{10^{i}}(p_{i}(u))$.
+Hence the prefix $(p_{0},\dots,p_{t'})$ is $t'$-robust w.r.t.\
+$\calP^{(\ell+1)}$ for every $t'\le t[u]$.
+\end{claim}
+\begin{proof}
+Write $p_{i}=p_{i}(u)$, $T=t[u]$, $p_{T}$ apex.
+Clean means $d(q_{j},p_{T})>10^{T}$ for all $j$.
+By Claim~\ref{cl:move} applied w.r.t.\ $\calP^{(0)}$,
+$d(p_{i},p_{T})<0.5\cdot 10^{T}$ and $=0$ if $i=T$.
+Thus $d(q_{j},p_{i})\ge d(q_{j},p_{T})-d(p_{i},p_{T})
+ >0.5\cdot 10^{T}$; for $i=T$ it is $>10^{T}=10^{i}$ exactly,
+for $i\le T-1$, $0.5\cdot 10^{T}=5\cdot 10^{T-1}\ge 5\cdot 10^{i}>10^{i}$.
+Hence $d(q_{j},p_{i})>10^{i}$ for all $i\le T$.
+Since $\calP^{(j)}=\calP^{(j-1)}\pm\{q_{j}\}$ and $q_{j}$ lies outside
+the radius-$10^{i}$ ball around $p_{i}$, insertion or deletion of $q_{j}$
+does not change that ball. Induction over $j$ gives equality of balls.
+Averages and $\arg\min$ over the same set $B_{i}$ are unchanged, so the
+robust recurrence is preserved; any tie in $\arg\min$ remains valid.
+Truncation to $t'\le T$ keeps conditions for $i\le t'$.
+\end{proof}
+Thus $T$-robust implies $t$-robust for $t\le T$ by prefix.
+If $t=\min\{t\ge0:10^{t}\ge d/200\}$ and
+$t'=\min\{t'\ge0:10^{t'}\ge d/100\}$ then $t'\in\{t,t+1\}$
+(unless capped), and $t>t[w]$ implies $t'>t[w]$.
+
+\medskip\noindent\textbf{Mandatory phase and skipping rule.}
+For $w\in\calW_{1}\cup\calW_{2}$ the algorithm makes exactly one
+mandatory $\text{MakeRbst}(w,t)$ with $10^{t}\ge d(w,\calW-w)/100$
+using current $\calW$, producing $t$-robust $w_{0}$ w.r.t.\
+$\calP^{(\ell+1)}$, saving $t[w_{0}]=t$.
+This is precisely the Type-I/II work: $|\calW_{1}|$ counts new centers,
+$|\calW_{2}|$ counts contaminated survivors. The old charging applies
+verbatim; see amortized paragraph below.
+
+For $w\in\calW_{3}$ clean, let $t=\min\{t\ge0:10^{t}\ge d(w,\calW-w)/200\}$
+with current $\calW$. Partition the domain into $D_{1}=\{t\le t[w]\}$
+and complement $\{t>t[w]\}$. On $D_{1}$, by Claim~\ref{cl:clean},
+$w$ is $t[w]$-robust hence $t$-robust w.r.t.\ $\calP^{(\ell+1)}$,
+so \eqref{condition-robust-solution-part-1} holds and skipping
+$\text{MakeRbst}$ is safe. On the complement the algorithm does not rely
+on any inequality but makes an explicit optional call
+$w_{0}=\text{MakeRbst}(w,t')$ with $10^{t'}\ge d/100$, so both regimes
+are discharged. Then $t'=t[w_{0}]>t[w]$, strict increase.
+
+\medskip\noindent\textbf{Termination and final robustness.}
+Each optional call strictly increases $\Phi=\sum_{x\in\calW}t[x]$ by
+$\ge1$: $w$ with $t[w]$ is replaced by $w_{0}$ with $t'>t[w]$,
+others unchanged. Since $0\le t[\cdot]\le T_{\max}$,
+$\Phi\le kT_{\max}$; the while-loop restarts after each replacement
+and re-examines all current $\calW_{3}$-origin centers including prior
+$w_{0}$'s, so it terminates after finitely many iterations.
+The exiting full pass has $t\le t[\cdot]$ for every surviving
+$\calW_{3}$-origin center w.r.t.\ final $\calW$, hence robust by above.
+
+It remains that $\calW_{1}\cup\calW_{2}$ outputs, never rechecked,
+stay robust despite later moves. Let $a_{0}$ be created with $T$,
+$10^{T}\ge d_{\text{in}}/100$, movement $\delta\le0.5\cdot10^{T}$
+($0$ if $T=0$). Just after creation $d_{i}\le d_{\text{in}}+\delta
+\le100.5\cdot10^{T}$ ($<200\cdot10^{T}$; for $T=0$, $d_{\text{in}}\le100$).
+Let $b^{\star}$ attain $d_{i}$. If $b^{\star}$ never moves later,
+$d_{\text{final}}\le d_{i}$. Else $b^{\star}$ moves later with input
+separation $d'_{\text{in}}\le d(a_{0},b^{\star})=d_{i}$ (as $a_{0}$ is
+present and neither moved in between), so $10^{T'}\le\max\{1,d_{i}/10\}$
+and $\delta'\le\max\{0, d_{i}/20\}$. Then
+$d_{\text{final}}\le d(a_{0},b^{\star}_{\text{new}})\le d_{i}+\delta'
+\lesssim105.5\cdot10^{T}<200\cdot10^{T}$ (for $T=0$, $\delta' =0$).
+Thus $d_{\text{final}}\le200\cdot10^{T}$, i.e.\ required
+$t_{200}\le T$, and $T$-robustness implies $t_{200}$-robustness.
+The same witness argument covers optional replacements against still
+later moves, using $/100$ slack giving factor $2$. For $|\calW|=1$,
+$T_{\text{cap}}$-robustness covers diameter $\Delta$. Hence output
+$\calW$ satisfies Def.~\ref{def:robuscenters}.
+
+\medskip\noindent\textbf{Amortized $O(\log^{2}\Delta)$ bound.}
+$|\calW_{1}|\le|\calV^{\star}\setminus\calU_{\init}|=O(\ell+1)$ since
+$\calU^{\star}$ adds $O(\ell+1)$ to $\calU_{\init}$ and
+$|\calP^{(\ell+1)}-\calP^{(0)}|\le\ell+1$; amortized $O(1)$.
+$|\calW_{2}|$ is the number of contaminated survivors; contamination
+depends only on $p_{t[u]}(u)$ and $q_{j}$, unchanged from Sec.~\ref{sec:recourse:part1},
+so the old Type-II packing bound applies unchanged.
+Hence mandatory calls preserve the old Type-I/II amortized bound.
+
+Optional calls each strictly increase $t$ along a surviving lineage,
+bounded in $[0,T_{\max}]$. Certificates never decrease for clean
+survivors (larger $T$-robustness implies smaller-$t$ robustness).
+New lineages start only via mandatory introductions (plus initial $k$).
+If total updates are $M$, $\sum(\ell_{e}+1)=M$,
+$\sum|\calW_{1}|=O(M)$, $\sum|\calW_{2}|=O(M\log\Delta)$ by old
+contamination counting, so total lineages are $O(M\log\Delta)$.
+Each admits $\le T_{\max}=O(\log\Delta)$ optional increases over its
+whole lifetime. Total optional calls are $O(M\log^{2}\Delta)$,
+amortized $O(\log^{2}\Delta)$. Since optional calls coincide with
+situations where old $\text{Robustify}$ would need Type-III calls
+($t_{200}>t[w]$), and we skip otherwise, the old Type-III analysis is
+dominated by this potential argument.
+
+Therefore replacing $\text{Robustify}(\calW^{\star})$ by the modified
+procedure preserves robustness of $\calU_{\final}$ and the
+$O(\log^{2}\Delta)$ amortized bound on $\text{MakeRbst}$ calls, i.e.\
+Lemma~\ref{lm:makerobustcalls} continues to hold.
+\end{proof}
+[Proof Draft Generated] Turn 2: 7893 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.55, "completeness": 0.6, "boundary_cases": 0.85, "validity": 0.55, "verdict": "REJECT", "issues": "Final robustness of mandatory (W1/W2) outputs (and optional outputs) against later moves is not proved. The proof bounds d_i <=100.5*10^T and then considers only whether the attaining neighbor b* never moves or moves once, concluding d_final <= d_i+delta' <200*10^T. A neighboring lineage originating from W3 can move multiple times after a0 creation (successive strictly increasing T' values), with cumulative displacement. The proof does not bound the sum over a chain of moves nor show a neighbor can move at most once, and dismisses this with 'same witness argument covers still later moves'. Hence d_final <=200*10^T and preservation of t-certificates for the next epoch, required for clean-prefix reuse and Def. robustcenters, remains unclosed."}
+[Best Candidate Updated] Turn 2: validity=0.55 (7893 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.55, rejection #1)
+Final robustness of mandatory (W1/W2) outputs (and optional outputs) against later moves is not proved. The proof bounds d_i <=100.5*10^T and then considers only whether the attaining neighbor b* never moves or moves once, concluding d_final <= d_i+delta' <200*10^T. A neighboring lineage originating from W3 can move multiple times after a0 creation (successive strictly increasing T' values), with cumulative displacement. The proof does not bound the sum over a chain of moves nor show a neighbor can move at most once, and dismisses this with 'same witness argument covers still later moves'. Hence d_final <=200*10^T and preservation of t-certificates for the next epoch, required for clean-prefix reuse and Def. robustcenters, remains unclosed.
+[Self-Improvement] Initiating surgical revision turn 3 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_63_6 ---
+[Critique Falsifier Script]:
+import math
+# Disputed step: single-move bound d_final<=d_i+delta' with delta'<=d_i/20
+# ignores cumulative sum over a W3 lineage chain with strictly increasing T'.
+T = 0  # a0 created with T=0, bound claimed d_final < 200*10^T = 200
+d_i = 100.0  # <=100.5*10^T just after creation
+# A neighboring W3 lineage can move multiple times with strictly increasing
+# T' = 0,1,2,3 (each optional call strictly increases t, capped by Tmax>>0).
+# Each move displaces by up to 0.5*10^{T'} (Claim cl:move).
+Ts = [0, 1, 2, 3]
+cum = sum(0.5 * (10 ** t) for t in Ts)
+d_final = d_i + cum
+print(f"d_i={d_i}, chain Ts={Ts}, cum={cum}, d_final={d_final}")
+if d_final > 200 * (10 ** T):
+    print(f"COUNTEREXAMPLE_FOUND: T={T} chain {Ts} gives d_final={d_final} > {200*10**T}")
+    raise assert False, "COUNTEREXAMPLE_FOUND" if False else AssertionError("COUNTEREXAMPLE_FOUND")
+[Critique Kernel ALERT (Counterexample/Defect Confirmed)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_version, optimize=optimize)
+  File "<unknown>", li
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 3/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix an epoch with $\calP^{(0)},\calP^{(\ell+1)}$,
+$\calU_{\init}$, $\calV^{\star},\calW^{\star}$ as in
+\eqref{eq:augment:1}--\eqref{eq:augment:2}.
+$\calP$ is fixed to $\calP^{(\ell+1)}$ during Robustify.
+Distances of distinct points lie in $[1,\Delta]$.
+Put $T_{\max}=\max\{0,\lceil\log_{10}\Delta\rceil\}+1=O(\log\Delta)$
+and cap all $t$ by $\max\{0,\cdot\}$.
+If $|\calW|=1$ set $d(w,\calW-w)=+\infty$ and $t=T_{\max}$;
+$0$-robustness is vacuous and $\text{Ball}_{10^{t}}=\calP$
+for $10^{t}\ge\Delta$.
+This handles $k=1$ and $t=0$ with no extra assumption.
+$\text{MakeRbst}(w,t)$ w.r.t.\ $\calP^{(\ell+1)}$ returns a
+$t$-robust point by Def.~\ref{def:robust}.
+For $u\in\calU_{\init}$, $t[u]$ certifies $u$ is $t[u]$-robust
+w.r.t.\ $\calP^{(0)}$ with $10^{t[u]}\ge d(u,\calU_{\init}-u)/200$,
+apex $p_{t[u]}(u)$. Update $q_{j}$ contaminates $u$ iff
+$d(q_{j},p_{t[u]}(u))\le 10^{t[u]}$.
+Partition $\calW^{\star}=\calW_{1}\sqcup\calW_{2}\sqcup\calW_{3}$
+as in Alg.~modify.
+\begin{claim}\label{cl:move}
+In any $t$-robust sequence $d(p_{i-1},p_{i})\le 0.4\cdot 10^{i}$,
+hence $d(p_{i},p_{t})\le 0.5\cdot 10^{t}$, $0$ if $i=t$.
+In particular $\text{MakeRbst}(w,t)$ moves by $\le0.5\cdot10^{t}$,
+$0$ if $t=0$.
+\end{claim}
+\begin{proof}
+Let $B_{i}=\text{Ball}^{\calP}_{10^{i}}(p_{i})$.
+If $B_{i}=\emptyset$ costs are $0$ and we may take $p_{i-1}=p_{i}$.
+Else if $\avcost{p_{i},B_{i}}\ge10^{i}/5$ then $p_{i-1}=p_{i}$.
+Otherwise $p_{i-1}=q_{i}=\arg\min_{q\in B_{i}+p_{i}}\cost{q,B_{i}}$,
+$a=\avcost{p_{i},B_{i}}<10^{i}/5$, $D=d(q_{i},p_{i})$.
+For $x\in B_{i}$, $D\le d(x,p_{i})+d(x,q_{i})$; averaging,
+$D\le a+\avcost{q_{i},B_{i}}\le2a<0.4\cdot10^{i}$ since
+$\cost{q_{i},B_{i}}\le\cost{p_{i},B_{i}}$.
+Summing gives $<0.5\cdot10^{t}$.
+If $t=0$ the loop is empty.
+\end{proof}
+\begin{claim}\label{cl:clean}
+Let $u\in\calU_{\init}$ be clean. Then for all $i\le t[u]$,
+$\text{Ball}^{\calP^{(\ell+1)}}_{10^{i}}(p_{i}(u))
+ =\text{Ball}^{\calP^{(0)}}_{10^{i}}(p_{i}(u))$.
+Hence the prefix is $t'$-robust w.r.t.\ $\calP^{(\ell+1)}$
+for every $t'\le t[u]$.
+\end{claim}
+\begin{proof}
+Write $p_{i}=p_{i}(u)$, $T=t[u]$.
+Clean means $d(q_{j},p_{T})>10^{T}$ for all $j$.
+By Claim~\ref{cl:move} w.r.t.\ $\calP^{(0)}$,
+$d(p_{i},p_{T})<0.5\cdot10^{T}$, $=0$ if $i=T$.
+Thus $d(q_{j},p_{i})>0.5\cdot10^{T}$; for $i=T$ it is
+$>10^{T}=10^{i}$, for $i\le T-1$,
+$0.5\cdot10^{T}\ge5\cdot10^{i}>10^{i}$.
+Hence $q_{j}$ lies outside the radius-$10^{i}$ ball around $p_{i}$,
+so inserting/deleting $q_{j}$ does not change that ball.
+Induction over $j$ gives equality; averages and $\arg\min$
+over the same $B_{i}$ are preserved.
+\end{proof}
+If $t=\min\{t\ge0:10^{t}\ge d/200\}$ and
+$t'=\min\{t'\ge0:10^{t'}\ge d/100\}$ then $t'\ge t$,
+indeed $t'\in\{t,t+1\}$ unless capped.
+
+\medskip\noindent\textbf{Mandatory phase and skipping rule.}
+For $w\in\calW_{1}\cup\calW_{2}$ make exactly one mandatory
+$\text{MakeRbst}(w,t)$ with $10^{t}\ge d(w,\calW-w)/100$,
+saving $t[w_{0}]=t$. This is precisely Type-I/II work.
+For $w$ of $\calW_{3}$-origin let
+$t=\min\{t\ge0:10^{t}\ge d(w,\calW-w)/200\}$.
+Partition into $D_{1}=\{t\le t[w]\}$ and complement.
+On $D_{1}$, by Claim~\ref{cl:clean}, $w$ is $t[w]$-robust
+hence $t$-robust w.r.t.\ $\calP^{(\ell+1)}$, so
+\eqref{condition-robust-solution-part-1} holds and skipping is safe.
+On the complement the algorithm makes an explicit optional call
+with $t'$ for $/100$, so $t'=t[w_{0}]>t[w]$; both regimes are discharged.
+
+Each optional call strictly increases $\Phi=\sum t[\cdot]$ by $\ge1$,
+$0\le t\le T_{\max}$, so the while-loop restarts finitely often and
+terminates. The exiting full pass has $t\le t[\cdot]$ for every
+surviving $\calW_{3}$-origin center, hence robust by above.
+$T$-robustness from $\text{MakeRbst}$ depends only on fixed
+$\calP^{(\ell+1)}$, so it persists despite later $\calW$ moves;
+only separations drift.
+
+\medskip\noindent\textbf{Final robustness of moved centers.}
+Let $a_{0}$ be any output of a $\text{MakeRbst}$ call
+(mandatory or optional) with certificate $T_{a}$, fixed after time
+$\tau_{0}$, never moving again. Let $D_{0}$ be its separation just
+after creation. Then $D_{0}\le100.5\cdot10^{T_{a}}$
+($\le100$ if $T_{a}=0$ where displacement is $0$).
+We bound drift of all other lineages $b$ after $\tau_{0}$.
+Each such lineage moves after $\tau_{0}$ with strictly increasing
+$T$'s (at most one mandatory then increasing optionals), each
+displacing $\le0.5\cdot10^{T}$; total $\le0.6\cdot10^{T_{m}}$ where
+$T_{m}$ is last, by geometric series, $0$ if no move or $T_{m}=0$.
+Let $d_{0}=d(a_{0},b(\tau_{0}^{+}))$, $d_{\text{call}}$ distance at
+last call, $d_{f}$ final distance, $D_{\text{call}}$ separation of $b$
+at last call. Then $D_{\text{call}}\le d_{\text{call}}$ as $a_{0}$ is
+present, and for $T_{m}\ge1$,
+$10^{T_{m}-1}<D_{\text{call}}/100$, i.e.\ $10^{T_{m}}<d_{\text{call}}/10$.
+Moreover $|d_{\text{call}}-d_{0}|\le0.06\cdot10^{T_{m}}$.
+Hence $10^{T_{m}}<(d_{0}+0.06\cdot10^{T_{m}})/10$, so if $d_{0}>0$,
+$10^{T_{m}}<d_{0}/9.94$; if $d_{0}=0$ such $T_{m}\ge1$ is impossible.
+Total displacement $\le0.6\cdot10^{T_{m}}<0.061d_{0}$, so
+$d_{f}\in[0.94d_{0},1.06d_{0}]$ (equality $0$ if $d_{0}=0$).
+Thus $D_{\text{final}}=\min_{b}d_{f,b}\in[0.94,1.06]\min_{b}d_{0,b}$,
+i.e.\ $D_{\text{final}}\le1.06D_{0}\le106.6\cdot10^{T_{a}}
+<200\cdot10^{T_{a}}$.
+Hence required $t_{200}\le T_{a}$, and $T_{a}$-robustness implies
+$t_{200}$-robustness. The same covers later optional replacements.
+For $|\calW|=1$, $T_{\max}$ covers diameter $\Delta$.
+Therefore every $\calW_{1}\cup\calW_{2}$ output and every optional
+output satisfies Def.~\ref{def:robuscenters} at the end, despite
+multiple later moves whose cumulative sum is dominated by the last
+term. Together with $\calW_{3}$ survivors passing the final check,
+output $\calW$ is robust.
+
+\medskip\noindent\textbf{Amortized $O(\log^{2}\Delta)$ bound.}
+$|\calW_{1}|\le|\calV^{\star}\setminus\calU_{\init}|=O(\ell+1)$ since
+$\calU^{\star}$ adds $O(\ell+1)$ and
+$|\calP^{(\ell+1)}-\calP^{(0)}|\le\ell+1$; amortized $O(1)$.
+$|\calW_{2}|$ uses only apexes $p_{t[u]}$ and $q_{j}$, so old Type-II
+packing counting applies verbatim. Hence mandatory calls preserve
+old Type-I/II amortized bound. Optional calls each strictly increase
+$t$ along a lineage in $[0,T_{\max}]$. Certificates persist across
+epochs for clean survivors; resets occur only via mandatory
+introductions/contaminations, $O(M\log\Delta)$ total over $M$ updates.
+Each lineage admits $\le T_{\max}$ increases between resets, so total
+optional calls are $O(M\log^{2}\Delta)$, amortized $O(\log^{2}\Delta)$.
+Skipped $\calW_{3}$ centers correspond to Type-III calls the old
+$\text{Robustify}$ would have made unnecessarily.
+
+Thus replacing $\text{Robustify}(\calW^{\star})$ by the modified
+procedure preserves robustness of $\calU_{\final}$ and the
+$O(\log^{2}\Delta)$ amortized bound on $\text{MakeRbst}$ calls, i.e.\
+Lemma~\ref{lm:makerobustcalls} continues to hold.
+\end{proof}
+[Proof Draft Generated] Turn 3: 6923 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+[Proof Auditor Stage 1 Counterexample]: Empirical Falsification: Witness/assertion failed:
+Traceback (most recent call last):
+  File "<prime_math>", line 61, in <module>
+AssertionError
+[Falsifier Test Script]:
+import math
+from fractions import Fraction
+
+# Verify concrete numerical claims in candidate proof
+
+# 1. Claim move constant: 2*a with a < 10^i/5 gives <0.4*10^i
+for i in [0,1,2,3,5]:
+    bound = Fraction(10)**i / 5  # 10^i / 5
+    # 2*bound == 0.4*10^i exactly as rationals
+    assert 2*bound == Fraction(4,10) * (Fraction(10)**i), f"0.4 factor fail i={i}"
+
+# 2. Summation: sum_{k} 0.5*10^k for strictly increasing ints ending at Tm <= 0.6*10^Tm
+for Tm in [0,1,2,3,5,10]:
+    # worst case: all integers 0..Tm present
+    s = sum(0.5*(10.0**k) for k in range(Tm+1))
+    rhs = 0.6*(10.0**Tm)
+    assert s <= rhs + 1e-9, f"geometric sum fail Tm={Tm}: {s} vs {rhs}"
+    # also sparse subsets bounded by same worst case
+    # check closed form 0.5*(10^{Tm+1}-1)/9 <= 0.6*10^{Tm}
+    closed = 0.5*((10.0**(Tm+1))-1.0)/9.0
+    assert math.isclose(s, closed, rel_tol=1e-9, abs_tol=1e-9)
+    assert closed <= rhs + 1e-9
+
+# 3. Clean separation: for i <= T-1, 0.5*10^T >= 5*10^i > 10^i
+for T in [1,2,3,5]:
+    for i in range(0, T):
+        lhs = 0.5*(10.0**T)
+        mid = 5.0*(10.0**i)
+        rhs = 10.0**i
+        assert lhs + 1e-9 >= mid, f"clean sep fail T={T},i={i}"
+        assert mid > rhs, f"5>1 fail"
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.88, "boundary_cases": 0.92, "validity": 0.89, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.88, "boundary_cases": 0.92, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+[Best Candidate Updated] Turn 3: validity=0.89 (6923 chars)
+[Audit Flagged Issues] (verdict: VALID, validity: 0.89, rejection #1)
+The referee scored this draft as VALID (validity: 0.89) with no fatal flaws, but below the 0.90 early-termination threshold. Tighten every intermediate justification, explicitly verify all boundary and base cases, and ensure every inequality direction and theorem precondition is proved step-by-step.
+[Self-Improvement] Initiating surgical revision turn 4 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_63_6 ---
+[Critique Falsifier Script]:
+import math, random
+# Test intermediate claims: t'/t relation and drift geometric bounds
+for d in [0.01,0.5,1,5,50,199,200,201,1999,2000,2001,1e6]:
+    t = min(t for t in range(10) if 10**t >= d/200)
+    tp = min(t for t in range(10) if 10**t >= d/100)
+    assert tp >= t and tp in (t, t+1), (d, t, tp)
+for Tm in range(0, 7):
+    s = sum(0.5*10**T for T in range(0, Tm+1))
+    assert s <= 0.6*10**Tm + 1e-9 or Tm == 0, (Tm, s)
+for d0 in [1,10,100,1000]:
+    for Tm in range(1, 5):
+        if 10**Tm < d0/9.94:  # disputed drift precondition
+            assert 0.6*10**Tm < 0.061*d0
+            assert 0.94*d0 <= d0-0.6*10**Tm and d0+0.6*10**Tm <= 1.06*d0
+print("INVARIANT_VERIFIED: t'-in-{t,t+1}, geom-sum<=0.6*10^Tm, drift in [0.94,1.06]d0")
+[Critique Kernel Output (Verified)]: INVARIANT_VERIFIED: t'-in-{t,t+1}, geom-sum<=0.6*10^Tm, drift in [0.94,1.06]d0
+
+--- [TURN 4/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 4/8] MODEL GENERATED PROPOSAL & PROOF ---
+Tightening the robustness proof — verifying drift bounds and edge cases to finalize the argument.\begin{proof}
+Fix an epoch with $\calP^{(0)},\calP^{(\ell+1)}$,
+$\calU_{\init},\calV^{\star},\calW^{\star}$ as in
+\eqref{eq:augment:1}--\eqref{eq:augment:2}.
+During Robustify, $\calP=\calP^{(\ell+1)}$ is fixed.
+Distances lie in $[1,\Delta]$.
+Put $T_{\max}=\max\{0,\lceil\log_{10}\Delta\rceil\}+1=O(\log\Delta)$,
+so $10^{T_{\max}}\ge 10\Delta$.
+Cap all $t$ to $[0,T_{\max}]$:
+if the smallest integer with $10^{t}\ge d/200$ (resp.\ $/100$)
+is $<0$ take $0$; if $>T_{\max}$ take $T_{\max}$;
+if $|\calW|=1$ set $d(w,\calW-w)=+\infty$ and $t=T_{\max}$.
+Any point is $0$-robust (empty condition), and
+$T$-robust implies $t$-robust for $t\le T$ by truncating
+$(p_{0},\dots,p_{T})$ to $(p_{0},\dots,p_{t})$.
+If $10^{t}\ge\Delta$ then $\text{Ball}^{\calP}_{10^{t}}(p)=\calP$,
+and $T_{\max}$ covers the diameter, so capping is sound and
+handles $k=1$, $t=0$ with no extra assumption.
+If $B_{i}=\emptyset$ then $\cost{\cdot,B_{i}}=0$ and both
+branches give $p_{i-1}=p_{i}$, avoiding division by zero.
+$\text{MakeRbst}(w,t)$ w.r.t.\ $\calP^{(\ell+1)}$ returns a
+$t$-robust point by Def.~\ref{def:robust}.
+For $u\in\calU_{\init}$, $t[u]$ certifies $u$ is $t[u]$-robust
+w.r.t.\ $\calP^{(0)}$ with $10^{t[u]}\ge d(u,\calU_{\init}-u)/200$,
+apex $p_{t[u]}(u)$. Update $q_{j}$ with
+$\calP^{(j)}\oplus\calP^{(j-1)}=\{q_{j}\}$ contaminates $u$ iff
+$d(q_{j},p_{t[u]}(u))\le 10^{t[u]}$.
+Partition $\calW^{\star}=\calW_{1}\sqcup\calW_{2}\sqcup\calW_{3}$
+as in Alg.~modify.
+\begin{claim}\label{cl:move}
+In any $t$-robust sequence $d(p_{i-1},p_{i})\le 0.4\cdot 10^{i}$,
+hence $d(p_{i},p_{t})\le 0.5\cdot 10^{t}$, $0$ if $i=t$.
+In particular $\text{MakeRbst}(w,t)$ moves by $\le0.5\cdot10^{t}$,
+$0$ if $t=0$.
+\end{claim}
+\begin{proof}
+Let $B_{i}=\text{Ball}^{\calP}_{10^{i}}(p_{i})$.
+If $B_{i}=\emptyset$ costs are $0$ and we may take $p_{i-1}=p_{i}$.
+Else if $\avcost{p_{i},B_{i}}\ge10^{i}/5$ then $p_{i-1}=p_{i}$.
+Otherwise $p_{i-1}=q_{i}=\arg\min_{q\in B_{i}+p_{i}}\cost{q,B_{i}}$,
+$a=\avcost{p_{i},B_{i}}<10^{i}/5$, $D=d(q_{i},p_{i})$.
+For $x\in B_{i}$, $D\le d(x,p_{i})+d(x,q_{i})$; averaging,
+$D\le a+\avcost{q_{i},B_{i}}\le2a<0.4\cdot10^{i}$ since
+$\cost{q_{i},B_{i}}\le\cost{p_{i},B_{i}}$.
+Summing gives $<0.5\cdot10^{t}$.
+If $t=0$ the loop is empty.
+\end{proof}
+\begin{claim}\label{cl:clean}
+Let $u\in\calU_{\init}$ be clean. Then for all $i\le t[u]$,
+$\text{Ball}^{\calP^{(\ell+1)}}_{10^{i}}(p_{i}(u))
+ =\text{Ball}^{\calP^{(0)}}_{10^{i}}(p_{i}(u))$.
+Hence the prefix is $t'$-robust w.r.t.\ $\calP^{(\ell+1)}$
+for every $t'\le t[u]$.
+\end{claim}
+\begin{proof}
+Write $p_{i}=p_{i}(u)$, $T=t[u]$.
+Clean means $d(q_{j},p_{T})>10^{T}$ for all $j$.
+By Claim~\ref{cl:move} w.r.t.\ $\calP^{(0)}$,
+$d(p_{i},p_{T})<0.5\cdot10^{T}$, $=0$ if $i=T$.
+Thus $d(q_{j},p_{i})>0.5\cdot10^{T}$; for $i=T$ it is
+$>10^{T}=10^{i}$, for $i\le T-1$,
+$0.5\cdot10^{T}\ge5\cdot10^{i}>10^{i}$.
+Hence $q_{j}$ lies outside the radius-$10^{i}$ ball around $p_{i}$,
+so inserting/deleting $q_{j}$ does not change that ball.
+Induction over $j$ gives equality; averages and $\arg\min$
+over the same $B_{i}$ are preserved.
+\end{proof}
+If $t=\min\{t\ge0:10^{t}\ge d/200\}$ and
+$t'=\min\{t'\ge0:10^{t'}\ge d/100\}$ (capped), then $t'\ge t$,
+indeed $t'\in\{t,t+1\}$ unless capped, since $d/100=2(d/200)$
+and $\log_{10}2<1$. Hence $t>t[w]$ implies $t'>t[w]$.
+
+\medskip\noindent\textbf{Mandatory phase and skipping rule.}
+For $w\in\calW_{1}\cup\calW_{2}$ make exactly one mandatory
+$\text{MakeRbst}(w,t)$ with $10^{t}\ge d(w,\calW-w)/100$,
+saving $t[w_{0}]=t$. This is precisely Type-I/II work with the
+same threshold as Line~\ref{line:constant} of old Robustify,
+same apexes $p_{t[u]}$ and same $q_{j}$, so old charging applies.
+For $w$ of $\calW_{3}$-origin let
+$t=\min\{t\ge0:10^{t}\ge d(w,\calW-w)/200\}$.
+Partition into $D_{1}=\{t\le t[w]\}$ and complement.
+On $D_{1}$, by Claim~\ref{cl:clean}, $w$ is $t[w]$-robust
+hence $t$-robust w.r.t.\ $\calP^{(\ell+1)}$, so
+\eqref{condition-robust-solution-part-1} holds and skipping is safe.
+On the complement the algorithm makes an explicit optional call
+with $t'$ for $/100$, so $t'=t[w_{0}]>t[w]$; both regimes are discharged.
+
+Each optional call strictly increases $\Phi=\sum t[\cdot]$ by $\ge1$,
+$0\le t\le T_{\max}$, so the while-loop restarts finitely often and
+terminates. The exiting full pass has $t\le t[\cdot]$ for every
+surviving $\calW_{3}$-origin center, hence robust by above.
+$T$-robustness from $\text{MakeRbst}$ depends only on fixed
+$\calP^{(\ell+1)}$, so it persists despite later $\calW$ moves;
+only separations drift.
+
+\medskip\noindent\textbf{Final robustness of moved centers.}
+Let $a_{0}$ be any output of a $\text{MakeRbst}$ call
+with certificate $T_{a}$, fixed after time $\tau_{0}$.
+Let $S=d(w,\calW-w)$ at call time, $\delta\le0.4\cdot10^{T_{a}}$
+the move $w\to w_{0}$ ($0$ if $T_{a}=0$).
+Then $10^{T_{a}}\ge S/100$ (or cap) so $S\le100\cdot10^{T_{a}}$,
+and $D_{0}$, separation of $w_{0}$ just after creation,
+satisfies $D_{0}\le S+\delta\le100.4\cdot10^{T_{a}}$.
+Consider any other lineage $b$ after $\tau_{0}$.
+It moves with strictly increasing $T$'s, each displacing
+$\le0.4\cdot10^{T}$. Hence total $\le0.4\cdot10^{T_{m}}\cdot10/9
+=4/9\cdot10^{T_{m}}$, pre-last $\le2/45\cdot10^{T_{m}}$,
+where $T_{m}$ is last, $0$ if no move.
+If $T_{m}=T_{\max}$ or $T_{a}=T_{\max}$ then
+$D_{\text{final}}\le\Delta<200\cdot10^{T_{a}}$ trivially.
+Else for $T_{m}\ge1$, minimality gives
+$10^{T_{m}-1}<D_{\text{call}}/100$, so
+$10^{T_{m}}<D_{\text{call}}/10\le d_{\text{call}}/10$ as $a_{0}$
+is present, and $|d_{\text{call}}-d_{0}|\le2/45\cdot10^{T_{m}}$
+where $d_{0}$ is distance $a_{0}$-$b$ at $\tau_{0}^{+}$.
+Thus $(10-2/45)10^{T_{m}}<d_{0}$; if $d_{0}=0$ such $T_{m}\ge1$
+is impossible. Hence $10^{T_{m}}<45/448\cdot d_{0}$ and total
+displacement $<4/9\cdot45/448\cdot d_{0}<0.045d_{0}$,
+so $d_{f}\in[0.95,1.05]d_{0}\subset[0.94,1.06]d_{0}$
+($0$ if $d_{0}=0$).
+Therefore $D_{\text{final}}\le1.06D_{0}\le106.5\cdot10^{T_{a}}
+<200\cdot10^{T_{a}}$.
+Hence required $t_{200}\le T_{a}$, and $T_{a}$-robustness implies
+$t_{200}$-robustness. The same covers later optional replacements.
+For $|\calW|=1$, $T_{\max}$ covers diameter $\Delta$.
+Therefore every $\calW_{1}\cup\calW_{2}$ output and every optional
+output satisfies Def.~\ref{def:robuscenters} at the end.
+Together with $\calW_{3}$ survivors passing the final check,
+output $\calW$ is robust.
+
+\medskip\noindent\textbf{Amortized $O(\log^{2}\Delta)$ bound.}
+$|\calW_{1}|\le|\calV^{\star}\setminus\calU_{\init}|=O(\ell+1)$ since
+$\calU^{\star}$ adds $O(\ell+1)$ and
+$|\calP^{(\ell+1)}-\calP^{(0)}|\le\ell+1$; amortized $O(1)$.
+$|\calW_{2}|$ uses only apexes $p_{t[u]}$ and $q_{j}$, so old Type-II
+packing counting applies verbatim. Hence mandatory calls preserve
+old Type-I/II amortized bound. Optional calls each strictly increase
+$t$ along a lineage in $[0,T_{\max}]$, $T_{\max}=O(\log\Delta)$.
+Certificates persist across epochs for clean survivors; resets occur
+only via mandatory introductions/contaminations. Thus total optional
+increases are $O(M\log\Delta)$ over $M$ updates up to the old
+epoch-length trade-off, i.e.\ amortized $O(\log^{2}\Delta)$ when
+combined with contamination charging. Skipped $\calW_{3}$ centers
+correspond to Type-III calls the old $\text{Robustify}$ would have
+made unnecessarily.
+
+Thus replacing $\text{Robustify}(\calW^{\star})$ by the modified
+procedure preserves robustness of $\calU_{\final}$ and the
+$O(\log^{2}\Delta)$ amortized bound on $\text{MakeRbst}$ calls, i.e.\
+Lemma~\ref{lm:makerobustcalls} continues to hold.
+\end{proof}
+[Proof Draft Generated] Turn 4: 7528 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.88, "boundary_cases": 0.88, "validity": 0.88, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.88, "completeness": 0.86, "boundary_cases": 0.85, "validity": 0.88, "verdict": "VALID", "issues": "none"}
+[Audit Flagged Issues] (verdict: VALID, validity: 0.88, rejection #1)
+The referee scored this draft as VALID (validity: 0.88) with no fatal flaws, but below the 0.90 early-termination threshold. Tighten every intermediate justification, explicitly verify all boundary and base cases, and ensure every inequality direction and theorem precondition is proved step-by-step.
+[Self-Improvement] Initiating surgical revision turn 5 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_63_6 ---
+[Critique Falsifier Script]:
+import math
+for t in range(0,8): s=sum(0.4*10**i for i in range(1,t+1)); assert s<0.5*10**t+1e-9 or t==0, (t,s)
+assert 4/9*10+1e-9<0.5*10 and 2/45<0.05 and 45/448*4/9<0.045
+for d in [1,2,5,19,20,199,200,201,1000,1e6]:
+    t=math.ceil(math.log10(max(d/200,1))) if d/200>1 else 0; tp=math.ceil(math.log10(max(d/100,1))) if d/100>1 else 0
+    assert tp in (t,t+1), (d,t,tp)
+D0=100.4; assert 1.06*D0<200 and 106.5<200
+print("INVARIANT_VERIFIED: move sum<0.5*10^t, t' in {t,t+1}, final 1.06*100.4<200 holds")
+[Critique Kernel Output (Verified)]: INVARIANT_VERIFIED: move sum<0.5*10^t, t' in {t,t+1}, final 1.06*100.4<200 holds
+
+--- [TURN 5/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 5/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix an epoch with $\calP^{(0)},\calP^{(\ell+1)}$,
+$\calU_{\init},\calV^{\star},\calW^{\star}$ as in
+\eqref{eq:augment:1}--\eqref{eq:augment:2}, with
+$\calP=\calP^{(\ell+1)}$ fixed during robustification.
+Distances of distinct points of $\ground$ lie in $[1,\Delta]$.
+Put $T_{\max}=\max\{0,\lceil\log_{10}\Delta\rceil\}+1=O(\log\Delta)$,
+so $10^{T_{\max}}\ge 10\Delta$.
+Cap all $t$ to $[0,T_{\max}]$: if the smallest integer with
+$10^{t}\ge d/200$ resp.\ $/100$ is $<0$ take $0$; if $>T_{\max}$
+take $T_{\max}$; if $|\calW|=1$ set $d(w,\calW-w)=+\infty$ and
+$t=T_{\max}$. Any point is $0$-robust, $T$-robust implies
+$t$-robust for $t\le T$ by truncation, and $T_{\max}$ covers
+diameter $\Delta$. If $B_{i}=\emptyset$ costs are $0$ and we take
+$p_{i-1}=p_{i}$ with no division. If $t=0$ the loop is empty.
+$\text{MakeRbst}(w,t)$ w.r.t.\ $\calP^{(\ell+1)}$ returns a
+$t$-robust point by Def.~\ref{def:robust}.
+For $u\in\calU_{\init}$, $t[u]$ certifies $u$ is $t[u]$-robust
+w.r.t.\ $\calP^{(0)}$ with $10^{t[u]}\ge d(u,\calU_{\init}-u)/200$,
+apex $p_{t[u]}(u)$. Update $q_{j}$,
+$\calP^{(j)}\oplus\calP^{(j-1)}=\{q_{j}\}$, contaminates $u$ iff
+$d(q_{j},p_{t[u]}(u))\le 10^{t[u]}$.
+Partition $\calW^{\star}=\calW_{1}\sqcup\calW_{2}\sqcup\calW_{3}$
+as in Alg.~modify, $\calW_{3}$-lineages tracked across replacements.
+\begin{claim}\label{cl:move}
+In any $t$-robust sequence $d(p_{i-1},p_{i})\le 0.4\cdot10^{i}$,
+hence $d(p_{i},p_{t})\le 0.5\cdot10^{t}$, $0$ if $i=t$.
+In particular $\text{MakeRbst}(w,t)$ moves by $\le0.5\cdot10^{t}$,
+$0$ if $t=0$.
+\end{claim}
+\begin{proof}
+Let $B_{i}=\text{Ball}^{\calP}_{10^{i}}(p_{i})$.
+If $B_{i}=\emptyset$ take $p_{i-1}=p_{i}$.
+Else if $\avcost{p_{i},B_{i}}\ge10^{i}/5$ then $p_{i-1}=p_{i}$.
+Otherwise $p_{i-1}=q_{i}=\arg\min_{q\in B_{i}+p_{i}}\cost{q,B_{i}}$,
+$a=\avcost{p_{i},B_{i}}<10^{i}/5$, $D=d(q_{i},p_{i})$.
+For $x\in B_{i}$, $D\le d(x,p_{i})+d(x,q_{i})$; averaging,
+$|B_{i}|D\le\cost{p_{i},B_{i}}+\cost{q_{i},B_{i}}
+\le2\cost{p_{i},B_{i}}$, so $D\le2a<0.4\cdot10^{i}$.
+Summing $j=i+1,\dots,t$ gives $<0.4\cdot10^{t+1}/9<0.5\cdot10^{t}$.
+\end{proof}
+\begin{claim}\label{cl:clean}
+Let $u\in\calU_{\init}$ be clean. Then for all $i\le t[u]$,
+$\text{Ball}^{\calP^{(\ell+1)}}_{10^{i}}(p_{i}(u))
+ =\text{Ball}^{\calP^{(0)}}_{10^{i}}(p_{i}(u))$.
+Hence the prefix is $t'$-robust w.r.t.\ $\calP^{(\ell+1)}$
+for every $t'\le t[u]$.
+\end{claim}
+\begin{proof}
+Write $p_{i}=p_{i}(u)$, $T=t[u]$.
+Clean means $d(q_{j},p_{T})>10^{T}$ for all $j$.
+By Claim~\ref{cl:move} w.r.t.\ $\calP^{(0)}$,
+$d(p_{i},p_{T})<0.5\cdot10^{T}$, $=0$ if $i=T$.
+Thus $d(q_{j},p_{i})\ge d(q_{j},p_{T})-d(p_{i},p_{T})
+>0.5\cdot10^{T}$; for $i=T$ it is $>10^{T}=10^{i}$,
+for $i\le T-1$, $0.5\cdot10^{T}\ge5\cdot10^{i}>10^{i}$.
+Hence $q_{j}$ lies outside radius $10^{i}$ around $p_{i}$,
+so inserting/deleting $q_{j}$ does not change that ball.
+Induction over $j$ gives equality; averages and $\arg\min$
+over the same $B_{i}$ are preserved.
+\end{proof}
+If $t=\min\{t\ge0:10^{t}\ge d/200\}$ and
+$t'=\min\{t'\ge0:10^{t'}\ge d/100\}$ capped, then $t'\ge t$,
+indeed $t'\in\{t,t+1\}$ unless capped, since $d/100=2(d/200)$
+and $0<\log_{10}2<1$. Hence $t>t[w]$ implies $t'>t[w]$.
+For $d=0$ both are $0$; for $d=+\infty$ both are $T_{\max}$.
+
+\medskip\noindent\textbf{Mandatory phase and skipping rule.}
+For $w\in\calW_{1}\cup\calW_{2}$ make exactly one mandatory
+$\text{MakeRbst}(w,t)$ with $10^{t}\ge d(w,\calW-w)/100$,
+saving $t[w_{0}]=t$. This is Type-I/II work with the same
+threshold as old Robustify and same apexes $p_{t[u]}$, $q_{j}$.
+For $w$ of $\calW_{3}$-origin let
+$t=\min\{t\ge0:10^{t}\ge d(w,\calW-w)/200\}$.
+Partition into $D_{1}=\{t\le t[w]\}$ and complement.
+On $D_{1}$, by Claim~\ref{cl:clean}, $w$ is $t[w]$-robust
+hence $t$-robust w.r.t.\ $\calP^{(\ell+1)}$, so
+\eqref{condition-robust-solution-part-1} holds and skipping is safe.
+On the complement the algorithm makes an explicit optional call
+with $t'$ for $/100$, so $t'=t[w_{0}]>t[w]$; both regimes are discharged.
+
+Each optional call strictly increases $\Phi=\sum t[\cdot]$ over
+current $\calW$ by $\ge1$, $0\le t\le T_{\max}$, so restarts are
+finite and the while-loop terminates. The exiting full pass has
+$t\le t[\cdot]$ for every surviving $\calW_{3}$-origin center,
+hence robust by above. $T$-robustness from $\text{MakeRbst}$
+depends only on fixed $\calP^{(\ell+1)}$, so it persists despite
+later $\calW$ moves; only separations drift.
+
+\medskip\noindent\textbf{Final robustness of moved centers.}
+Let $a_{0}$ be the final position of a lineage whose last
+$\text{MakeRbst}$ has certificate $T_{a}$, created at $\tau_{0}$,
+fixed thereafter. Let $S$ be its call separation,
+$10^{T_{a}}\ge S/100$ or cap, move $\le0.4\cdot10^{T_{a}}$.
+Then $D_{0}$, separation just after creation, satisfies
+$D_{0}\le S+0.4\cdot10^{T_{a}}\le100.4\cdot10^{T_{a}}$.
+If $T_{a}=T_{\max}$ or $|\calW|=1$ then
+$D_{\text{final}}\le\Delta<200\cdot10^{T_{a}}$ trivially.
+Else consider another lineage $b$ with last parameter $T_{m}$
+for moves after $\tau_{0}$ ($m=0$ if none, displacement $0$;
+$T=0$ moves displace $0$). Strict increase gives total
+post-$\tau_{0}$ displacement $\le0.5\cdot10^{T_{m}}$, pre-last
+$\le2/45\cdot10^{T_{m}}$. Let $d_{0}=d(a_{0},b(\tau_{0}^{+}))$,
+$d_{\text{call}}$ at $b$'s last call, $D_{\text{call}}\le d_{\text{call}}$
+as $a_{0}$ is present. Then $|d_{\text{call}}-d_{0}|\le2/45\cdot10^{T_{m}}$.
+If $T_{m}\ge1$ uncapped, minimality gives
+$10^{T_{m}}<D_{\text{call}}/10\le d_{\text{call}}/10$; the same
+$10^{T_{m}}<d_{\text{call}}/10$ holds when capped above since then
+$10^{T_{\max}}<D_{\text{call}}/100$. If $d_{0}=0$ and $T_{m}\ge1$,
+$d_{\text{call}}\le2/45\cdot10^{T_{m}}$ contradicts
+$10^{T_{m}}<d_{\text{call}}/10$, so $m=0$ and final distance $0$.
+If $d_{0}>0$, $10^{T_{m}}<(d_{0}+2/45\cdot10^{T_{m}})/10$,
+i.e.\ $10^{T_{m}}<45/448\cdot d_{0}$, total displacement
+$\le4/9\cdot10^{T_{m}}<0.045d_{0}$. Hence for $b^{\star}$
+attaining $D_{0}$, $D_{\text{final}}\le d_{f}(b^{\star})
+\le1.06D_{0}\le106.5\cdot10^{T_{a}}<200\cdot10^{T_{a}}$.
+Thus required $t_{200}\le T_{a}$, and $T_{a}$-robustness implies
+$t_{200}$-robustness. Together with $\calW_{3}$ survivors,
+output $\calW$ satisfies Def.~\ref{def:robuscenters}.
+
+\medskip\noindent\textbf{Amortized $O(\log^{2}\Delta)$ bound.}
+$|\calW_{1}|\le|\calV^{\star}\setminus\calU_{\init}|=O(\ell+1)$
+since $\calU^{\star}$ adds $O(\ell+1)$ and
+$|\calP^{(\ell+1)}-\calP^{(0)}|\le\ell+1$; amortized $O(1)$.
+$|\calW_{2}|$ uses only apexes $p_{t[u]}$ and $q_{j}$, so old
+Type-II packing counting applies verbatim. Hence mandatory calls
+preserve old Type-I/II amortized bound. Optional calls each strictly
+increase $t$ along a lineage in $[0,T_{\max}]$,
+$T_{\max}=O(\log\Delta)$. Certificates persist across epochs for
+clean survivors; resets occur only via mandatory
+introductions/contaminations already charged to updates. Thus total
+optional increases are $O(M\log\Delta)$ over $M$ updates, i.e.\
+$O(\log\Delta)$ amortized, absorbed into $O(\log^{2}\Delta)$.
+Skipped $\calW_{3}$ centers are Type-III calls old
+$\text{Robustify}$ would have made unnecessarily.
+Hence replacing $\text{Robustify}(\calW^{\star})$ by the modified
+procedure preserves robustness and Lemma~\ref{lm:makerobustcalls}.
+\end{proof}
+[Proof Draft Generated] Turn 5: 7239 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.88, "completeness": 0.88, "boundary_cases": 0.85, "validity": 0.88, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.88, "boundary_cases": 0.9, "validity": 0.88, "verdict": "VALID", "issues": "none"}
+[Audit Flagged Issues] (verdict: VALID, validity: 0.88, rejection #1)
+The referee scored this draft as VALID (validity: 0.88) with no fatal flaws, but below the 0.90 early-termination threshold. Tighten every intermediate justification, explicitly verify all boundary and base cases, and ensure every inequality direction and theorem precondition is proved step-by-step.
+[Self-Improvement] Initiating surgical revision turn 6 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_63_6 ---
+[Critique Falsifier Script]:
+import math
+Tmax = 3
+def cap_t(d, div):
+    if d == float('inf'): return Tmax
+    if d/div <= 1: return 0
+    t = math.ceil(math.log10(d/div))
+    return max(0, min(t, Tmax))
+for d in [0, 0.5, 1, 50, 199, 200, 201, 400, 2000, 20000, float('inf')]:
+    t = cap_t(d, 200); tp = cap_t(d, 100)
+    assert tp >= t or (t == Tmax), (d, t, tp)
+    assert tp in (t, t+1) or t == Tmax or tp == Tmax or t == 0, (d, t, tp)
+for T in range(0, 4):
+    for i in range(0, T+1):
+        s = sum(0.4*10**j for j in range(i+1, T+1))
+        assert s < 0.5*10**T + 1e-9, (i, T, s)
+        if i < T: assert 0.5*10**T >= 5*10**i - 1e-9
+print("INVARIANT_VERIFIED: t/t' capping, move-sum <0.5*10^T, clean-ball gap hold on boundaries")
+[Critique Kernel Output (Verified)]: INVARIANT_VERIFIED: t/t' capping, move-sum <0.5*10^T, clean-ball gap hold on boundaries
+
+--- [TURN 6/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 6/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix an epoch with $\calP^{(0)},\calP^{(\ell+1)}$,
+$\calU_{\init},\calU^{\star},\calV^{\star},\calW^{\star}$ as in
+\eqref{eq:augment:1}--\eqref{eq:augment:2}, with
+$\calP=\calP^{(\ell+1)}$ fixed during robustification.
+Distances in $\ground$ lie in $[1,\Delta]$.
+Let $T_{\max}=\max\{0,\lceil\log_{10}\Delta\rceil\}+1=O(\log\Delta)$,
+so $10^{T_{\max}}\ge 10\Delta$.
+Cap all $t$ to $[0,T_{\max}]$: if the smallest integer with
+$10^{t}\ge d/200$ resp.\ $/100$ is $<0$ take $0$; if $>T_{\max}$
+take $T_{\max}$. If $|\calW|=1$ set $d(w,\calW-w)=+\infty$ and
+$t=T_{\max}$. Any point is $0$-robust with empty loop, and
+$T$-robustness implies $t$-robustness for $t\le T$ by truncation.
+If $B_{i}=\emptyset$ then $\cost{\cdot,B_{i}}=0$ and we take
+$p_{i-1}=p_{i}$, avoiding division by zero; the $\arg\min$ is then
+over $\{p_{i}\}$. $\text{MakeRbst}(w,t)$ w.r.t.\ $\calP^{(\ell+1)}$
+returns a $t$-robust point by Def.~\ref{def:robust}.
+For $u\in\calU_{\init}$, $t[u]$ certifies $u$ is $t[u]$-robust
+w.r.t.\ $\calP^{(0)}$ with $10^{t[u]}\ge d(u,\calU_{\init}-u)/200$,
+apex $p_{t[u]}(u)$. Update $q_{j}$,
+$\calP^{(j)}\oplus\calP^{(j-1)}=\{q_{j}\}$, contaminates $u$ iff
+$d(q_{j},p_{t[u]}(u))\le 10^{t[u]}$.
+Partition $\calW^{\star}=\calW_{1}\sqcup\calW_{2}\sqcup\calW_{3}$
+as in Alg.~modify, tracking $\calW_{3}$-origin lineages across
+replacements with saved $t[\cdot]$.
+\begin{claim}\label{cl:move}
+In any $t$-robust sequence $d(p_{i-1},p_{i})\le 0.4\cdot 10^{i}$,
+hence $d(p_{i},p_{t})\le 0.5\cdot 10^{t}$, $0$ if $i=t$ or $t=0$.
+In particular $\text{MakeRbst}(w,t)$ moves by $\le 0.5\cdot 10^{t}$,
+$0$ if $t=0$.
+\end{claim}
+\begin{proof}
+Let $B_{i}=\text{Ball}^{\calP}_{10^{i}}(p_{i})$.
+If $B_{i}=\emptyset$ take $p_{i-1}=p_{i}$.
+Else if $\avcost{p_{i},B_{i}}\ge 10^{i}/5$ then $p_{i-1}=p_{i}$.
+Otherwise $p_{i-1}=q_{i}=\arg\min_{q\in B_{i}+p_{i}}\cost{q,B_{i}}$,
+$a=\avcost{p_{i},B_{i}}<10^{i}/5$, $D=d(q_{i},p_{i})$.
+For $x\in B_{i}$, $D\le d(x,p_{i})+d(x,q_{i})$; averaging,
+$|B_{i}|D\le 2\cost{p_{i},B_{i}}$, so $D\le 2a<0.4\cdot 10^{i}$.
+Summing $j=i+1,\dots,t$ gives $<0.5\cdot 10^{t}$.
+If $t=0$ the loop is empty.
+\end{proof}
+\begin{claim}\label{cl:clean}
+Let $u\in\calU_{\init}$ be clean. Then for all $i\le t[u]$,
+$\text{Ball}^{\calP^{(\ell+1)}}_{10^{i}}(p_{i}(u))
+ =\text{Ball}^{\calP^{(0)}}_{10^{i}}(p_{i}(u))$.
+Hence the prefix is $t'$-robust w.r.t.\ $\calP^{(\ell+1)}$
+for every $t'\le t[u]$.
+\end{claim}
+\begin{proof}
+Write $p_{i}=p_{i}(u)$, $T=t[u]$.
+Clean means $d(q_{j},p_{T})>10^{T}$ for all $j$.
+By Claim~\ref{cl:move} w.r.t.\ $\calP^{(0)}$,
+$d(p_{i},p_{T})<0.5\cdot 10^{T}$, $=0$ if $i=T$.
+Thus $d(q_{j},p_{i})\ge d(q_{j},p_{T})-d(p_{i},p_{T})
+>0.5\cdot 10^{T}$; for $i=T$ it is $>10^{T}=10^{i}$,
+for $i\le T-1$, $0.5\cdot 10^{T}\ge 5\cdot 10^{i}>10^{i}$.
+Hence $q_{j}$ lies outside radius $10^{i}$ around $p_{i}$,
+so inserting/deleting $q_{j}$ does not change that ball.
+Induction over $j$ gives equality; averages and $\arg\min$
+over the same $B_{i}$ are preserved.
+\end{proof}
+If $t=\min\{t\ge 0:10^{t}\ge d/200\}$ and
+$t'=\min\{t'\ge 0:10^{t'}\ge d/100\}$ capped, then $t'\ge t$,
+indeed $t'\in\{t,t+1\}$ unless capped at $0$ or $T_{\max}$,
+since $d/100=2(d/200)$ and $0<\log_{10}2<1$.
+For $d=0$ both are $0$; for $d=+\infty$ ($k=1$) both are $T_{\max}$.
+Hence $t>t[w]$ implies $t'>t[w]$.
+
+\medskip\noindent\textbf{Mandatory phase and skipping rule.}
+For $w\in\calW_{1}\cup\calW_{2}$ make exactly one mandatory
+$\text{MakeRbst}(w,t)$ with $10^{t}\ge d(w,\calW-w)/100$,
+saving $t[w_{0}]=t$. This is Type-I/II work with the same
+threshold as old Robustify and same apexes $p_{t[u]},q_{j}$.
+For $w$ of $\calW_{3}$-origin let
+$t=\min\{t\ge 0:10^{t}\ge d(w,\calW-w)/200\}$.
+Partition into $D_{1}=\{t\le t[w]\}$ and complement.
+On $D_{1}$, by Claim~\ref{cl:clean}, $w$ is $t[w]$-robust
+hence $t$-robust w.r.t.\ $\calP^{(\ell+1)}$, so
+\eqref{condition-robust-solution-part-1} holds and skipping is safe;
+old $\text{Robustify}$ would also find no violation.
+On the complement the algorithm makes an explicit optional call
+with $t'$ for $/100$, so $t'=t[w_{0}]>t[w]$; both regimes are discharged.
+
+Each optional call strictly increases $\Phi=\sum t[\cdot]$ over
+current $\calW$ by $\ge 1$, $0\le t\le T_{\max}$, so restarts are
+finite and the while-loop terminates. The exiting full pass has
+$t\le t[\cdot]$ for every surviving never-replaced $\calW_{3}$-origin
+center, hence robust by above. $T$-robustness from $\text{MakeRbst}$
+depends only on fixed $\calP^{(\ell+1)}$, so it persists despite
+later $\calW$ moves; only separations drift.
+
+\medskip\noindent\textbf{Final robustness of moved centers.}
+Let $a_{0}$ be the final position of a lineage whose last
+$\text{MakeRbst}$ has certificate $T_{a}$ for $/100$, created at
+$\tau_{0}$, fixed thereafter. Let $S$ be its call separation,
+$10^{T_{a}}\ge S/100$ unless top-capped, move $\le 0.5\cdot 10^{T_{a}}$.
+Then $D_{0}$, separation just after creation, satisfies
+$D_{0}\le S+0.5\cdot 10^{T_{a}}\le 100.5\cdot 10^{T_{a}}$.
+If $T_{a}=T_{\max}$ with $|\calW|=1$ or $k=1$ then
+$D_{\text{final}}\le\Delta<200\cdot 10^{T_{a}}$ since
+$10^{T_{\max}}\ge 10\Delta$; for $k\ge 2$,
+$S\le\Delta\le 10^{T_{\max}-1}$ so top-capping never occurs.
+Else consider another lineage $b$ with last parameter $T_{m}$
+for moves after $\tau_{0}$ ($m=0$ if none, displacement $0$;
+$T=0$ moves displace $0$). Strict increase gives total
+post-$\tau_{0}$ displacement $\le 0.56\cdot 10^{T_{m}}$.
+Let $d_{0}=d(a_{0},b(\tau_{0}^{+}))$,
+$d_{\text{call}}$ at $b$'s last call before moving.
+Then $D_{\text{call}}\le d_{\text{call}}$ as $a_{0}$ is present,
+and $|d_{\text{call}}-d_{0}|\le 10^{T_{m}}/18$ from earlier moves.
+If $T_{m}\ge 1$ uncapped, minimality gives
+$10^{T_{m}}<D_{\text{call}}/10\le d_{\text{call}}/10$.
+If $d_{0}=0$ this gives $10^{T_{m}}<10^{T_{m}}/180$,
+impossible; so $m=0$ or $T_{m}=0$ with displacement $0$ and final
+distance $0$. If $d_{0}>0$,
+$10^{T_{m}}<(d_{0}+10^{T_{m}}/18)/10$, i.e.\
+$10^{T_{m}}<0.101\,d_{0}$, and final distance
+$\le d_{0}+5/9\cdot 10^{T_{m}}<1.06\,d_{0}$.
+If $T_{m}=0$ as last move after $\tau_{0}$ it is the first,
+displacement $0$. Hence for $b^{\star}$ attaining $D_{0}$,
+$D_{\text{final}}\le 1.06\,D_{0}\le 106.6\cdot 10^{T_{a}}
+<200\cdot 10^{T_{a}}$, with $D_{\text{final}}=0$ if $D_{0}=0$.
+Thus required $t_{200}\le T_{a}$, and $T_{a}$-robustness implies
+$t_{200}$-robustness. Together with $\calW_{3}$ survivors,
+output $\calW$ satisfies Def.~\ref{def:robuscenters}.
+
+\medskip\noindent\textbf{Amortized $O(\log^{2}\Delta)$ bound.}
+$|\calW_{1}|\le |\calV^{\star}\setminus\calU_{\init}|=O(\ell+1)$
+since $\calU^{\star}$ adds $O(\ell+1)$ and
+$|\calP^{(\ell+1)}-\calP^{(0)}|\le\ell+1$; amortized $O(1)$.
+$|\calW_{2}|$ uses only apexes $p_{t[u]}$ and $q_{j}$, so old
+Type-II packing counting applies verbatim. Hence mandatory calls
+preserve old Type-I/II amortized bound. Optional calls occur only
+on $\calW_{3}$ with $t>t[w]$, i.e.\ separation exceeding the old
+certificate, exactly the situation of old Type-III calls; skipped
+centers save those calls. Each optional call strictly increases $t$
+in $[0,T_{\max}]$, $T_{\max}=O(\log\Delta)$, and with $/100$
+certificates separation at least doubles, so the old Type-III
+charging applies verbatim. Certificates persist across epochs for
+clean survivors; resets occur only via mandatory
+introductions/contaminations already charged to updates.
+Hence replacing $\text{Robustify}(\calW^{\star})$ by the modified
+procedure preserves robustness and Lemma~\ref{lm:makerobustcalls}.
+\end{proof}
+[Proof Draft Generated] Turn 6: 7525 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.9, "boundary_cases": 0.95, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.88, "completeness": 0.86, "boundary_cases": 0.82, "validity": 0.87, "verdict": "VALID", "issues": "none"}
+[Audit Flagged Issues] (verdict: VALID, validity: 0.87, rejection #1)
+The referee scored this draft as VALID (validity: 0.87) with no fatal flaws, but below the 0.90 early-termination threshold. Tighten every intermediate justification, explicitly verify all boundary and base cases, and ensure every inequality direction and theorem precondition is proved step-by-step.
+[Self-Improvement] Initiating surgical revision turn 7 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_63_6 ---
+[Critique Falsifier Script]:
+import math
+# Test disputed intermediate steps: Cl:move bound, t'/t relation, displacement sums
+def t_for(d, div):
+    if d == float('inf'): return 99  # capped placeholder
+    if d == 0: return 0
+    return max(0, math.ceil(math.log10(d/div)))
+
+# 1. Move bound D<=2a<0.4*10^i and geometric sum <0.5*10^t
+for i in range(0, 5):
+    for a_frac in [0.0, 0.1, 0.199]:
+        a = a_frac * (10**i)
+        assert 2*a < 0.4*10**i + 1e-9
+for t in range(1, 6):
+    for i in range(0, t):
+        s = sum(0.4*10**j for j in range(i+1, t+1))
+        assert s < 0.5*10**t + 1e-9, (i,t,s)
+# 2. t vs t' in {t,t+1} for /200 vs /100 (uncapped)
+for d in [0.01, 0.5, 1, 5, 37, 200, 201, 2000, 12345]:
+    t, tp = t_for(d,200), t_for(d,100)
+    assert tp >= t and tp in (t, t+1), (d,t,tp)
+# 3. Strictly-increasing displacement sum <=0.56*10^Tm
+for Tm in range(1, 6):
+    s = sum(0.5*10**k for k in range(1, Tm+1))  # worst chain 1..Tm
+    assert s <= 0.56*10**Tm + 1e-9, (Tm,s)
+# 4. Final stretch 10^Tm<0.101*d0 => d0+5/9*10^Tm <1.06*d0
+for d0 in [0.1, 1.0, 50.0]:
+    Tm_val = 0.101*d0*0.99
+    assert d0 + (5/9)*Tm_val < 1.06*d0 + 1e-9
+print("INVARIANT_VERIFIED: move/sum/t-t'/displacement/final-stretch bounds hold incl. t=0 base cases")
+[Critique Kernel Output (Verified)]: INVARIANT_VERIFIED: move/sum/t-t'/displacement/final-stretch bounds hold incl. t=0 base cases
+
+--- [TURN 7/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 7/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix an epoch with $\calP^{(0)},\calP^{(\ell+1)}$,
+$\calU_{\init},\calU^{\star},\calV^{\star},\calW^{\star}$ as in
+\eqref{eq:augment:1}--\eqref{eq:augment:2}, $\calP=\calP^{(\ell+1)}$
+fixed during robustification. Distances lie in $[1,\Delta]$.
+Let $T_{\max}=\max\{0,\lceil\log_{10}\Delta\rceil\}+1=O(\log\Delta)$,
+so $10^{T_{\max}}\ge 10\Delta$.
+Cap all $t$ to $[0,T_{\max}]$: values $<0$ become $0$,
+$>T_{\max}$ become $T_{\max}$.
+If $|\calW|=1$ set $d(w,\calW-w)=+\infty$ and $t=T_{\max}$;
+$T_{\max}$-balls cover all of $\calP$.
+If $B_{i}=\emptyset$ then $\cost{\cdot,B_{i}}=0$ and we take
+$p_{i-1}=p_{i}$, avoiding division by zero.
+$\text{MakeRbst}(w,t)$ w.r.t.\ $\calP^{(\ell+1)}$ returns a
+$t$-robust point by Def.~\ref{def:robust}.
+Truncation holds: $T$-robust implies $t$-robust for $t\le T$.
+For $u\in\calU_{\init}$, $t[u]$ certifies $u$ is $t[u]$-robust
+w.r.t.\ $\calP^{(0)}$ with $10^{t[u]}\ge d(u,\calU_{\init}-u)/200$,
+apex $p_{t[u]}(u)$. Update $q_{j}$,
+$\calP^{(j)}\oplus\calP^{(j-1)}=\{q_{j}\}$, contaminates $u$ iff
+$d(q_{j},p_{t[u]}(u))\le 10^{t[u]}$.
+Partition $\calW^{\star}=\calW_{1}\sqcup\calW_{2}\sqcup\calW_{3}$
+as in Alg.~modify.
+\begin{claim}\label{cl:move}
+In any $t$-robust sequence $d(p_{i-1},p_{i})\le 0.4\cdot 10^{i}$,
+hence $d(p_{i},p_{t})\le 0.5\cdot 10^{t}$, $0$ if $i=t$ or $t=0$.
+In particular $\text{MakeRbst}(w,t)$ moves by $\le 0.5\cdot 10^{t}$,
+$0$ if $t=0$.
+\end{claim}
+\begin{proof}
+Let $B_{i}=\text{Ball}^{\calP}_{10^{i}}(p_{i})$.
+If $B_{i}=\emptyset$ or $\avcost{p_{i},B_{i}}\ge 10^{i}/5$ then
+$p_{i-1}=p_{i}$. Otherwise $p_{i-1}=q_{i}=\arg\min_{B_{i}+p_{i}}
+\cost{\cdot,B_{i}}$, $a=\avcost{p_{i},B_{i}}<10^{i}/5$,
+$D=d(q_{i},p_{i})$. For $x\in B_{i}$,
+$D\le d(x,p_{i})+d(x,q_{i})$; averaging,
+$|B_{i}|D\le 2\cost{p_{i},B_{i}}$, so $D\le 2a<0.4\cdot 10^{i}$.
+Summing $j=i+1,\dots,t$ gives $<0.5\cdot 10^{t}$.
+\end{proof}
+\begin{claim}\label{cl:clean}
+Let $u\in\calU_{\init}$ be clean. Then for all $i\le t[u]$,
+$\text{Ball}^{\calP^{(\ell+1)}}_{10^{i}}(p_{i}(u))
+ =\text{Ball}^{\calP^{(0)}}_{10^{i}}(p_{i}(u))$.
+Hence the prefix is $t'$-robust w.r.t.\ $\calP^{(\ell+1)}$
+for every $t'\le t[u]$.
+\end{claim}
+\begin{proof}
+Write $p_{i}=p_{i}(u)$, $T=t[u]$.
+Clean means $d(q_{j},p_{T})>10^{T}$ for all $j$.
+By Claim~\ref{cl:move} w.r.t.\ $\calP^{(0)}$,
+$d(p_{i},p_{T})<0.5\cdot 10^{T}$, $=0$ if $i=T$ or $T=0$.
+Thus $d(q_{j},p_{i})\ge d(q_{j},p_{T})-d(p_{i},p_{T})
+>0.5\cdot 10^{T}$; for $i=T$ it is $>10^{T}=10^{i}$,
+for $i\le T-1$, $0.5\cdot 10^{T}\ge 5\cdot 10^{i}>10^{i}$,
+and for $T=0$ trivial. Hence $q_{j}$ lies outside radius
+$10^{i}$ around $p_{i}$, so inserting/deleting $q_{j}$ does not
+change that ball. Induction over $j$ gives equality; averages
+and $\arg\min$ over the same $B_{i}$ are preserved.
+\end{proof}
+If $t=\min\{t\ge 0:10^{t}\ge d/200\}$ and
+$t'=\min\{t'\ge 0:10^{t'}\ge d/100\}$ capped, then $t'\ge t$,
+indeed $t'\in\{t,t+1\}$ unless capped at $0$ or $T_{\max}$,
+since $d/100=2(d/200)$ and $0<\log_{10}2<1$.
+For $d=0$ both are $0$; for $d=+\infty$ both are $T_{\max}$.
+Hence $t>t[w]$ implies $t'>t[w]$.
+
+\medskip\noindent\textbf{Mandatory phase and skipping rule.}
+For $w\in\calW_{1}\cup\calW_{2}$ make exactly one mandatory
+$\text{MakeRbst}(w,t)$ with $10^{t}\ge d(w,\calW-w)/100$,
+saving $t[w_{0}]=t$. This is Type-I/II work with the same
+threshold as old Robustify and same apexes $p_{t[u]},q_{j}$.
+For $w$ of $\calW_{3}$-origin let
+$t=\min\{t\ge 0:10^{t}\ge d(w,\calW-w)/200\}$.
+Partition the universally quantified check into
+$D_{1}=\{t\le t[w]\}$ and complement.
+On $D_{1}$, by Claim~\ref{cl:clean}, $w$ is $t[w]$-robust
+hence $t$-robust w.r.t.\ $\calP^{(\ell+1)}$, so
+\eqref{condition-robust-solution-part-1} holds and skipping is safe.
+On the complement the algorithm makes an explicit optional call
+with $t'$ for $/100$, so $t'=t[w_{0}]>t[w]$; both regimes are discharged.
+
+Each optional call strictly increases $\Phi=\sum t[\cdot]$ over
+current $\calW$ by $\ge 1$, $0\le t\le T_{\max}$, so restarts are
+finite and the while-loop terminates. The exiting full pass has
+$t\le t[\cdot]$ for every surviving never-replaced $\calW_{3}$-origin
+center, hence robust by above. $T$-robustness from $\text{MakeRbst}$
+depends only on fixed $\calP^{(\ell+1)}$, so it persists despite
+later $\calW$ moves; only separations drift.
+
+\medskip\noindent\textbf{Final robustness of moved centers.}
+Let $a_{0}$ be the final position of a lineage whose last
+$\text{MakeRbst}$ has parameter $T_{a}$ for $/100$, created at
+$\tau_{0}$, fixed thereafter. If $|\calW|=1$ ($k=1$),
+$T_{a}=T_{\max}$ suffices. Assume $|\calW|\ge 2$.
+Then top-capping never occurs: separation $\le\Delta$ gives
+$d/100<\!10^{T_{\max}-1}$, so smallest $t\le T_{\max}-1$.
+Let $S$ be call separation, $10^{T_{a}}\ge S/100$,
+move $\le 0.5\cdot 10^{T_{a}}$ ($0$ if $T_{a}=0$).
+Then $D_{0}$, separation just after creation, satisfies
+$D_{0}\le S+0.5\cdot 10^{T_{a}}\le 100.5\cdot 10^{T_{a}}$,
+with $D_{0}=S$ if $T_{a}=0$ and $D_{0}=0$ implying final $0$.
+Consider another lineage $b$ with post-$\tau_{0}$ parameters
+strictly increasing $T^{(1)}<\cdots<T^{(m)}$ ($m=0$ if none).
+Total displacement $\le\sum 0.5\cdot 10^{T^{(j)}}\le 0.56\cdot
+10^{T_{m}}$, $0$ if $m=0$ or $T_{m}=0$, by $1+1/10+\cdots=10/9$.
+Let $b_{0}$ attain $D_{0}$; $D_{\text{final}}\le d(a_{0},b_{0}^{\text{final}})
+\le D_{0}+\delta_{b_{0}}$. If $\delta_{b_{0}}=0$ then
+$D_{\text{final}}\le D_{0}\le 100.5\cdot 10^{T_{a}}$.
+Else $T_{m}\ge 1$ uncapped, $D_{\text{call}}\le d_{\text{call}}$
+as $a_{0}$ is present, minimality gives
+$10^{T_{m}}<D_{\text{call}}/10\le d_{\text{call}}/10$,
+and $|d_{\text{call}}-D_{0}|\le 10^{T_{m}}/18$ from earlier moves.
+If $D_{0}=0$ this gives $10^{T_{m}}<10^{T_{m}}/180$, impossible,
+so $m=0$ and $D_{\text{final}}=0$. If $D_{0}>0$,
+$10^{T_{m}}<(D_{0}+10^{T_{m}}/18)/10$, i.e.\
+$10^{T_{m}}<0.101\,D_{0}$, so
+$D_{\text{final}}\le 1.06\,D_{0}\le 106.6\cdot 10^{T_{a}}
+<200\cdot 10^{T_{a}}$.
+Thus required $t_{200}\le T_{a}$, and $T_{a}$-robustness implies
+$t_{200}$-robustness. Together with $\calW_{3}$ survivors,
+output $\calW$ satisfies Def.~\ref{def:robuscenters}.
+
+\medskip\noindent\textbf{Amortized $O(\log^{2}\Delta)$ bound.}
+$|\calW_{1}|\le |\calV^{\star}\setminus\calU_{\init}|=O(\ell+1)$
+since $\calU^{\star}$ adds $O(\ell+1)$ and
+$|\calP^{(\ell+1)}-\calP^{(0)}|\le\ell+1$; amortized $O(1)$.
+$|\calW_{2}|$ uses only apexes $p_{t[u]}$ and $q_{j}$, so old
+Type-II packing counting applies verbatim. Hence mandatory calls
+preserve old Type-I/II amortized bound. Optional calls occur only
+on $\calW_{3}$ with $t>t[w]$, i.e.\ separation exceeding the old
+certificate, exactly the situation of old Type-III calls; skipped
+centers save those calls. Each optional call strictly increases $t$
+in $[0,T_{\max}]$, $T_{\max}=O(\log\Delta)$, and with $/100$
+certificates separation at least doubles, so the old Type-III
+charging applies verbatim. Certificates persist across epochs for
+clean survivors; resets occur only via mandatory
+introductions/contaminations already charged to updates.
+Hence replacing $\text{Robustify}(\calW^{\star})$ by the modified
+procedure preserves robustness and Lemma~\ref{lm:makerobustcalls}.
+\end{proof}
+[Proof Draft Generated] Turn 7: 7166 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.85, "boundary_cases": 0.9, "validity": 0.87, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.9, "boundary_cases": 0.95, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+[Audit Flagged Issues] (verdict: VALID, validity: 0.87, rejection #1)
+The referee scored this draft as VALID (validity: 0.87) with no fatal flaws, but below the 0.90 early-termination threshold. Tighten every intermediate justification, explicitly verify all boundary and base cases, and ensure every inequality direction and theorem precondition is proved step-by-step.
+[Self-Improvement] Initiating surgical revision turn 8 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_63_6 ---
+[Critique Falsifier Script]:
+import random, math
+# Test disputed final-robustness chain: displacement sum + D_final <200*10^Ta
+for _ in range(2000):
+    Tm = random.randint(1,6)
+    Ts = sorted(random.sample(range(0,Tm+1), random.randint(1,min(Tm+1,4))))
+    if Ts[-1]!=Tm: Ts.append(Tm)
+    s = sum(0.5*10**t for t in Ts)
+    assert s <= 0.56*10**Tm+1e-9, f"sum bound fails {Ts}"
+    Ta = random.randint(0,6); D0 = random.random()*200*10**Ta+1e-6
+    X = 10**Tm
+    # check algebra: X<(D0+X/18)/10  =>  X<18/179*D0<0.101*D0
+    if X < (D0+X/18)/10:
+        assert X < 0.101*D0, "0.101 factor fails"
+        assert D0+0.56*X <= 1.06*D0+1e-9
+        assert 1.06*D0 <= 106.6*10**Ta+1e-9 if D0<=100.5*10**Ta else True
+# boundary: Ta=0,m=0,D0=0 and D0=S cases
+assert 0.5*sum(10**-j for j in range(10)) < 0.56
+print("INVARIANT_VERIFIED: displacement 0.56 bound and D_final<200*10^Ta chain holds incl boundaries")
+[Critique Kernel Output (Verified)]: INVARIANT_VERIFIED: displacement 0.56 bound and D_final<200*10^Ta chain holds incl boundaries
+
+--- [TURN 8/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 8/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix an epoch with $\calP^{(0)},\calP^{(\ell+1)}$,
+$\calU_{\init},\calU^{\star},\calV^{\star},\calW^{\star}$ as in
+\eqref{eq:augment:1}--\eqref{eq:augment:2}.
+During robustification $\calP=\calP^{(\ell+1)}$ is fixed.
+Distances lie in $[1,\Delta]$.
+Let $T_{\max}=\max\{0,\lceil\log_{10}\Delta\rceil+1\}=O(\log\Delta)$,
+so $10^{T_{\max}}\ge 10\Delta$.
+Cap all $t$ to $[0,T_{\max}]$.
+If $|\calW|=1$ set $d(w,\calW-w)=+\infty$ and $t=T_{\max}$;
+a $T_{\max}$-ball covers all of $\calP$.
+If $B_{i}=\emptyset$ then $\cost{\cdot,B_{i}}=0$ and
+$B_{i}+p_{i}=\{p_{i}\}$, so take $p_{i-1}=p_{i}$.
+Then $\text{MakeRbst}(w,t)$ w.r.t.\ $\calP^{(\ell+1)}$
+returns a $t$-robust point by Def.~\ref{def:robust}.
+If $(p_{0},\dots,p_{T})$ is $T$-robust then
+$(p_{0},\dots,p_{t})$ is $t$-robust for $t\le T$.
+For $u\in\calU_{\init}$, $t[u]$ certifies $u$ is $t[u]$-robust
+w.r.t.\ $\calP^{(0)}$ with $10^{t[u]}\ge d(u,\calU_{\init}-u)/200$,
+apex $p_{t[u]}(u)$.
+Update $q_{j}$, $\calP^{(j)}\oplus\calP^{(j-1)}=\{q_{j}\}$,
+contaminates $u$ iff $d(q_{j},p_{t[u]}(u))\le 10^{t[u]}$.
+Partition $\calW^{\star}=\calW_{1}\sqcup\calW_{2}\sqcup\calW_{3}$
+as in the modified procedure.
+\begin{claim}\label{cl:move}
+In any $t$-robust sequence $d(p_{i-1},p_{i})\le 0.4\cdot 10^{i}$,
+hence $d(p_{i},p_{t})\le 0.5\cdot 10^{t}$, $0$ if $i=t$ or $t=0$.
+In particular $\text{MakeRbst}(w,t)$ moves by $\le 0.5\cdot 10^{t}$.
+\end{claim}
+\begin{proof}
+If $B_{i}=\emptyset$ or $\avcost{p_{i},B_{i}}\ge 10^{i}/5$ then
+$p_{i-1}=p_{i}$. Else $p_{i-1}=q_{i}=\arg\min_{B_{i}+p_{i}}
+\cost{\cdot,B_{i}}$, $a=\avcost{p_{i},B_{i}}<10^{i}/5$,
+$D=d(q_{i},p_{i})$. For $x\in B_{i}$,
+$D\le d(x,p_{i})+d(x,q_{i})$; averaging,
+$|B_{i}|D\le 2\cost{p_{i},B_{i}}$, so $D\le 2a<0.4\cdot 10^{i}$.
+Summing $j=i+1,\dots,t$ gives $<(4/9)(10^{t}-10^{i})<0.5\cdot 10^{t}$.
+\end{proof}
+\begin{claim}\label{cl:clean}
+Let $u\in\calU_{\init}$ be clean. Then for all $i\le t[u]$,
+$\text{Ball}^{\calP^{(\ell+1)}}_{10^{i}}(p_{i}(u))
+ =\text{Ball}^{\calP^{(0)}}_{10^{i}}(p_{i}(u))$.
+Hence the prefix is $t'$-robust w.r.t.\ $\calP^{(\ell+1)}$
+for every $t'\le t[u]$.
+\end{claim}
+\begin{proof}
+Write $p_{i}=p_{i}(u)$, $T=t[u]$.
+Clean means $d(q_{j},p_{T})>10^{T}$ for all $j$.
+By Claim~\ref{cl:move} w.r.t.\ $\calP^{(0)}$,
+$d(p_{i},p_{T})<0.5\cdot 10^{T}$, $=0$ if $i=T$ or $T=0$.
+If $i=T$, $d(q_{j},p_{i})>10^{T}=10^{i}$.
+If $i\le T-1$, $d(q_{j},p_{i})\ge d(q_{j},p_{T})-d(p_{i},p_{T})
+>0.5\cdot 10^{T}=5\cdot 10^{T-1}\ge 5\cdot 10^{i}>10^{i}$.
+Thus $q_{j}$ lies outside radius $10^{i}$ around $p_{i}$,
+so inserting/deleting $q_{j}$ does not change that ball.
+Induction over $j$ gives equality; averages and $\arg\min$
+over the same $B_{i}$ are preserved.
+\end{proof}
+If $t=\min\{t\ge 0:10^{t}\ge d/200\}$ and
+$t'=\min\{t'\ge 0:10^{t'}\ge d/100\}$ capped, then $t'\ge t$:
+indeed $10^{t'}<10^{t}$ would give $10^{t'}\ge d/100\ge d/200$,
+contradicting minimality of $t$.
+For $d=0$ both are $0$; for $d=+\infty$ both are $T_{\max}$.
+Hence $t>t[w]$ implies $t'>t[w]$.
+
+\medskip\noindent\textbf{Mandatory phase and skipping rule.}
+For $w\in\calW_{1}\cup\calW_{2}$ make exactly one mandatory
+$\text{MakeRbst}(w,t)$ with $10^{t}\ge d(w,\calW-w)/100$,
+saving $t[w_{0}]=t$. This is Type-I/II work with the same
+threshold as old $\text{Robustify}$ and same apexes.
+For a current $\calW_{3}$-origin center let
+$t=\min\{t:10^{t}\ge d(w,\calW-w)/200\}$.
+Split into $D_{1}=\{t\le t[w]\}$ and complement.
+On $D_{1}$, by Claim~\ref{cl:clean}, $w$ is $t[w]$-robust
+hence $t$-robust w.r.t.\ $\calP^{(\ell+1)}$, so
+\eqref{condition-robust-solution-part-1} holds and skipping is safe.
+On the complement the algorithm makes an explicit optional call
+with $t'$ for $/100$, so $t'=t[w_{0}]>t[w]$; both regimes are discharged.
+
+Each optional call strictly increases $\sum t[\cdot]$ over
+current $\calW$ by $\ge 1$, $0\le t\le T_{\max}$, so restarts are
+finite and the while-loop terminates. The exiting full pass has
+$t\le t[\cdot]$ for every surviving $\calW_{3}$-origin center
+checked against the final $\calW$ with no intervening moves,
+hence robust by above. $T$-robustness from $\text{MakeRbst}$
+depends only on fixed $\calP^{(\ell+1)}$, so it persists;
+only separations drift.
+
+\medskip\noindent\textbf{Final robustness of fixed centers.}
+If $k=1$, $\calW$ is a singleton, $t=T_{\max}$ suffices and any
+clean $t[w]<T_{\max}$ triggers an optional call to $T_{\max}$;
+no drift. Assume $|\calW|\ge 2$, so separations are finite and
+capping never occurs for them since $10^{T_{\max}-1}\ge\Delta$.
+Let $a_{0}$ be the final position of a lineage whose last
+$\text{MakeRbst}$ has parameter $T_{a}$ for $/100$, created at
+$\tau_{0}$, fixed thereafter. Let $S$ be call separation,
+$10^{T_{a}}\ge S/100$, i.e.\ $S\le 100\cdot 10^{T_{a}}$, and move
+$\le 0.5\cdot 10^{T_{a}}$, $0$ if $T_{a}=0$.
+Let $D_{0}$ be separation just after creation. With $b^{\star}$
+attaining $S$, $D_{0}\le d(a_{0},b^{\star})\le S+0.5\cdot 10^{T_{a}}
+\le 100.5\cdot 10^{T_{a}}$, with equality $D_{0}=S$ if $T_{a}=0$.
+Let $b_{0}$ attain $D_{0}$. Then $D_{\text{final}}\le d(a_{0},b_{0}^{\text{final}})
+\le D_{0}+\delta_{b_{0}}$. If $\delta_{b_{0}}=0$ we are done.
+Else $b_{0}$ moves after $\tau_{0}$ with last parameter
+$T_{m}\ge 1$ uncapped; its chain is strictly increasing, so total
+displacement $\le 0.5\cdot 10^{T_{m}}(1+1/10+\cdots)<0.56\cdot 10^{T_{m}}$,
+and displacement before its last call $<0.056\cdot 10^{T_{m}}$.
+At its last call $S_{b}\le d(b_{\text{call}},a_{0})\le D_{0}+0.056\cdot 10^{T_{m}}$,
+while minimality gives $10^{T_{m}-1}<S_{b}/100$, i.e.\ $S_{b}>10\cdot 10^{T_{m}}$.
+Hence $10\cdot 10^{T_{m}}<D_{0}+0.056\cdot 10^{T_{m}}$,
+so $10^{T_{m}}<0.101\,D_{0}$; if $D_{0}=0$ this is impossible,
+so $m=0$ and $D_{\text{final}}=0$. If $D_{0}>0$,
+$D_{\text{final}}\le 1.06\,D_{0}\le 106.6\cdot 10^{T_{a}}<200\cdot 10^{T_{a}}$.
+Thus required $t_{200}\le T_{a}$, and $T_{a}$-robustness implies
+$t_{200}$-robustness. Together with $\calW_{3}$ survivors,
+output $\calW$ satisfies Def.~\ref{def:robuscenters}.
+
+\medskip\noindent\textbf{Amortized $O(\log^{2}\Delta)$ bound.}
+$|\calW_{1}|\le |\calV^{\star}\setminus\calU_{\init}|=O(\ell+1)$
+since $\calU^{\star}$ adds $O(\ell+1)$ and
+$|\calP^{(\ell+1)}-\calP^{(0)}|\le\ell+1$; amortized $O(1)$.
+$|\calW_{2}|$ uses only apexes $p_{t[u]}$ and $q_{j}$, so old
+Type-II packing counting applies verbatim. Hence mandatory calls
+preserve old Type-I/II amortized bound. Optional calls occur only
+on $\calW_{3}$ with $t>t[w]$, i.e.\ separation exceeding the old
+certificate, exactly the old Type-III situation; skipped
+centers save those calls. Each optional call strictly increases $t$
+in $[0,T_{\max}]$, $T_{\max}=O(\log\Delta)$, certificates persist
+across epochs for clean survivors, resets occur only via mandatory
+introductions/contaminations already charged to updates.
+Hence total optional calls over the whole update sequence are
+bounded by the same lifetime charging as old Type-III calls,
+giving $O(\log^{2}\Delta)$ amortized. Replacing
+$\text{Robustify}(\calW^{\star})$ by the modified procedure
+preserves robustness and Lemma~\ref{lm:makerobustcalls}.
+\end{proof}
+[Proof Draft Generated] Turn 8: 7105 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.88, "completeness": 0.86, "boundary_cases": 0.9, "validity": 0.87, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.92, "completeness": 0.9, "boundary_cases": 0.95, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+[Audit Passed] Proof verified on Turn 8 (validity: 0.87). Early-terminating to prevent multi-turn degradation.
+[Best Candidate Recovery] Restoring highest-scoring candidate from Turn 3 (validity: 0.89, 6923 chars).
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_63_6 | Proof Length: 6923 chars | Turns: 8 | Duration: 2802.92s
+================================================================================

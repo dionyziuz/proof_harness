@@ -1,0 +1,1268 @@
+
+
+================================================================================
+[2026-10-29 12:18:30] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_8_66
+================================================================================
+[CoALA Procedural Memory] Retrieved 3 relevant rules for '\begin{restatable}[Prefix-Restricted Sumset]{theorem}{thmprefixsumset} \label{th':
+  • When proving consistency of a projected hierarchy solution, rewrite the marginal sum as a double sum over distinguished subsets and partition extensions, then establish a bijection between refinements to invoke the original consistency constraint; always verify cardinality bounds to ensure all referenced lifted variables exist.
+  • When encoding combinatorial objects as determinant terms over characteristic 2, cancel unwanted permutations by defining a fixed-point-free involution that reverses the least
+  • When bounding randomized iterative progress, isolate a large good subset via averaging/Markov to
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_8_66 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**T0 — Machine / Set model (granted):**
+- Real RAM, word size $\Theta(\log n)$. Sets of reals stored as sorted arrays / balanced BST; log-factors absorbed in $\widetilde\Order{\cdot}$.
+- Licensed: sorting $A,B$ in $\widetilde\Order{|A|+|B|}$; linear scans, partitions, translations $A-a_{\min}$ in near-linear time.
+
+**T1 — Real Sumset `thm:sumset` (black-box):**
+- *Preconditions:* Any $A,B\subseteq \Real$ (no boundedness, no size balance). No $u$.
+- *Guarantee:* Las Vegas computes full $A+B$ in time $\widetilde\Order{|A+B|}$.
+- *Hypotheses to discharge before use:* None beyond finiteness; cost is output-sensitive on the *called* pair. Must bound $|\text{called sumset}|$ to bound time. Cannot be applied to prefix-truncated pair unless full sumset of that pair is proved small or pair is proved contained in $(-\infty,u]$.
+- *Fragile use:* If $X+Y\not\subseteq (-\infty,u]$, calling `thm:sumset` on $(X,Y)$ may cost $\gg |C|$; must only call when $|X+Y|$ bounded or $X+Y\subseteq (-\infty,u]$ with $|X+Y|\le |C|$ up to polylog, or charge to heavy-block budget.
+
+**T2 — Quad-tree heavy bound `lem:quad-tree-heavy` (black-box):**
+- *Preconditions (all four must hold):*
+  1. (i) Ordered opposite: $\max(A_1)<\min(A_2)<\cdots$, $\min(B_1)>\max(B_2)>\cdots$. I.e. $A$-blocks ascending, $B$-blocks descending.
+  2. (ii) Lower triangle contained: $A_i+B_j\subseteq [0,u]$ for all $i<j$.
+  3. (iii) Dyadic size uniformity: $\exists n,m$ with $|A_i|\in[n,2n]$, $|B_i|\in[m,2m]$ $\forall i$.
+  4. (iv) Diagonal heavy: $|A_\ell+B_\ell|>|C|$ $\forall \ell$, where $C=(A+B)\cap[0,u]$.
+- *Conclusion:* $g<258|C|^{1/3}$.
+- *Hypotheses to discharge:* Must explicitly construct partitions satisfying (i)-(iv); in particular (ii) requires nonnegativity / truncation to $[0,u]$ and the opposite ordering; (iii) requires dyadic bucketing by size; (iv) defines heavy. Lemma gives *no* algorithm, only cardinality bound on number of heavy diagonal cells in one size class.
+- *Domain:* Stated for $A,B\subseteq[0,u]$. Cannot be applied directly to unbounded/general $A,B$; first reduce to $[0,u]$ case.
+
+**Granted observation — Reduction to $[0,u]$:**
+- Translating $A'=A-a_{\min}$, $B'=B-b_{\min}$ preserves sumset cardinalities and shifts threshold to $u'=u-a_{\min}-b_{\min}$. If $A',B'\ge 0$, any $a'>u'$ (resp. $b'>u'$) cannot participate in $(A'+B')\cap(-\infty,u']$ and can be discarded. Hence general case reduces to $A,B\subseteq[0,u]$, $C=(A+B)\cap[0,u]$. This is licensed preprocessing in $\widetilde\Order{|A|+|B|}$.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Strategy Alpha — Constructive divide-and-conquer with heavy/light diagonal (main line):**
+1. Reduce to $A,B\subseteq[0,u]$ via T0 shift+truncate. Sort: $A$ ascending, $B$ ascending.
+2. Recursive procedure `Prefix(A,B,u)`: if $\min(A+B)>u$ return $\emptyset$; if $|A|\cdot|B|$ small (e.g. $\le$ poly) brute force; if $A+B\subseteq[0,u]$ (check $\max(A)+\max(B)\le u$) call T1 directly, cost $\widetilde\Order{|A+B|}\le\widetilde\Order{|C|}$.
+3. Otherwise split $A=A_1\sqcup A_2$ (lower/upper half by sorted order), $B=B_1\sqcup B_2$ (lower/upper half). Reorder $B$-blocks descending to match Lemma: i.e. work with $B$-partition reversed. The four subproblems: two off-diagonal, two diagonal.
+   - Show one off-diagonal (small+small) is fully $\subseteq[0,u]$ → compute by T1, charge to $|C|$ (disjointness / containment in $C$).
+   - The large+large block is fully $>u$ or partially pruned.
+   - Recurse on at most two diagonal / mixed blocks intersecting threshold.
+4. Refine to $g$-way partition ($g\approx$ balanced) to get quad-tree: lower triangle $i<j$ satisfies (ii) → each $A_i+B_j\subseteq[0,u]$, computable by T1. Diagonal $A_i+B_i$ recursed. Upper triangle $i>j$ pruned or recursed with smaller $u$-threshold.
+5. Heavy-light dichotomy on diagonal: call diagonal *light* if $|A_i+B_i|\le |C|$ (or $\le$ threshold $T$), *heavy* otherwise. Light blocks computed directly by T1 in $\widetilde\Order{|C|}$ each; need to bound number of light blocks $\times|C|$. Heavy blocks recursed; need to bound their number via T2 after dyadic size grouping (iii). Conclude recurrence $T(k)\le \widetilde\Order{|C|}\cdot(\text{#light}) + \sum_{\text{heavy}}T(\cdot)$ yields $\widetilde\Order{|C|^{4/3}}$.
+6. Dyadic bucketing: partition diagonal indices by $|A_i|\in[2^p,2^{p+1})$, $|B_i|\in[2^q,2^{q+1})$; $O(\log^2)$ classes. Within each class apply T2 to heavy subset to get $\le O(|C|^{1/3})$ heavy cells per class.
+
+**Strategy Beta — Extremal threshold / output-size induction (potential):**
+- Induct on $|A|+|B|$ or on interval length, with potential $\Phi=|A|+|B|+|C|^{4/3}$.
+- Extremal split choice: choose partition point so that lower-triangle sums are maximally contained in $[0,u]$ while keeping subproblem sizes balanced (e.g. median split). If $\max(A_1)+\max(B_1)\le u$ then $A_1+B_1\subseteq C$; else recurse.
+- Show progress: each recursion strictly shrinks $|A|+|B|$ or discards a block with $\min>u$. Light leaves contribute $\widetilde\Order{|C|}$; heavy internal nodes bounded by T2. Use induction hypothesis that recursive calls satisfy bound with respect to *global* $C$ (monotonicity: $(A_i+B_i)\cap[0,u]\subseteq C$, so $|C_i|\le|C|$), avoiding re-proving subset property.
+- Handles boundary cases $i^*=T+1$ / empty blocks explicitly: if split yields empty $A_2$ or $B_1$, no recursion; cost is sorting only.
+
+**Strategy Gamma — Structural decomposition / charging via disjointness:**
+- Exploit opposite ordering to prove distinct off-diagonal sumsets (or their large subsets) are disjoint or ordered, so $\sum_{i<j}|A_i+B_j|\le O(|C|\log)$ or each $A_i+B_j\subseteq C$ and total T1 cost over lower triangle is $\widetilde\Order{|C|}$ rather than $g^2|C|$.
+- Alternative charging: group pairs $(i,j)$, $i<j$ by sum-range intervals; use sortedness to show translates are separated by $\max(A_i)-\min(A_i)$ gaps. Even without full disjointness, bound total output across fully-contained blocks by $|C|$ times polylog via covering argument.
+- Use to discharge the key quantitative step in Alpha: lower-triangle direct computation does not blow up to $g^2|C|$. If disjointness fails globally, fall back to pairwise T1 + union with deduplication, still bounded because each element belongs to global $C$.
+
+*Selected main line:* Alpha + dyadic T2 application, with Gamma charging for $i<j$ blocks and Beta induction to close recurrence. All three are orthogonal checks on the same recursion.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+Hereditary (preserved under restriction to $A_i,B_i$ and under translation):
+- Sorted order; finiteness; $(A_i+B_i)\cap[0,u]\subseteq (A+B)\cap[0,u]=C$ (so $|C_i|\le|C|$); size bounds $|A_i|\le|A|$.
+- Translation invariance of $|A+B|$ and of T1 cost.
+
+Fragile (revoked upon arbitrary restriction / slicing / conditioning):
+- Containment $A+B\subseteq[0,u]$ — lost after splitting; must re-verify via $\max+\max\le u$ / $\min+\min>u$ per block.
+- Opposite ordering (i) — holds only for constructed partition, not arbitrary subsets; must maintain sort + contiguous intervals.
+- Lower-triangle containment (ii) — holds only if partition respects threshold; must prove from $\max(A_i)+\max(B_j)\le u$.
+- Dyadic uniformity (iii) — lost after unbalanced split; restore by explicit dyadic bucketing.
+- Disjointness of sumsets — not hereditary; cannot assume for arbitrary sub-blocks.
+
+```python
+# seeding epistemic state before Turn 1
+state.register("A_sorted", kind="sorted_array", properties=["hereditary_order", "finite_reals"])
+state.register("B_sorted", kind="sorted_array", properties=["hereditary_order", "finite_reals"])
+state.register("C_prefix", kind="set", properties=["hereditary_subset_Ci_in_C"])  # C=(A+B) cap [0,u]
+state.register("partition_A", kind="interval_partition", properties=["fragile_contiguous", "fragile_ascending"])
+state.register("partition_B_desc", kind="interval_partition", properties=["fragile_contiguous", "fragile_descending"])
+state.register("block_sum_containment", kind="predicate", properties=["fragile_need_maxmax_check"])
+state.register("dyadic_class", kind="size_bucket", properties=["fragile_uniformity_n_m"])
+state.add_subgoal("reduce_to_[0,u]", statement="shift+truncate general A,B to [0,u] in ~O(|A|+|B|)")
+state.add_subgoal("lower_triangle_T1", statement="for i<j, Ai+Bj subset [0,u] => cost chargeable to |C|")
+state.add_subgoal("heavy_bound", statement="per dyadic class, #heavy diagonal <258|C|^{1/3} via lem:quad-tree-heavy")
+state.add_subgoal("recurrence_close", statement="induction gives ~O(|A|+|B|+|C|^{4/3}) Las Vegas")
+```
+
+### Testable Intermediate Claims
+
+1. **Reduction correctness:** After $a_{\min},b_{\min}$ shift and discarding $>u'$ elements, $(A'+B')\cap(-\infty,u']$ equals shifted $C$ and $A',B'\subseteq[0,u']$ (with edge cases $A=\emptyset$ or $B=\emptyset$ or $u'<0$ giving $C=\emptyset$). *Test:* brute-force on small random integer sets with negatives; check truncation does not remove any pair summing $\le u'$. Complementary regime $u'<0$ discharged directly (return $\emptyset$).
+2. **Lower-triangle containment + charging identity:** For constructed $g$-partition with $A$ ascending / $B$ descending, verify $i<j \Rightarrow \max(A_i)+\max(B_j)\le u$ (property (ii)) on instances; and check $\bigcup_{i<j}(A_i+B_j)\subseteq C$ and total $\sum_{i<j}|A_i+B_j|$ vs $|C|$ (disjointness up to logs). *Test:* REPL on random sorted arrays in $[0,u]$ with equal-size blocks; compute all block sumsets naively for small $n$ and compare cardinalities. Never assume one branch of $\min/\max$ split is suboptimal without checking $m=i+1,j-1$ boundaries.
+3. **Heavy-count and recurrence closure:** For each dyadic class $(p,q)$, the set $H=\{\ell:|A_\ell+B_\ell|>|C|\}$ satisfies (i)-(iv) so $|H|<258|C|^{1/3}$; total work satisfies $T\le O(g^2\text{ polylog}) + O(|H|)\cdot T_{\text{sub}} + O(\#\text{light}\cdot|C|)$ resolving to $\widetilde\Order{|C|^{4/3}}$. *Test:* numerically simulate recurrence $T(s)\le a|C| + b|C|^{1/3}T(s/2)$ with $|C_i|\le|C|$; verify exponent $4/3$; check heuristic inequality $A\le B\le C$ only on $D_1=\{|C|\ge 1\}$ and discharge $|C|=0$ separately (return $\emptyset$ in linear time).
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_8_66 ---
+[Falsifier Script 1]:
+# Claim 1: Reduction correctness - shift+truncate preserves prefix
+import random
+random.seed(0)
+
+def prefix_bruteforce(A,B,u):
+    return {a+b for a in A for b in B if a+b <= u}
+
+def reduced(A,B,u):
+    if not A or not B:
+        return set(), [], []
+    a_min=min(A); b_min=min(B)
+    Ap=[a-a_min for a in A]; Bp=[b-b_min for b in B]
+    up=u-a_min-b_min
+    if up < 0:
+        return set(), Ap, Bp  # expect empty
+    Ap2=[a for a in Ap if a <= up]
+    Bp2=[b for b in Bp if b <= up]
+    return up, Ap2, Bp2
+
+ok=True
+for trial in range(200):
+    n=random.randint(0,5); m=random.randint(0,5)
+    A=[random.randint(-5,5) for _ in range(n)]
+    B=[random.randint(-5,5) for _ in range(m)]
+    u=random.randint(-5,5)
+    C=prefix_bruteforce(A,B,u)
+    if not A or not B:
+        assert C==set(), "empty input must give empty C"
+        continue
+    a_min=min(A); b_min=min(B)
+    up,Ap2,Bp2=reduced(A,B,u)
+    if up < 0:
+        assert C==set(), f"u'<0 must give empty, got {C}"
+        continue
+    # shifted C:
+    Cshift={c-a_min-b_min for c in C}
+    C2=prefix_bruteforce(Ap2,Bp2,up)
+    # also check Ap2,Bp2 in [0,up']
+    assert all(0<=a<=up for a in Ap2) and all(0<=b<=up for b in Bp2), "range fail"
+    if Cshift!=C2:
+        print("COUNTEREXAMPLE trunc removed valid pair",A,B,u,Cshift,C2); ok=False; break
+    # check discarded elements truly cannot participate
+    Ap=[a-a_min for a in A]; Bp=[b-b_min for b in B]
+    for a in Ap:
+        if a>up:
+            for b in Bp:
+                assert a+b>up or b>up or True  # a>up,b>=0 => sum>up
+                if b>=0 and a+b<=up:
+                    print("BAD DISCARD"); ok=False
+print("Claim1 reduction holds on samples:", ok)
+assert ok
+[Falsifier Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "<prime_math>", line 32, in <module>
+TypeError: '<' not supported between instances of 'set' and 'int'
+[Falsifier Script 2]:
+# Claim 2: Lower-triangle containment FAILS for naive equal-size blocks
+# + charging identity sum_{i<j}|Ai+Bj| vs |C| spot check
+import random, itertools
+random.seed(1)
+
+def test_containment(A,B,u,g):
+    # A ascending, B ascending sorted; B-blocks descending: B partition reversed
+    # construct contiguous equal-size blocks
+    A=sorted(A); B=sorted(B)
+    n=len(A)//g; m=len(B)//g
+    # naive equal blocks (last block takes remainder)
+    Ab=[A[i*n:(i+1)*n] if i<g-1 else A[i*n:] for i in range(g)]
+    Bb_asc=[B[i*m:(i+1)*m] if i<g-1 else B[i*m:] for i in range(g)]
+    Bb=list(reversed(Bb_asc))  # descending to match lemma ordering (i)
+    viol=[]
+    for i in range(g):
+        for j in range(g):
+            if i<j:
+                if max(Ab[i])+max(Bb[j])>u+1e-9:
+                    viol.append((i,j,max(Ab[i])+max(Bb[j])))
+    return Ab,Bb,viol
+
+# counterexample: uniform arrays in [0,u]
+A=[0,1,2,3,4,5]; B=[0,1,2,3,4,5]; u=5; g=3
+Ab,Bb,viol=test_containment(A,B,u,g)
+print("Ab=",Ab,"Bb_desc=",Bb,"violations(i<j, max+max>u)=",viol)
+assert len(viol)>0, "expected violations"
+print("FALSIFIED universal (ii): naive equal-size partition does NOT guarantee i<j containment")
+
+# charging: even when (ii) forced, check sum vs |C|
+# construct instance where (ii) holds by design: A blocks ascending small, B desc
+A2=[0,1,10,11]; B2=[0,1,10,11]; u2=11
+# use g=2 with median split: A1=[0,1],A2=[10,11]; B desc: B1'=[10,11],B2'=[0,1]
+# i<j pair is (0,1): A1+B2' = [0,1]+[0,1] subset [0,11] OK
+C2={a+b for a in A2 for b in B2 if a+b<=u2}
+S01={a+b for a in [0,1] for b in [0,1]}
+print("|C|=",len(C2),"|A1+B2'|=",len(S01),"subset C:",S01.issubset(C2))
+assert S01.issubset(C2)
+# random small test of union containment whenever (ii) holds
+for _ in range(100):
+    nn=random.randint(2,5); gg=2
+    AA=sorted([random.randint(0,5) for _ in range(nn)])
+    BB=sorted([random.randint(0,5) for _ in range(nn)])
+    uu=5
+    Abx,Bbx,violx=test_containment(AA,BB,uu,gg)
+    Cx={a+b for a in AA for b in BB if a+b<=uu}
+    for i in range(gg):
+        for j in range(gg):
+            if i<j and Abx[i] and Bbx[j]:
+                if max(Abx[i])+max(Bbx[j])<=uu:
+                    S={a+b for a in Abx[i] for b in Bbx[j]}
+                    assert S.issubset(Cx), "contained block must land in C"
+print("Claim2: (ii) needs threshold-aware split, not naive; containment=>subset C holds; disjointness NOT proved")
+[Falsifier Kernel ALERT (Contradiction Found)]: Traceback (most recent call last):
+  File "<prime_math>", line 27, in <module>
+AssertionError: expected violations
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+**Turn 1 — Exploration Gate: Inventory, Invariant, Claims, REPL Checks**
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+**T0 — Machine / Set model (granted):**
+Real RAM, word $\Theta(\log n)$. Sets as sorted arrays / BST. Sorting, linear scans, translation in $\widetilde\Order{\cdot}$.
+
+**T1 — Real Sumset `thm:sumset` (black-box):**
+*Pre:* any finite $A,B\subset \Real$.
+*Guarantee:* Las Vegas computes full $A+B$ in $\widetilde\Order{|A+B|}$.
+*Fragile use:* cost is output-sensitive on the *called* pair. May only be invoked when $|X+Y|$ is proved $\le \widetilde\Order{|C|}$ or $X+Y\subseteq (-\infty,u]$ with containment in global $C$. Otherwise cost $\gg |C|$.
+
+**T2 — Quad-tree heavy bound `lem:quad-tree-heavy` (black-box):**
+*Pre (all four):* $A,B\subseteq [0,u]$, $C=(A+B)\cap[0,u]$, partitions $A=\sqcup A_i$, $B=\sqcup B_i$ with
+(i) $A$-blocks ascending contiguous, $B$-blocks descending contiguous,
+(ii) $A_i+B_j\subseteq [0,u]$ for all $i<j$,
+(iii) $|A_i|\in[n,2n]$, $|B_i|\in[m,2m]$ for some $n,m$,
+(iv) $|A_\ell+B_\ell|>|C|$ for all $\ell$ (diagonal heavy).
+*Conclusion:* $g<258|C|^{1/3}$. No algorithm, only cardinality bound.
+*Must discharge:* (i)-(iv) explicitly; domain $[0,u]$; dyadic uniformity via bucketing; lower-triangle containment via construction, not assumption.
+
+**Granted observation — Reduction to $[0,u]$:**
+Shift by $a_{\min},b_{\min}$ preserves cardinalities; discarding $>u'$ elements cannot affect $(A'+B')\cap(-\infty,u']$. Licensed preprocessing.
+
+### 2. Invariant-First Formulation
+
+Do NOT brute-force over all $g^2$ block pairs. Unifying invariant:
+
+> **Complementary-threshold dichotomy:** Choose thresholds $p_0<p_1<\dots<p_g$ and define $B$-intervals as complements $I_j=(u-p_j,u-p_{j-1}]$. Then lower triangle $i<j$ is automatically contained in $[0,u]$, upper triangle $i>j$ is automatically $>u$ (pruned), only diagonal $i=j$ straddles and needs recursion.
+
+This groups $g^2$ pairs into three classes: contained / pruned / diagonal. It discharges (ii) by construction and avoids assuming naive equal-cardinality partitions satisfy (ii) — they do NOT, see REPL falsification below.
+
+### 3. Structured Intermediate Claims
+
+[CLAIM R — Reduction correctness]:
+After $A'=A-a_{\min}$, $B'=B-b_{\min}$, $u'=u-a_{\min}-b_{\min}$, discarding $\{a'>u'\}$, $\{b'>u'\}$, we have $A',B'\subseteq[0,u']$ (or $C=\emptyset$ if $u'<0$ or $A=\emptyset$ or $B=\emptyset$) and $(A'+B')\cap(-\infty,u']$ is a translate of $C$. Cost $\widetilde\Order{|A|+|B|}$.
+[REDUCTION]: Reduces general Target to $A,B\subseteq[0,u]$, $C=(A+B)\cap[0,u]$. Discharges domain precondition of T2.
+
+[CLAIM P — Complementary partition]:
+Let $A\subseteq[0,u]$ sorted, partition $A=\sqcup_{i=1}^g A_i$ into contiguous equal-cardinality blocks (ascending). Let $p_i=\max(A_i)$, $p_0=-\infty$, $p_g=+\infty$ convention for ends, and define $B_j = B\cap (u-p_j,u-p_{j-1}]$. Then (i) holds (ascending $A_i$, descending $B_j$), $A_i+B_j\subseteq[0,u]$ for $i<j$, and $A_i+B_j\subseteq(u,\infty)$ for $i>j$.
+[REDUCTION]: Discharges (i) and (ii) of T2 by construction; upper triangle needs no computation; lower triangle fully contained; only $g$ diagonals remain. Replaces falsified naive claim that equal-size $B$-quantiles give (ii).
+
+[CLAIM L — Grouped lower-triangle charging]:
+For fixed $i$, $\cup_{j>i}B_j = B\cap(-\infty,u-p_i] := B_{>i}$, and $A_i+B_{>i}\subseteq C$ with $|A_i+B_{>i}|\le|C|$. Hence lower triangle $\cup_{i<j}(A_i+B_j)=\cup_i (A_i+B_{>i})$ computable by $g$ calls to T1 in total $\widetilde\Order{g|C|}$, not $\widetilde\Order{g^2|C|}$.
+[REDUCTION]: Discharges T1 precondition (containment in $C$) and bounds cost. Avoids $g^2$ blowup (Gamma charging).
+
+[CLAIM H — Dyadic heavy bound]:
+Bucket diagonal indices by $|B_i|\in[2^q,2^{q+1})$ ($O(\log|B|)$ classes; $A_i$ already uniform). Within each class, any subsequence preserves (i)(ii). Let $H$ be heavy indices $|A_\ell+B_\ell|>|C|$. Then $H$ satisfies (i)-(iv), so $|H|<258|C|^{1/3}$ per class by T2. Light indices satisfy $|A_i+B_i|\le|C|$ and are computable by T1 in $\widetilde\Order{|C|}$ each.
+[REDUCTION]: Discharges (iii)(iv) of T2 via bucketing + restriction to heavy subsequence. Reduces recursion to $\widetilde\Order{|C|^{1/3}\log^2}$ heavy diagonals per node. Symmetric construction (partition larger of $|A|,|B|$) ensures progress.
+
+Recurrence closure to $\widetilde\Order{|A|+|B|+|C|^{4/3}}$ with $g\approx|C|^{1/3}$ balancing and induction with $|C_i|\le|C|$ left for Turns 2-3.
+
+### 4. State Machine & Python REPL Verification
+
+```python
+# Inventory state
+try:
+    state.register("A_sorted", kind="sorted_array", properties=["finite_reals","hereditary_order"])
+    state.register("B_sorted", kind="sorted_array", properties=["finite_reals","hereditary_order"])
+    state.register("C_prefix", kind="set", properties=["hereditary_subset_Ci_in_C"])
+    state.register("partition_A", kind="interval_partition", properties=["fragile_contiguous","fragile_ascending"])
+    state.register("partition_B_desc", kind="interval_partition", properties=["fragile_contiguous","fragile_descending"])
+    state.add_subgoal("reduce_to_[0,u]", statement="shift+truncate")
+    state.add_subgoal("lower_triangle_T1", statement="i<j contained => charge to |C|")
+    state.add_subgoal("heavy_bound", statement="per dyadic class #heavy <258|C|^{1/3}")
+    print(state.status())
+except Exception as e:
+    print("state api unavailable:", e)
+```
+
+```python
+# Falsification: naive equal-cardinality partition FAILS (ii) in general
+# Counterexample A={90,100}, B={90,100}, u=100, g=2
+A = [90,100]; B = [90,100]; u = 100
+# naive: A1={90},A2={100}, B1={100} (large), B2={90} (small) descending
+Ablocks = [[90],[100]]
+Bblocks_desc = [[100],[90]]  # B1 large, B2 small
+def maxs(X): return max(X)
+viol = []
+for i in range(2):
+    for j in range(2):
+        if i < j:
+            s = maxs(Ablocks[i])+maxs(Bblocks_desc[j])
+            print(f"i={i},j={j}, max+max={s}, contained={s<=u}")
+            if s > u:
+                viol.append((i,j))
+print("violations (i<j, sum>u):", viol)
+# Expect violation at (0,1): 90+90=180>100 => naive (ii) FALSE. Discard naive claim.
+assert len(viol)==1, "naive partition should violate (ii) here"
+print("CONFIRMED: naive equal-size does NOT guarantee (ii). Must use complementary construction.")
+```
+
+```python
+# Verification: complementary construction SUCCEEDS (ii) + pruning
+# Same example + random tests
+import random
+def complementary_partition(A_sorted, B_set, u, g):
+    n = len(A_sorted)
+    # equal-cardinality A-blocks
+    Ablocks=[]; p=[]
+    sz = (n+g-1)//g
+    # build contiguous blocks
+    for i in range(g):
+        blk = A_sorted[i*sz:(i+1)*sz]
+        if blk: Ablocks.append(blk)
+    gg = len(Ablocks)
+    p = [max(b) for b in Ablocks]
+    # B_j = B cap (u-p_j, u-p_{j-1}] with p_0 convention -inf, careful 0-index
+    # j=0..gg-1 corresponds to j+1=1..gg: interval (u-p[j], u-p[j-1]?) 
+    # For j index 0-based: B_0 interval (u-p_0, +inf], B_{gg-1} interval (-inf, u-p_{gg-2}]? 
+    # General: B_j uses p_j and p_{j-1} with p_{-1}:=-inf, p_{gg-1}:=+inf for ends
+    # Implement as: upper = +inf if j==0 else u - p[j-1]; lower = -inf if j==gg-1 and ... actually u-p[j]
+    Bblocks=[]
+    for j in range(gg):
+        pj = p[j]  # p_j (0-based = p_{j+1})
+        upper = float('inf') if j==0 else u - p[j-1]
+        lower = u - pj
+        # for last block, lower may be -inf? No, pj finite so lower finite; but need cover (-inf,...]
+        # Actually partition of R: intervals (u-p_j, u-p_{j-1}] with p_0=-inf => upper inf for j=0 correct,
+        # and for j=gg-1, lower = u-p_{gg-1} finite, but union misses (-inf, u-p_{gg-1}]? No includes it? 
+        # (u-p_{gg-1}, u-p_{gg-2}] misses (-inf,u-p_{gg-1}]. Fix: last block extends to -inf.
+        # Similarly first block already to +inf. So adjust last lower to -inf.
+        if j==gg-1:
+            lower = float('-inf')
+        blk = [b for b in B_set if b>lower and b<=upper]
+        Bblocks.append(sorted(blk))
+    return Ablocks, Bblocks, p
+
+def check(Ablocks,Bblocks,u):
+    gg=len(Ablocks)
+    ok_low=True; ok_up=True
+    for i in range(gg):
+        for j in range(gg):
+            if not Ablocks[i] or not Bblocks[j]: continue
+            if i<j:
+                if max(Ablocks[i])+max(Bblocks[j])>u+1e-9:
+                    print(f"FAIL low i={i},j={j}: {max(Ablocks[i])}+{max(Bblocks[j])}>u"); ok_low=False
+            if i>j:
+                if min(Ablocks[i])+min(Bblocks[j])<=u-1e-9:
+                    print(f"FAIL up i={i},j={j}: {min(Ablocks[i])}+{min(Bblocks[j])}<=u"); ok_up=False
+    return ok_low, ok_up
+
+# deterministic counterexample now passes
+A_sorted=[90,100]; B_set=[90,100]; u=100
+Ab,Bb,p=complementary_partition(A_sorted,B_set,u,2)
+print("Ablocks",Ab,"Bblocks",Bb,"p",p)
+print("check:",check(Ab,Bb,u))
+
+# random tests in [0,u]
+for trial in range(200):
+    u2=10.0
+    n=random.randint(1,12); m=random.randint(1,12)
+    A2=sorted([random.random()*u2 for _ in range(n)])
+    B2=sorted([random.random()*u2 for _ in range(m)])
+    g2=random.randint(1,min(4,max(1,n)))
+    Ab2,Bb2,p2=complementary_partition(A2,B2,u2,g2)
+    ok_low,ok_up=check(Ab2,Bb2,u2)
+    assert ok_low and ok_up, f"failed trial {trial}"
+print("200 random complementary partitions: (ii) + pruning HOLD")
+```
+
+```python
+# Reduction + grouped lower-triangle containment
+import random
+def brute_C(A,B,u):
+    return sorted({a+b for a in A for b in B if a+b<=u+1e-9})
+
+for trial in range(100):
+    u=10.0
+    A=sorted([random.random()*u for _ in range(random.randint(0,8))])
+    B=sorted([random.random()*u for _ in range(random.randint(0,8))])
+    # shift+truncate already in [0,u]; test grouping
+    if not A or not B: continue
+    from math import ceil
+    g=min(3,len(A))
+    # reuse complementary partition
+    def comp(A,B,u,g):
+        n=len(A); sz=(n+g-1)//g
+        Ab=[A[i*sz:(i+1)*sz] for i in range(g) if A[i*sz:(i+1)*sz]]
+        gg=len(Ab); p=[max(b) for b in Ab]
+        Bb=[]
+        for j in range(gg):
+            upper=float('inf') if j==0 else u-p[j-1]
+            lower=float('-inf') if j==gg-1 else u-p[j]
+            Bb.append(sorted([b for b in B if b>lower and b<=upper]))
+        return Ab,Bb,p
+    Ab,Bb,p=comp(A,B,u,g)
+    C=set(brute_C(A,B,u))
+    # grouped: Ai + B_{>i} subset C
+    for i in range(len(Ab)):
+        Bgt=[b for b in B if b<=u-p[i]+1e-9]  # B cap (-inf,u-p_i]
+        S={a+b for a in Ab[i] for b in Bgt if a+b<=u+1e-9}
+        # every such sum must be in C
+        assert S.issubset(set(C) | set()), f"grouped not subset C trial {trial}"
+        # size bound
+        assert len(S)<=len(C) or len(C)==0
+print("grouped lower-triangle containment + |Ai+B_{>i}|<=|C| verified on 100 trials")
+# empty / u'<0 edge
+assert brute_C([1],[2],0.5)==[]
+assert brute_C([], [1,2], 10)==[]
+print("boundary C=empty cases OK")
+```
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Inventory state
+try:
+    state.register("A_sorted", kind="sorted_array", properties=["finite_reals","hereditary_order"])
+    state.register("B_sorted", kind="sorted_array", properties=["finite_reals","hereditary_order"])
+    state.register("C_prefix", kind="set", properties=["hereditary_subset_Ci_in_C"])
+    state.register("partition_A", kind="interval_partition", properties=["fragile_contiguous","fragile_ascending"])
+    state.register("partition_B_desc", kind="interval_partition", properties=["fragile_contiguous","fragile_descending"])
+    state.add_subgoal("reduce_to_[0,u]", statement="shift+truncate")
+    state.add_subgoal("lower_triangle_T1", statement="i<j contained => charge to |C|")
+    state.add_subgoal("heavy_bound", statement="per dyadic class #heavy <258|C|^{1/3}")
+    print(state.status())
+except Exception as e:
+    print("state api unavailable:", e)
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0018s) ---
+Stdout:
+state api unavailable: MathStateMachine.register() got an unexpected keyword argument 'kind'
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Falsification: naive equal-cardinality partition FAILS (ii) in general
+# Counterexample A={90,100}, B={90,100}, u=100, g=2
+A = [90,100]; B = [90,100]; u = 100
+# naive: A1={90},A2={100}, B1={100} (large), B2={90} (small) descending
+Ablocks = [[90],[100]]
+Bblocks_desc = [[100],[90]]  # B1 large, B2 small
+def maxs(X): return max(X)
+viol = []
+for i in range(2):
+    for j in range(2):
+        if i < j:
+            s = maxs(Ablocks[i])+maxs(Bblocks_desc[j])
+            print(f"i={i},j={j}, max+max={s}, contained={s<=u}")
+            if s > u:
+                viol.append((i,j))
+print("violations (i<j, sum>u):", viol)
+# Expect violation at (0,1): 90+90=180>100 => naive (ii) FALSE. Discard naive claim.
+assert len(viol)==1, "naive partition should violate (ii) here"
+print("CONFIRMED: naive equal-size does NOT guarantee (ii). Must use complementary construction.")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0011s) ---
+Stdout:
+i=0,j=1, max+max=180, contained=False
+violations (i<j, sum>u): [(0, 1)]
+CONFIRMED: naive equal-size does NOT guarantee (ii). Must use complementary construction.
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Verification: complementary construction SUCCEEDS (ii) + pruning
+# Same example + random tests
+import random
+def complementary_partition(A_sorted, B_set, u, g):
+    n = len(A_sorted)
+    # equal-cardinality A-blocks
+    Ablocks=[]; p=[]
+    sz = (n+g-1)//g
+    # build contiguous blocks
+    for i in range(g):
+        blk = A_sorted[i*sz:(i+1)*sz]
+        if blk: Ablocks.append(blk)
+    gg = len(Ablocks)
+    p = [max(b) for b in Ablocks]
+    # B_j = B cap (u-p_j, u-p_{j-1}] with p_0 convention -inf, careful 0-index
+    # j=0..gg-1 corresponds to j+1=1..gg: interval (u-p[j], u-p[j-1]?) 
+    # For j index 0-based: B_0 interval (u-p_0, +inf], B_{gg-1} interval (-inf, u-p_{gg-2}]? 
+    # General: B_j uses p_j and p_{j-1} with p_{-1}:=-inf, p_{gg-1}:=+inf for ends
+    # Implement as: upper = +inf if j==0 else u - p[j-1]; lower = -inf if j==gg-1 and ... actually u-p[j]
+    Bblocks=[]
+    for j in range(gg):
+        pj = p[j]  # p_j (0-based = p_{j+1})
+        upper = float('inf') if j==0 else u - p[j-1]
+        lower = u - pj
+        # for last block, lower may be -inf? No, pj finite so lower finite; but need cover (-inf,...]
+        # Actually partition of R: intervals (u-p_j, u-p_{j-1}] with p_0=-inf => upper inf for j=0 correct,
+        # and for j=gg-1, lower = u-p_{gg-1} finite, but union misses (-inf, u-p_{gg-1}]? No includes it? 
+        # (u-p_{gg-1}, u-p_{gg-2}] misses (-inf,u-p_{gg-1}]. Fix: last block extends to -inf.
+        # Similarly first block already to +inf. So adjust last lower to -inf.
+        if j==gg-1:
+            lower = float('-inf')
+        blk = [b for b in B_set if b>lower and b<=upper]
+        Bblocks.append(sorted(blk))
+    return Ablocks, Bblocks, p
+
+def check(Ablocks,Bblocks,u):
+    gg=len(Ablocks)
+    ok_low=True; ok_up=True
+    for i in range(gg):
+        for j in range(gg):
+            if not Ablocks[i] or not Bblocks[j]: continue
+            if i<j:
+                if max(Ablocks[i])+max(Bblocks[j])>u+1e-9:
+                    print(f"FAIL low i={i},j={j}: {max(Ablocks[i])}+{max(Bblocks[j])}>u"); ok_low=False
+            if i>j:
+                if min(Ablocks[i])+min(Bblocks[j])<=u-1e-9:
+                    print(f"FAIL up i={i},j={j}: {min(Ablocks[i])}+{min(Bblocks[j])}<=u"); ok_up=False
+    return ok_low, ok_up
+
+# deterministic counterexample now passes
+A_sorted=[90,100]; B_set=[90,100]; u=100
+Ab,Bb,p=complementary_partition(A_sorted,B_set,u,2)
+print("Ablocks",Ab,"Bblocks",Bb,"p",p)
+print("check:",check(Ab,Bb,u))
+
+# random tests in [0,u]
+for trial in range(200):
+    u2=10.0
+    n=random.randint(1,12); m=random.randint(1,12)
+    A2=sorted([random.random()*u2 for _ in range(n)])
+    B2=sorted([random.random()*u2 for _ in range(m)])
+    g2=random.randint(1,min(4,max(1,n)))
+    Ab2,Bb2,p2=complementary_partition(A2,B2,u2,g2)
+    ok_low,ok_up=check(Ab2,Bb2,u2)
+    assert ok_low and ok_up, f"failed trial {trial}"
+print("200 random complementary partitions: (ii) + pruning HOLD")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0054s) ---
+Stdout:
+Ablocks [[90], [100]] Bblocks [[90, 100], []] p [90, 100]
+check: (True, True)
+200 random complementary partitions: (ii) + pruning HOLD
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Reduction + grouped lower-triangle containment
+import random
+def brute_C(A,B,u):
+    return sorted({a+b for a in A for b in B if a+b<=u+1e-9})
+
+for trial in range(100):
+    u=10.0
+    A=sorted([random.random()*u for _ in range(random.randint(0,8))])
+    B=sorted([random.random()*u for _ in range(random.randint(0,8))])
+    # shift+truncate already in [0,u]; test grouping
+    if not A or not B: continue
+    from math import ceil
+    g=min(3,len(A))
+    # reuse complementary partition
+    def comp(A,B,u,g):
+        n=len(A); sz=(n+g-1)//g
+        Ab=[A[i*sz:(i+1)*sz] for i in range(g) if A[i*sz:(i+1)*sz]]
+        gg=len(Ab); p=[max(b) for b in Ab]
+        Bb=[]
+        for j in range(gg):
+            upper=float('inf') if j==0 else u-p[j-1]
+            lower=float('-inf') if j==gg-1 else u-p[j]
+            Bb.append(sorted([b for b in B if b>lower and b<=upper]))
+        return Ab,Bb,p
+    Ab,Bb,p=comp(A,B,u,g)
+    C=set(brute_C(A,B,u))
+    # grouped: Ai + B_{>i} subset C
+    for i in range(len(Ab)):
+        Bgt=[b for b in B if b<=u-p[i]+1e-9]  # B cap (-inf,u-p_i]
+        S={a+b for a in Ab[i] for b in Bgt if a+b<=u+1e-9}
+        # every such sum must be in C
+        assert S.issubset(set(C) | set()), f"grouped not subset C trial {trial}"
+        # size bound
+        assert len(S)<=len(C) or len(C)==0
+print("grouped lower-triangle containment + |Ai+B_{>i}|<=|C| verified on 100 trials")
+# empty / u'<0 edge
+assert brute_C([1],[2],0.5)==[]
+assert brute_C([], [1,2], 10)==[]
+print("boundary C=empty cases OK")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0041s) ---
+Stdout:
+grouped lower-triangle containment + |Ai+B_{>i}|<=|C| verified on 100 trials
+boundary C=empty cases OK
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 2/8] MODEL GENERATED PROPOSAL & PROOF ---
+Establishing the complementary partition and heavy–light charging. Verifying reduction and disjointness properties by REPL.[CLAIM R — Reduction to $[0,u]$]: Let $a_{\min}=\min A$, $b_{\min}=\min B$ (if $A,B\neq\emptyset$). Put $A'=A-a_{\min}$, $B'=B-b_{\min}$, $u'=u-a_{\min}-b_{\min}$. Then $(A+B)\cap(-\infty,u]$ shifted equals $(A'+B')\cap(-\infty,u']$. If $u'<0$ or $A=\emptyset$ or $B=\emptyset$ then $C=\emptyset$. Else $A',B'\ge 0$; any $a'>u'$ cannot pair to $\le u'$ (since $b'\ge 0$) and can be discarded. Hence assume $A,B\subseteq[0,u]$, $C=(A+B)\cap[0,u]$.
+[REDUCTION]: Discharges domain precondition of `lem:quad-tree-heavy` (needs $[0,u]$). Cost $\widetilde\Order{|A|+|B|}$ sorting/truncation. Complementary regime $u'<0$/empty discharged with no further work.
+
+[CLAIM P — Complementary $g$-partition]: Sort $A$ ascending, split into $g$ contiguous non-empty blocks $A_1,\dots,A_g$ of sizes $\lfloor|A|/g\rfloor$ or $\lceil|A|/g\rceil$ (requires $g\le|A|$; else pad). Let $p_i=\max A_i$. Define $B_1=B\cap(u-p_1,\infty)$, $B_j=B\cap(u-p_j,u-p_{j-1}]$ for $1<j<g$, $B_g=B\cap(-\infty,u-p_{g-1}]$ (with $(-\infty,\cdot]$ for last to cover all). Then (i) $\max A_i<\min A_{i+1}$ (sets have distinct values) and $\min B_j>\max B_{j+1}$; $i<j\Rightarrow\max A_i+\max B_j\le u$ so $A_i+B_j\subseteq[0,u]$; $i>j\Rightarrow\min A_i+\min B_j>u$ so $(A_i+B_j)\cap(-\infty,u]=\emptyset$.
+[REDUCTION]: Gives (i)+(ii) of T2 by construction; upper triangle pruned with zero cost; only $g$ diagonals need recursion. Replaces falsified naive equal-quantile claim.
+
+[CLAIM L — Grouped lower charge]: For fixed $i$, $\bigcup_{j>i}B_j=B\cap(-\infty,u-p_i]:=B_{>i}$ and $A_i+B_{>i}\subseteq[0,u]$, hence $\subseteq C$ and $|A_i+B_{>i}|\le|C|$. So $\bigcup_{i<j}(A_i+B_j)=\bigcup_i(A_i+B_{>i})$ via $g$ calls to `thm:sumset`, total $\widetilde\Order{g|C|}$, not $g^2$.
+[REDUCTION]: Discharges T1 containment precondition; avoids $g^2$ blowup.
+
+[CLAIM H — Dyadic heavy bound]: Bucket diagonal indices by $|B_i|\in[2^q,2^{q+1})$ ($O(\log|B|)$ classes; $A_i$ already in $[n,2n]$ with $n=\lfloor|A|/g\rfloor$). Subsequence preserves (i)(ii). Let $H_q=\{i\text{ in class }q:|A_i+B_i|>|C|\}$. Then $H_q$ satisfies (i)–(iv) (with $|C|$ global), so $|H_q|<258|C|^{1/3}$ by `lem:quad-tree-heavy`. Light $i$ ($|A_i+B_i|\le|C|$) done by one T1 call in $\widetilde\Order{|C|}$.
+[REDUCTION]: Reduces recursion to $\widetilde\Order{|C|^{1/3}\log}$ heavy diagonals per node. Symmetric choice (partition larger of $|A|,|B|$) guarantees $|A_i|$ shrink.
+
+[CLAIM T — Recurrence target]: With guess $H\ge|C|$ and $g\approx H^{1/3}$, per-node cost $\widetilde\Order{gH}=\widetilde\Order{H^{4/3}}$, heavy children $\le O(H^{1/3}\log)$, each with $C_i\subseteq C$. Induction to $\widetilde\Order{|A|+|B|+|C|^{4/3}}$ via doubling guess $H=1,2,4,\dots$ and timeout-based heaviness test. Full closure left for Turns 3–4; below we stress-test disjointness/sum bounds needed for closure.
+
+```python
+# inspect state machine API
+print(dir(state))
+try:
+    print(state.status())
+except Exception as e:
+    print("status err:", e)
+```
+
+```python
+# correct register usage: register(name, domain, properties)
+try:
+    state.register("A_sorted", "sorted_array", ["finite_reals", "hereditary_order"])
+    state.register("B_sorted", "sorted_array", ["finite_reals", "hereditary_order"])
+    state.register("C_prefix", "set", ["hereditary_subset_Ci_in_C"])
+    print("register ok")
+    print(state.status())
+except Exception as e:
+    print("register err:", e)
+```
+
+```python
+import random
+# Reduction correctness brute force
+def brute(A,B,u):
+    return sorted({a+b for a in A for b in B if a+b<=u+1e-9})
+
+def reduce_test(A,B,u):
+    if not A or not B:
+        assert brute(A,B,u)==[]
+        return True
+    amin=min(A); bmin=min(B)
+    Ap=[a-amin for a in A]; Bp=[b-bmin for b in B]
+    up=u-amin-bmin
+    if up<0:
+        assert brute(A,B,u)==[]
+        return True
+    # truncate >up
+    Apr=[a for a in Ap if a<=up+1e-9]
+    Bpr=[b for b in Bp if b<=up+1e-9]
+    C1=set(brute(A,B,u))
+    # shifted C should equal C' shifted back
+    C2=set([c+amin+bmin for c in brute(Apr,Bpr,up)])
+    # Apr,Bpr in [0,up]?
+    assert all(0-1e-9<=a<=up+1e-9 for a in Apr)
+    assert all(0-1e-9<=b<=up+1e-9 for b in Bpr)
+    assert C1==C2, f"{C1} vs {C2}"
+    return True
+
+for t in range(200):
+    n=random.randint(0,6); m=random.randint(0,6)
+    A=[random.randint(-5,5)+random.random() for _ in range(n)]
+    B=[random.randint(-5,5)+random.random() for _ in range(m)]
+    u=random.randint(-5,5)+random.random()
+    # dedup as sets
+    A=list(set(A)); B=list(set(B))
+    reduce_test(A,B,u)
+print("reduction 200 trials OK; empty/u'<0 discharged")
+
+# complementary partition verification + (i)(ii) + pruning
+def comp_part(A_sorted,B_set,u,g):
+    n=len(A_sorted)
+    assert g>=1 and n>=1
+    g=min(g,n)
+    sz=(n+g-1)//g
+    Ablocks=[A_sorted[i*sz:(i+1)*sz] for i in range(g) if A_sorted[i*sz:(i+1)*sz]]
+    gg=len(Ablocks)
+    p=[max(b) for b in Ablocks]
+    Bblocks=[]
+    for j in range(gg):
+        upper=float('inf') if j==0 else u-p[j-1]
+        lower=float('-inf') if j==gg-1 else u-p[j]
+        blk=sorted([b for b in B_set if b>lower and b<=upper])
+        Bblocks.append(blk)
+    return Ablocks,Bblocks,p
+
+def check_ip(Ablocks,Bblocks,u):
+    gg=len(Ablocks)
+    # (i)
+    for i in range(gg-1):
+        if Ablocks[i] and Ablocks[i+1]:
+            assert max(Ablocks[i])<min(Ablocks[i+1]), "A order fail"
+    for j in range(gg-1):
+        if Bblocks[j] and Bblocks[j+1]:
+            # need min(Bj)>max(B_{j+1}) when both non-empty
+            assert min(Bblocks[j])>max(Bblocks[j+1]), f"B desc fail {Bblocks}"
+    for i in range(gg):
+        for j in range(gg):
+            if not Ablocks[i] or not Bblocks[j]: continue
+            if i<j:
+                assert max(Ablocks[i])+max(Bblocks[j])<=u+1e-9, f"low fail {i},{j}"
+            if i>j:
+                assert min(Ablocks[i])+min(Bblocks[j])>u-1e-9, f"up fail {i},{j} {min(Ablocks[i])}+{min(Bblocks[j])} vs {u}"
+    return True
+
+for t in range(300):
+    u=10.0
+    n=random.randint(1,10); m=random.randint(0,10)
+    A=sorted(list(set([random.random()*u for _ in range(n)])))
+    B=sorted(list(set([random.random()*u for _ in range(m)])))
+    if not A: continue
+    g=random.randint(1,len(A))
+    Ab,Bb,p=comp_part(A,B,u,g)
+    check_ip(Ab,Bb,u)
+    # grouped containment
+    C=set(brute(A,B,u))
+    for i in range(len(Ab)):
+        pi=max(Ab[i])
+        Bgt=[b for b in B if b<=u-pi+1e-9]
+        S={a+b for a in Ab[i] for b in Bgt if a+b<=u+1e-9}
+        assert S.issubset(C), "grouped not subset C"
+        assert len(S)<=len(C) or len(C)==0
+print("complementary (i)(ii)+pruning+grouped 300 trials OK")
+```
+
+```python
+import random
+# Stress: sum_i |C_i| vs |C| — is disjointness true? Search counterexample to sum<=|C|
+def brute_set(A,B,u):
+    return {a+b for a in A for b in B if a+b<=u+1e-9}
+
+def comp(A,B,u,g):
+    n=len(A); g=min(g,n)
+    sz=(n+g-1)//g
+    Ab=[A[i*sz:(i+1)*sz] for i in range(g) if A[i*sz:(i+1)*sz]]
+    gg=len(Ab); p=[max(b) for b in Ab]
+    Bb=[]
+    for j in range(gg):
+        upper=float('inf') if j==0 else u-p[j-1]
+        lower=float('-inf') if j==gg-1 else u-p[j]
+        Bb.append(sorted([b for b in B if b>lower and b<=upper]))
+    return Ab,Bb
+
+found=False
+for t in range(2000):
+    u=3.0
+    # small integer sets to force overlap
+    A=sorted(random.sample(range(5), random.randint(1,4)))
+    A=[float(x) for x in A]
+    B=sorted(random.sample(range(5), random.randint(1,4)))
+    B=[float(x) for x in B]
+    # need A,B in [0,u]
+    A=[a for a in A if 0<=a<=u]; B=[b for b in B if 0<=b<=u]
+    if not A or not B: continue
+    g=min(2,len(A))
+    Ab,Bb=comp(A,B,u,g)
+    C=brute_set(A,B,u)
+    Cis=[brute_set(Ab[i],Bb[i],u) for i in range(len(Ab))]
+    s=sum(len(c) for c in Cis)
+    if s>len(C):
+        print(f"counterexample sum>|C|: A={A} B={B} u={u} C={sorted(C)} Cis={[sorted(c) for c in Cis]} sum={s} vs {len(C)}")
+        found=True
+        break
+if not found:
+    print("no sum>|C| in 2000 small trials (suggests sum<=|C| often?)")
+# targeted overlap example A={0,1,2,3} B={0,1,2,3} u=3
+A=[0.,1.,2.,3.]; B=[0.,1.,2.,3.]; u=3.
+Ab,Bb=comp(A,B,u,2)
+print("targeted:",Ab,Bb)
+C=brute_set(A,B,u)
+Cis=[brute_set(Ab[i],Bb[i],u) for i in range(len(Ab))]
+print("C=",sorted(C),"Cis=",[sorted(c) for c in Cis],"sum=",sum(len(c) for c in Cis))
+```
+
+```python
+# Dyadic bucketing preserves (i)(ii): subsequence test + uniformity
+import random
+A=[0.,1.,2.,3.,4.,5.]; B=[0.,1.,2.,3.,4.,5.]; u=5.
+from math import floor
+# use comp with g=3
+def comp2(A,B,u,g):
+    n=len(A); g=min(g,n); sz=(n+g-1)//g
+    Ab=[A[i*sz:(i+1)*sz] for i in range(g) if A[i*sz:(i+1)*sz]]
+    gg=len(Ab); p=[max(b) for b in Ab]
+    Bb=[]
+    for j in range(gg):
+        upper=float('inf') if j==0 else u-p[j-1]
+        lower=float('-inf') if j==gg-1 else u-p[j]
+        Bb.append(sorted([b for b in B if b>lower and b<=upper]))
+    return Ab,Bb,p
+Ab,Bb,p=comp2(A,B,u,3)
+print("Ab sizes",[len(x) for x in Ab],"Bb sizes",[len(x) for x in Bb])
+# bucket B sizes by powers of 2
+from collections import defaultdict
+buckets=defaultdict(list)
+for i in range(len(Ab)):
+    szb=len(Bb[i])
+    if szb==0: continue
+    q=szb.bit_length()-1  # 2^q<=szb<2^{q+1}
+    buckets[q].append(i)
+print("buckets",dict(buckets))
+for q,idxs in buckets.items():
+    # check uniformity: |Bb| in [2^q,2^{q+1})
+    for i in idxs:
+        assert 2**q<=len(Bb[i])<2**(q+1)
+    # check (i)(ii) on subsequence
+    for a in range(len(idxs)):
+        for b in range(len(idxs)):
+            if a<b:
+                # original indices preserve order? need i_a < i_b implies still i<j in original
+                assert idxs[a]<idxs[b]
+                i=idxs[a]; j=idxs[b]
+                # (ii) holds because original i<j
+                if Ab[i] and Bb[j]:
+                    assert max(Ab[i])+max(Bb[j])<=u+1e-9
+print("dyadic subsequence preserves (i)(ii), uniformity holds")
+```
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# inspect state machine API
+print(dir(state))
+try:
+    print(state.status())
+except Exception as e:
+    print("status err:", e)
+```
+--- [TURN 2] EXECUTION SUCCESS (0.0011s) ---
+Stdout:
+['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__firstlineno__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__static_attributes__', '__str__', '__subclasshook__', '__weakref__', '_checkpoints', '_namespace_ref', '_objects', '_subgoals', '_verified_lemmas', 'add_subgoal', 'assert_property', 'bind_namespace', 'checkpoint', 'close_subgoal', 'derive', 'load_state_dict', 'record_lemma', 'register', 'rollback', 'status', 'test_graph_counterexample', 'test_independence', 'to_dict']
+=== Mathematical State Machine Status ===
+Registered Objects (0):
+
+Subgoals (0):
+
+Verified Lemmas (0):
+
+
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# correct register usage: register(name, domain, properties)
+try:
+    state.register("A_sorted", "sorted_array", ["finite_reals", "hereditary_order"])
+    state.register("B_sorted", "sorted_array", ["finite_reals", "hereditary_order"])
+    state.register("C_prefix", "set", ["hereditary_subset_Ci_in_C"])
+    print("register ok")
+    print(state.status())
+except Exception as e:
+    print("register err:", e)
+```
+--- [TURN 2] EXECUTION SUCCESS (0.0008s) ---
+Stdout:
+register ok
+=== Mathematical State Machine Status ===
+Registered Objects (3):
+  • A_sorted [sorted_array]
+      Active Invariants: finite_reals, hereditary_order
+  • B_sorted [sorted_array]
+      Active Invariants: finite_reals, hereditary_order
+  • C_prefix [set]
+      Active Invariants: hereditary_subset_ci_in_c
+
+Subgoals (0):
+
+Verified Lemmas (0):
+
+
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random
+# Reduction correctness brute force
+def brute(A,B,u):
+    return sorted({a+b for a in A for b in B if a+b<=u+1e-9})
+
+def reduce_test(A,B,u):
+    if not A or not B:
+        assert brute(A,B,u)==[]
+        return True
+    amin=min(A); bmin=min(B)
+    Ap=[a-amin for a in A]; Bp=[b-bmin for b in B]
+    up=u-amin-bmin
+    if up<0:
+        assert brute(A,B,u)==[]
+        return True
+    # truncate >up
+    Apr=[a for a in Ap if a<=up+1e-9]
+    Bpr=[b for b in Bp if b<=up+1e-9]
+    C1=set(brute(A,B,u))
+    # shifted C should equal C' shifted back
+    C2=set([c+amin+bmin for c in brute(Apr,Bpr,up)])
+    # Apr,Bpr in [0,up]?
+    assert all(0-1e-9<=a<=up+1e-9 for a in Apr)
+    assert all(0-1e-9<=b<=up+1e-9 for b in Bpr)
+    assert C1==C2, f"{C1} vs {C2}"
+    return True
+
+for t in range(200):
+    n=random.randint(0,6); m=random.randint(0,6)
+    A=[random.randint(-5,5)+random.random() for _ in range(n)]
+    B=[random.randint(-5,5)+random.random() for _ in range(m)]
+    u=random.randint(-5,5)+random.random()
+    # dedup as sets
+    A=list(set(A)); B=list(set(B))
+    reduce_test(A,B,u)
+print("reduction 200 trials OK; empty/u'<0 discharged")
+
+# complementary partition verification + (i)(ii) + pruning
+def comp_part(A_sorted,B_set,u,g):
+    n=len(A_sorted)
+    assert g>=1 and n>=1
+    g=min(g,n)
+    sz=(n+g-1)//g
+    Ablocks=[A_sorted[i*sz:(i+1)*sz] for i in range(g) if A_sorted[i*sz:(i+1)*sz]]
+    gg=len(Ablocks)
+    p=[max(b) for b in Ablocks]
+    Bblocks=[]
+    for j in range(gg):
+        upper=float('inf') if j==0 else u-p[j-1]
+        lower=float('-inf') if j==gg-1 else u-p[j]
+        blk=sorted([b for b in B_set if b>lower and b<=upper])
+        Bblocks.append(blk)
+    return Ablocks,Bblocks,p
+
+def check_ip(Ablocks,Bblocks,u):
+    gg=len(Ablocks)
+    # (i)
+    for i in range(gg-1):
+        if Ablocks[i] and Ablocks[i+1]:
+            assert max(Ablocks[i])<min(Ablocks[i+1]), "A order fail"
+    for j in range(gg-1):
+        if Bblocks[j] and Bblocks[j+1]:
+            # need min(Bj)>max(B_{j+1}) when both non-empty
+            assert min(Bblocks[j])>max(Bblocks[j+1]), f"B desc fail {Bblocks}"
+    for i in range(gg):
+        for j in range(gg):
+            if not Ablocks[i] or not Bblocks[j]: continue
+            if i<j:
+                assert max(Ablocks[i])+max(Bblocks[j])<=u+1e-9, f"low fail {i},{j}"
+            if i>j:
+                assert min(Ablocks[i])+min(Bblocks[j])>u-1e-9, f"up fail {i},{j} {min(Ablocks[i])}+{min(Bblocks[j])} vs {u}"
+    return True
+
+for t in range(300):
+    u=10.0
+    n=random.randint(1,10); m=random.randint(0,10)
+    A=sorted(list(set([random.random()*u for _ in range(n)])))
+    B=sorted(list(set([random.random()*u for _ in range(m)])))
+    if not A: continue
+    g=random.randint(1,len(A))
+    Ab,Bb,p=comp_part(A,B,u,g)
+    check_ip(Ab,Bb,u)
+    # grouped containment
+    C=set(brute(A,B,u))
+    for i in range(len(Ab)):
+        pi=max(Ab[i])
+        Bgt=[b for b in B if b<=u-pi+1e-9]
+        S={a+b for a in Ab[i] for b in Bgt if a+b<=u+1e-9}
+        assert S.issubset(C), "grouped not subset C"
+        assert len(S)<=len(C) or len(C)==0
+print("complementary (i)(ii)+pruning+grouped 300 trials OK")
+```
+--- [TURN 2] EXECUTION ERROR (0.0019s) ---
+Traceback (most recent call last):
+  File "<prime_math>", line 35, in <module>
+  File "<prime_math>", line 25, in reduce_test
+AssertionError: {1.601859623433203, 2.550090470225679, 2.589301710328772, 3.300130801984893, 3.597635444010173, -2.2857745010698993, -1.5357341693106852, -2.246563260966806, -1.2382295272854051} vs {1.601859623433203, 2.550090470225679, 2.5893017103287717, 3.300130801984893, 3.597635444010173, -2.2857745010698993, -1.5357341693106852, -2.246563260966806, -1.2382295272854051}
+
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random
+# Stress: sum_i |C_i| vs |C| — is disjointness true? Search counterexample to sum<=|C|
+def brute_set(A,B,u):
+    return {a+b for a in A for b in B if a+b<=u+1e-9}
+
+def comp(A,B,u,g):
+    n=len(A); g=min(g,n)
+    sz=(n+g-1)//g
+    Ab=[A[i*sz:(i+1)*sz] for i in range(g) if A[i*sz:(i+1)*sz]]
+    gg=len(Ab); p=[max(b) for b in Ab]
+    Bb=[]
+    for j in range(gg):
+        upper=float('inf') if j==0 else u-p[j-1]
+        lower=float('-inf') if j==gg-1 else u-p[j]
+        Bb.append(sorted([b for b in B if b>lower and b<=upper]))
+    return Ab,Bb
+
+found=False
+for t in range(2000):
+    u=3.0
+    # small integer sets to force overlap
+    A=sorted(random.sample(range(5), random.randint(1,4)))
+    A=[float(x) for x in A]
+    B=sorted(random.sample(range(5), random.randint(1,4)))
+    B=[float(x) for x in B]
+    # need A,B in [0,u]
+    A=[a for a in A if 0<=a<=u]; B=[b for b in B if 0<=b<=u]
+    if not A or not B: continue
+    g=min(2,len(A))
+    Ab,Bb=comp(A,B,u,g)
+    C=brute_set(A,B,u)
+    Cis=[brute_set(Ab[i],Bb[i],u) for i in range(len(Ab))]
+    s=sum(len(c) for c in Cis)
+    if s>len(C):
+        print(f"counterexample sum>|C|: A={A} B={B} u={u} C={sorted(C)} Cis={[sorted(c) for c in Cis]} sum={s} vs {len(C)}")
+        found=True
+        break
+if not found:
+    print("no sum>|C| in 2000 small trials (suggests sum<=|C| often?)")
+# targeted overlap example A={0,1,2,3} B={0,1,2,3} u=3
+A=[0.,1.,2.,3.]; B=[0.,1.,2.,3.]; u=3.
+Ab,Bb=comp(A,B,u,2)
+print("targeted:",Ab,Bb)
+C=brute_set(A,B,u)
+Cis=[brute_set(Ab[i],Bb[i],u) for i in range(len(Ab))]
+print("C=",sorted(C),"Cis=",[sorted(c) for c in Cis],"sum=",sum(len(c) for c in Cis))
+```
+--- [TURN 2] EXECUTION SUCCESS (0.0481s) ---
+Stdout:
+no sum>|C| in 2000 small trials (suggests sum<=|C| often?)
+targeted: [[0.0, 1.0], [2.0, 3.0]] [[3.0], [0.0, 1.0, 2.0]]
+C= [0.0, 1.0, 2.0, 3.0] Cis= [[3.0], [2.0, 3.0]] sum= 3
+
+
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Dyadic bucketing preserves (i)(ii): subsequence test + uniformity
+import random
+A=[0.,1.,2.,3.,4.,5.]; B=[0.,1.,2.,3.,4.,5.]; u=5.
+from math import floor
+# use comp with g=3
+def comp2(A,B,u,g):
+    n=len(A); g=min(g,n); sz=(n+g-1)//g
+    Ab=[A[i*sz:(i+1)*sz] for i in range(g) if A[i*sz:(i+1)*sz]]
+    gg=len(Ab); p=[max(b) for b in Ab]
+    Bb=[]
+    for j in range(gg):
+        upper=float('inf') if j==0 else u-p[j-1]
+        lower=float('-inf') if j==gg-1 else u-p[j]
+        Bb.append(sorted([b for b in B if b>lower and b<=upper]))
+    return Ab,Bb,p
+Ab,Bb,p=comp2(A,B,u,3)
+print("Ab sizes",[len(x) for x in Ab],"Bb sizes",[len(x) for x in Bb])
+# bucket B sizes by powers of 2
+from collections import defaultdict
+buckets=defaultdict(list)
+for i in range(len(Ab)):
+    szb=len(Bb[i])
+    if szb==0: continue
+    q=szb.bit_length()-1  # 2^q<=szb<2^{q+1}
+    buckets[q].append(i)
+print("buckets",dict(buckets))
+for q,idxs in buckets.items():
+    # check uniformity: |Bb| in [2^q,2^{q+1})
+    for i in idxs:
+        assert 2**q<=len(Bb[i])<2**(q+1)
+    # check (i)(ii) on subsequence
+    for a in range(len(idxs)):
+        for b in range(len(idxs)):
+            if a<b:
+                # original indices preserve order? need i_a < i_b implies still i<j in original
+                assert idxs[a]<idxs[b]
+                i=idxs[a]; j=idxs[b]
+                # (ii) holds because original i<j
+                if Ab[i] and Bb[j]:
+                    assert max(Ab[i])+max(Bb[j])<=u+1e-9
+print("dyadic subsequence preserves (i)(ii), uniformity holds")
+```
+--- [TURN 2] EXECUTION SUCCESS (0.002s) ---
+Stdout:
+Ab sizes [2, 2, 2] Bb sizes [1, 2, 3]
+buckets {0: [0], 1: [1, 2]}
+dyadic subsequence preserves (i)(ii), uniformity holds
+
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 3/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+\medskip\noindent\textbf{Reduction to $[0,u]$.}
+If $A=\emptyset$ or $B=\emptyset$ then $C=\emptyset$.
+Otherwise let $a_{\min}=\min A$, $b_{\min}=\min B$,
+$A'=A-a_{\min}$, $B'=B-b_{\min}$, $u'=u-a_{\min}-b_{\min}$.
+Translation preserves cardinalities.
+If $u'<0$ then $C=\emptyset$.
+Else $A',B'\ge 0$, and any $a'>u'$ satisfies $a'+b'>u'$
+for all $b'\ge 0$, so it never contributes to
+$(A'+B')\cap(-\infty,u']$; similarly for $B'$.
+Discarding elements $>u'$ gives $A'',B''\subseteq[0,u']$
+with the same truncated sumset up to shift.
+Sorting costs $\widetilde\Order{|A|+|B|}$.
+Hence assume $A,B\subseteq[0,u]$ finite sets, sorted strictly
+increasing, and $C=(A+B)\cap[0,u]$.
+If $\min A+\min B>u$ then $C=\emptyset$, returned in linear time.
+Otherwise $|C|\ge 1$.
+\texttt{thm:sumset} applies to any finite $A,B\subset\Real$
+with cost $\widetilde\Order{|A+B|}$ Las Vegas.
+
+Fix a guess $H\ge 1$ for $|C|$.
+We describe $\textsc{Bounded}(A,B,u,H)$ which runs in
+$\widetilde\Order{|A|+|B|+H^{4/3}}$ regardless of $H$,
+and, if $H\ge|C|$, returns $C$ with high probability,
+else reports $\textsc{Fail}$.
+Doubling $H=1,2,4,\dots$ then gives the claim.
+All $\texttt{thm:sumset}$ calls for lower parts have output
+$\subseteq C$ hence size $\le|C|$; they cost
+$\widetilde\Order{H}$ in expectation if $H\ge|C|$,
+and are aborted after $\widetilde\Order{H}$ steps otherwise,
+declaring $\textsc{Fail}$.
+Diagonal attempts are aborted after $\widetilde\Order{H}$ steps;
+aborted blocks are declared heavy.
+This preserves zero-error: aborting only defers work.
+
+\medskip\noindent\textbf{Peeling loop.}
+Maintain $A_{\rm cur},B_{\rm cur}\subseteq[0,u]$ sorted and
+accumulator $\textsc{Ans}\subseteq C$.
+Invariant: uncovered sums $(A+B)\cap[0,u]\setminus\textsc{Ans}$
+are contained in $(A_{\rm cur}+B_{\rm cur})\cap[0,u]$.
+Initially $A_{\rm cur}=A$, $B_{\rm cur}=B$, $\textsc{Ans}=\emptyset$.
+If either is empty, return $\textsc{Ans}$.
+Ensure $|A_{\rm cur}|\ge|B_{\rm cur}|$ by swapping names
+(sum is commutative).
+Let $N=|A_{\rm cur}|+|B_{\rm cur}|$,
+$N_A=|A_{\rm cur}|$, $L=\lfloor\log_2|B_{\rm cur}|\rfloor+1$
+if $B_{\rm cur}\ne\emptyset$.
+Let $g_0=\lceil1032\,L\,H^{1/3}\rceil$.
+If $N_A<g_0$ then $N<2g_0$; brute force
+$(A_{\rm cur}+B_{\rm cur})\cap[0,u]$ in time
+$O(N^2)=O(L^2H^{2/3})=\widetilde\Order{H^{4/3}}$
+($H\ge1$) and finish.
+Otherwise $g=g_0\le N_A$ and proceed below.
+Each iteration shrinks $N$ by factor $0.75$ (proved below),
+so $O(\log N)$ iterations.
+
+\begin{claim}\label{cl:part}
+Partition sorted $A_{\rm cur}$ into $g$ contiguous equal-cardinality
+blocks $A_1,\dots,A_g$. Then $|A_i|\in[n,2n]$ for $n=\lfloor N_A/g\rfloor$,
+$\max A_i<\min A_{i+1}$.
+Let $p_i=\max A_i$ and
+$B_1=B_{\rm cur}\cap(u-p_1,\infty)$,
+$B_j=B_{\rm cur}\cap(u-p_j,u-p_{j-1}]$ for $1<j<g$,
+$B_g=B_{\rm cur}\cap(-\infty,u-p_{g-1}]$.
+Then $B=\bigsqcup_jB_j$, nonempty $B_j$ satisfy
+$\min B_j>\max B_{j+1}$, for $i<j$,
+$A_i+B_j\subseteq[0,u]$, and for $i>j$,
+$(A_i+B_j)\cap(-\infty,u]=\emptyset$.
+\end{claim}
+\begin{proof}
+$N_A\ge g$ gives block sizes $\lfloor N_A/g\rfloor$ or
+$\lceil N_A/g\rceil$, in $[n,2n]$.
+Distinctness gives strict separation.
+Intervals $I_1=(u-p_1,\infty)$,
+$I_j=(u-p_j,u-p_{j-1}]$, $I_g=(-\infty,u-p_{g-1}]$
+are disjoint decreasing since $p_1<\cdots<p_{g-1}$:
+$x\in I_j$, $y\in I_{j'}$, $j<j'$ implies
+$x>u-p_j\ge y$.
+Hence $B_j$ ordering.
+For $i<j$ ($j>1$), $\max B_j\le u-p_{j-1}$ and
+$\max A_i=p_i\le p_{j-1}$, so sum $\le u$, $\ge0$.
+For $i>j$, $\min A_i>p_{i-1}\ge p_j$ and
+$\min B_j>u-p_j$, so sum $>u$.
+\end{proof}
+
+Thus upper triangle is pruned at zero cost.
+For fixed $i$, $\bigcup_{j>i}B_j=B_{\rm cur}\cap(-\infty,u-p_i]
+=:B_{>i}$, telescoping.
+Hence $\bigcup_{i<j}(A_i+B_j)=\bigcup_i(A_i+B_{>i})$,
+each $A_i+B_{>i}\subseteq[0,u]$, so $\subseteq C$,
+$|A_i+B_{>i}|\le|C|$.
+Compute each via \texttt{thm:sumset} in $\widetilde\Order{|C|}$,
+total $\widetilde\Order{gH}$, add to $\textsc{Ans}$.
+For diagonals, attempt \texttt{thm:sumset} on $(A_i,B_i)$
+with timeout $\widetilde\Order{H}$.
+If it finishes with $|A_i+B_i|\le H$, it is light;
+intersect with $[0,u]$ and add to $\textsc{Ans}$.
+Together with $A_i+B_{>i}$ this covers all $\le u$ sums
+involving $A_i$, since $j<i$ sums exceed $u$.
+If timeout/large, declare heavy.
+Remove all light $A_i$ from $A_{\rm cur}$ (their contributions
+done); keep $A'=\bigcup_{\text{heavy}}A_i$ as new $A_{\rm cur}$,
+$B_{\rm cur}$ unchanged, continue.
+
+\begin{claim}\label{cl:heavy}
+Assume $H\ge|C|$ and timeouts correct w.h.p.
+Then the number of heavy $i$ is $<258LH^{1/3}$,
+and $|A'|\le N_A/2$.
+\end{claim}
+\begin{proof}
+Empty $B_i$ gives empty sumset, hence light.
+So heavy $B_i$ nonempty.
+Bucket heavy indices by $|B_i|\in[2^q,2^{q+1})$,
+$q\ge0$; at most $L$ classes.
+Fix a class with $g'$ indices.
+Let $A_{\rm sub},B_{\rm sub}$ be unions over the class,
+$C_{\rm sub}=(A_{\rm sub}+B_{\rm sub})\cap[0,u]\subseteq C$.
+The subfamily inherits (i) strict ordering for nonempty blocks
+and (ii) containment from Claim~\ref{cl:part},
+satisfies (iii) with $[n,2n]$ and $[2^q,2^{q+1})$,
+and (iv) $|A_\ell+B_\ell|>H\ge|C|\ge|C_{\rm sub}|$.
+Hence \texttt{lem:quad-tree-heavy} applies to
+$(A_{\rm sub},B_{\rm sub})$ giving $g'<258|C_{\rm sub}|^{1/3}
+\le258|C|^{1/3}\le258H^{1/3}$.
+Union over $L$ classes gives $<258LH^{1/3}$ heavies.
+With $K=258LH^{1/3}$, $g\ge4K$ and $N_A\ge g\ge4K$,
+$|A'|\le K(N_A/g+1)\le N_A/4+N_A/4=N_A/2$.
+\end{proof}
+
+Indeed preconditions (i)--(iv) are discharged as above;
+translation invariance and $C_{\rm sub}\subseteq C$
+($|C_{\rm sub}|\le|C|$) justify the bound.
+Consequently with $M=\max(|A_{\rm cur}|,|B_{\rm cur}|)\ge N/2$,
+new $N'=M'+m\le M/2+m=N-M/2\le0.75N$.
+If heavy count exceeds the bound or any lower call exceeds $H$
+or $|\textsc{Ans}|>H$, then necessarily $H<|C|$; report
+$\textsc{Fail}$. Otherwise continue; after $O(\log N)$ steps
+reach the brute-force base case.
+Correctness follows from the covering argument:
+light blocks are fully covered, heavy lowers are covered,
+heavy diagonals remain in $(A_{\rm cur}+B_{\rm cur})$ for later
+iterations, upper blocks never contribute.
+Final union after deduplication by sorting equals $C$.
+
+Per iteration partitioning by binary search costs $O(N+g\log N)$,
+$g$ lower calls plus $g$ diagonal attempts cost
+$\widetilde\Order{gH}=\widetilde\Order{LH^{4/3}}$.
+Sum over geometrically shrinking $N$ gives
+$\widetilde\Order{N}$ linear work plus
+$\widetilde\Order{H^{4/3}}$ ($O(\log N)$ factors absorbed).
+Base case is within budget.
+With $H\ge|C|$, all lower outputs have size $\le|C|\le H$,
+light outputs $\le H$, heavy bound holds, so no spurious
+$\textsc{Fail}$ w.h.p.; Las Vegas correctness holds.
+
+\medskip\noindent\textbf{Doubling.}
+If $|C|=0$ we already returned $\emptyset$.
+Else $|C|\ge1$. Run $\textsc{Bounded}$ with $H=1,2,4,\dots$.
+If $H<|C|$, it reports $\textsc{Fail}$ within budget
+(lower overflow, heavy-count violation, or output size $>H$).
+If $H\ge|C|$, it returns $C$ w.h.p.
+in $\widetilde\Order{N+H^{4/3}}$.
+Final $H<2|C|$, geometric series gives total
+$\widetilde\Order{|A|+|B|+|C|^{4/3}}$ Las Vegas, terminating
+in that bound with high probability.
+Shifting back gives $(A+B)\cap(-\infty,u]$.
+\end{proof}
+[Proof Draft Generated] Turn 3: 7141 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.9, "boundary_cases": 0.9, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.92, "boundary_cases": 0.88, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+[Best Candidate Updated] Turn 3: validity=0.90 (7141 chars)
+[Audit Passed] Proof verified on Turn 3 (validity: 0.90). Early-terminating to prevent multi-turn degradation.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_8_66 | Proof Length: 7141 chars | Turns: 3 | Duration: 1246.7s
+================================================================================

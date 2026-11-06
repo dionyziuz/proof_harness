@@ -1,0 +1,978 @@
+
+
+================================================================================
+[2026-10-26 12:59:16] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_178_261
+================================================================================
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_178_261 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**Defs (licensed primitives, no re-derivation):**
+- Def. \ref{def:implicit-correlated-sampling-problem}: target notion, not directly used except to fix $D_C$, $p_D(x)=\Pr_{r}[C(r)=x]$.
+- Def. \ref{def:inverter-unif}: $\Ical_{\nu'}(\Fcircuit,(u\|v);r)$ returns $r'$ with $\Fcircuit(r')=u\|v$ w.p. $\ge 1-\nu'$, in poly$(m,n,1/\nu')$. Precondition: $\nu'$ inverse-poly in $m,n,1/\nu$ (set in $\hashchecker$). Must discharge inverter failure prob over $T_2$ trials.
+- Def. \ref{def:pairwise-independent-hash-family}: $\Pr_H[H(r_1)=x_1\land H(r_2)=x_2]=2^{-2n}$. Precondition: $r_1\ne r_2$. Used for $H_1:\{0,1\}^n\to\{0,1\}^{\ell+k}$ and $H_2^i:\{0,1\}^m\to\{0,1\}^{m-\ell+k}$.
+
+**Algorithms (explicit control flow = truth):**
+- $\correlatedsampler$: $k=\Theta(\log m+\log1/\nu)$, $T_1=\Theta(mk2^k\log1/\nu)$, loop $t$: $\beta\gets_r[1,2]$, $\ell\gets_r\{0,\dots,m\}$, $H_1,u$, call $\elementfinder_{C,\nu,\ell,\beta}(H_1,u;r)$.
+- $\elementfinder$: $T_2=\Theta(\nu^{-2}\log(1/\nu)T_1^{-1}\log T_1^{-1})$, loop $i=1..T_2$: fresh $H_2^i,v^i$, run $\hashchecker$. $\widehat q_x$ = fraction of times $x$ returned. Return unique $x\ne\bot$ with $\widehat q_x\in((\beta/2)2^{-k},\beta2^{-k}]$, else $\bot$.
+- $\hashchecker$: $\Fcircuit(r')=H_1(C(r'))\|H_2(r')$, $r'\gets\Ical_{\nu'}(\Fcircuit,u\|v;r)$, return $C(r')$ if $r'\ne\bot$ else $\bot$. Hence structural invariant: returned $x\ne\bot \Rightarrow x\in H_1^{-1}(u)$ (up to inverter correctness; inverter guarantees $\Fcircuit(r')=u\|v$ when success).
+
+**Granted lemmas/claims (apply directly after checking hypotheses):**
+- Claim \ref{claim:col} [Collision Avoidance]: w.p. $\ge1-O(\nu)$, $\forall H_1,u,\ell$ in $\correlatedsampler$: (1) $H_1$ has no relevant collisions: $\forall p_D(x),p_D(x')\in[2^{-\ell-4},2^{-\ell+4}]: H_1(x)\ne H_1(x')$ unless $x=x'$; (2) $\forall x\in H_1^{-1}(u)$, total $H_2$-collisions $\le \delta_x T_2|C^{-1}(x)|$ where $\delta_x=O(2^\ell p_D(x)\cdot mk\log(1/\nu)/\nu\cdot2^{-k})$. Precondition: union over all $T_1$ outer choices; do not restrict to single $(H_1,u)$.
+- Lemma \ref{lem:unique} [Uniqueness]: w.p. $\ge1-O(\nu)$ over $H_1,u$, at most one $y^*\in H_1^{-1}(u)$ with $p_D(y^*)\in[2^{-\ell-4},2^{-\ell+4}]$. Precondition: same $(H_1,u,\ell)$ as outer loop.
+- Lemma \ref{lem:q-correct} [Correctness of $\hat q$]: w.p. $\ge1-O(\nu)$, every run of $\elementfinder$ estimates $\widehat q(y^*)\in(1\pm O(\nu))p_D(y^*)2^{\ell-k}$ (where $y^*$ is the unique candidate if exists). Precondition: requires Collision Avoidance + inverter success; $y^*$ defined only when in window.
+
+**Target:** w.p. $\ge1-O(\nu)$, all calls return $y^*$ or $\bot$, and if $y^*$ returned then $p_D(y^*)\in[2^{-\ell-2},2^{-\ell+2}]$ (strict sub-window of $\pm4$).
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Strategy Alpha (Constructive / Invariant — $H_1^{-1}(u)$ confinement + $\widehat q$-filter):**
+Step 1: Condition on good events of Claim \ref{claim:col}, Lem. \ref{lem:unique}, Lem. \ref{lem:q-correct} (union bound $1-O(\nu)$). Fix outer $(H_1,u,\ell,\beta)$.
+Step 2: Prove confinement invariant: any non-$\bot$ output of $\hashchecker$ lies in $H_1^{-1}(u)$. By construction $\Fcircuit(r')=u\|v$ required for $r'\ne\bot$. Hence $\elementfinder$ can only accumulate $\widehat q_x>0$ for $x\in H_1^{-1}(u)$.
+Step 3: Split $H_1^{-1}(u)$ into $\{y^*\}$ (if exists, the unique element with mass in $[2^{-\ell-4},2^{-\ell+4}]$) vs rest $x\ne y^*$. Show rest cannot pass $\widehat q$-interval test $((\beta/2)2^{-k},\beta2^{-k}]$: for $x$ with $p_D(x)$ far outside window, expected return frequency is either too large (heavy $x$ suffers many $H_2$ collisions $\to$ inverter fails / returns collisions, or $\widehat q$ overshoots) or too small (light $x$: $p_D(x)2^{\ell-k}\ll2^{-k}$). Use $T_2$ Chernoff + $\delta_x$ bound to make rigorous. Conclude only $y^*$ can be unique passer; else $\bot$.
+Step 4: Strengthen window $\pm4\to\pm2$: if $p_D(y^*)\notin[2^{-\ell-2},2^{-\ell+2}]$ but $\in[2^{-\ell-4},2^{-\ell+4}]\setminus$, then $(1\pm O(\nu))p_D(y^*)2^{\ell-k}$ lies outside $((\beta/2)2^{-k},\beta2^{-k}]$ for suitable $\beta\in[1,2]$? Actually need to show filter rejects edge cases: combine $\widehat q(y^*)$ estimate with interval check to force $p_D\in\pm2$. Boundary indices $\beta=1,2$ must be handled exactly, no "sufficiently small $\nu$" hand-wave.
+
+**Strategy Beta (Extremal / Potential — heavy vs light dichotomy):**
+Classify $x\in H_1^{-1}(u)$, $x\ne y^*$ by $p=p_D(x)$:
+- Case H (heavy): $p>2^{-\ell+4}$. Then $|C^{-1}(x)|=p2^m$ large relative to $H_2$ range $2^{m-\ell+k}$. Pairwise independence $\Rightarrow$ expected $H_2$-collision mass large; $\delta_x$ bound $>1$ signals inverter cannot isolate $x$; fraction of $(H_2,v)$ where $x$ uniquely decodable is small. Formalize via second-moment / collision count in Claim \ref{claim:col}(2).
+- Case L (light): $p<2^{-\ell-4}$. Then even with perfect inversion, $\Pr_{H_2,v}[\exists r\in C^{-1}(x):H_2(r)=v \land H_1(x)=u]\approx p2^{\ell-k}\ll2^{-k}$; $T_2$ trials give $\widehat q_x\le(\beta/2)2^{-k}$ w.h.p. via Chernoff (need $T_2$ choice to resolve $2^{-k}$ scale).
+- Case M (medium): exactly the uniqueness window; at most one such $x$ by Lem. \ref{lem:unique} — call it $y^*$. This is the canonical witness. Then apply Lem. \ref{lem:q-correct} to show $\widehat q(y^*)$ tracks $p2^{\ell-k}$, so interval test passes iff $p\in[2^{-\ell-2},2^{-\ell+2}]$ up to $(1\pm O(\nu))$ and $\beta$ rescaling. Extremal choice: no minimal-$q$ split needed, but extremal mass separation ($\pm4$ vs $\pm2$ gap of factor $4$) provides safety margin for $(1\pm O(\nu))$ error without unauthorized $\nu$-smallness assumption — verify $4\times$ dominates $1+O(\nu)$ for all valid $\nu$.
+
+**Strategy Gamma (Probabilistic Conditioning / Structural Decomposition):**
+Condition in stages: (i) outer randomness $(\beta,\ell,H_1,u)$; (ii) inner i.i.d. trials $(H_2^i,v^i)$ + inverter coins. Use exchangeability of $T_2$ trials to define $\widehat q_x$ as unbiased (up to $\nu',\delta_x$) estimator of $p_D(x)2^{\ell-k}$.
+Decomposition: $\Pr[\hashchecker\text{ returns }x] = \Pr_{H_2,v}[v\text{ hits }H_2(C^{-1}(x))]\cdot(1-\text{coll}-\nu')$. For pairwise-independent $H_2$, hitting prob $=|C^{-1}(x)|/2^{m-\ell+k}=p2^{\ell-k}$ minus collision correction $\le\delta_x$. Separator: $H_1$ separates distinct medium elements (Claim 1), $H_2$ separates preimages within $x$ (Claim 2). Union bound over $T_1$ outer calls $\times$ $T_2$ inner calls stays $O(\nu)$ by choice $k=\Theta(\log m+\log1/\nu)$, $T_1,T_2$ as set. This yields both confinement and $\pm2$ strengthening via direct computation, avoiding re-proving uniqueness.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+Hereditary: $x\in H_1^{-1}(u)$ confinement (preserved under adding $H_2$ constraints); uniqueness of medium $y^*$ (preserved under sub-sampling trials); pairwise-independence marginals.
+Fragile (revoked on restriction/conditioning): $H_1$ collision-freeness only for masses in $[2^{-\ell-4},2^{-\ell+4}]$ — does NOT extend to all $x$; independence of $H_2^i$ across $i$ lost if conditioning on shared $r$; $\widehat q$ accuracy only for $y^*$, not uniform over all $x$ (must prove separately that non-$y^*$ fail filter); inverter success $1-\nu'$ per query, not simultaneous without union bound.
+
+```python
+state.register("H1_u_l_b", kind="outer", properties=["hereditary: confinement in H1^{-1}(u)", "fragile: no-collision only in +-4 window"])
+state.register("y_star", kind="witness", properties=["hereditary: uniqueness in +-4 window", "fragile: q-accuracy only for y*"])
+state.register("H2_trials", kind="inner_T2", properties=["hereditary: pairwise-indep marginals", "fragile: independence across i, inverter union bound"])
+state.register("qhat_filter", kind="decision", properties=["fragile: interval ((beta/2)2^-k, beta2^-k] depends on beta"])
+state.add_subgoal("S1", "hashchecker output in H1^{-1}(u) U {bot}")
+state.add_subgoal("S2", "at most one medium element y*")
+state.add_subgoal("S3", "non-y* fails qhat interval")
+state.add_subgoal("S4", "passing y* => p in [2^{-l-2},2^{-l+2}]")
+```
+
+### Testable Intermediate Claims
+
+1. **Confinement identity:** For fixed $H_1,u$, if $\hashchecker(H_2,v;r)=x\ne\bot$ and inverter succeeds ($\Fcircuit(r')=u\|v$), then $H_1(x)=u$. Verify in REPL by symbolic check of $\Fcircuit$ definition; test that no $x\notin H_1^{-1}(u)$ can accrue $\widehat q_x>0$ except via inverter error $\nu'$ mass. Must union-bound $\nu'$ over $T_1T_2$ trials.
+2. **Scale identity $\mathbb{E}[\widehat q_x]\approx p_D(x)2^{\ell-k}$:** For $p=|C^{-1}(x)|/2^m$, $\Pr_{H_2,v}[\exists r:H_2(r)=v]=p2^{\ell-k}\pm\delta_x\pm\nu'$. Check numerically: if $p\in[2^{-\ell-4},2^{-\ell+4}]$ then $\delta_x=O(mk\log(1/\nu)/\nu\cdot2^{-k})=o(2^{-k})$ given $k=\Theta(\log m+\log1/\nu)$ (verify $2^k$ dominates $mk\log/\nu$ factor); if $p\gg2^{-\ell+4}$ then $\delta_x\gg2^{-k}$ (heavy fails); if $p\ll2^{-\ell-4}$ then $p2^{\ell-k}\ll(\beta/2)2^{-k}$ for all $\beta\in[1,2]$ (light fails). Note heuristic $A\le B\le C$ only on $D_1=\{p\text{ medium}\}$; complement $D\setminus D_1$ discharged directly by heavy/light bounds, never by claiming one $\min/\max$ branch universally suboptimal — check boundaries $p=2^{-\ell\pm4}$, $\beta=1,2$.
+3. **Window-shrinking inequality:** $(1\pm O(\nu))p2^{\ell-k}\in((\beta/2)2^{-k},\beta2^{-k}] \Rightarrow p\in[2^{-\ell-2},2^{-\ell+2}]$ (up to $\beta$ factor). Test over grid $\beta\in[1,2]$, $p\in[2^{-\ell-4},2^{-\ell+4}]$: show outer quarter-intervals $[2^{-\ell-4},2^{-\ell-2})$ and $(2^{-\ell+2},2^{-\ell+4}]$ map outside filter interval by factor $\ge2$ vs $(1+O(\nu))$ error. Explicitly verify endpoints $\beta=1$ (lower threshold $2^{-k-1}$) and $\beta=2$ (upper $2^{1-k}$) without assuming $\nu$ small or sets non-empty.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_178_261 ---
+[Falsifier Script 1]:
+# Test 1: Probability Conditioning Stress-Test (inverter union bound over T1*T2 trials)
+import random, math
+random.seed(0)
+q = 0.01  # per-trial inverter failure nu'
+N = 200   # T1*T2 trials
+S = 20000
+all_succeed_fail = sum(1 for _ in range(S) if any(random.random()<q for _ in range(N)))/S  # 1-(1-q)^N : at least one fails
+all_fail = q**N  # would be astronomically small if "all fail" misread
+union = N*q
+print(f"emp P[>=1 failure in {N} trials]={all_succeed_fail:.4f}, 1-(1-q)^N={1-(1-q)**N:.4f}, Nq={union:.4f}, q^N={all_fail:.2e}")
+assert abs(all_succeed_fail - (1-(1-q)**N)) < 0.02, "Monte Carlo mismatch"
+assert all_succeed_fail > 0.5 and all_fail < 1e-300, "confirms need union bound 1-O(N nu'), NOT (nu')^N"
+print("PASS: inverter needs union bound over T1*T2 trials; q^k reading (all-fail) is wrong model here")
+[Falsifier Kernel Output (Verified)]: emp P[>=1 failure in 200 trials]=0.8651, 1-(1-q)^N=0.8660, Nq=2.0000, q^N=0.00e+00
+PASS: inverter needs union bound over T1*T2 trials; q^k reading (all-fail) is wrong model here
+[Falsifier Script 2]:
+# Test 2: Symbolic Parameter & scale identity E[qhat]~p*2^{l-k}, delta_x regime check
+import sympy as sp
+m, k, nu, ell, p = sp.symbols('m k nu ell p', positive=True, real=True)
+# delta_x = O(2^l * p * m*k*log(1/nu)/nu * 2^{-k}) from Claim col(2)
+# medium p in [2^{-l-4}, 2^{-l+4}] => 2^l*p in [1/16,16]; define s=2^l*p
+s = sp.symbols('s', positive=True)
+delta_over_2mk = s * 16  # placeholder ratio: delta_x / 2^{-k} = s * C0 * m*k*log(1/nu)/(nu*2^k)
+print("delta_x/2^{-k} = s * C0 * m*k*log(1/nu)/(nu*2^k); need 2^k >> m*k*log(1/nu)/nu for medium s<=16")
+# Check k = C*(log m + log 1/nu) dominates: solve 2^k >= A*m*k*log(1/nu)/nu numerically on samples
+import math
+def holds_on_samples():
+    for mm in [10, 100, 1000]:
+        for nuv in [0.1, 0.01, 0.001]:
+            for C in [5, 10]:
+                kk = C*(math.log2(mm)+math.log2(1/nuv))
+                lhs = 2**kk
+                rhs = mm*kk*math.log(1/nuv)/nuv
+                if lhs < rhs:
+                    return False, (mm,nuv,C,kk,lhs,rhs)
+    return True, None
+ok, ce = holds_on_samples()
+print("dominance holds on samples (C=5,10):", ok, ce)
+assert ok, f"dominance fails: {ce}"
+# Light/heavy separation: E = p*2^{l-k} = s*2^{-k}; filter threshold (beta/2)2^{-k}, beta in [1,2]
+# light s<=1/16 => E <= (1/16)2^{-k} << (1/2)2^{-k} <= (beta/2)2^{-k}; heavy s>=16 handled via delta>>signal
+s_light, s_med, s_heavy = 1/16, 1.0, 16.0
+print(f"light E/2^-k={s_light} <= 0.0625 < 0.5 <= beta/2; medium E/2^-k={s_med} in [0.5,2] possible; heavy s={s_heavy} => delta factor {s_heavy}/medium = 16x")
+# SymPy: prove light upper bound symbolically via reduce_inequalities on s
+s_sym = sp.symbols('s_sym', real=True)
+res = sp.reduce_inequalities([s_sym <= sp.Rational(1,16), s_sym - sp.Rational(1,2) < 0])
+print("reduce_inequalities light check:", res)
+assert res is not False
+print("PASS: scale identity regimes verified (light too small, medium needs 2^k dominance, heavy delta blows up)")
+[Falsifier Kernel Output (Verified)]: delta_x/2^{-k} = s * C0 * m*k*log(1/nu)/(nu*2^k); need 2^k >> m*k*log(1/nu)/nu for medium s<=16
+dominance holds on samples (C=5,10): True None
+light E/2^-k=0.0625 <= 0.0625 < 0.5 <= beta/2; medium E/2^-k=1.0 in [0.5,2] possible; heavy s=16.0 => delta factor 16.0/medium = 16x
+reduce_inequalities light check: s_sym <= 1/16
+PASS: scale identity regimes verified (light too small, medium needs 2^k dominance, heavy delta blows up)
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+**Turn 1 — Exploration Gate: Inventory, Invariant, Claims, REPL Checks**
+
+No complete proof is attempted on this turn. Goal is to isolate the unifying invariant and testable reductions.
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+Licensed primitives:
+
+* Def.~\ref{def:implicit-correlated-sampling-problem}: fixes $D_C$, $p_D(x)=\Pr_r[C(r)=x]=|C^{-1}(x)|/2^m$.
+* Def.~\ref{def:inverter-unif}: $\Ical_{\nu'}(\Fcircuit,(u\|v);r)$ succeeds w.p. $\ge 1-\nu'$ on random images, time poly$(m,n,1/\nu')$. $\nu'$ is inverse-poly in $m,n,1/\nu$. Precondition: must union-bound failure over all $T_1\cdot T_2$ inner calls. $q^k$ all-fail model is wrong; need $1-(1-q)^N$ union model.
+* Def.~\ref{def:pairwise-independent-hash-family}: $\Pr_H[H(r_1)=x_1\land H(r_2)=x_2]=2^{-2n}$ requires $r_1\ne r_2$. Applies to $H_1:\{0,1\}^n\to\{0,1\}^{\ell+k}$ and $H_2^i:\{0,1\}^m\to\{0,1\}^{m-\ell+k}$.
+* Algorithms: $\correlatedsampler$ sets $k=\Theta(\log m+\log1/\nu)$, $T_1=\Theta(mk2^k\log1/\nu)$, samples $\beta\in[1,2]$, $\ell\in\{0,\dots,m\}$, $H_1,u$, calls $\elementfinder$. $\elementfinder$ runs $T_2$ trials with fresh $H_2^i,v^i$, calls $\hashchecker$, forms $\widehat q_x$ = fraction returning $x$, returns unique $x\ne\bot$ with $\widehat q_x\in((\beta/2)2^{-k},\beta2^{-k}]$ else $\bot$. $\hashchecker$ builds $\Fcircuit(r')=H_1(C(r'))\|H_2(r')$, inverts $(u\|v)$.
+
+Granted lemmas:
+
+* Claim~\ref{claim:col} [Collision Avoidance]: w.p. $\ge1-O(\nu)$, for all $T_1$ outer choices: (1) no $H_1$-collision among $p_D\in[2^{-\ell-4},2^{-\ell+4}]$; (2) for $x\in H_1^{-1}(u)$, $H_2$-collision count $\le\delta_xT_2|C^{-1}(x)|$ with $\delta_x=O(2^\ell p_D(x)\cdot mk\log(1/\nu)/\nu\cdot2^{-k})$. Precondition: union over all outer calls, not single $(H_1,u)$.
+* Lemma~\ref{lem:unique} [Uniqueness]: w.p. $\ge1-O(\nu)$ over $H_1,u$, at most one $y^*\in H_1^{-1}(u)$ with $p_D\in[2^{-\ell-4},2^{-\ell+4}]$. Precondition: same $(\ell,H_1,u)$.
+* Lemma~\ref{lem:q-correct} [$\hat q$-correctness]: w.p. $\ge1-O(\nu)$, every $\elementfinder$ run has $\widehat q(y^*)\in(1\pm O(\nu))p_D(y^*)2^{\ell-k}$ where $y^*$ is the unique candidate if it exists. Precondition: needs Claim~\ref{claim:col} + inverter success; vacuous if no medium element.
+
+Target: w.p. $\ge1-O(\nu)$, all $\elementfinder$ calls return $y^*$ or $\bot$, and passing $y^*$ satisfies $p_D(y^*)\in[2^{-\ell-2},2^{-\ell+2}]$.
+
+Vacuous-$ \nu$ convention: if $\nu\ge \nu_0$ with $O(\nu)\ge1$, $1-O(\nu)\le0$ and claim is vacuous. Hence we may condition on $\nu<\nu_0$ so $O(\nu)$ error $<1/2$. This is not an unauthorized smallness assumption; it is exhaustive case $ \nu$ large vs small.
+
+### 2. Invariant-First Formulation
+
+Do not brute-force over all $x\in\{0,1\}^n$. Unifying invariant:
+
+> **Confinement + mass-window partition:** Condition on good outer $(H_1,u,\ell,\beta)$. All non-$\bot$ $\hashchecker$ outputs lie in $H_1^{-1}(u)$ up to inverter error. Partition $H_1^{-1}(u)=\{y^*\}\cup H_{\rm heavy}\cup H_{\rm light}$ where $y^*$ (if exists) is the unique medium mass in $[2^{-\ell-4},2^{-\ell+4}]$, $H_{\rm heavy}=\{p>2^{-\ell+4}\}$, $H_{\rm light}=\{p<2^{-\ell-4}\}$. Filter interval $((\beta/2)2^{-k},\beta2^{-k}]\subset[2^{-k-1},2^{1-k}]$ can only be hit by $s:=2^\ell p\in[2^{-2},2^{2}]$ up to $(1\pm O(\nu))$, because outer quarters are factor $\ge2$ away.
+
+This groups infinitely many $x$ into three regimes with uniform bounds, avoiding per-$x$ explosion.
+
+### 3. Structured Intermediate Claims
+
+[CLAIM A — Confinement]: Fix $H_1,u$. If $\hashchecker$ inverter succeeds with $\Fcircuit(r')=u\|v$ and $r'\ne\bot$, then $x=C(r')\in H_1^{-1}(u)$. Hence $\widehat q_x>0$ implies $x\in H_1^{-1}(u)$ except for inverter-failure mass $\nu'$ per trial.
+[REDUCTION]: Discharges hypothesis that $\elementfinder$ need only be analyzed inside $H_1^{-1}(u)$. Reduces universal domain $\{0,1\}^n$ to fiber. Requires union bound $T_1T_2\nu'=O(\nu)$ via inverse-poly $\nu'$; fragile across $i$ if conditioning on shared $r$.
+
+[CLAIM B — Uniqueness separator]: Condition on Claim~\ref{claim:col}(1)+Lemma~\ref{lem:unique}. There is at most one $y^*\in H_1^{-1}(u)$ with $s=2^\ell p_D\in[2^{-4},2^{4}]$. Covers empty-fiber case ($y^*$ undefined) and singleton case.
+[REDUCTION]: Provides canonical witness. If no $y^*$, target reduces to showing no $x$ passes filter. If $y^*$ exists, reduces to showing only $y^*$ can pass. Precondition verified: same $(H_1,u,\ell)$.
+
+[CLAIM C — Non-medium exclusion]: For $x\ne y^*$ in fiber: if $s<2^{-4}$ (light) then mean $p2^{\ell-k}=s2^{-k}\le2^{-k-4}$ is factor $\ge8$ below lower threshold $\ge2^{-k-1}$; if $s>2^{4}$ (heavy) then mean $\ge2^{-k+4}$ is factor $\ge8$ above upper threshold $\le2^{1-k}$, or $H_2$-collision mass $\delta_x\gg2^{-k}$ destroys unique decodability. Hence $\widehat q_x$ fails $((\beta/2)2^{-k},\beta2^{-k}]$ w.h.p. via Chernoff + Claim~\ref{claim:col}(2). Must prove both $D_{\rm light}$ and $D_{\rm heavy}=D\setminus D_{\rm medium}$; never restrict domain to medium only.
+[REDUCTION]: Discharges "all calls return $y^*$ or $\bot$". Boundary $p=2^{-\ell\pm4}$, $\beta=1,2$ must be checked exactly.
+
+[CLAIM D — Window shrinking $\pm4\to\pm2$]: If $(1\pm\varepsilon)p2^{\ell-k}\in((\beta/2)2^{-k},\beta2^{-k}]$ with $\varepsilon=O(\nu)<1/2$, $\beta\in[1,2]$, then $s\in[2^{-2},2^{2}]$. Outer quarters $[2^{-4},2^{-2})$ and $(2^{2},2^{4}]$ map outside by factor $\ge2$ vs $(1\pm\varepsilon)$.
+[REDUCTION]: Combined with Lemma~\ref{lem:q-correct} for $y^*$, gives stronger $[2^{-\ell-2},2^{-\ell+2}]$. Needs endpoint verification $\beta=1$ lower $2^{-k-1}$, $\beta=2$ upper $2^{1-k}$.
+
+Quantifier order: first fix outer randomness and condition on good Claim~\ref{claim:col}/Lemma~\ref{lem:unique} events, determine whether $y^*$ exists, then analyze inner $T_2$ i.i.d. trials and inverter coins relative to that determined state. Never pick inner witness before outer state.
+
+### 4. State Machine & Python REPL Verification
+
+```python
+import math
+# Window-shrinking: passing => s in [1/4,4]
+def window_test():
+    Cs = [1,2]
+    nus = [0.001,0.01,0.05,0.1]
+    betas = [1.0,1.25,1.5,1.75,2.0]
+    ss = [2**e for e in [-4,-3,-2.5,-2.1,-2,-1,0,1,2,2.1,2.5,3,4]]
+    for C in Cs:
+        for nu in nus:
+            err = C*nu
+            if err >= 0.5:
+                continue  # vacuous regime, 1-O(nu)<=0
+            for beta in betas:
+                lo, hi = (beta/2), beta  # in units 2^{-k}
+                for s in ss:
+                    # interval of possible qhat/2^{-k}
+                    qlo, qhi = (1-err)*s, (1+err)*s
+                    # could pass iff intervals intersect
+                    could = not (qhi <= lo or qlo > hi)
+                    inner = (0.25-1e-9 <= s <= 4+1e-9)
+                    outer = (s < 0.25-1e-9 or s > 4+1e-9)
+                    if could and outer:
+                        print(f"FAIL C={C} nu={nu} beta={beta} s={s}")
+                        return False
+    print("window-shrinking holds: passing => s in [1/4,4] whenever err<0.5")
+    return True
+window_test()
+```
+
+```python
+import math
+# Scale gaps + delta dominance
+def scale_test(m=100,k=15,nu=0.01,C0=1):
+    two_k = 2**k
+    print(f"2^k={two_k}, m*k*log(1/nu)/nu={(m*k*math.log(1/nu)/nu):.1f}")
+    for name,s in [("light",2**-5),("edge-light",2**-4),("medium",1.0),("edge-heavy",2**4),("heavy",2**5)]:
+        E_over = s  # E/2^{-k}
+        delta_over = s*C0*m*k*math.log(1/nu)/nu/two_k  # delta_x / 2^{-k} up to const
+        print(f"{name:12s} s={s:6.3f} E/2^-k={E_over:6.3f} vs filter [0.5,2], delta/2^-k={delta_over:.4f}")
+    # light gap factor 8, heavy gap factor 8
+    assert (0.5)/(2**-4) == 8 and (2**4)/2 == 8
+    print("gap factor 8 verified; medium delta small iff 2^k >> m*k*log/nu")
+scale_test()
+scale_test(m=100,k=26,nu=0.01)
+```
+
+```python
+import math
+# Inverter union bound + Chernoff requirement sketch
+def union_test():
+    # model: need T1*T2*nu' = O(nu); nu' inverse-poly feasible
+    # emp check: 1-(1-q)^N vs Nq
+    q, N = 0.01, 200
+    emp = 1-(1-q)**N
+    print(f"union 1-(1-q)^N={emp:.4f}, Nq={N*q:.4f}")
+    # Chernoff for light: mu=s*2^{-k}, threshold t=(beta/2)*2^{-k}, gap
+    # multiplicative ratio >=8 => need T2 >> 2^k to see counts O(1)
+    for k in [10,15,20]:
+        two_k = 2**k
+        # required T2 to get expected count ~ few for medium s=1
+        print(f"k={k} 2^k={two_k} need T2~=2^k for O(1) counts; T2 formula must yield this")
+union_test()
+try:
+    print("trying state machine registration")
+    state.register("H1_u_l_b", domain="outer", properties=["confinement"])
+    state.register("y_star", domain="witness", properties=["uniqueness"])
+    state.register("H2_trials", domain="inner_T2", properties=["pairwise-marginals"])
+    print(state.status())
+except Exception as e:
+    print("state object not available in this REPL, emulated via prints:", e)
+```
+
+Expected REPL outcomes: window test passes when $O(\nu)<1/2$; light $E/2^{-k}\le0.0625<0.5\le\beta/2$; heavy $E/2^{-k}\ge16>2\ge\beta$; medium $\delta_x/2^{-k}=s\cdot O(mk\log(1/\nu)/(\nu2^k))$ small iff $2^k\gg mk\log(1/\nu)/\nu$, which holds for $k=\Theta(\log m+\log1/\nu)$ with large constant; inverter needs union bound over $T_1T_2$ trials, $q^N$ all-fail model rejected.
+
+Next turns must audit Claims A–D in REPL, certify $T_2$ Chernoff with exact $T_1,T_2$ accounting, and handle empty-fiber and $\beta=1,2$ boundaries without extra constraints.
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# Window-shrinking: passing => s in [1/4,4]
+def window_test():
+    Cs = [1,2]
+    nus = [0.001,0.01,0.05,0.1]
+    betas = [1.0,1.25,1.5,1.75,2.0]
+    ss = [2**e for e in [-4,-3,-2.5,-2.1,-2,-1,0,1,2,2.1,2.5,3,4]]
+    for C in Cs:
+        for nu in nus:
+            err = C*nu
+            if err >= 0.5:
+                continue  # vacuous regime, 1-O(nu)<=0
+            for beta in betas:
+                lo, hi = (beta/2), beta  # in units 2^{-k}
+                for s in ss:
+                    # interval of possible qhat/2^{-k}
+                    qlo, qhi = (1-err)*s, (1+err)*s
+                    # could pass iff intervals intersect
+                    could = not (qhi <= lo or qlo > hi)
+                    inner = (0.25-1e-9 <= s <= 4+1e-9)
+                    outer = (s < 0.25-1e-9 or s > 4+1e-9)
+                    if could and outer:
+                        print(f"FAIL C={C} nu={nu} beta={beta} s={s}")
+                        return False
+    print("window-shrinking holds: passing => s in [1/4,4] whenever err<0.5")
+    return True
+window_test()
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0023s) ---
+Stdout:
+window-shrinking holds: passing => s in [1/4,4] whenever err<0.5
+
+Evaluated Value: True
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# Scale gaps + delta dominance
+def scale_test(m=100,k=15,nu=0.01,C0=1):
+    two_k = 2**k
+    print(f"2^k={two_k}, m*k*log(1/nu)/nu={(m*k*math.log(1/nu)/nu):.1f}")
+    for name,s in [("light",2**-5),("edge-light",2**-4),("medium",1.0),("edge-heavy",2**4),("heavy",2**5)]:
+        E_over = s  # E/2^{-k}
+        delta_over = s*C0*m*k*math.log(1/nu)/nu/two_k  # delta_x / 2^{-k} up to const
+        print(f"{name:12s} s={s:6.3f} E/2^-k={E_over:6.3f} vs filter [0.5,2], delta/2^-k={delta_over:.4f}")
+    # light gap factor 8, heavy gap factor 8
+    assert (0.5)/(2**-4) == 8 and (2**4)/2 == 8
+    print("gap factor 8 verified; medium delta small iff 2^k >> m*k*log/nu")
+scale_test()
+scale_test(m=100,k=26,nu=0.01)
+```
+--- [TURN 1] EXECUTION SUCCESS (0.001s) ---
+Stdout:
+2^k=32768, m*k*log(1/nu)/nu=690775.5
+light        s= 0.031 E/2^-k= 0.031 vs filter [0.5,2], delta/2^-k=0.6588
+edge-light   s= 0.062 E/2^-k= 0.062 vs filter [0.5,2], delta/2^-k=1.3175
+medium       s= 1.000 E/2^-k= 1.000 vs filter [0.5,2], delta/2^-k=21.0808
+edge-heavy   s=16.000 E/2^-k=16.000 vs filter [0.5,2], delta/2^-k=337.2927
+heavy        s=32.000 E/2^-k=32.000 vs filter [0.5,2], delta/2^-k=674.5855
+gap factor 8 verified; medium delta small iff 2^k >> m*k*log/nu
+2^k=67108864, m*k*log(1/nu)/nu=1197344.2
+light        s= 0.031 E/2^-k= 0.031 vs filter [0.5,2], delta/2^-k=0.0006
+edge-light   s= 0.062 E/2^-k= 0.062 vs filter [0.5,2], delta/2^-k=0.0011
+medium       s= 1.000 E/2^-k= 1.000 vs filter [0.5,2], delta/2^-k=0.0178
+edge-heavy   s=16.000 E/2^-k=16.000 vs filter [0.5,2], delta/2^-k=0.2855
+heavy        s=32.000 E/2^-k=32.000 vs filter [0.5,2], delta/2^-k=0.5709
+gap factor 8 verified; medium delta small iff 2^k >> m*k*log/nu
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# Inverter union bound + Chernoff requirement sketch
+def union_test():
+    # model: need T1*T2*nu' = O(nu); nu' inverse-poly feasible
+    # emp check: 1-(1-q)^N vs Nq
+    q, N = 0.01, 200
+    emp = 1-(1-q)**N
+    print(f"union 1-(1-q)^N={emp:.4f}, Nq={N*q:.4f}")
+    # Chernoff for light: mu=s*2^{-k}, threshold t=(beta/2)*2^{-k}, gap
+    # multiplicative ratio >=8 => need T2 >> 2^k to see counts O(1)
+    for k in [10,15,20]:
+        two_k = 2**k
+        # required T2 to get expected count ~ few for medium s=1
+        print(f"k={k} 2^k={two_k} need T2~=2^k for O(1) counts; T2 formula must yield this")
+union_test()
+try:
+    print("trying state machine registration")
+    state.register("H1_u_l_b", domain="outer", properties=["confinement"])
+    state.register("y_star", domain="witness", properties=["uniqueness"])
+    state.register("H2_trials", domain="inner_T2", properties=["pairwise-marginals"])
+    print(state.status())
+except Exception as e:
+    print("state object not available in this REPL, emulated via prints:", e)
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0009s) ---
+Stdout:
+union 1-(1-q)^N=0.8660, Nq=2.0000
+k=10 2^k=1024 need T2~=2^k for O(1) counts; T2 formula must yield this
+k=15 2^k=32768 need T2~=2^k for O(1) counts; T2 formula must yield this
+k=20 2^k=1048576 need T2~=2^k for O(1) counts; T2 formula must yield this
+trying state machine registration
+=== Mathematical State Machine Status ===
+Registered Objects (3):
+  • H1_u_l_b [outer]
+      Active Invariants: confinement
+  • y_star [witness]
+      Active Invariants: uniqueness
+  • H2_trials [inner_t2]
+      Active Invariants: pairwise-marginals
+
+Subgoals (0):
+
+Verified Lemmas (0):
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 2/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Let $C:\{0,1\}^{m}\to\{0,1\}^{n}$, $\nu>0$,
+$p_{D}(x)=|C^{-1}(x)|/2^{m}$.
+Write $k=\Theta(\log m+\log 1/\nu)$,
+$T_{1}=\Theta(mk2^{k}\log 1/\nu)$ for $\correlatedsampler$,
+$T_{2}$ polynomial in $m,1/\nu$ for $\elementfinder$,
+$\ell\in\{0,\dots,m\}$, $\beta\in[1,2]$,
+$H_{1}:\{0,1\}^{n}\to\{0,1\}^{\ell+k}$,
+$u\in\{0,1\}^{\ell+k}$,
+$H_{2}^{i}:\{0,1\}^{m}\to\{0,1\}^{m-\ell+k}$,
+$v^{i}\in\{0,1\}^{m-\ell+k}$,
+$\Fcircuit(r')=H_{1}(C(r'))\|H_{2}(r')$.
+Put $s_{x}=p_{D}(x)2^{\ell}$.
+The $\pm4$ window is $s_{x}\in[2^{-4},2^{4}]=[1/16,16]$,
+the $\pm2$ window is $s_{x}\in[2^{-2},2^{2}]=[1/4,4]$.
+The filter interval is $((\beta/2)2^{-k},\beta2^{-k}]$,
+so lower threshold $\ge 2^{-k-1}$ ($\beta=1$) and
+upper threshold $\le 2^{1-k}$ ($\beta=2$).
+
+Choose the implicit constant in the target $1-O(\nu)$
+larger than those in Claim~\ref{claim:col},
+Lemma~\ref{lem:unique}, Lemma~\ref{lem:q-correct} and below.
+If it exceeds $1$ the claim is vacuous.
+Hence assume all $O(\nu)$ terms $<1/4$ and $2^{-k}\ll\nu$,
+achievable with the constant in $\Theta$ large, so
+$2^{k}$ dominates $mk\log(1/\nu)/\nu$.
+Then $\delta_{x}$ in Claim~\ref{claim:col} satisfies
+$\delta_{x}/2^{-k}=s_{x}\cdot O(mk\log(1/\nu)/(\nu2^{k}))\ll1$
+for $s_{x}=O(1)$.
+
+\medskip\noindent\textbf{Conditioning and preconditions.}
+Let $E_{\rm col}$ be the $1-O(\nu)$ event of
+Claim~\ref{claim:col} for all $H_{1},u,\ell$ in
+$\correlatedsampler$; precondition is union over $T_{1}$
+outer choices, satisfied.
+Let $E_{\rm uniq}$ be the $1-O(\nu)$ event of
+Lemma~\ref{lem:unique}; precondition over $H_{1},u$,
+satisfied.
+Let $E_{q}$ be the $1-O(\nu)$ event of
+Lemma~\ref{lem:q-correct} for every run of
+$\elementfinder$:
+$\widehat q(y^{*})\in[(1-\varepsilon)s_{y^{*}}2^{-k},
+(1+\varepsilon)s_{y^{*}}2^{-k}]$ with $\varepsilon=O(\nu)<1/4$;
+precondition requires $E_{\rm col}$ and inverter success,
+discharged below.
+Let $E_{\rm inv}$ be that all $T_{1}T_{2}$ invocations of
+$\Ical_{\nu'}$ succeed in the sense that $r'=\bot$ or
+$\Fcircuit(r')=u\|v$.
+Def.~\ref{def:inverter-unif} gives per-query failure $\le\nu'$
+with $\nu'$ inverse-polynomial by construction of
+$\hashchecker$.
+Since $T_{1}T_{2}$ is polynomial ($2^{k}$ polynomial),
+choosing $\nu'\le c\nu/(T_{1}T_{2})$ keeps $\nu'$
+inverse-polynomial and union bound (no independence needed)
+gives $\Pr[E_{\rm inv}^{c}]=O(\nu)$.
+Condition henceforth on $E_{\rm col}\cap E_{\rm uniq}\cap
+E_{q}\cap E_{\rm inv}$, of probability $1-O(\nu)$.
+Fix an outer call $(\ell,\beta,H_{1},u)$.
+
+By $E_{\rm uniq}$ and Claim~\ref{claim:col}(1) there is at most
+one $y^{*}\in H_{1}^{-1}(u)$ with $s_{y^{*}}\in[1/16,16]$.
+If none exists set $y^{*}=\bot$.
+It suffices to show no $x\ne y^{*}$ passes the filter;
+then $\elementfinder$ returns $y^{*}$ or $\bot$.
+
+\medskip\noindent\textbf{Confinement.}
+On $E_{\rm inv}$, $\hashchecker$ returning $x\ne\bot$ implies
+$C(r')=x$ and $\Fcircuit(r')=u\|v$, hence $H_{1}(x)=u$.
+Thus $\widehat q_{x}>0$ implies
+$x\in H_{1}^{-1}(u)\cap{\rm Image}(C)$.
+If $p_{D}(x)=0$ then $C^{-1}(x)=\emptyset$ and
+$\widehat q_{x}=0$ identically, below the filter since
+$(\beta/2)2^{-k}\ge2^{-k-1}>0$.
+There are at most $2^{m}$ points with $p_{D}>0$.
+Write $S_{x}=C^{-1}(x)$, $N=2^{m-\ell+k}$,
+$\mu_{x}=|S_{x}|/N=p_{D}(x)2^{\ell-k}=s_{x}2^{-k}$.
+For fixed outer, over fresh $H_{2}^{i},v^{i}$,
+$\Pr_{H_{2},v}[\exists r\in S_{x}:H_{2}(r)=v]\le|S_{x}|/N=\mu_{x}$
+by union bound, using only marginal uniformity from
+Def.~\ref{def:pairwise-independent-hash-family} with
+$r_{1}\ne r_{2}$; collisions and $E_{\rm inv}$ only decrease
+returns, so $\E[\widehat q_{x}\mid{\rm outer}]\le\mu_{x}$
+up to $\nu'$.
+For lower bounds, with $Z=\#\{r\in S_{x}:H_{2}(r)=v\}$,
+$\E[Z]=\mu_{x}$ and pairwise independence gives
+$\E[Z^{2}]\le\mu_{x}+\mu_{x}^{2}$, so
+$\Pr[Z\ge1]\ge\mu_{x}/(1+\mu_{x})$.
+
+Call $x$ light if $s_{x}<1/16$ ($p_{D}<2^{-\ell-4}$),
+heavy if $s_{x}>16$ ($p_{D}>2^{-\ell+4}$).
+If $\ell\le4$ and $2^{-\ell+4}>1$ the heavy set is empty;
+if $p_{D}>1$ impossible; vacuous cases need no proof.
+Light: $\mu_{x}\le2^{-k}/16$, while filter needs
+$>2^{-k-1}$: factor $\ge8$ gap.
+Chernoff upper tail over the $T_{2}$ conditionally independent
+inner trials gives
+$\Pr[\widehat q_{x}\ge(\beta/2)2^{-k}\mid{\rm outer}]
+\le\exp(-\Omega(T_{2}2^{-k}))$.
+With $T_{2}2^{-k}\gg m+\log(T_{1}/\nu)$, achievable
+polynomially since $2^{k}$ is polynomial, this is
+$\ll\nu/(T_{1}2^{m})$.
+Union over $\le2^{m}$ image points and $T_{1}$ calls is $O(\nu)$.
+Hence no light $x$ passes.
+
+Heavy: write very heavy $\mu_{x}>1$ ($s_{x}>2^{k}$,
+$p_{D}>2^{k-\ell}$) and moderately heavy $16<s_{x}\le2^{k}$.
+Let $V_{\ell}=\{x:p_{D}>2^{k-\ell}\}$; if $k>\ell$ it is empty.
+Otherwise $|V_{\ell}|\le2^{\ell-k}$ as masses sum to $\le1$.
+For random $H_{1},u$, $\Pr[H_{1}(x)=u]=2^{-(\ell+k)}$.
+Hence per outer trial $\Pr[\exists x\in V_{\ell}\cap H_{1}^{-1}(u)]
+\le2^{-2k}$. Union over $T_{1}\approx2^{k}{\rm poly}$ trials
+is $O({\rm poly}\,2^{-k})=O(\nu)$ for large constant in $k$.
+So assume no very heavy point lies in any fiber.
+For moderately heavy, $\mu_{x}\in(16\cdot2^{-k},1]$,
+so $\Pr[{\rm hit}]\ge\mu_{x}/2\ge8\cdot2^{-k}$,
+factor $\ge4$ above the upper threshold $\le2\cdot2^{-k}$.
+Let $S'_{x}$ be competitor preimages in the fiber,
+$|S'_{x}|=\sum_{y\ne x}|C^{-1}(y)|{\bf1}_{\{H_{1}(y)=u\}}$.
+Conditional on $A_{x}=\{H_{1}(x)=u\}$,
+$\E[|S'_{x}|\mid A_{x}]\le2^{m-\ell-k}$ by pairwise
+independence, so $\E[|S'_{x}|{\bf1}_{A_{x}}]/N\le2^{-2k}$
+up to $2^{-(\ell+k)}$ factors.
+With $\tau_{x}=\mu_{x}/4$, Markov on $|S'_{x}|{\bf1}_{A_{x}}$
+gives $\Pr[A_{x}\wedge\{|S'_{x}|/N>\tau_{x}\}]
+\le O(2^{-\ell-2k}/s_{x})$.
+Since $|\{x:{\rm heavy}\}|\le2^{\ell-4}$, union per trial is
+$O(2^{-2k})$, union over $T_{1}$ is $O(\nu)$.
+On the complementary Good event, competitor mean $\le\mu_{x}/4$,
+return mean $\ge\mu_{x}/4\ge4\cdot2^{-k}$, factor $\ge2$ above
+upper threshold. Chernoff lower tail for hits and upper tail
+for competitor hits give
+$\exp(-\Omega(T_{2}2^{-k}))$ failure, union over $\le2^{m}$
+as before is $O(\nu)$ with $T_{2}$ polynomially large.
+Thus no moderately heavy passes; it overshoots
+$(\beta2^{-k}]$ when $H=1,C=0$ occurs, and $0$ returns when
+adversely diverted is below the lower threshold.
+In all cases $x\ne y^{*}$ fails
+$((\beta/2)2^{-k},\beta2^{-k}]$.
+Hence each of the $T_{1}$ calls returns the unique passer
+$y^{*}$ if it passes, else $\bot$.
+
+\medskip\noindent\textbf{Strong window for passing $y^{*}$.}
+\begin{claim}\label{cl:shrink}
+Let $\varepsilon<1/4$, $\beta\in[1,2]$,
+$s>0$. If $[(1-\varepsilon)s,(1+\varepsilon)s]\cap(\beta/2,\beta]
+\ne\emptyset$ (in units $2^{-k}$) then $s\in[1/4,4]$.
+\end{claim}
+\begin{proof}
+If $s<1/4$ then $(1+\varepsilon)s<1.25/4<1/2\le\beta/2$,
+so the first interval lies strictly below $(\beta/2,\beta]$.
+If $s>4$ then $(1-\varepsilon)s>0.75\cdot4=3>2\ge\beta$,
+so it lies strictly above. Endpoints $\beta=1$ giving
+$1/2$ and $\beta=2$ giving $2$ are included; openness at
+$\beta/2$ and closedness at $\beta$ do not affect the
+strict gaps of factor $\ge8$ versus $1\pm\varepsilon$.
+\end{proof}
+Apply the claim with $s=s_{y^{*}}$.
+On $E_{q}$, $\widehat q(y^{*})$ lies in both
+$((\beta/2)2^{-k},\beta2^{-k}]$ (passing) and
+$[(1-\varepsilon)s2^{-k},(1+\varepsilon)s2^{-k}]$.
+Hence $s\in[1/4,4]$, i.e.\
+$p_{D}(y^{*})\in[2^{-\ell-2},2^{-\ell+2}]$, a strict
+sub-window of $[2^{-\ell-4},2^{-\ell+4}]$.
+If no $y^{*}$ exists all calls return $\bot$.
+This holds simultaneously for all calls on the $1-O(\nu)$
+good event, completing the proof.
+\end{proof}
+[Proof Draft Generated] Turn 2: 7473 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+[Proof Auditor Stage 1 Counterexample]: Empirical Falsification: Witness/assertion failed:
+Traceback (most recent call last):
+  File "<prime_math>", line 88, in <module>
+AssertionError
+[Falsifier Test Script]:
+from fractions import Fraction
+import math
+
+# Verify window conversions claimed: +-4 window = [1/16,16], +-2 = [1/4,4]
+assert Fraction(1,16) == Fraction(2)**(-4)
+assert Fraction(16,1) == Fraction(2)**(4)
+assert Fraction(1,4) == Fraction(2)**(-2)
+assert Fraction(4,1) == Fraction(2)**(2)
+
+# Verify filter interval ((beta/2)2^{-k}, beta 2^{-k}] bounds for beta in [1,2]
+# Claim: lower threshold >= 2^{-k-1} (beta=1) and upper <= 2^{1-k} (beta=2)
+for k in [1,2,5,10,20]:
+    low_beta1 = Fraction(1,2) * Fraction(1, 2**k)  # beta=1
+    high_beta2 = Fraction(2,1) * Fraction(1, 2**k)  # beta=2
+    assert low_beta1 == Fraction(1, 2**(k+1))
+    assert high_beta2 == Fraction(1, 2**(k-1))
+    # for any beta in [1,2], check bounds
+    for beta_num in [10, 12, 15, 20]:  # beta = beta_num/10 in [1,2]
+        beta = Fraction(beta_num, 10)
+        assert beta >= 1 and beta <= 2
+        low = beta / 2 * Fraction(1, 2**k)
+        high = beta * Fraction(1, 2**k)
+        assert low >= Fraction(1, 2**(k+1))
+        assert high <= Fraction(1, 2**(k-1))
+
+# Verify light gap: mu_x <= 2^{-k}/16 while filter needs > 2^{-k-1}: factor >=8 gap
+for k in [1,5,10]:
+    mu_light_max = Fraction(1, 2**k) * Fraction(1,16)
+
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": false, "theorem_hypotheses_verified": false, "rigor": 0.35, "completeness": 0.4, "boundary_cases": 0.55, "validity": 0.3, "verdict": "REJECT", "issues": "Fatal precondition and confinement failure: proof defines E_inv as soundness (r'=perp or F(r')=u||v) for arbitrary uniform (u,v) and bounds Pr[E_inv^c] by union over T1T2 using per-query nu'. Def:inverter-unif only guarantees Pr_{r'}[F(I(F,F(r')))=F(r')]>=1-nu' for y=F(r') with r' uniform, not for arbitrary uniform u||v. Counterexample: m=n=1, C=F=id, I(.,y)=0 always satisfies Def with nu'=1/2 but on y=1 returns 0 with F(0)!=1, so hashchecker returns x with H1(x)!=u. Hence 'return => H1(x)=u' and E[hat q_x|outer]<=mu_x are globally false; unsound returns can make hat q=1 while mu tiny. Competitor-diversion analysis then hand-waves partial diversion. Quantitative infeasibility: T2 as in context is Theta(nu^{-2}log(1/nu)T1^{-1}log(T1^{-1})) (<1/negative), cannot satisfy required T2 2^{-k}>>m+log(T1/nu) for union over 2^m; requiring 2^k large for collision/very-heavy bounds contradicts T2>=1. Lemma q-correct precondition not discharged. Falsifier arithmetic checks (windows, filter bounds) are true; script failure is premise artifact, rejection rests on above gaps."}
+[Best Candidate Updated] Turn 2: validity=0.30 (7473 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.30, rejection #1)
+Fatal precondition and confinement failure: proof defines E_inv as soundness (r'=perp or F(r')=u||v) for arbitrary uniform (u,v) and bounds Pr[E_inv^c] by union over T1T2 using per-query nu'. Def:inverter-unif only guarantees Pr_{r'}[F(I(F,F(r')))=F(r')]>=1-nu' for y=F(r') with r' uniform, not for arbitrary uniform u||v. Counterexample: m=n=1, C=F=id, I(.,y)=0 always satisfies Def with nu'=1/2 but on y=1 returns 0 with F(0)!=1, so hashchecker returns x with H1(x)!=u. Hence 'return => H1(x)=u' and E[hat q_x|outer]<=mu_x are globally false; unsound returns can make hat q=1 while mu tiny. Competitor-diversion analysis then hand-waves partial diversion. Quantitative infeasibility: T2 as in context is Theta(nu^{-2}log(1/nu)T1^{-1}log(T1^{-1})) (<1/negative), cannot satisfy required T2 2^{-k}>>m+log(T1/nu) for union over 2^m; requiring 2^k large for collision/very-heavy bounds contradicts T2>=1. Lemma q-correct precondition not discharged. Falsifier arithmetic checks (windows, filter bounds) are true; script failure is premise artifact, rejection rests on above gaps.
+[Self-Improvement] Initiating surgical revision turn 3 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_178_261 ---
+[Critique Falsifier Script]:
+import itertools
+# Disputed step: E_inv soundness for arbitrary uniform u||v from Def:inverter-unif
+F = {0:0, 1:1}  # C=F=id, m=n=1
+def I(Ff, y): return 0  # candidate inverter
+# Check Def:inverter-unif: y=F(r'), r' uniform
+succ_def = sum(1 for r in [0,1] if F[I(F,r)]==F[r])/2
+print("Def success rate:", succ_def)  # 0.5 => nu'=0.5 satisfies Def
+# Check claimed E_inv soundness: arbitrary uniform y
+for y in [0,1]:
+    r = I(F,y)
+    print(f"y={y} -> r'={r}, F(r')={F[r]}, sound={F[r]==y}")
+arbitrary_success = sum(1 for y in [0,1] if F[I(F,y)]==y)/2
+print("Arbitrary-y success:", arbitrary_success)
+if F[I(F,1)] != 1 and succ_def >= 0.5:
+    print("COUNTEREXAMPLE_FOUND: I(.,y)=0 satisfies Def with nu'=0.5 but fails on arbitrary y=1, so E_inv union bound false")
+    raise assert False, "COUNTEREXAMPLE_FOUND"
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 3] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 4.
+
+--- [TURN 4/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 4/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Let $C:\{0,1\}^{m}\to\{0,1\}^{n}$, $p_{D}(x)=|C^{-1}(x)|/2^{m}$,
+$k=\Theta(\log m+\log 1/\nu)$, $T_{1}$ as in $\correlatedsampler$,
+$T_{2}$ as in $\elementfinder$, $\ell\in\{0,\dots,m\}$,
+$\beta\in[1,2]$, $H_{1}:\{0,1\}^{n}\to\{0,1\}^{\ell+k}$,
+$u\in\{0,1\}^{\ell+k}$, $H_{2}:\{0,1\}^{m}\to\{0,1\}^{m-\ell+k}$,
+$v\in\{0,1\}^{m-\ell+k}$, $\Fcircuit(r')=H_{1}(C(r'))\|H_{2}(r')$.
+Put $s_{x}=p_{D}(x)2^{\ell}$, $N=2^{m-\ell+k}$,
+$\mu_{x}=|C^{-1}(x)|/N=s_{x}2^{-k}$.
+The $\pm4$ window is $s_{x}\in[1/16,16]$, $\pm2$ is $[1/4,4]$.
+Filter is $((\beta/2)2^{-k},\beta2^{-k}]$, so lower $\ge2^{-k-1}$
+attained at $\beta=1$ open, upper $\le2^{1-k}$ attained at
+$\beta=2$ closed. If the $O(\nu)$ error below exceeds $1/4$
+resp.\ $1$, the $1-O(\nu)$ claim is vacuous; hence assume
+henceforth $\nu$ small enough that all $O(\nu)<1/4$, else there
+is nothing to prove. If $T_{2}<1$ the inner loop is empty,
+$\widehat q\equiv0$ returns $\bot$ for all calls and the lemma
+holds vacuously; hence assume $T_{2}\ge1$. If
+$2^{-\ell+4}>1$ the heavy set below is empty; if $p_{D}(x)=0$
+then $C^{-1}(x)=\emptyset$. Both vacuous cases are covered
+without further argument.
+
+\begin{claim}\label{cl:verify}
+WLOG $\Ical_{\nu'}$ is verifying: $r'\ne\bot\Rightarrow
+\Fcircuit(r')=u\|v$, preserving Def.~\ref{def:inverter-unif}
+success and poly time.
+\end{claim}
+Indeed given any $\Ical$ satisfying
+Def.~\ref{def:inverter-unif}, let $\Ical'$ run $\Ical$ then check
+$\Fcircuit(r')=u\|v$ by direct evaluation and return $\bot$ on
+mismatch. Checking is polynomial, success event
+$\Fcircuit(r')=u\|v$ unchanged, so error $\nu'$ unchanged.
+In particular the counterexample constant inverter becomes
+perp on mismatch. Henceforth assume verifying. Then
+$\hashchecker$ returning $x\ne\bot$ implies $C(r')=x$ and
+$H_{1}(x)=u$ deterministically. Thus $\widehat q_{x}>0\Rightarrow
+x\in H_{1}^{-1}(u)$, and $p_{D}(x)=0\Rightarrow\widehat q_{x}=0
+<2^{-k-1}\le(\beta/2)2^{-k}$, failing the filter. Moreover
+return implies hit: with $S_{x}=C^{-1}(x)$,
+${\bf1}_{\{\text{return }x\}}\le{\bf1}_{\{\exists r\in S_{x}:
+H_{2}(r)=v\}}$ per trial, so
+$\E[\widehat q_{x}\mid\text{outer}]\le\Pr_{H_{2},v}[\text{hit}]
+\le|S_{x}|/N=\mu_{x}$ by union bound using only marginal
+uniformity of Def.~\ref{def:pairwise-independent-hash-family}.
+No per-query inverter success for uniform $u\|v$ is claimed;
+soundness is deterministic via checking, completeness for
+$y^{*}$ is granted by Lemma~\ref{lem:q-correct} below.
+
+Condition on good events. Let $E_{\rm col}$ be Claim~\ref{claim:col}
+for all $T_{1}$ outer choices, probability $1-O(\nu)$;
+precondition union over $T_{1}$ satisfied by statement.
+Let $E_{\rm uniq}$ be Lemma~\ref{lem:unique}, $1-O(\nu)$.
+Let $E_{q}$ be Lemma~\ref{lem:q-correct} for every run,
+$1-O(\nu)$, giving
+$\widehat q(y^{*})\in[(1-\varepsilon)s_{y^{*}}2^{-k},
+(1+\varepsilon)s_{y^{*}}2^{-k}]$ with $\varepsilon=O(\nu)<1/4$.
+Its preconditions are $E_{\rm col}$ and uniqueness of $y^{*}$,
+discharged by the above. Union bound gives
+$1-O(\nu)$. Fix outer $(\ell,\beta,H_{1},u)$.
+By $E_{\rm uniq}$ and Claim~\ref{claim:col}(1) at most one
+$y^{*}\in H_{1}^{-1}(u)$ has $s\in[1/16,16]$; if none,
+$y^{*}=\bot$. Call $x$ light if $s_{x}<1/16$, heavy if
+$s_{x}>16$. Any $x\ne y^{*}$ in the fiber is heavy/light or
+$p_{D}=0$, the latter already failing.
+
+Light cannot pass. Indeed $\mu_{x}=s_{x}2^{-k}<2^{-k-4}$ while
+filter needs $>2^{-k-1}$, factor $\ge8$. Since returns imply
+hits, $\widehat q_{x}\le\widehat h_{x}$ where $\widehat h_{x}$
+is hit frequency, average of $T_{2}$ Bernoulli with mean
+$\le\mu_{x}$. Multiplicative Chernoff upper tail gives for
+fixed $x$ and outer with $x$ in fiber,
+$\Pr[\widehat h_{x}\ge(\beta/2)2^{-k}\mid\text{outer}]
+\le\exp(-cT_{2}2^{-k})$ with $c>0$ from factor $8$, and with
+gap-dependent refinement $\exp(-cT_{2}2^{-k}\log(t/\mu_{x}))$
+where $t\approx2^{-k}$, i.e.\ super-small $2^{-m\cdot{\rm poly}}$
+when $p_{x}\ll2^{-\ell}$ tiny. Dyadic grouping by
+$p_{D}\approx2^{-j}$ uses $|\{x:p_{D}\approx2^{-j}\}|\le2^{j}$
+since masses sum to $\le1$. Per-trial joint over outer+inner,
+$\Pr[H_{1}(x)=u\wedge\widehat h_{x}\ge t]\le2^{-(\ell+k)}
+\exp(\cdot)$. Summing over $j$ and $x$,
+$\sum_{j}2^{j}2^{-(\ell+k)}\exp(-cT_{2}2^{-k}(j-\ell))$ is
+dominated by $2^{-k}{\rm poly}^{-c}$ because
+$T_{2}2^{-k}$ suffices for single-$y^{*}$ Chernoff by
+$E_{q}$ hypothesis, and $\Theta$-constants can be taken large
+to dominate the $m+1$ scales and $T_{1}$ union, all polynomial.
+Hence with probability $1-O(\nu)$ simultaneously over all
+$T_{1}$ calls, no light in any fiber reaches the lower
+threshold. No union over $2^{m}$ fiber elements with uniform
+bound is used; tiny masses contribute super-small tails
+compensating exponential counts. This uses only hitting upper
+bounds, hence robust to inverter tie-breaking and failures
+which can only decrease returns.
+
+Heavy cannot pass uniquely when required. For $x$ heavy,
+$|H|:=|\{x:p_{D}>2^{-\ell+4}\}|\le2^{\ell-4}$, so per outer trial
+$\E|H\cap H_{1}^{-1}(u)|\le2^{-k-4}$. Total heavy occurrences
+across $T_{1}$ trials has mean $T_{1}2^{-k}={\rm poly}$;
+Markov bounds it by ${\rm poly}/\nu$ with probability
+$1-O(\nu)$. Condition on this. For fixed heavy in fiber,
+second moment with pairwise independence gives
+$\Pr_{H_{2},v}[\text{hit}]\ge\mu_{x}/(1+\mu_{x})$ where
+$\mu_{x}=s_{x}2^{-k}>16\cdot2^{-k}$. If $\mu_{x}>1$ hitting is
+$\approx1$; if $\mu_{x}\in(16\cdot2^{-k},1]$ it exceeds the
+upper threshold $2\cdot2^{-k}$ by factor $\ge8$. Intra-$x$
+$H_{2}$ collisions keep returns at $x$ since all preimages map
+to same $x$; inter-$x$ collisions with other fiber mass are
+bounded by $\E|S'_{x}|/N\le2^{-2k}$ via pairwise independence
+($S'_{x}$ competitors), so Markov makes competitor mean
+$\le\mu_{x}/4$ except with $O(2^{-2k})$ outer failure, union
+over $T_{1}$ is $O(\nu)$ with large $k$-constant since
+$2^{-k}=O(\nu/{\rm poly})$. On unique-hit trials
+$(u,v)=F(r)$ has unique preimage; over random $H_{1},H_{2}$
+with collisions rare as above, inverter average success
+transfers on average over hashes up to $O(\nu')+O(\delta_{x})$
+with $\delta_{x}$ from Claim~\ref{claim:col}(2), small for
+$s_{x}=O(1)$ since $2^{k}$ dominates $mk\log(1/\nu)/\nu$ by
+$\Theta$-choice, and intra-$x$ collisions harmless for large
+$s_{x}$ as argued. Thus $\widehat q_{x}$ concentrates above
+$4\cdot2^{-k}$ (lower Chernoff for hits minus small diversion
+and $\nu'$ with $\nu'\le c\nu/(T_{1}T_{2})$ inverse-poly keeping
+union $O(\nu)$), exceeding $\beta2^{-k}\le2^{1-k}$ by factor
+$\ge2$. Failure per heavy occurrence is $\exp(-\Omega(T_{2}
+2^{-k}))={\rm poly}^{-c}$, union over ${\rm poly}/\nu$
+occurrences is $O(\nu)$ with large constants. Hence no heavy
+passes alone; if $y^{*}$ also passes, passers are not unique
+and $\elementfinder$ returns $\bot$, still allowed. Partial
+diversion to tune into the narrow interval would require
+diverting/failing all but $O(2^{-k})$ fraction of hits,
+i.e.\ massive coordinated collisions/failures far beyond the
+bounded collision mass above, excluded on the good event.
+
+Consequently each of the $T_{1}$ calls returns the unique
+passer $y^{*}$ if it passes, else $\bot$. It remains to shrink
+$\pm4$ to $\pm2$:
+\begin{claim}\label{cl:shrink}
+Let $\varepsilon<1/4$, $\beta\in[1,2]$, $s>0$. If
+$[(1-\varepsilon)s,(1+\varepsilon)s]\cap(\beta/2,\beta]
+\ne\emptyset$ in units $2^{-k}$ then $s\in[1/4,4]$.
+\end{claim}
+Indeed if $s<1/4$ then $(1+\varepsilon)s<1.25/4<1/2\le\beta/2$,
+strictly below; if $s>4$ then $(1-\varepsilon)s>3>2\ge\beta$,
+strictly above. Endpoints $\beta=1$ giving $1/2$ open and
+$\beta=2$ giving $2$ closed are included; gaps are factor
+$\ge2$ versus $1\pm\varepsilon$, no small-$\nu$ assumption
+beyond $\varepsilon<1/4$ already ensured or vacuous.
+Apply with $s=s_{y^{*}}$. On $E_{q}$, passing
+$\widehat q(y^{*})$ lies in both $((\beta/2)2^{-k},
+\beta2^{-k}]$ and $[(1-\varepsilon)s2^{-k},
+(1+\varepsilon)s2^{-k}]$, so $s\in[1/4,4]$, i.e.\
+$p_{D}(y^{*})\in[2^{-\ell-2},2^{-\ell+2}]$, strict sub-window
+of $\pm4$. If no $y^{*}$ exists all calls return $\bot$.
+This holds simultaneously for all calls on the $1-O(\nu)$
+good event.
+\end{proof}
+[Proof Draft Generated] Turn 4: 8117 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+[Proof Auditor Stage 1 Counterexample]: Empirical Falsification: Witness/assertion failed:
+Traceback (most recent call last):
+  File "<prime_math>", line 78, in <module>
+AssertionError
+[Falsifier Test Script]:
+import math
+import random
+
+# Verify concrete numerical claims in candidate proof of elementfinder lemma
+
+# 1. Filter interval ((beta/2)2^{-k}, beta 2^{-k}] bounds:
+# Claim: lower >= 2^{-k-1} (attained at beta=1 open), upper <= 2^{1-k} (attained at beta=2 closed)
+for k in [1, 2, 5, 10, 20]:
+    for beta in [1.0, 1.25, 1.5, 1.75, 2.0]:
+        lower = (beta/2.0) * (2.0 ** (-k))
+        upper = beta * (2.0 ** (-k))
+        assert lower + 1e-12 >= 2.0 ** (-k-1), f"lower bound fail k={k} beta={beta}"
+        assert upper <= 2.0 ** (1-k) + 1e-12, f"upper bound fail k={k} beta={beta}"
+# endpoints
+assert math.isclose((1.0/2.0)*(2.0**-5), 2.0**-6, rel_tol=1e-9)
+assert math.isclose(2.0*(2.0**-5), 2.0**(1-5), rel_tol=1e-9)
+
+# 2. Light vs heavy thresholds: s_x = p*2^ell; +-4 window s in [1/16,16], +-2 is [1/4,4]
+assert math.isclose(2.0**-4, 1.0/16.0, rel_tol=1e-12)
+assert math.isclose(2.0**-2, 1.0/4.0, rel_tol=1e-12)
+# Light: s<1/16 => mu = s*2^{-k} < 2^{-k-4}, filter needs > 2^{-k-1}, factor >= 8
+for k in [3, 5, 10]:
+    for s in [1.0/17.0, 1.0/32.0, 1.0/100.0, 1e-6]:
+        mu = s * (2.0 ** (-k))
+        assert mu < 2.0 ** (-k-4), "light mu bound"
+        # gap factor: threshold / mu >= 8
+ 
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": false, "rigor": 0.45, "completeness": 0.5, "boundary_cases": 0.75, "validity": 0.35, "verdict": "REJECT", "issues": "Prior soundness defect is repaired by verifying wrapper: checking F(r')=u||v preserves Def success and poly time, so return=>H1(x)=u and returns<=hits with E[hat q|outer]<=|Sx|/N via marginal uniformity holds. Shrink claim s in [1/4,4] inequalities are correct. Fatal gap remains in heavy case lower bound. Proof asserts hat q_x concentrates above 4*2^{-k} via 'lower Chernoff for hits minus diversion and nu-prime with nu-prime <=c nu/(T1T2)' and 'inverter average success transfers up to O(nu-prime)+O(delta_x)'. This applies Def:inverter-unif to uniform (u||v) trials. Def only guarantees Pr_{r'}[F(I(F,F(r')))=F(r')]>=1-nu-prime for y=F(r') with r' uniform, not for arbitrary uniform u||v. Verifying wrapper gives soundness (no wrong x) but no completeness lower bound: e.g. constant inverter satisfying Def with nu-prime=1/2 becomes always-perp on uniform non-image inputs, failure rate 1>>nu-prime. Hence per-trial union over T1T2 uniform trials with nu-prime is invalid. Selective failures/diversions on tiny-mass heavy fiber elements cost <=p_D(x)<<nu-prime in global average and are not excluded by collision bound Claim:col(2) (intra-x collisions harmless) or inter-x bound E|S'x|/N<=2^{-2k}. Proof does not derive transfer from first principles or Context lemmas; Lemma:q-correct is invoked as black box for y-star but heavy uniqueness needs independent lower bound which is unproved. Falsifier arithmetic for filter bounds and s thresholds holds; failure does not refute those, but does not cure missing transfer."}
+[Best Candidate Updated] Turn 4: validity=0.35 (8117 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.35, rejection #2)
+Prior soundness defect is repaired by verifying wrapper: checking F(r')=u||v preserves Def success and poly time, so return=>H1(x)=u and returns<=hits with E[hat q|outer]<=|Sx|/N via marginal uniformity holds. Shrink claim s in [1/4,4] inequalities are correct. Fatal gap remains in heavy case lower bound. Proof asserts hat q_x concentrates above 4*2^{-k} via 'lower Chernoff for hits minus diversion and nu-prime with nu-prime <=c nu/(T1T2)' and 'inverter average success transfers up to O(nu-prime)+O(delta_x)'. This applies Def:inverter-unif to uniform (u||v) trials. Def only guarantees Pr_{r'}[F(I(F,F(r')))=F(r')]>=1-nu-prime for y=F(r') with r' uniform, not for arbitrary uniform u||v. Verifying wrapper gives soundness (no wrong x) but no completeness lower bound: e.g. constant inverter satisfying Def with nu-prime=1/2 becomes always-perp on uniform non-image inputs, failure rate 1>>nu-prime. Hence per-trial union over T1T2 uniform trials with nu-prime is invalid. Selective failures/diversions on tiny-mass heavy fiber elements cost <=p_D(x)<<nu-prime in global average and are not excluded by collision bound Claim:col(2) (intra-x collisions harmless) or inter-x bound E|S'x|/N<=2^{-2k}. Proof does not derive transfer from first principles or Context lemmas; Lemma:q-correct is invoked as black box for y-star but heavy uniqueness needs independent lower bound which is unproved. Falsifier arithmetic for filter bounds and s thresholds holds; failure does not refute those, but does not cure missing transfer.
+[Self-Improvement] Initiating surgical revision turn 5 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_178_261 ---
+[Critique Falsifier Script]:
+F = {'00':'00','01':'00','10':'00','11':'11'}
+def I(y): return '00'  # constant inverter
+# Def success: Pr_{r' uniform}[F(I(F(r')))==F(r')]
+import itertools
+Rs = list(F.keys())
+p_def = sum(1 for r in Rs if F[I(F[r])]==F[r])/len(Rs)
+nu_prime = 1-p_def
+Ys = ['00','01','10','11']
+p_unif = sum(1 for y in Ys if F[I(y)]==y)/len(Ys)
+print(f"p_def={p_def}, nu'={nu_prime}, p_unif={p_unif}, fail_unif={1-p_unif}")
+if 1-p_unif > nu_prime + 0.1:
+    print(f"COUNTEREXAMPLE_FOUND: const inverter Def nu'={nu_prime} but uniform fail={1-p_unif} >> nu'; verifying wrapper -> perp on non-image")
+    raise assert False, "COUNTEREXAMPLE_FOUND"
+[Critique Kernel Script Error (Inconclusive — Ignored)]: Traceback (most recent call last):
+  File "/home/sysadmin/.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_
+
+--- [TURN 5/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 5] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 6.
+
+--- [TURN 6/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 6] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 7.
+
+--- [TURN 7/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 7/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Let $C:\{0,1\}^{m}\to\{0,1\}^{n}$, $p(x)=|C^{-1}(x)|/2^{m}$,
+$\sum_{x}p(x)=1$, $s_{x,\ell}=p(x)2^{\ell}$,
+$N_{\ell}=2^{m-\ell+k}$, $\mu_{x,\ell}=|C^{-1}(x)|/N_{\ell}
+=s_{x,\ell}2^{-k}$.
+The $\pm4$ window is $s\in[1/16,16]$, $\pm2$ is $[1/4,4]$.
+Filter is $((\beta/2)2^{-k},\beta2^{-k}]$, $\beta\in[1,2]$,
+so lower $\ge 2^{-k-1}>0$.
+If $\lfloor T_{1}\rfloor=0$ there are no calls and there is
+nothing to prove. Assume $T_{1}\ge1$.
+If $\lfloor T_{2}\rfloor=0$ then $\widehat q\equiv0$ never
+passes since lower $>0$; all return $\bot$ and the lemma holds.
+Assume $T_{2}\ge1$.
+If $1-O(\nu)\le0$ for large constants the claim is vacuous;
+assume $\nu\le1$ and good-event constants give $1-O(\nu)>0$.
+\begin{claim}\label{cl:ver}
+WLOG $\Ical_{\nu'}$ is verifying, preserving
+Def.~\ref{def:inverter-unif} success and polytime.
+Then $\hashchecker$ returning $x\ne\bot$ implies
+$H_{1}(x)=u$ and $\exists r\in C^{-1}(x)$ with $H_{2}(r)=v$,
+deterministically. Hence returns imply hits and
+$x\in H_{1}^{-1}(u)$; $p(x)=0$ never returns.
+\end{claim}
+\begin{proof}
+Given $\Ical$, let $\Ical'$ run $\Ical$ then check
+$\Fcircuit(r')=u\|v$ and return $\bot$ on mismatch.
+Checking is polynomial, success event unchanged, so error
+$\nu'$ unchanged. Then $r'\ne\bot\Rightarrow
+\Fcircuit(r')=u\|v$, i.e.\ $C(r')=x$, $H_{1}(x)=u$,
+$H_{2}(r')=v$. Thus return implies hit. If $C^{-1}(x)=\emptyset$
+return is impossible.
+\end{proof}
+Henceforth assume verifying. Then per trial
+${\bf1}_{\{\text{return }x\}}\le{\bf1}_{\{\text{hit }x\}}$,
+$\widehat q_{x}\le\widehat h_{x}$, using only marginal
+uniformity from Def.~\ref{def:pairwise-independent-hash-family}.
+Inverter failures only decrease returns, so upper bounds need
+no $\nu'$-union; completeness for $y^{*}$ is granted below.
+
+\medskip\noindent\textbf{Good outer events.}
+Condition on Claim~\ref{claim:col} for all $T_{1}$ outer
+choices ($1-O(\nu)$), Lemma~\ref{lem:unique} ($1-O(\nu)$),
+Lemma~\ref{lem:q-correct} for every run ($1-O(\nu)$).
+Preconditions are exactly the stated unions; uniqueness and
+collision-avoidance discharge correctness hypotheses.
+Union bound gives $1-O(\nu)$.
+Fix outer $(\ell,\beta,H_{1},u)$.
+By Lemma~\ref{lem:unique} at most one $y^{*}\in H_{1}^{-1}(u)$
+has $s\in[1/16,16]$; if none, $y^{*}$ is undefined.
+Call other fiber elements non-$y^{*}$ (heavy $s>16$, light
+$s<1/16$, or $p=0$).
+Lemma~\ref{lem:q-correct} gives on the good event
+$\widehat q(y^{*})\in[(1-\varepsilon)s2^{-k},
+(1+\varepsilon)s2^{-k}]$ with $\varepsilon\le C_{1}\nu$.
+If $C_{1}\nu\ge1/4$ then $\nu=\Omega(1)$ and $1=O(\nu)$,
+so any failure $\le1$ is $O(\nu)$ by taking large constants;
+the claim is then trivial. Assume $\varepsilon<1/4$.
+\begin{claim}\label{cl:shrink}
+If $[(1-\varepsilon)s,(1+\varepsilon)s]\cap(\beta/2,\beta]
+\ne\emptyset$ (in units $2^{-k}$) with $\varepsilon<1/4$,
+$\beta\in[1,2]$, then $s\in[1/4,4]$.
+\end{claim}
+\begin{proof}
+If $s<1/4$ then $(1+\varepsilon)s<1.25/4<1/2\le\beta/2$,
+strictly below the open lower end. If $s>4$ then
+$(1-\varepsilon)s>0.75\cdot4=3>2\ge\beta$, strictly above
+the closed upper end. Endpoints $\beta=1,2$ included;
+gap factor $\ge2$ dominates $1\pm\varepsilon$.
+\end{proof}
+Thus on the good event, passing $y^{*}$ implies
+$p(y^{*})\in[2^{-\ell-2},2^{-\ell+2}]$, a strict sub-window
+of $\pm4$; outer quarters $[2^{-\ell-4},2^{-\ell-2})$ and
+$(2^{-\ell+2},2^{-\ell+4}]$ never pass for any $\beta$.
+
+\medskip\noindent\textbf{Non-$y^{*}$ rarely pass.}
+Pass implies $\widehat q_{x}>(\beta/2)2^{-k}\ge2^{-k-1}>0$,
+hence $\#\text{returns}\ge1$, hence $\#\text{hits}\ge1$ by
+confinement, using only returns$\le$hits.
+For fixed $t,x,\ell$, $H_{1}(x)=u$ has probability
+$2^{-(\ell+k)}$ by marginal uniformity, independent of
+$H_{2},v$. For fixed $r$, $\Pr_{H_{2},v}[H_{2}(r)=v]=1/N_{\ell}$.
+Union gives $\Pr[\text{hit}_{i}]\le|S_{x}|/N_{\ell}=s2^{-k}$.
+Hence $E[\#\text{hits}]\le T_{2}s2^{-k}$ and
+$\Pr[\text{pass}\mid\ell]\le\Pr[\#\text{hits}\ge1\mid\ell]
+\le\min(1,T_{2}s2^{-k})$ by Markov, with $s=p(x)2^{\ell}$.
+Averaging $\ell$ uniform in $\{0,\dots,m\}$,
+$\Pr[B_{t,x}]\le\frac1{m+1}\sum_{\ell}2^{-(\ell+k)}
+\min(1,T_{2}p(x)2^{\ell}2^{-k})$, where $B_{t,x}$ is
+[$x$ passes in outer $t$]; pass implies fiber so no extra
+condition needed, and $\beta$ is irrelevant beyond $>0$.
+Summing over $x$, with $\alpha_{\ell}=T_{2}2^{\ell}2^{-k}$,
+$\sum_{x}\min(1,\alpha_{\ell}p(x))\le2\alpha_{\ell}$ since
+$\sum p=1$: those with $\alpha p\ge1$ are $\le\alpha$ in
+number, contributing $\le\alpha$, the rest contribute
+$\le\sum\alpha p\le\alpha$. Hence per $t$,
+$\sum_{x}\Pr[B_{t,x}]\le2T_{2}2^{-2k}$, $m+1$ cancelling.
+Union over $\lfloor T_{1}\rfloor\le T_{1}$ gives
+$\Pr[\cup_{t,x}B_{t,x}]\le2T_{1}T_{2}2^{-2k}$.
+With $k=\Theta(\log m+\log1/\nu)$,
+$T_{1}=\Theta(mk2^{k}\log1/\nu)$,
+$T_{1}T_{2}=\Theta(\nu^{-2}\log1/\nu\log T_{1})$,
+$2^{k}\ge(m/\nu)^{c_{0}}$, choosing implicit constants with
+$c_{0}\ge2$ gives $2T_{1}T_{2}2^{-2k}=O(\nu)$ for $\nu\le1$
+(the case $\nu>1$ is vacuous with large constants).
+In particular $\Pr[\exists\,t,x\ne y^{*}_{t}\text{ passing}]
+=O(\nu)$.
+
+Intersecting good events with no-bad-pass gives $1-O(\nu)$.
+On it each $\elementfinder$ call has passers $\subseteq\{y^{*}\}$:
+only fiber elements can pass by confinement, non-$y^{*}$
+do not pass. If $y^{*}$ passes it satisfies $\pm2$ by the
+shrink claim; if it does not pass or does not exist the call
+returns $\bot$ by unique-pass rule. Hence all calls return
+$y^{*}$ or $\bot$, and returned $y^{*}$ lies in
+$[2^{-\ell-2},2^{-\ell+2}]$.
+\end{proof}
+[Proof Draft Generated] Turn 7: 5503 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.9, "boundary_cases": 0.9, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.9, "boundary_cases": 0.9, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+[Best Candidate Updated] Turn 7: validity=0.90 (5503 chars)
+[Audit Passed] Proof verified on Turn 7 (validity: 0.90). Early-terminating to prevent multi-turn degradation.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_178_261 | Proof Length: 5503 chars | Turns: 7 | Duration: 4106.39s
+================================================================================

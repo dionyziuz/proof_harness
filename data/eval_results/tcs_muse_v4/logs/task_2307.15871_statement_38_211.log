@@ -1,0 +1,648 @@
+
+
+================================================================================
+[2026-10-27 00:25:07] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_38_211
+================================================================================
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_38_211 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+- **Notation:** $n=|V|$, $m=|E|$, $\Delta_{\ell}=$ number of $\ell$-cliques.
+- **Def $\cliquelist{k,\ell}$:** Given $G=(V,E)$ and list $L$ of all $\ell$-cliques, list all $k$-cliques.
+- **Lem \ref{lem:simple_list_ub}:** $\cliquelist{k,\ell}$ solvable in $\tilde O(\Delta_{\ell}^{k/\ell})$. *Not directly needed for equivalence; only as sanity upper bound. Do not invoke its algorithm.*
+- **Def $f(\Delta_{\ell},t)$:** worst-case runtime of $\cliquelist{k,\ell}$ when graph has (unknown) total $t$ cliques in total. Input: graph + $\ell$-clique list. Must output all $\Delta_k$ $k$-cliques. $t$ unknown to algorithm, only for analysis.
+- **Def $g(\Delta_{\ell},t)$:** worst-case runtime of listing $\min\{\Delta_k,t\}$ distinct $k$-cliques, given $\ell$-clique list **and** specified $t$ as input. Algorithm knows $t$.
+- **Robustness assumption (licensed):** $f(\tilde O(\Delta_{\ell}),\tilde O(t))=\tilde O(f(\Delta_{\ell},t))$ and same for $g$. Allows polylog blow-up in arguments to be absorbed. Must explicitly discharge before claiming $\tilde O$ closure under doubling / padding.
+- **Precondition contract:**
+  - To apply $f$-algorithm: need only $\ell$-clique list; no $t$ needed; guarantees full enumeration in time $f(\Delta_{\ell},t_{\rm true})$.
+  - To apply $g$-algorithm with parameter $\hat t$: need $\ell$-clique list + $\hat t$; guarantees $\min\{\Delta_k,\hat t\}$ distinct $k$-cliques in time $g(\Delta_{\ell},\hat t)$.
+  - No monotonicity of $f,g$ in $t$ is given; if used must be justified or circumvented by explicit doubling sum + robustness.
+  - No relation $k>\ell$ stated; do not assume. Do not assume $k\ge 2$, $t\ge 1$, non-emptiness.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+- **Strategy Alpha (Constructive Doubling / Unknown-$t$ Elimination): $f = \tilde O(g)$.**
+  Build $f$-solver from $g$-oracle via exponential search. For $i=0,1,2,\dots$ run $g$-algorithm with guess $\hat t_i =2^i$. Collect outputs. Stop when run returns $<\hat t_i$ distinct cliques (evidence $\Delta_k < \hat t_i$, hence all found) or when $i$ large enough to cover total-clique bound. Total time $\sum_i g(\Delta_{\ell},2^i)$. If $g$ monotone in second argument, geometric domination gives $\tilde O(g(\Delta_{\ell},t^*))$ where $t^*\approx \max(\Delta_k,\text{needed})$. Relate $t^*$ to true total $t$ to get $f(\Delta_{\ell},t)\le \tilde O(g(\Delta_{\ell},t))$. Key issue: duplicate outputs across iterations must be deduplicated within $\tilde O$; stopping condition must be exact (case $\Delta_k = \hat t_i$ vs $<\hat t_i$). Handle boundary $i^*=0$ and $T+1$ overflow case separately.
+- **Strategy Beta (Truncation / Early-Stopping): $g = \tilde O(f)$.**
+  Build $g$-solver from $f$-oracle via interruption. Given $t$, simulate $f$-algorithm that lists all $\Delta_k$ cliques, but halt after $t$ distinct $k$-cliques emitted (or when $f$-algorithm terminates if $<t$). Output is $\min\{\Delta_k,t\}$. Runtime $\le f(\Delta_{\ell},t_{\rm true})+ \tilde O(t)$ for output cost. Need to argue $t_{\rm true}$ in $f$ equals same $t_{\rm true}$ as total cliques, and extra $\tilde O(t)$ absorbed: $t\le t_{\rm true}$ so $\tilde O(t)\le \tilde O(f)$? Requires lower bound $f\ge \Omega(t)$ or output-size argument; cannot hand-wave. If $f$ charges output, truncation cannot exceed full run. This gives $g(\Delta_{\ell},t)\le \tilde O(f(\Delta_{\ell},t))$. Must preserve case integrity: $\Delta_k\le t$ (full run) vs $\Delta_k>t$ (truncated run).
+- **Strategy Gamma (Two-Regime Split + Polylog Robustness): Close $\tilde\Theta$ both ways.**
+  Split on comparison of $\Delta_k$ vs $t$ (and total $t_{\rm true}$ vs $t$):
+  Regime 1: $\Delta_k \le t$: $g$ must list all; essentially same task as $f$ except $f$ lacks $t$. Show overhead of not knowing $t$ is at most log factor via Alpha.
+  Regime 2: $\Delta_k > t$: $g$ lists only $t\ll\Delta_k$; truncation saves time, so $g\le f$ is strict; converse needs $f$'s $t_{\rm true}\ge \Delta_k > t$ so bounding $g(\cdot,t)$ by $f(\cdot,t_{\rm true})$ needs monotonicity or doubling up to $t_{\rm true}$.
+  Use robustness $f(\tilde O(\cdot),\tilde O(\cdot))=\tilde O(f)$ to absorb deduplication dictionaries, counters, repeated runs. Conclude two-sided $\tilde O$ = $\tilde\Theta$.
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+- **Hereditary:** $\Delta_{\ell}$ list fixed; total clique count $t_{\rm true}$ fixed for graph; set of $k$-cliques fixed; correctness of enumeration (distinctness).
+- **Fragile (revoked on restriction/truncation):** running-time bound with guessed $\hat t\neq t_{\rm true}$; completeness claim "all cliques found" (only valid after stopping condition met, not intermediate $i$); independence of iterations (naive union may double-count).
+```python
+state.register("Delta_l", kind="count", properties=["fixed_input"])
+state.register("Delta_k", kind="count", properties=["fixed_unknown"])
+state.register("t_true", kind="count", properties=["fixed_total_cliques"])
+state.register("t_param", kind="input", properties=["fragile_guess"])
+state.register("f_alg", kind="oracle", properties=["no_t_needed","full_enumeration"])
+state.register("g_alg", kind="oracle", properties=["needs_t_param","partial_enumeration"])
+state.add_subgoal("G_le_F", statement="g(Delta_l,t) <= tildeO(f(Delta_l,t)) via truncation")
+state.add_subgoal("F_le_G", statement="f(Delta_l,t) <= tildeO(g(Delta_l,t)) via doubling sum")
+state.add_subgoal("robust_absorb", statement="polylog overhead absorbed by robustness assumption")
+```
+
+### Testable Intermediate Claims
+1. **Truncation claim:** Simulating $f$-algorithm and stopping after $t$ outputs takes time $\le f(\Delta_{\ell},t_{\rm true})+\tilde O(t)$. Test: does $\tilde O(t)$ dominate? Need $f=\Omega(\Delta_k)$ or at least $f\ge \Omega(\min\{\Delta_k,t\})$ to absorb. Verify boundary $t=0$, $\Delta_k=0$, $\Delta_k=t$.
+2. **Doubling-sum claim:** Let $i^*=\lceil\log_2(\Delta_k+1)\rceil$ (with $i^*=0$ if $\Delta_k=0$). Then $\sum_{i=0}^{i^*} g(\Delta_{\ell},2^i) = \tilde O(g(\Delta_{\ell},t))$ for $t\ge \Delta_k$ (or $t=t_{\rm true}$). Heuristic only if $g$ monotone increasing in $t$ and at least linear-ish growth; complementary regime where $g$ flat/irregular must be discharged directly by monotonicity-by-construction (pad dummy outputs) or by max instead of sum. Never assert one branch of $\min\{\Delta_k,t\}$ universally cheaper without checking $m=i+1$ edge.
+3. **Stopping-correctness claim:** $g$-run with $\hat t=2^i$ returns $<2^i$ cliques iff $\Delta_k<2^i$ (hence iff all $k$-cliques found). Test deduplication: union over $i$ contains no new clique after $i^*$; must ensure $g$-oracle may return different subsets per run, so union size $=\Delta_k$ only at $i^*$. Verify $D_1=\{\Delta_k\le t\}$ vs $D\setminus D_1=\{\Delta_k>t\}$ both terminate correctly.
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_38_211 ---
+[Falsifier Script 1]:
+# Claim 1: Truncation claim stress-test
+# g <= f + tildeO(t) does NOT imply g <= tildeO(f) without f=Omega(min(Delta_k,t))
+import networkx as nx
+
+def trunc_time(f_full, t, Delta_k):
+    # simulate: full run f_full + output cost t*log(t+2)
+    import math
+    return f_full + (t * (math.log2(t+2)))  # tildeO(t)
+
+def check_absorb(f_full, t, Delta_k):
+    g_trunc = trunc_time(f_full, t, Delta_k)
+    # tildeO(f) means <= f * polylog(f+2); use factor (log(f+2))^3 as proxy
+    import math
+    allowed = f_full * ((math.log2(f_full+2))**3 + 1) + 1
+    return g_trunc <= allowed
+
+cases = [
+    ("normal trunc regime Dk>t", 100, 10, 100),   # f~Dk, t small -> absorbed
+    ("full regime Dk<=t small", 100, 100, 50),     # f~Dk, t comparable
+    ("COUNTEREXAMPLE Dk=0,t huge", 1, 10**6, 0),  # f=O(1), t huge -> NOT absorbed
+    ("boundary t=0", 5, 0, 10),
+    ("boundary Dk=0,t=0", 1, 0, 0),
+    ("boundary Dk=t", 50, 50, 50),
+]
+for name, f_full, t, Dk in cases:
+    print(name, f"f={f_full} t={t} Dk={Dk} -> trunc={trunc_time(f_full,t,Dk):.1f} absorbed={check_absorb(f_full,t,Dk)}")
+
+# Falsification: without lower bound f >= Omega(min(Dk,t)), absorption fails
+assert check_absorb(100, 10, 100) == True
+assert check_absorb(1, 10**6, 0) == False, "should be False"
+print("CLAIM1 VERDICT: Truncation bound f+tildeO(t) does NOT imply tildeO(f) in Regime Dk<=t with t>>f. Needs f=Omega(t) or t<=t_true argument. FALSIFIED as stated unconditionally.")
+[Falsifier Kernel Output (Verified)]: normal trunc regime Dk>t f=100 t=10 Dk=100 -> trunc=135.8 absorbed=True
+full regime Dk<=t small f=100 t=100 Dk=50 -> trunc=767.2 absorbed=True
+COUNTEREXAMPLE Dk=0,t huge f=1 t=1000000 Dk=0 -> trunc=19931572.5 absorbed=False
+boundary t=0 f=5 t=0 Dk=10 -> trunc=5.0 absorbed=True
+boundary Dk=0,t=0 f=1 t=0 Dk=0 -> trunc=1.0 absorbed=True
+boundary Dk=t f=50 t=50 Dk=50 -> trunc=335.0 absorbed=True
+CLAIM1 VERDICT: Truncation bound f+tildeO(t) does NOT imply tildeO(f) in Regime Dk<=t with t>>f. Needs f=
+[Falsifier Script 2]:
+# Claim 2: Doubling-sum claim symbolic + numeric verification
+# sum_{i=0}^{i*} g(2^i) = tildeO(g(t)) ?
+import sympy as sp, math
+
+def doubling_sum(g_func, i_star):
+    return sum(g_func(2**i) for i in range(i_star+1))
+
+# Case A: monotone + at least constant growth -> sum <= (i*+1)*g(2^i*) = log-factor overhead => tildeO holds
+def g_mono(x): return x  # linear monotone
+for Dk in [0, 1, 7, 8, 100]:
+    i_star = 0 if Dk == 0 else math.ceil(math.log2(Dk+1))
+    t = max(Dk, 1)
+    s = doubling_sum(g_mono, i_star)
+    # tildeO allows * polylog: check s <= g(2^i*) * (i*+1)
+    print(f"Dk={Dk} i*={i_star} sum={s} g(2^i*)={g_mono(2**i_star)} ratio={s/max(1,g_mono(2**i_star)):.2f}")
+
+# Case B: COUNTEREXAMPLE non-monotone g (licensed? NO monotonicity given) -> sum >> g(t)
+def g_weird(x):
+    # fast on powers hitting t, slow elsewhere: violates monotonicity
+    return 1 if x == 8 else 1000
+i_star = math.ceil(math.log2(7+1))  # Dk=7 -> i*=3, 2^3=8
+s = doubling_sum(g_weird, i_star)
+print(f"non-monotone: sum={s} g(t=8)={g_weird(8)} -> sum >> g(t), ratio={s/g_weird(8)}")
+assert s > 10 * g_weird(8)
+print("CLAIM2 VERDICT: Doubling sum needs monotonicity; without it FALSIFIED. Even with monotonicity need robustness to replace g(2^i*) by g(t).")
+
+# Symbolic check: monotone linear g => sum = 2^{i*+1}-1 <= 4*t bound
+i, t = sp.symbols('i t', integer=True, nonnegative=True)
+# i* = ceil(log2(Dk+1)), so 2^i* < 2*(Dk+1) <= 2*(t+1) when t>=Dk. Verify 2^{i*+1}-1 <= 4t+3
+Dk = sp.symbols('Dk', integer=True, nonnegative=True)
+expr = 4*t+3 - (4*(Dk+1)-1)  # worst-case sum 2^{i*+1}-1 <= 4(Dk+1)-1
+print("symbolic gap 4t+3-(4(Dk+1)-1) =", sp.expand(expr))
+# empirical spot check (NOT a proof): holds on samples iff t>=Dk
+holds = all((4*tt+3)-(4*(dd+1)-1) >= 0 for tt in range(0,20) for dd in range(0,20) if tt>=dd)
+print("holds on samples t>=Dk:", holds)
+assert holds
+[Falsifier Kernel Output (Verified)]: Dk=0 i*=0 sum=1 g(2^i*)=1 ratio=1.00
+Dk=1 i*=1 sum=3 g(2^i*)=2 ratio=1.50
+Dk=7 i*=3 sum=15 g(2^i*)=8 ratio=1.88
+Dk=8 i*=4 sum=31 g(2^i*)=16 ratio=1.94
+Dk=100 i*=7 sum=255 g(2^i*)=128 ratio=1.99
+non-monotone: sum=3001 g(t=8)=1 -> sum >> g(t), ratio=3001.0
+CLAIM2 VERDICT: Doubling sum needs monotonicity; without it FALSIFIED. Even with monotonicity need robustness to replace g(2^i*) by g(t).
+symbolic gap 4t+3-(4(Dk+1)-1) = -4*Dk + 4*t
+holds on samples t>=Dk: True
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+## Turn 1 — Exploration Gate: Inventory, Invariants, Claims
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+Available tools from Context:
+
+* **Notation:** $n=|V|$, $m=|E|$, $\Delta_{\ell}$ = number of $\ell$-cliques.
+* **Def $\cliquelist{k,\ell}$:** given $G=(V,E)$ plus list $L$ of all $\ell$-cliques, list all $k$-cliques.
+* **Lem simple_list_ub:** $\cliquelist{k,\ell}$ solvable in $\tilde O(\Delta_{\ell}^{k/\ell})$. Sanity upper bound only; not needed for equivalence.
+* **Def $f(\Delta_{\ell},t)$:** worst-case runtime of $\cliquelist{k,\ell}$ when graph has total $t$ cliques in total. Input: graph + $\ell$-clique list. No $t$ given to algorithm. Must output all $\Delta_{k}$ $k$-cliques. $t$ is analysis-only.
+* **Def $g(\Delta_{\ell},t)$:** worst-case runtime of listing $\min\{\Delta_{k},t\}$ distinct $k$-cliques, given $\ell$-clique list **and** specified $t$ as input. Algorithm knows $t$.
+* **Robustness (licensed):** $f(\tilde O(\Delta_{\ell}),\tilde O(t))=\tilde O(f(\Delta_{\ell},t))$ and same for $g$. This is the only tool to absorb polylog blow-up, doubling overshoot, dictionaries/counters.
+* **No monotonicity** of $f,g$ in $t$ is given. No relation $k$ vs $\ell$ given. No $t\ge 1$, $\Delta_{k}\ge 1$, $k\ge 2$ assumed. All boundaries $t=0$, $\Delta_{k}=0$, $\Delta_{k}=t$ must be handled.
+
+Precondition contract to discharge:
+
+* To invoke $f$-oracle: need only $\ell$-clique list; cost is $f(\Delta_{\ell},T_{\rm true})$ where $T_{\rm true}$ is true total of that graph.
+* To invoke $g$-oracle with $\hat t$: need $\ell$-clique list + $\hat t$; cost $g(\Delta_{\ell},\hat t)$; guarantee $\min\{\Delta_{k},\hat t\}$ distinct $k$-cliques.
+* Comparison $f(\Delta_{\ell},t)$ vs $g(\Delta_{\ell},t)$ uses same numeric $t$ in both roles: as true total for $f$, as input cap for $g$.
+
+### 2. Invariant-First Formulation (not brute-force case split)
+
+Instead of splitting over all $(\Delta_{k},t,T_{\rm true})$ triples, we isolate two unifying invariants that group regimes $D_{1}=\{\Delta_{k}\le t\}$ and $D_{2}=\{\Delta_{k}>t\}$:
+
+* **(I1) Output-size domination:** any correct listing algorithm must write its output. Hence up to polylogs, $f\ge \Omega(\Delta_{k})$, $g\ge \Omega(\min\{\Delta_{k},t\})$. Overhead $\tilde O(\min\{\Delta_{k},t\})$ is therefore absorbable. Overhead $\tilde O(t)$ alone is **not** absorbable — this explains the REPL counterexample with $\Delta_{k}=0$, $t$ huge.
+* **(I2) Stopping certificate + monotone envelope:** $g$-run with parameter $\hat t$ returns $<\hat t$ cliques iff $\Delta_{k}<\hat t$ (hence complete). Moreover $g$ can be made monotone nondecreasing in $t$ up to $\tilde O$ by truncation: solving larger cap implies solving smaller cap. This removes the non-monotone doubling-sum counterexample without assuming monotonicity.
+
+These two invariants reduce both directions to controlled overhead accounting.
+
+### 3. Structured Intermediate Claims
+
+[CLAIM A — Output lower bound absorption]:
+Any $f$-run takes time at least $\Delta_{k}$ (to emit) up to constants, and any $g$-run takes at least $\min\{\Delta_{k},t\}$. Hence additive $\tilde O(\min\{\Delta_{k},t\}+1)$ for dedup dictionary/counter is $\tilde O(f+1)$ resp. $\tilde O(g+1)$, handling $0$-boundaries.
+
+[REDUCTION A]: Discharges the extra-cost step in both Alpha and Beta; replaces loose $\tilde O(t)$ by tight $\tilde O(\min\{\cdot\})$.
+
+[CLAIM B — Truncation (Beta), $g=\tilde O(f)$]:
+Simulate $f$-algorithm, halt when $t$ distinct $k$-cliques emitted or $f$ terminates. Output is $\min\{\Delta_{k},t\}$. Time $\le$ (partial $f$-time) $+\tilde O(\min\{\Delta_{k},t\})$. Partial $f$-time $\le$ full $f(\Delta_{\ell},T_{\rm true})$. With $T_{\rm true}=t$ comparison point, both regimes $D_{1},D_{2}$ satisfy $\min\le f$ via Claim A.
+
+[REDUCTION B]: Gives one inequality, no monotonicity needed, provided overhead uses $\min$.
+
+[CLAIM C — Monotone envelope for $g$]:
+For $t\le T$, $g(\Delta_{\ell},t)\le \tilde O(g(\Delta_{\ell},T))$ by construction: run $g(\cdot,T)$-algorithm and truncate to $t$. Cost $g(\Delta_{\ell},T)+\tilde O(t)$; since $t=\min$ when $t\le \Delta_{k}$ or output argument absorbs otherwise, this is $\tilde O(g(\Delta_{\ell},T))$ using Claim A. Hence doubling sum can assume monotonicity w.l.o.g.
+
+[REDUCTION C]: Repairs the falsified doubling-sum heuristic (non-monotone ratio 3001) by replacing arbitrary $g$ with its monotone envelope.
+
+[CLAIM D — Doubling (Alpha), $f=\tilde O(g)$]:
+For unknown $\Delta_{k}$, run $g$ with $\hat t_{i}=2^{i}$, $i=0,1,\dots$, deduplicate via hash set, stop at first $i^{*}$ with $<2^{i^{*}}$ returned (certificate of completeness by I2), where $i^{*}=\lceil\log_{2}(\Delta_{k}+1)\rceil$ ($0$ if $\Delta_{k}=0$). Total $\sum_{i\le i^{*}}g(\Delta_{\ell},2^{i})$. By Claim C, $\le (i^{*}+1)\cdot \max_{i\le i^{*}}g =\tilde O(g(\Delta_{\ell},2^{i^{*}}))$. Since $2^{i^{*}}<2(\Delta_{k}+1)\le 2(t+1)=\tilde O(t)$ when $\Delta_{k}\le t$ (true-total case), robustness gives $\tilde O(g(\Delta_{\ell},t))$.
+
+[REDUCTION D]: Gives converse inequality. Needs explicit $i^{*}=0$ and $T+1$ handling, plus robustness discharge.
+
+### 4. State Machine & REPL Verification
+
+```python
+# Claim A/B: min-overhead vs naive t-overhead
+import math
+def tilde_cost(out, log_n=20):
+    return out * log_n + log_n  # model polylog factor
+
+def check_trunc(f, Dk, t):
+    naive = f + t*math.log2(max(t,2)+1)*2
+    tight = f + min(Dk,t)*5 + 5  # hash + counter
+    # output lower bound: f >= Dk (must write), g >= min
+    # absorbed if tight <= polylog * f (allow f=0 -> O(1))
+    absorbed_tight = tight <= max(20*(f+1)*math.log2(max(f+2,2)), 50)
+    return naive, tight, absorbed_tight
+
+for f,Dk,t in [(100,100,10),(100,50,100),(1,0,1000000),(5,10,0),(1,0,0),(10,10,10)]:
+    print(f"Dk={Dk} t={t} f={f} ->", check_trunc(f,Dk,t))
+```
+
+```python
+# Claim C/D: doubling sum monotone vs non-monotone
+import math
+def doubling_sum(g_fn, Dk):
+    if Dk==0:
+        istar=0
+    else:
+        istar=math.ceil(math.log2(Dk+1))
+    s=sum(g_fn(2**i) for i in range(istar+1))
+    return istar, s
+
+def g_mono(x): return x  # linear monotone
+for Dk in [0,1,7,8,100]:
+    istar,s=doubling_sum(g_mono,Dk)
+    print(f"mono Dk={Dk} i*={istar} sum={s} g*={g_mono(2**istar)} ratio={s/max(g_mono(2**istar),1):.2f}")
+
+# non-monotone counterexample from blueprint
+g_weird={1:1000,2:1000,4:1000,8:1,16:1}
+def g_nm(x): return g_weird.get(x,1)
+istar,s=doubling_sum(g_nm,7)  # i*=3, 2^i*=8
+print("non-mono sum",s,"g(t=8)=1 ratio",s/1)
+# envelope fix: define g_env(T)=min_{T'>=T}?? Actually monotone envelope via truncation:
+# g_env(t)=min_{T>=t} g(T)+tildeO(t) -> here g_env(1)<=g(8)+O(1) small, so sum with envelope small
+# demonstrate: envelope makes small-t cost <= large-T cost
+def g_env(t):
+    # best larger T to use + truncation cost 5*t
+    cands=[g_nm(T)+5*t for T in g_weird if T>=t]
+    return min(cands)
+istar2,s2=doubling_sum(g_env,7)
+print("envelope sum",s2,"g_env(8)=",g_env(8))
+```
+
+```python
+# Stopping certificate: g returns < hat_t iff Dk < hat_t
+def g_sim(Dk, hat_t):
+    # oracle returns min(Dk,hat_t) distinct
+    return min(Dk, hat_t)
+
+for Dk in [0,1,7,8]:
+    for hat in [1,2,4,8,16]:
+        ret=g_sim(Dk,hat)
+        cert=(ret<hat)
+        complete=(Dk<hat) or (Dk==0 and hat>0)
+        # for Dk==hat, ret==hat, not <, but still complete; need next i
+        print(f"Dk={Dk} hat={hat} ret={ret} cert<{hat}={cert} Dk<hat={Dk<hat} Dk<=hat={Dk<=hat}")
+    print("---")
+```
+
+Expected outcomes audited: tight min-overhead absorbed in all boundaries including $D_{k}=0,t=0$ and $D_{k}=0,t$ huge (naive fails, tight passes); monotone doubling ratio $\le 2$; non-monotone ratio huge, repaired by envelope; certificate holds with careful $=$ vs $<$ distinction ($D_{k}=\hat t$ returns $=\hat t$, needs one more iteration — $T+1$ boundary).
+
+Next turn will synthesize these audited claims into the two-sided $\tilde\Theta$ argument, explicitly discharging robustness, $i^{*}=0$, $\Delta_{k}=t$, and $t=0$ boundaries.
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Claim A/B: min-overhead vs naive t-overhead
+import math
+def tilde_cost(out, log_n=20):
+    return out * log_n + log_n  # model polylog factor
+
+def check_trunc(f, Dk, t):
+    naive = f + t*math.log2(max(t,2)+1)*2
+    tight = f + min(Dk,t)*5 + 5  # hash + counter
+    # output lower bound: f >= Dk (must write), g >= min
+    # absorbed if tight <= polylog * f (allow f=0 -> O(1))
+    absorbed_tight = tight <= max(20*(f+1)*math.log2(max(f+2,2)), 50)
+    return naive, tight, absorbed_tight
+
+for f,Dk,t in [(100,100,10),(100,50,100),(1,0,1000000),(5,10,0),(1,0,0),(10,10,10)]:
+    print(f"Dk={Dk} t={t} f={f} ->", check_trunc(f,Dk,t))
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0012s) ---
+Stdout:
+Dk=100 t=10 f=100 -> (169.18863237274593, 155, True)
+Dk=50 t=100 f=100 -> (1431.6422965503589, 355, True)
+Dk=0 t=1000000 f=1 -> (39863141.02403699, 6, True)
+Dk=10 t=0 f=5 -> (5.0, 10, True)
+Dk=0 t=0 f=1 -> (1.0, 6, True)
+Dk=10 t=10 f=10 -> (79.18863237274594, 65, True)
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Claim C/D: doubling sum monotone vs non-monotone
+import math
+def doubling_sum(g_fn, Dk):
+    if Dk==0:
+        istar=0
+    else:
+        istar=math.ceil(math.log2(Dk+1))
+    s=sum(g_fn(2**i) for i in range(istar+1))
+    return istar, s
+
+def g_mono(x): return x  # linear monotone
+for Dk in [0,1,7,8,100]:
+    istar,s=doubling_sum(g_mono,Dk)
+    print(f"mono Dk={Dk} i*={istar} sum={s} g*={g_mono(2**istar)} ratio={s/max(g_mono(2**istar),1):.2f}")
+
+# non-monotone counterexample from blueprint
+g_weird={1:1000,2:1000,4:1000,8:1,16:1}
+def g_nm(x): return g_weird.get(x,1)
+istar,s=doubling_sum(g_nm,7)  # i*=3, 2^i*=8
+print("non-mono sum",s,"g(t=8)=1 ratio",s/1)
+# envelope fix: define g_env(T)=min_{T'>=T}?? Actually monotone envelope via truncation:
+# g_env(t)=min_{T>=t} g(T)+tildeO(t) -> here g_env(1)<=g(8)+O(1) small, so sum with envelope small
+# demonstrate: envelope makes small-t cost <= large-T cost
+def g_env(t):
+    # best larger T to use + truncation cost 5*t
+    cands=[g_nm(T)+5*t for T in g_weird if T>=t]
+    return min(cands)
+istar2,s2=doubling_sum(g_env,7)
+print("envelope sum",s2,"g_env(8)=",g_env(8))
+```
+--- [TURN 1] EXECUTION SUCCESS (0.001s) ---
+Stdout:
+mono Dk=0 i*=0 sum=1 g*=1 ratio=1.00
+mono Dk=1 i*=1 sum=3 g*=2 ratio=1.50
+mono Dk=7 i*=3 sum=15 g*=8 ratio=1.88
+mono Dk=8 i*=4 sum=31 g*=16 ratio=1.94
+mono Dk=100 i*=7 sum=255 g*=128 ratio=1.99
+non-mono sum 3001 g(t=8)=1 ratio 3001.0
+envelope sum 79 g_env(8)= 41
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Stopping certificate: g returns < hat_t iff Dk < hat_t
+def g_sim(Dk, hat_t):
+    # oracle returns min(Dk,hat_t) distinct
+    return min(Dk, hat_t)
+
+for Dk in [0,1,7,8]:
+    for hat in [1,2,4,8,16]:
+        ret=g_sim(Dk,hat)
+        cert=(ret<hat)
+        complete=(Dk<hat) or (Dk==0 and hat>0)
+        # for Dk==hat, ret==hat, not <, but still complete; need next i
+        print(f"Dk={Dk} hat={hat} ret={ret} cert<{hat}={cert} Dk<hat={Dk<hat} Dk<=hat={Dk<=hat}")
+    print("---")
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0008s) ---
+Stdout:
+Dk=0 hat=1 ret=0 cert<1=True Dk<hat=True Dk<=hat=True
+Dk=0 hat=2 ret=0 cert<2=True Dk<hat=True Dk<=hat=True
+Dk=0 hat=4 ret=0 cert<4=True Dk<hat=True Dk<=hat=True
+Dk=0 hat=8 ret=0 cert<8=True Dk<hat=True Dk<=hat=True
+Dk=0 hat=16 ret=0 cert<16=True Dk<hat=True Dk<=hat=True
+---
+Dk=1 hat=1 ret=1 cert<1=False Dk<hat=False Dk<=hat=True
+Dk=1 hat=2 ret=1 cert<2=True Dk<hat=True Dk<=hat=True
+Dk=1 hat=4 ret=1 cert<4=True Dk<hat=True Dk<=hat=True
+Dk=1 hat=8 ret=1 cert<8=True Dk<hat=True Dk<=hat=True
+Dk=1 hat=16 ret=1 cert<16=True Dk<hat=True Dk<=hat=True
+---
+Dk=7 hat=1 ret=1 cert<1=False Dk<hat=False Dk<=hat=False
+Dk=7 hat=2 ret=2 cert<2=False Dk<hat=False Dk<=hat=False
+Dk=7 hat=4 ret=4 cert<4=False Dk<hat=False Dk<=hat=False
+Dk=7 hat=8 ret=7 cert<8=True Dk<hat=True Dk<=hat=True
+Dk=7 hat=16 ret=7 cert<16=True Dk<hat=True Dk<=hat=True
+---
+Dk=8 hat=1 ret=1 cert<1=False Dk<hat=False Dk<=hat=False
+Dk=8 hat=2 ret=2 cert<2=False Dk<hat=False Dk<=hat=False
+Dk=8 hat=4 ret=4 cert<4=False Dk<hat=False Dk<=hat=False
+Dk=8 hat=8 ret=8 cert<8=False Dk<hat=False Dk<=hat=True
+Dk=8 hat=16 ret=8 cert<16=True Dk<hat=True Dk<=hat=True
+---
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+[Turn 2] Theoretical reasoning in progress; prompting for modular claim or REPL verification in Turn 3.
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 3/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix $k,\ell$. Let $G$ have $\Delta_{\ell}$ $\ell$-cliques in list $L$,
+$\Delta_{k}$ $k$-cliques, and $t_{\rm true}$ cliques in total.
+$k$-cliques are cliques, so $\Delta_{k}\le t_{\rm true}$,
+with $\Delta_{k}=0$ if $t_{\rm true}=0$.
+No relation $k>\ell$ and no $t\ge 1$ is assumed; $t=0$,
+$\Delta_{k}=0$ are allowed.
+Let $f(\Delta_{\ell},t)$ be the optimal worst-case time to list all
+$k$-cliques given $L$ when the total is $t$, and
+$g(\Delta_{\ell},t)$ the optimal worst-case time to list
+$\min\{\Delta_{k},t\}$ distinct $k$-cliques given $L$ and specified $t$.
+We assume $f(\tilde O(\cdot),\tilde O(\cdot))=\tilde O(f(\cdot))$
+and similarly for $g$, to absorb polylog dictionary, counter and
+copying overhead. We construct each task from the other.
+Preconditions are discharged: the $f$-oracle needs only $L$,
+the $g$-oracle needs $L$ plus a guess $\hat t$.
+
+\medskip\noindent\textbf{Truncation: $g=\tilde O(f)$.}
+Let $A_{f}^{*}$ achieve $f$. Build $A_{g}$: given $(G,L,t)$,
+simulate $A_{f}^{*}$ step by step, maintain a hash set $S$ of distinct
+$k$-cliques emitted, and halt when $|S|=t$ or when $A_{f}^{*}$ terminates.
+Output $S$. If $\Delta_{k}\le t$ the simulation runs to completion and
+$S$ is all $k$-cliques, i.e.\ $\min\{\Delta_{k},t\}=\Delta_{k}$.
+If $\Delta_{k}>t$ it halts after $t$ distinct cliques,
+i.e.\ $\min\{\Delta_{k},t\}=t$. The boundary $\Delta_{k}=t$ falls in the
+first case with full run; $t=0$ halts immediately; $\Delta_{k}=0$ yields
+$S=\emptyset$. Thus correctness holds, with strict distinction between
+$< \hat t$ and $=\hat t$ preserved.
+
+For fixed $G,t$, let $T_{f}(G)$ be the time of $A_{f}^{*}$ on $G$.
+The prefix up to $t$ distinct outputs costs at most $T_{f}(G)$ plus
+hashing per inserted distinct clique. Hence
+\[
+T_{g}(G,t)\le T_{f}(G)+\tilde O(\min\{\Delta_{k},t\}),
+\]
+not $\tilde O(t)$: when $\Delta_{k}<t$ only $\Delta_{k}$ insertions are
+paid. This tight $\min$-overhead repairs the $D_{k}=0$, $t$ huge case.
+Now fix the worst-case family with total $t_{\rm true}=t$, so
+$T_{f}(G)\le f(\Delta_{\ell},t)$ and $\min\{\Delta_{k},t\}=\Delta_{k}$
+since $\Delta_{k}\le t$. Any correct algorithm must write its
+$\Delta_{k}$ outputs, so the optimal worst case satisfies
+$f(\Delta_{\ell},t)\ge \Omega(\Delta_{k})$ up to encoding logs, as the
+maximum over the family dominates the instance $G$.
+Hence $\tilde O(\Delta_{k})$ is absorbed into $\tilde O(f)$.
+Hash blow-up in $\Delta_{\ell}$ is polylog and absorbed by robustness.
+Thus $g(\Delta_{\ell},t)\le\tilde O(f(\Delta_{\ell},t))$.
+
+\medskip\noindent\textbf{Doubling: $f=\tilde O(g)$.}
+Let $A_{g}^{*}$ achieve $g$. Build $A_{f}$: given $(G,L)$ with unknown
+$\Delta_{k},t_{\rm true}$, run $A_{g}^{*}$ with guesses
+$\hat t_{i}=2^{i}$, $i=0,1,\dots$, collect outputs with deduplication,
+and stop at the first $i^{*}$ returning $<2^{i^{*}}$ distinct cliques.
+Indeed $A_{g}^{*}$ returns $\min\{\Delta_{k},2^{i}\}$ distinct cliques,
+so it returns $<2^{i}$ iff $\Delta_{k}<2^{i}$.
+If $\Delta_{k}=2^{i}$ it returns $=2^{i}$, not $<$, so one more iteration
+is needed; the $T+1$ overflow is thus handled.
+Define $i^{*}=0$ if $\Delta_{k}=0$ (first run returns $0<1$),
+else $i^{*}=\lceil\log_{2}(\Delta_{k}+1)\rceil$, so
+$2^{i^{*}-1}\le\Delta_{k}<2^{i^{*}}$ and $2^{i^{*}}<2(\Delta_{k}+1)$.
+Since $\Delta_{k}\le t_{\rm true}<\infty$, $i^{*}$ is finite and
+$O(\log(t_{\rm true}+2))$. The final run has $\min\{\Delta_{k},2^{i^{*}}\}
+=\Delta_{k}$, hence returns all $k$-cliques. Earlier runs may return
+different subsets, but the final run alone is complete; the union is
+complete. This discharges completeness, which holds only after the
+certificate, not intermediately.
+
+Runtime on $G$ is $\sum_{i\le i^{*}}T_{g}(G,2^{i})$ plus dedup
+$\tilde O(\Delta_{k})$, where $T_{g}(G,2^{i})\le g(\Delta_{\ell},2^{i})$.
+We circumvent global monotonicity by a truncation envelope.
+For $i\le i^{*}$, to list $\min\{\Delta_{k}',2^{i}\}$ on any $G'$,
+run $A_{g}^{*}(2^{i^{*}})$ and stop after $2^{i}$ distinct outputs
+(or at termination). Since $2^{i}\le 2^{i^{*}}$,
+$\min\{\Delta_{k}',2^{i^{*}}\}\ge\min\{\Delta_{k}',2^{i}\}$, so the
+large run contains enough outputs to truncate correctly.
+Hence by optimality,
+\[
+g(\Delta_{\ell},2^{i})\le g(\Delta_{\ell},2^{i^{*}})+\tilde O(2^{i}).
+\]
+Summing, $\sum_{i\le i^{*}}g(\Delta_{\ell},2^{i})
+\le (i^{*}+1)g(\Delta_{\ell},2^{i^{*}})+\tilde O(2^{i^{*}})$.
+Here $i^{*}+1$ is polylog in $t_{\rm true}+2$ ($O(1)$ when $i^{*}=0$),
+and $2^{i^{*}}<2(\Delta_{k}+1)$.
+Moreover $g(\Delta_{\ell},2^{i^{*}})$ as a maximum dominates the instance
+$G$, which requires $\Delta_{k}=\min\{\Delta_{k},2^{i^{*}}\}$ outputs,
+so $g(\Delta_{\ell},2^{i^{*}})\ge\Omega(\Delta_{k})$ up to logs.
+Thus the additive $\tilde O(2^{i^{*}})=\tilde O(\Delta_{k})$ is absorbed,
+giving $\tilde O(g(\Delta_{\ell},2^{i^{*}}))$.
+Finally $2^{i^{*}}<2(t_{\rm true}+1)=\tilde O(t_{\rm true})$ with constant
+factor $2$; constant-factor and polylog argument blow-ups and dictionary
+blow-ups in $\Delta_{\ell}$ are absorbed by the licensed robustness.
+Hence the total is $\tilde O(g(\Delta_{\ell},t_{\rm true}))$.
+Taking worst case over total $t_{\rm true}=t$ yields
+$f(\Delta_{\ell},t)\le\tilde O(g(\Delta_{\ell},t))$, including
+$t=0,\Delta_{k}=0$.
+
+Both directions hold for all $\Delta_{\ell},t$ without assuming
+monotonicity, non-emptiness, or $k>\ell$. Therefore
+$f(\Delta_{\ell},t)=\tilde\Theta(g(\Delta_{\ell},t))$.
+\end{proof}
+[Proof Draft Generated] Turn 3: 5405 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.95, "completeness": 0.95, "boundary_cases": 0.95, "validity": 0.95, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": false, "theorem_hypotheses_verified": true, "rigor": 0.65, "completeness": 0.7, "boundary_cases": 0.45, "validity": 0.52, "verdict": "REJECT", "issues": "Core doubling/truncation architecture is sound for t>=1, but boundary arithmetic fails at degenerate 0. Concrete counterexamples to intermediate claims: with Delta_k=0, i*=0, claim 2^{i*-1}<=Delta_k gives 0.5<=0 false; claim tilde O(2^{i*})=tilde O(Delta_k) gives tilde O(1)=tilde O(0) false; with t_true=0, i*=0, 2^{i*}=1, claim 2(t_true+1)=tilde O(t_true) gives 2=tilde O(0) false. Hence g(Delta_l,2^{i*}) to tilde O(g(Delta_l,t_true)) via licensed robustness is applied without verifying 2^{i*}=tilde O(t_true) precondition at 0, and additive tilde O(2^{i*}) absorption into tilde O(Delta_k) fails at 0. Main regime proved, boundary t=0/Delta_k=0 step unclosed."}
+[Best Candidate Updated] Turn 3: validity=0.50 (5405 chars)
+[Audit Flagged Issues] (verdict: REJECT, validity: 0.50, rejection #1)
+Core doubling/truncation architecture is sound for t>=1, but boundary arithmetic fails at degenerate 0. Concrete counterexamples to intermediate claims: with Delta_k=0, i*=0, claim 2^{i*-1}<=Delta_k gives 0.5<=0 false; claim tilde O(2^{i*})=tilde O(Delta_k) gives tilde O(1)=tilde O(0) false; with t_true=0, i*=0, 2^{i*}=1, claim 2(t_true+1)=tilde O(t_true) gives 2=tilde O(0) false. Hence g(Delta_l,2^{i*}) to tilde O(g(Delta_l,t_true)) via licensed robustness is applied without verifying 2^{i*}=tilde O(t_true) precondition at 0, and additive tilde O(2^{i*}) absorption into tilde O(Delta_k) fails at 0. Main regime proved, boundary t=0/Delta_k=0 step unclosed.
+[Self-Improvement] Initiating surgical revision turn 4 with auditor feedback.
+
+--- [SUBAGENT: DYNAMIC CRITIQUE FALSIFIER] Stress-testing referee objections for task_[ID]_statement_38_211 ---
+[Critique Falsifier Script]:
+import math
+# Test disputed intermediate bounds at degenerate 0 per candidate proof definitions
+def check():
+    Delta_k = 0
+    i_star = 0  # defined as 0 if Delta_k==0
+    c1 = (2**(i_star-1) <= Delta_k)  # claimed 2^{i*-1}<=Delta_k
+    print(f"Claim1 2^(i*-1)<=Delta_k: {2**(i_star-1)}<={Delta_k} -> {c1}")
+    # tilde-O(2^{i*})=tilde-O(Delta_k) requires 2^{i*}<=C*Delta_k*polylog for some C; at 0 RHS=0
+    c2 = (2**i_star <= Delta_k)  # even with generous C*polylog>=1, 1<=0 fails
+    print(f"Claim2 absorb O(2^i*) into O(Delta_k): {2**i_star}<=0 -> {c2}")
+    t_true = 0
+    c3 = (2*(t_true+1) <= t_true)  # claimed 2(t+1)=tildeO(t) up to const/polylog; 2<=0 fails
+    print(f"Claim3 2(t+1)=tildeO(t) at t=0: {2*(t_true+1)}<=0 -> {c3}")
+    if not c1 or not c2 or not c3:
+        print(f"COUNTEREXAMPLE_FOUND: Delta_k=0,i*=0 gives 0.5<=0 false; 2^i*=1 vs Delta_k=0; t_true=0 gives 2 vs 0")
+        raise AssertionError("COUNTEREXAMPLE_FOUND")
+    print("INVARIANT_VERIFIED: boundary holds")
+check()
+[Critique Kernel ALERT (Counterexample/Defect Confirmed)]: Traceback (most recent call last):
+  File "<prime_math>", line 18, in <module>
+  File "<prime_math>", line 16, in check
+AssertionError: COUNTEREXAMPLE_FOUND | stdout: Claim1 2^(i*-1)<=Delta_k: 0.5<=0 -> False
+Claim2 absorb O(2^i*) into O(Delta_k): 1<=0 -> False
+Claim3 2(t+1)=tildeO(t) at t=0: 2<=0 -> False
+COUNTEREXAMPLE_FOUND: Delta_k=0,i*=0 gives 0.5<=0 false; 2^
+
+--- [TURN 4/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 4/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Fix $k,\ell$. Let $G$ have $\Delta_{\ell}$ $\ell$-cliques in list $L$,
+$\Delta_{k}$ $k$-cliques, and $t_{\rm true}$ cliques in total.
+$k$-cliques are cliques, so when the family is non-empty
+$\Delta_{k}\le t_{\rm true}$; if no graph has parameters
+$(\Delta_{\ell},t)$ define $f=g=1$ so equivalence holds vacuously.
+No relation $k>\ell$ is assumed; $t=0$, $\Delta_{k}=0$ are allowed.
+Let $f(\Delta_{\ell},t)$ be the optimal worst-case time to list all
+$k$-cliques given $L$ when the total is $t$, and
+$g(\Delta_{\ell},t)$ the optimal worst-case time to list
+$\min\{\Delta_{k},t\}$ distinct $k$-cliques given $L$ and specified $t$.
+We assume $f(\tilde O(\cdot),\tilde O(\cdot))=\tilde O(f(\cdot))$
+and similarly for $g$. The $f$-oracle needs only $L$; the $g$-oracle
+needs $L$ plus a guess $\hat t$. Any algorithm takes $\Omega(1)$ time,
+and one listing $D$ distinct cliques takes $\tilde\Omega(D)$ time to
+write them, so worst cases dominate their instances in this sense.
+
+If $t_{\rm true}=0$ then the graph is empty, $\Delta_{\ell}=\Delta_{k}=0$,
+and listing the empty set takes $\Theta(1)$ time, so
+$f=g=\Theta(1)$. Henceforth for worst-case bounds we assume the
+analysed total $t\ge 1$, $t_{\rm true}\ge 1$; the $t=0$ case holds
+directly by this $O(1)$ verification and never invokes robustness at
+zero scale.
+
+\medskip\noindent\textbf{Truncation: $g=\tilde O(f)$.}
+Let $A_{f}^{*}$ achieve $f$. Build $A_{g}$: given $(G,L,t)$,
+simulate $A_{f}^{*}$, maintain a hash set $S$ of distinct $k$-cliques
+emitted, and halt when $|S|=t$ or when $A_{f}^{*}$ terminates.
+If $\Delta_{k}\le t$ the run completes with all $k$-cliques;
+if $\Delta_{k}>t$ it halts after $t$ distinct cliques; the boundary
+$\Delta_{k}=t$ is a full run, $t=0$ halts immediately,
+$\Delta_{k}=0$ yields $S=\emptyset$. Thus $A_{g}$ outputs
+$\min\{\Delta_{k},t\}$ in all regimes.
+
+For fixed $G,t$, let $T_{f}(G)$ be the time of $A_{f}^{*}$.
+The prefix costs at most $T_{f}(G)$ plus hashing of inserted cliques,
+\[
+T_{g}(G,t)\le T_{f}(G)+\tilde O(\min\{\Delta_{k},t\})+O(1),
+\]
+with $\min$-overhead, not $\tilde O(t)$, so the $\Delta_{k}=0$,
+$t$ huge case pays only $O(1)$. Fix the worst-case family with total
+$t_{\rm true}=t$, so $T_{f}(G)\le f(\Delta_{\ell},t)$ and
+$\Delta_{k}\le t$. If $\min\{\Delta_{k},t\}=0$ the additive $O(1)$ is
+absorbed into $f\ge\Omega(1)$; else $\min\le\Delta_{k}$ and
+$f(\Delta_{\ell},t)\ge T_{f}(G)\ge\tilde\Omega(\Delta_{k})$ since $G$
+requires $\Delta_{k}$ outputs, absorbing the hashing overhead.
+Polylog dictionary blow-up in $\Delta_{\ell}$ is absorbed by robustness.
+Hence $g(\Delta_{\ell},t)\le\tilde O(f(\Delta_{\ell},t))$.
+
+\medskip\noindent\textbf{Doubling: $f=\tilde O(g)$.}
+Let $A_{g}^{*}$ achieve $g$. Build $A_{f}$: given $(G,L)$ with unknown
+$\Delta_{k},t_{\rm true}$, run $A_{g}^{*}$ with guesses
+$\hat t_{i}=2^{i}$, $i=0,1,\dots$, with deduplication, and stop at the
+first $i^{*}$ returning $<2^{i^{*}}$ distinct cliques. Indeed
+$A_{g}^{*}$ returns $\min\{\Delta_{k},2^{i}\}$, so it returns $<2^{i}$
+iff $\Delta_{k}<2^{i}$; if $\Delta_{k}=2^{i}$ it returns $=2^{i}$ and one
+more iteration is needed. The final run alone is complete; earlier runs
+may return different subsets. Completeness holds only after this
+certificate.
+
+If $\Delta_{k}=0$ then $i^{*}=0$, the first run returns $0<1$ and stops.
+Cost is at most $g(\Delta_{\ell},1)+O(1)$. Since $t_{\rm true}\ge 1$
+in the non-degenerate regime, $1=O(t_{\rm true})$, so by robustness
+$g(\Delta_{\ell},1)=\tilde O(g(\Delta_{\ell},t_{\rm true}))$, and $O(1)$
+is absorbed into $g\ge\Omega(1)$. The $t_{\rm true}=0$ case was verified
+directly above and does not invoke robustness.
+
+Assume now $\Delta_{k}\ge 1$, so $i^{*}\ge 1$. Define
+$i^{*}=\lceil\log_{2}(\Delta_{k}+1)\rceil$. Then
+$2^{i^{*}-1}\le\Delta_{k}<2^{i^{*}}$ and $2^{i^{*}}<2(\Delta_{k}+1)$.
+This lower-bound inequality is claimed only for $i^{*}\ge 1$; the
+$i^{*}=0$ case was separated. Moreover for $\Delta_{k}\ge 1$,
+$\Delta_{k}+1\le 2\Delta_{k}$, so $2^{i^{*}}<4\Delta_{k}$ and in
+particular $2^{i^{*}}=O(t_{\rm true})$ with $t_{\rm true}\ge 1$, where
+constant factors are absorbed by robustness at non-zero scale.
+Since $\Delta_{k}\le t_{\rm true}$, $i^{*}=O(\log(t_{\rm true}+2))$.
+
+Runtime on $G$ is $\sum_{i\le i^{*}}T_{g}(G,2^{i})$ plus dedup
+$\tilde O(\Delta_{k})$, where $T_{g}(G,2^{i})\le g(\Delta_{\ell},2^{i})$.
+To list $\min\{\Delta_{k}',2^{i}\}$, run $A_{g}^{*}(2^{i^{*}})$ and stop
+after $2^{i}$ outputs; since $2^{i}\le 2^{i^{*}}$ the large run contains
+enough outputs. Hence by optimality
+$g(\Delta_{\ell},2^{i})\le g(\Delta_{\ell},2^{i^{*}})+\tilde O(2^{i})$.
+Summing gives $(i^{*}+1)g(\Delta_{\ell},2^{i^{*}})+\tilde O(2^{i^{*}})$,
+with $i^{*}+1$ polylog in $t_{\rm true}$. Since $2^{i^{*}}=O(\Delta_{k})$
+for $\Delta_{k}\ge 1$ and $g(\Delta_{\ell},2^{i^{*}})$ dominates $G$
+requiring $\Delta_{k}$ outputs, $g\ge\tilde\Omega(\Delta_{k})$, the
+additive term is absorbed into $\tilde O(g(\Delta_{\ell},2^{i^{*}}))$.
+Finally $2^{i^{*}}=O(t_{\rm true})$ with $t_{\rm true}\ge 1$, so by the
+assumed robustness $g(\Delta_{\ell},2^{i^{*}})=\tilde O(g(\Delta_{\ell},
+t_{\rm true}))$. Taking worst case over $t_{\rm true}=t$ yields
+$f(\Delta_{\ell},t)\le\tilde O(g(\Delta_{\ell},t))$.
+
+Both directions hold for all $\Delta_{\ell},t$ without assuming
+monotonicity, non-emptiness, or $k>\ell$, the degenerate
+$t=0,\Delta_{k}=0$ regimes being verified directly. Therefore
+$f(\Delta_{\ell},t)=\tilde\Theta(g(\Delta_{\ell},t))$.
+\end{proof}
+[Proof Draft Generated] Turn 4: 5483 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.95, "completeness": 0.95, "boundary_cases": 0.95, "validity": 0.95, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.9, "completeness": 0.9, "boundary_cases": 0.95, "validity": 0.9, "verdict": "VALID", "issues": "none"}
+[Best Candidate Updated] Turn 4: validity=0.90 (5483 chars)
+[Audit Passed] Proof verified on Turn 4 (validity: 0.90). Early-terminating to prevent multi-turn degradation.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_38_211 | Proof Length: 5483 chars | Turns: 4 | Duration: 1802.04s
+================================================================================

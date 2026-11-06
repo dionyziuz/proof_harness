@@ -1,0 +1,533 @@
+================================================================================
+[2026-11-02 04:03:37] TCS-BENCH UNASSISTED ONE-PASS SESSION: task_2312.08893_statement_187_252
+Model: gemini-3.8-flash-high | Duration: 136.5s | Prompt Tokens: 17750 | Completion Tokens: 44099
+================================================================================
+
+--- [TURN 1/1] INNER THINKING ---
+(none)
+
+--- [TURN 1/1] MODEL GENERATED OUTPUT ---
+\begin{proof}
+We divide the proof into five main steps:
+\begin{enumerate}
+    \item Subspace embedding and preconditioning via sketching;
+    \item Analysis of the inner solver (\Cref{alg:main_2}) using approximate sketch-and-project;
+    \item Convergence of the outer preconditioned gradient descent (\Cref{alg:main_ls});
+    \item Success probability analysis;
+    \item Computational complexity derivation.
+\end{enumerate}
+
+\paragraph{Step 1: Subspace Embedding and Preconditioning via Sketching.}
+Let $\A \in \R^{n \times d}$ have singular value decomposition $\A = \U \mathbf{\Sigma} \V^\top$, where $\U \in \R^{n \times r}$ has orthonormal columns, $\mathbf{\Sigma} = \diag(\sigma_1, \ldots, \sigma_r) \in \R^{r \times r}$ contains the positive singular values in decreasing order, and $\V \in \R^{d \times r}$ has orthonormal columns spanning $\range(\A^\top)$. 
+The least squares problem is $\min_{\x \in \R^d} \frac{1}{2}\|\A\x - \b\|^2$. Decomposing $\b = \A\x^* + \b^\perp$, where $\x^* = \A^\dagger \b \in \range(\A^\top)$ is the unique minimum Euclidean norm solution and $\b^\perp = (\I_n - \A\A^\dagger)\b \in \ker(\A^\top)$, the Pythagorean theorem yields for any $\x \in \R^d$:
+\begin{align}\label{eq:error_pythagoras}
+\|\A\x - \b\|^2 - \min_{\x} \|\A\x - \b\|^2 = \|\A(\x - \x^*) - \b^\perp\|^2 - \|\b^\perp\|^2 = \|\A(\x - \x^*)\|^2.
+\end{align}
+In Step~2 of \Cref{alg:main_ls}, we compute $\tilde{\A} = \mathbf{\Phi}\A \in \R^{\phi \times d}$ by invoking \Cref{lem:precondition_sparse} with distortion parameter $\epsilon_0 = 1/10$ and failure probability $\delta_0 = 1/500$. The embedding dimension satisfies $\phi = O((d + \log(1/\delta_0))/\epsilon_0^2) = O(d)$, and the sketching step requires $O(\nnz(\A)\log(d/\delta_0) + d^2\log^4(d/\delta_0)) = O(\nnz(\A)\log d + d^2\log^4 d)$ time. 
+
+With probability at least $1 - \delta_0$, $\mathbf{\Phi}$ satisfies the subspace embedding guarantee:
+\begin{align}\label{eq:subspace_embedding}
+\forall \x \in \R^d, \quad \frac{1}{1+\epsilon_0}\|\A\x\| \leq \|\tilde{\A}\x\| \leq (1+\epsilon_0)\|\A\x\|.
+\end{align}
+Consequently, $\ker(\tilde{\A}) = \ker(\A)$, $\rank(\tilde{\A}) = \rank(\A) = r$, and $\range(\tilde{\A}^\top) = \range(\A^\top) = \range(\V)$. In particular, for all $\v \in \range(\A^\top)$,
+\begin{align}\label{eq:spectral_sandwich}
+\frac{1}{(1+\epsilon_0)^2} \v^\top \A^\top\A \v \leq \v^\top \tilde{\A}^\top\tilde{\A} \v \leq (1+\epsilon_0)^2 \v^\top \A^\top\A \v.
+\end{align}
+Writing $\tilde{\A}\V = \mathbf{\Phi}\A\V = \mathbf{\Phi}\U\mathbf{\Sigma}$, the matrix $\mathbf{M} := \V^\top \tilde{\A}^\top\tilde{\A}\V = \mathbf{\Sigma} (\U^\top \mathbf{\Phi}^\top \mathbf{\Phi} \U) \mathbf{\Sigma} \in \R^{r \times r}$ is strictly positive definite, and \eqref{eq:subspace_embedding} implies
+\begin{align}\label{eq:gram_sandwich}
+\frac{1}{(1+\epsilon_0)^2} \I_r \preceq \U^\top \mathbf{\Phi}^\top \mathbf{\Phi} \U \preceq (1+\epsilon_0)^2 \I_r.
+\end{align}
+Let $\{\tilde{\sigma}_i\}_{i=1}^r$ denote the singular values of $\tilde{\A}$ in decreasing order. From the Courant-Fischer min-max characterization and \eqref{eq:subspace_embedding}, we have $\frac{1}{1+\epsilon_0}\sigma_i \leq \tilde{\sigma}_i \leq (1+\epsilon_0)\sigma_i$ for all $1 \leq i \leq r$. Hence,
+\begin{align}\label{eq:tail_cond_bound}
+\bar{\kappa}_k(\tilde{\A}) = \left(\frac{1}{r-k}\sum_{j > k}^r \frac{\tilde{\sigma}_j^2}{\tilde{\sigma}_r^2}\right)^{1/2} \leq (1+\epsilon_0)^2 \left(\frac{1}{r-k}\sum_{j > k}^r \frac{\sigma_j^2}{\sigma_r^2}\right)^{1/2} = (1+\epsilon_0)^2 \bar{\kappa}_k(\A) = O(\bar{\kappa}_k).
+\end{align}
+Since $\bar{\kappa}_k(\A) \leq d^4$, we also have $\bar{\kappa}_k(\tilde{\A}) \leq (1.1)^2 d^4 \leq \phi^4$.
+
+\paragraph{Step 2: Analysis of the Inner Solver (\Cref{alg:main_2}).}
+At outer iteration $t$, the gradient of $f(\x) = \frac{1}{2}\|\A\x - \b\|^2$ is
+\begin{align}\label{eq:gradient_def}
+\g_t = \A^\top(\A\x_t - \b) = \A^\top\A(\x_t - \x^*) \in \range(\A^\top) = \range(\tilde{\A}^\top) = \range(\tilde{\A}^\top\tilde{\A}).
+\end{align}
+Step~5 of \Cref{alg:main_ls} calls \Cref{alg:main_2} on input $(\tilde{\A}, \g_t, \tau, \mathbf{0}, t_{\max}, s_{\max})$ to compute $\hat{\p}_t \approx \p_t^* := (\tilde{\A}^\top\tilde{\A})^\dagger \g_t$.
+Here $\tilde{\A} \in \R^{\phi \times d}$, so the row dimension is $m = \phi = O(d)$ and the column dimension is $n = d$.
+
+In Step~2 of \Cref{alg:main_2}, the randomized Hadamard transform (RHT) matrix is $\Q = \frac{1}{\sqrt{d}}\H_d\D \in \R^{d \times d}$, where $\D$ is a diagonal Rademacher matrix and $\H_d$ is the Hadamard matrix of dimension $d$. Because $\D = \D^\top = \D^{-1}$ and $\H_d = \H_d^\top$ with $\H_d^2 = d\I_d$, we have $\Q\Q^\top = \Q^\top\Q = \frac{1}{d}\H_d\D\D\H_d = \I_d$, so $\Q$ is orthogonal.
+The preprocessed matrix and vector are $\bar{\A} = \tilde{\A}\Q^\top \in \R^{\phi \times d}$ and $\bar{\c} = \Q\g_t \in \R^d$.
+Because $\Q$ is orthogonal, the singular values of $\bar{\A}$ are identical to those of $\tilde{\A}$, so $\bar{\kappa}_k(\bar{\A}) = \bar{\kappa}_k(\tilde{\A}) = O(\bar{\kappa}_k)$ and $\rank(\bar{\A}) = r$.
+Moreover, $\bar{\c} \in \range(\Q\tilde{\A}^\top) = \range(\bar{\A}^\top) = \range(\bar{\A}^\top\bar{\A})$, so the linear system $\bar{\A}^\top\bar{\A}\z = \bar{\c}$ is consistent with unique minimum-length solution $\z^* = (\bar{\A}^\top\bar{\A})^\dagger\bar{\c} = \Q(\tilde{\A}^\top\tilde{\A})^\dagger\Q^\top\Q\g_t = \Q\p_t^*$.
+
+Consider the iterations of \Cref{alg:main_2} for solving $\bar{\A}^\top\bar{\A}\z = \bar{\c}$.
+With initialization $\z_0 = \mathbf{0} \in \range(\bar{\A}^\top)$ and $\y_0 = \bar{\A}\z_0 = \mathbf{0}$, the algorithm maintains the invariant $\y_i = \bar{\A}\z_i$ for all $i \ge 0$. 
+Let $\y^* := \bar{\A}\z^*$. Since $\z^* \in \range(\bar{\A}^\top)$, $\bar{\A}^\top\y^* = \bar{\A}^\top\bar{\A}\z^* = \bar{\c}$.
+Defining the residual vector $\v_i := \y_i - \y^* \in \range(\bar{\A})$, the update in Steps~10--11 of \Cref{alg:main_2} gives:
+\begin{align}\label{eq:residual_update}
+\v_{i+1} = \y_{i+1} - \y^* = \y_i - \bar{\A}\I_{\tilde{S}}^\top \w_{s_{\max}} - \y^* = \v_i - \tilde{\A}_S \w_{s_{\max}},
+\end{align}
+where $\tilde{S} \subseteq [d]$ of size $|\tilde{S}| = \tau$, $\I_{\tilde{S}} \in \R^{\tau \times d}$, and $\tilde{\A}_S := \bar{\A}\I_{\tilde{S}}^\top \in \R^{\phi \times \tau}$.
+The vector $\tilde{\c}$ computed in Step~7 satisfies:
+\begin{align*}
+\tilde{\c} = \tilde{\A}_S^\top \y_i - \I_{\tilde{S}}\bar{\c} = \I_{\tilde{S}}\bar{\A}^\top(\y_i - \y^*) = \tilde{\A}_S^\top \v_i.
+\end{align*}
+The exact coordinate descent update corresponds to $\w^* := (\tilde{\A}_S^\top\tilde{\A}_S)^\dagger \tilde{\c} = (\tilde{\A}_S^\top\tilde{\A}_S)^\dagger \tilde{\A}_S^\top \v_i$.
+Substituting $\w^*$ into \eqref{eq:residual_update} yields:
+\begin{align*}
+\v_i - \tilde{\A}_S\w^* = \left(\I_\phi - \tilde{\A}_S(\tilde{\A}_S^\top\tilde{\A}_S)^\dagger\tilde{\A}_S^\top\right)\v_i = (\I_\phi - \P_{\tilde{S}})\v_i,
+\end{align*}
+where $\P_{\tilde{S}} := \bar{\A}\I_{\tilde{S}}^\top (\I_{\tilde{S}}\bar{\A}^\top\bar{\A}\I_{\tilde{S}}^\top)^\dagger \I_{\tilde{S}}\bar{\A}^\top$ is the orthogonal projection matrix onto $\range(\tilde{\A}_S) = \range(\bar{\A}\I_{\tilde{S}}^\top)$.
+
+Let $\mathbf{B} = \bar{\A}^\top = \Q\tilde{\A}^\top \in \R^{d \times \phi}$. Note that $\mathbf{B}$ is the preprocessed matrix of $\tilde{\A}^\top$ under the RHT $\Q = \frac{1}{\sqrt{d}}\H_d\D$.
+The projection matrix can be written as $\P_{\tilde{S}} = \mathbf{B}^\top \I_{\tilde{S}}^\top (\I_{\tilde{S}}\mathbf{B}\mathbf{B}^\top \I_{\tilde{S}}^\top)^\dagger \I_{\tilde{S}}\mathbf{B}$.
+Applying \Cref{lem:main_coupling} to $\tilde{\A}^\top$ with oracle $\mathcal{O}$ sampling uniformly from $[d]$ and $k' = 2k \geq 2\log d$, for $\tau \geq C k' \log^3 d = 2C k\log^3 d$, conditioned on an RHT event holding with probability at least $0.999$, there is a coupling $(\tilde{S}, S_{\dpp})$ with $S_{\dpp} \sim k'$-$\dpp(\mathbf{B}\mathbf{B}^\top)$ such that $\Pr\{S_{\dpp} \subseteq \tilde{S}\} \geq 1 - \delta_{\mathrm{coup}}$, where $\delta_{\mathrm{coup}} = d^{-9}$.
+
+By \Cref{lem:project_order}, $S_{\dpp} \subseteq \tilde{S}$ implies $\P_{S_{\dpp}} \preceq \P_{\tilde{S}}$. Therefore,
+\begin{align}\label{eq:coupling_expectation}
+\E[\P_{\tilde{S}}] \succeq \E[\P_{\tilde{S}}\mathbf{1}_{\{S_{\dpp} \subseteq \tilde{S}\}}] \succeq \E[\P_{S_{\dpp}}\mathbf{1}_{\{S_{\dpp} \subseteq \tilde{S}\}}] \succeq \E[\P_{S_{\dpp}}] - \delta_{\mathrm{coup}}\I_\phi.
+\end{align}
+Applying \Cref{lem:improve_bound} to $\mathbf{B}$ with $k' = 2k > k$ and rank $r$:
+\begin{align}\label{eq:lower_bound_lambda}
+\lambda_{\min}^+(\E[\P_{S_{\dpp}}]) \geq \frac{2k - k}{2k - k - 1 + (r-k)\bar{\kappa}_k^2(\tilde{\A})} = \frac{k}{k - 1 + (r-k)\bar{\kappa}_k^2(\tilde{\A})} \geq \frac{k}{2r\bar{\kappa}_k^2(\tilde{\A})}.
+\end{align}
+Using $\bar{\kappa}_k(\tilde{\A}) \leq (1+\epsilon_0)^2\bar{\kappa}_k$ from \eqref{eq:tail_cond_bound}, we obtain $\frac{k}{2r\bar{\kappa}_k^2(\tilde{\A})} \geq \frac{k}{4r\bar{\kappa}_k^2}$.
+Since $\bar{\kappa}_k \leq d^4$ and $r \leq d$, $\frac{k}{4r\bar{\kappa}_k^2} \geq \frac{\log d}{4d^9} > d^{-9} = \delta_{\mathrm{coup}}$.
+Combining \eqref{eq:coupling_expectation} and \eqref{eq:lower_bound_lambda} yields:
+\begin{align}\label{eq:rho_bound}
+\rho := \lambda_{\min}^+(\E[\P_{\tilde{S}}]) \geq \frac{k}{4r\bar{\kappa}_k^2} - d^{-9} \geq \frac{k}{8r\bar{\kappa}_k^2} = \Omega\left(\frac{k}{r\bar{\kappa}_k^2}\right).
+\end{align}
+
+Now consider the inexact solution via conjugate gradient in Steps~8--9.
+Algorithm~\ref{alg:preconditioner} is called with $\tilde{\A}_S^\top \in \R^{\tau \times \phi}$.
+By \Cref{lem:approx_converge}, with probability $1 - d^{-10}$, \Cref{alg:preconditioner} outputs $\M \in \R^{\tau \times \tau}$ such that $\tilde{\kappa} = \kappa(\M^\top\tilde{\A}_S^\top) = O(1)$. 
+Running CG for $s_{\max} = O(\log(1/\rho)) = O(\log(r\bar{\kappa}_k/\tau))$ iterations produces an approximate solution $\w_{s_{\max}}$ satisfying the conditions of \Cref{lem:main_convergence}.
+Applying \Cref{lem:main_convergence} to \Cref{alg:main_2} with $\rho = \Omega(k/(r\bar{\kappa}_k^2))$ yields:
+\begin{align}\label{eq:inner_contraction}
+\E[\|\v_{i+1}\|^2] \leq \left(1 - \frac{\rho}{4}\right) \|\v_i\|^2.
+\end{align}
+Running \Cref{alg:main_2} for $t_{\max} = \lceil \frac{8}{\rho} \ln(100/\eta_0) \rceil = O(r\bar{\kappa}_k^2/k)$ iterations, where $\eta_0 \in (0, 1)$ is a target precision parameter to be chosen below, we have:
+\begin{align*}
+\E[\|\v_{t_{\max}}\|^2] \leq \left(1 - \frac{\rho}{4}\right)^{t_{\max}} \|\v_0\|^2 \leq \exp\left(-\frac{\rho t_{\max}}{4}\right) \|\v_0\|^2 \leq \frac{\eta_0^2}{100} \|\v_0\|^2.
+\end{align*}
+The output of \Cref{alg:main_2} is $\hat{\p}_t = \Q^\top \z_{t_{\max}}$.
+Using $\v_i = \bar{\A}(\z_i - \z^*)$, $\bar{\A} = \tilde{\A}\Q^\top$, and $\z^* = \Q\p_t^*$, we have:
+\begin{align*}
+\|\v_{t_{\max}}\|^2 = \|\bar{\A}(\z_{t_{\max}} - \z^*)\|^2 = \|\tilde{\A}\Q^\top(\z_{t_{\max}} - \Q\p_t^*)\|^2 = \|\tilde{\A}(\hat{\p}_t - \p_t^*)\|^2,
+\end{align*}
+and for the initial iterate $\z_0 = \mathbf{0}$:
+\begin{align*}
+\|\v_0\|^2 = \|\bar{\A}(\mathbf{0} - \z^*)\|^2 = \|\tilde{\A}\p_t^*\|^2.
+\end{align*}
+Therefore,
+\begin{align}\label{eq:inner_expected_accuracy}
+\E[\|\tilde{\A}(\hat{\p}_t - \p_t^*)\|^2] \leq \frac{\eta_0^2}{100} \|\tilde{\A}\p_t^*\|^2.
+\end{align}
+By Markov's inequality, with probability at least $0.99$:
+\begin{align}\label{eq:inner_high_prob_accuracy}
+\|\tilde{\A}(\hat{\p}_t - \p_t^*)\| \leq \eta_0 \|\tilde{\A}\p_t^*\|.
+\end{align}
+
+\paragraph{Step 3: Convergence of the Outer Preconditioned Gradient Descent (\Cref{alg:main_ls}).}
+Let $\mathbf{e}_t := \x_t - \x^* \in \R^d$ and define $\mathbf{u}_t := \A\mathbf{e}_t = \A(\x_t - \x^*) \in \range(\A)$.
+By definition of the compact SVD $\A = \U\mathbf{\Sigma}\V^\top$, we can uniquely write $\mathbf{u}_t = \U\mathbf{a}_t$ for some $\mathbf{a}_t \in \R^r$, with $\|\mathbf{u}_t\| = \|\mathbf{a}_t\|$.
+From \eqref{eq:gradient_def}, $\g_t = \A^\top \mathbf{u}_t = \V\mathbf{\Sigma}\U^\top \mathbf{u}_t = \V\mathbf{\Sigma}\mathbf{a}_t$.
+The exact preconditioned gradient step is:
+\begin{align*}
+\p_t^* = (\tilde{\A}^\top\tilde{\A})^\dagger \g_t = (\tilde{\A}^\top\tilde{\A})^\dagger \V\mathbf{\Sigma}\mathbf{a}_t.
+\end{align*}
+Recall from Step~1 that $\V^\top\tilde{\A}^\top\tilde{\A}\V = \mathbf{M} = \mathbf{\Sigma}(\U^\top\mathbf{\Phi}^\top\mathbf{\Phi}\U)\mathbf{\Sigma} \succ \mathbf{0}$, and $\range(\tilde{\A}^\top) = \range(\V)$.
+Therefore, $(\tilde{\A}^\top\tilde{\A})^\dagger = \V\mathbf{M}^{-1}\V^\top$, which implies:
+\begin{align*}
+\A\p_t^* = \A\V\mathbf{M}^{-1}\V^\top\V\mathbf{\Sigma}\mathbf{a}_t = \U\mathbf{\Sigma} \left(\mathbf{\Sigma}(\U^\top\mathbf{\Phi}^\top\mathbf{\Phi}\U)\mathbf{\Sigma}\right)^{-1} \mathbf{\Sigma}\mathbf{a}_t = \U (\U^\top\mathbf{\Phi}^\top\mathbf{\Phi}\U)^{-1} \mathbf{a}_t.
+\end{align*}
+Defining the symmetric positive definite matrix $\mathbf{W} := (\U^\top\mathbf{\Phi}^\top\mathbf{\Phi}\U)^{-1} \in \R^{r \times r}$, \eqref{eq:gram_sandwich} gives:
+\begin{align}\label{eq:W_spectrum}
+\frac{1}{(1+\epsilon_0)^2} \I_r \preceq \mathbf{W} \preceq (1+\epsilon_0)^2 \I_r.
+\end{align}
+Subtracting $\A\p_t^*$ from $\mathbf{u}_t$:
+\begin{align}\label{eq:ideal_contraction}
+\mathbf{u}_t - \A\p_t^* = \U\mathbf{a}_t - \U\mathbf{W}\mathbf{a}_t = \U(\I_r - \mathbf{W})\mathbf{a}_t.
+\end{align}
+Because $\U$ has orthonormal columns, $\|\mathbf{u}_t - \A\p_t^*\| = \|(\I_r - \mathbf{W})\mathbf{a}_t\| \leq \|\I_r - \mathbf{W}\|_2 \|\mathbf{a}_t\|$.
+From \eqref{eq:W_spectrum} with $\epsilon_0 = 1/10$:
+\begin{align*}
+1 - \frac{1}{(1+\epsilon_0)^2} = 1 - \frac{100}{121} = \frac{21}{121} < 0.18, \quad (1+\epsilon_0)^2 - 1 = 1.21 - 1 = 0.21.
+\end{align*}
+Hence, $\|\I_r - \mathbf{W}\|_2 \leq 0.21$, and \eqref{eq:ideal_contraction} yields:
+\begin{align}\label{eq:ideal_step_norm}
+\|\mathbf{u}_t - \A\p_t^*\| \leq 0.21 \|\mathbf{u}_t\|.
+\end{align}
+Furthermore, using $\|\mathbf{W}\|_2 \leq (1+\epsilon_0)^2$:
+\begin{align}\label{eq:A_pt_star_norm}
+\|\A\p_t^*\| = \|\U\mathbf{W}\mathbf{a}_t\| \leq \|\mathbf{W}\|_2 \|\mathbf{a}_t\| \leq (1+\epsilon_0)^2 \|\mathbf{u}_t\|.
+\end{align}
+Now consider the update in Step~6 of \Cref{alg:main_ls}: $\x_{t+1} = \x_t - \hat{\p}_t$. Multiplying by $\A$:
+\begin{align}\label{eq:u_recursion}
+\mathbf{u}_{t+1} = \A(\x_{t+1} - \x^*) = \mathbf{u}_t - \A\hat{\p}_t = (\mathbf{u}_t - \A\p_t^*) - \A(\hat{\p}_t - \p_t^*).
+\end{align}
+Using the subspace embedding property \eqref{eq:subspace_embedding} for the perturbation $\hat{\p}_t - \p_t^* \in \range(\A^\top)$:
+\begin{align}\label{eq:perturbation_bound}
+\|\A(\hat{\p}_t - \p_t^*)\| \leq (1+\epsilon_0) \|\tilde{\A}(\hat{\p}_t - \p_t^*)\|.
+\end{align}
+Under the high probability event \eqref{eq:inner_high_prob_accuracy}, and applying \eqref{eq:subspace_embedding} and \eqref{eq:A_pt_star_norm}:
+\begin{align}\label{eq:perturbation_final}
+\|\A(\hat{\p}_t - \p_t^*)\| \leq (1+\epsilon_0)\eta_0 \|\tilde{\A}\p_t^*\| \leq (1+\epsilon_0)^2\eta_0 \|\A\p_t^*\| \leq (1+\epsilon_0)^4\eta_0 \|\mathbf{u}_t\|.
+\end{align}
+Combining \eqref{eq:u_recursion}, \eqref{eq:ideal_step_norm}, and \eqref{eq:perturbation_final} via the triangle inequality:
+\begin{align}\label{eq:one_step_contraction}
+\|\mathbf{u}_{t+1}\| \leq \|\mathbf{u}_t - \A\p_t^*\| + \|\A(\hat{\p}_t - \p_t^*)\| \leq \left(0.21 + (1+\epsilon_0)^4\eta_0\right) \|\mathbf{u}_t\|.
+\end{align}
+Setting $\eta_0 = \frac{0.04}{(1+\epsilon_0)^4} \approx 0.027$, the bracketed constant satisfies:
+\begin{align*}
+\gamma := 0.21 + (1+\epsilon_0)^4\eta_0 = 0.21 + 0.04 = 0.25 = \frac{1}{4} \leq \frac{1}{2}.
+\end{align*}
+Applying \eqref{eq:one_step_contraction} inductively across all $T$ iterations:
+\begin{align}\label{eq:T_step_contraction}
+\|\mathbf{u}_T\| \leq \left(\frac{1}{2}\right)^T \|\mathbf{u}_0\|.
+\end{align}
+Squaring both sides and noting that $\x_0 = \mathbf{0}$ implies $\mathbf{u}_0 = \A(\mathbf{0} - \x^*) = -\A\x^*$:
+\begin{align*}
+\|\mathbf{u}_T\|^2 \leq \left(\frac{1}{4}\right)^T \|\A\x^*\|^2 \leq \left(\frac{1}{4}\right)^T \|\b\|^2,
+\end{align*}
+where the last inequality uses the fact that $\A\x^* = \A\A^\dagger\b$ is an orthogonal projection of $\b$, so $\|\A\x^*\| \leq \|\b\|$.
+Choosing $T = \lceil \log_4(1/\epsilon) \rceil = O(\log(1/\epsilon))$, we obtain:
+\begin{align*}
+\|\A\tilde{\x} - \A\x^*\|^2 = \|\mathbf{u}_T\|^2 \leq \epsilon \|\b\|^2.
+\end{align*}
+By \eqref{eq:error_pythagoras}, this proves the target accuracy bound:
+\begin{align}\label{eq:target_error_bound}
+\|\A\tilde{\x} - \b\|^2 \leq \min_{\x} \|\A\x - \b\|^2 + \epsilon \|\b\|^2.
+\end{align}
+
+\paragraph{Step 4: Success Probability Analysis.}
+The algorithm succeeds if the following events hold simultaneously:
+\begin{enumerate}
+    \item The embedding matrix $\mathbf{\Phi}$ satisfies the subspace embedding \eqref{eq:subspace_embedding}. By \Cref{lem:precondition_sparse}, this occurs with probability at least $1 - \delta_0 = 1 - 1/500 = 0.998$.
+    \item The RHT conditioning in \Cref{lem:main_coupling} holds. This occurs with probability at least $0.999$.
+    \item In each of the $T$ outer iterations, all calls to \Cref{lem:approx_converge} inside \Cref{alg:main_2} succeed, and the coupling in \Cref{lem:main_coupling} holds. Since there are $t_{\max} = O(d^9)$ inner steps per outer iteration, union bounding over all $T \cdot t_{\max}$ calls with per-step failure probability $d^{-10} \le 1/(1000 T t_{\max})$ contributes at most $0.001$ to the failure probability.
+    \item In \Cref{alg:main_2}, by setting the constant factor in $t_{\max}$ larger by $\ln(100 T)$, \eqref{eq:inner_expected_accuracy} holds with $\frac{\eta_0^2}{100 T}$, so by Markov's inequality, \eqref{eq:inner_high_prob_accuracy} holds at step $t$ with failure probability at most $\frac{1}{1000 T}$. By the union bound across all $T$ iterations, \eqref{eq:inner_high_prob_accuracy} holds for all $t \in \{0, \ldots, T-1\}$ with failure probability at most $0.001$.
+\end{enumerate}
+Applying the union bound over these failure events:
+\begin{align*}
+\Pr\{\text{Failure}\} \leq 0.002 + 0.001 + 0.001 + 0.001 = 0.005 < 0.01.
+\end{align*}
+Hence, the algorithm succeeds with probability at least $1 - 0.005 > 0.99$.
+
+\paragraph{Step 5: Computational Complexity Derivation.}
+We analyze the runtime of each phase of \Cref{alg:main_ls}:
+\begin{itemize}
+    \item \textbf{Initial Sketching (Step~2):} Computing $\tilde{\A} \leftarrow \mathbf{\Phi}\A$ with $\mathbf{\Phi} \in \R^{\phi \times n}$ where $\phi = O(d)$ via \Cref{lem:precondition_sparse} takes:
+    \begin{align*}
+    O\left(\nnz(\A)\log d + d^2\log^4 d\right) \text{ time.}
+    \end{align*}
+    
+    \item \textbf{Gradient Computations (Step~4):} In each of the $T = O(\log(1/\epsilon))$ outer iterations, computing $\g_t = \A^\top(\A\x_t - \b)$ takes $O(\nnz(\A))$ time. Across all $T$ iterations, this requires:
+    \begin{align*}
+    O\left(\nnz(\A)\log(1/\epsilon)\right) \text{ time.}
+    \end{align*}
+    Combining with the sketching phase gives $O(\nnz(\A)(\log d + \log(1/\epsilon))) = O(\nnz(\A)\log(d/\epsilon))$.
+
+    \item \textbf{Solving the Preconditioned Normal Equations via \Cref{alg:main_2} (Step~5):}
+    Each call to \Cref{alg:main_2} on input $(\tilde{\A}, \g_t)$ with $\tilde{\A} \in \R^{\phi \times d}$ ($\phi = O(d)$) consists of:
+    \begin{enumerate}
+        \item \emph{Preprocessing (Step~2 of \Cref{alg:main_2}):} Applying the Hadamard transform to the $d$ coordinates of $\g_t$ and each of the $\phi = O(d)$ rows of $\tilde{\A}$ using the Fast Walsh-Hadamard Transform takes $O(d \log d + \phi \cdot d \log d) = O(d^2 \log d)$ time.
+        \item \emph{Inner Iterations ($t_{\max}$ steps):} In each of the $t_{\max} = O(r\bar{\kappa}_k^2/k)$ inner iterations:
+        \begin{itemize}
+            \item Subsampling $\tilde{S}$ and forming $\tilde{\A}_S = \bar{\A}\I_{\tilde{S}}^\top \in \R^{\phi \times \tau}$ takes $O(\phi\tau) = O(d\tau)$ time.
+            \item Computing $\tilde{\c} = \tilde{\A}_S^\top \y_i - \I_{\tilde{S}}\bar{\c}$ takes $O(\phi\tau) = O(d\tau)$ time.
+            \item Generating preconditioner $\M$ via \Cref{alg:preconditioner} on $\tilde{\A}_S^\top \in \R^{\tau \times \phi}$: by \Cref{lem:approx_converge}, computing the sparse embedding $\mathbf{\Phi}'\tilde{\A}_S \in \R^{O(\tau) \times \tau}$ takes $O(\nnz(\tilde{\A}_S)\log\tau + \tau^2\log^4\tau) = O(d\tau\log\tau + \tau^2\log^4\tau)$ time. The compact SVD of an $O(\tau) \times \tau$ matrix takes $O(\tau^\omega)$ time, where $\omega$ is the matrix multiplication exponent.
+            \item Running CG for $s_{\max}$ steps (Step~9): each CG iteration multiplies vectors by $\M^\top\tilde{\A}_S^\top\tilde{\A}_S\M$. Since $\M \in \R^{\tau \times \tau}$ and $\tilde{\A}_S \in \R^{\phi \times \tau}$, matrix-vector products take $O(\tau^2 + \phi\tau) = O(d\tau)$ time (as $\tau \leq d$). Thus, CG requires $O(d\tau s_{\max})$ time.
+            \item Updates to $\x$ and $\y$ take $O(\tau + \phi\tau) = O(d\tau)$ time.
+        \end{itemize}
+        Summing these, each inner iteration takes:
+        \begin{align*}
+        O\left(d\tau s_{\max} + d\tau\log\tau + \tau^\omega\right) = O\left(d\tau s_{\max} + \tau^\omega\right) \text{ time.}
+        \end{align*}
+    \end{enumerate}
+    Substituting $\tau = O(k\log^3 d)$ and $s_{\max} = O(\log(r\bar{\kappa}_k/\tau))$:
+    Since $\bar{\kappa}_k \leq d^4$ and $r \leq d$, we have $s_{\max} = O(\log d)$. Thus,
+    \begin{align*}
+    d\tau s_{\max} &= O(d \cdot (k\log^3 d) \cdot \log d) = O(dk\log^4 d), \\
+    \tau^\omega &= O((k\log^3 d)^\omega) = O(k^\omega \log^{3\omega} d) = O(k \cdot k^{\omega-1}\log^{3\omega} d).
+    \end{align*}
+    Therefore, the cost per inner iteration is $O\left(k(d\log^4 d + k^{\omega-1}\log^{3\omega} d)\right)$.
+    Multiplying by $t_{\max} = O(r\bar{\kappa}_k^2/k)$:
+    \begin{align*}
+    t_{\max} \cdot O\left(k(d\log^4 d + k^{\omega-1}\log^{3\omega} d)\right) &= O\left(r\bar{\kappa}_k^2 (d\log^4 d + k^{\omega-1}\log^{3\omega} d)\right) \\
+    &\leq O\left((d^2\log^4 d + dk^{\omega-1}\log^{3\omega} d)\cdot \bar{\kappa}_k^2\right),
+    \end{align*}
+    where we used $r \leq d$. 
+    The preprocessing time of $O(d^2\log d)$ is strictly dominated by $d^2\log^4 d \cdot \bar{\kappa}_k^2$ since $\bar{\kappa}_k \geq 1$.
+    \item \textbf{Total Time across all $T$ Outer Iterations:}
+    Multiplying the cost per outer iteration by $T = O(\log(1/\epsilon))$:
+    \begin{align*}
+    O\left((d^2\log^4 d + dk^{\omega-1}\log^{3\omega} d)\cdot \bar{\kappa}_k^2 \log(1/\epsilon)\right).
+    \end{align*}
+\end{itemize}
+Summing the sketching cost, gradient evaluation cost, and inner solver cost, the total running time is:
+\begin{align*}
+O\left(\nnz(\A)\log(d/\epsilon) + (d^2\log^4 d + dk^{\omega-1}\log^{3\omega}d)\cdot \bar{\kappa}_k^2\log(1/\epsilon)\right).
+\end{align*}
+This completes the proof.
+\end{proof}
+
+--- [EXTRACTED CANDIDATE PROOF] ---
+Length: 22820 chars
+\begin{proof}
+We divide the proof into five main steps:
+\begin{enumerate}
+    \item Subspace embedding and preconditioning via sketching;
+    \item Analysis of the inner solver (\Cref{alg:main_2}) using approximate sketch-and-project;
+    \item Convergence of the outer preconditioned gradient descent (\Cref{alg:main_ls});
+    \item Success probability analysis;
+    \item Computational complexity derivation.
+\end{enumerate}
+
+\paragraph{Step 1: Subspace Embedding and Preconditioning via Sketching.}
+Let $\A \in \R^{n \times d}$ have singular value decomposition $\A = \U \mathbf{\Sigma} \V^\top$, where $\U \in \R^{n \times r}$ has orthonormal columns, $\mathbf{\Sigma} = \diag(\sigma_1, \ldots, \sigma_r) \in \R^{r \times r}$ contains the positive singular values in decreasing order, and $\V \in \R^{d \times r}$ has orthonormal columns spanning $\range(\A^\top)$. 
+The least squares problem is $\min_{\x \in \R^d} \frac{1}{2}\|\A\x - \b\|^2$. Decomposing $\b = \A\x^* + \b^\perp$, where $\x^* = \A^\dagger \b \in \range(\A^\top)$ is the unique minimum Euclidean norm solution and $\b^\perp = (\I_n - \A\A^\dagger)\b \in \ker(\A^\top)$, the Pythagorean theorem yields for any $\x \in \R^d$:
+\begin{align}\label{eq:error_pythagoras}
+\|\A\x - \b\|^2 - \min_{\x} \|\A\x - \b\|^2 = \|\A(\x - \x^*) - \b^\perp\|^2 - \|\b^\perp\|^2 = \|\A(\x - \x^*)\|^2.
+\end{align}
+In Step~2 of \Cref{alg:main_ls}, we compute $\tilde{\A} = \mathbf{\Phi}\A \in \R^{\phi \times d}$ by invoking \Cref{lem:precondition_sparse} with distortion parameter $\epsilon_0 = 1/10$ and failure probability $\delta_0 = 1/500$. The embedding dimension satisfies $\phi = O((d + \log(1/\delta_0))/\epsilon_0^2) = O(d)$, and the sketching step requires $O(\nnz(\A)\log(d/\delta_0) + d^2\log^4(d/\delta_0)) = O(\nnz(\A)\log d + d^2\log^4 d)$ time. 
+
+With probability at least $1 - \delta_0$, $\mathbf{\Phi}$ satisfies the subspace embedding guarantee:
+\begin{align}\label{eq:subspace_embedding}
+\forall \x \in \R^d, \quad \frac{1}{1+\epsilon_0}\|\A\x\| \leq \|\tilde{\A}\x\| \leq (1+\epsilon_0)\|\A\x\|.
+\end{align}
+Consequently, $\ker(\tilde{\A}) = \ker(\A)$, $\rank(\tilde{\A}) = \rank(\A) = r$, and $\range(\tilde{\A}^\top) = \range(\A^\top) = \range(\V)$. In particular, for all $\v \in \range(\A^\top)$,
+\begin{align}\label{eq:spectral_sandwich}
+\frac{1}{(1+\epsilon_0)^2} \v^\top \A^\top\A \v \leq \v^\top \tilde{\A}^\top\tilde{\A} \v \leq (1+\epsilon_0)^2 \v^\top \A^\top\A \v.
+\end{align}
+Writing $\tilde{\A}\V = \mathbf{\Phi}\A\V = \mathbf{\Phi}\U\mathbf{\Sigma}$, the matrix $\mathbf{M} := \V^\top \tilde{\A}^\top\tilde{\A}\V = \mathbf{\Sigma} (\U^\top \mathbf{\Phi}^\top \mathbf{\Phi} \U) \mathbf{\Sigma} \in \R^{r \times r}$ is strictly positive definite, and \eqref{eq:subspace_embedding} implies
+\begin{align}\label{eq:gram_sandwich}
+\frac{1}{(1+\epsilon_0)^2} \I_r \preceq \U^\top \mathbf{\Phi}^\top \mathbf{\Phi} \U \preceq (1+\epsilon_0)^2 \I_r.
+\end{align}
+Let $\{\tilde{\sigma}_i\}_{i=1}^r$ denote the singular values of $\tilde{\A}$ in decreasing order. From the Courant-Fischer min-max characterization and \eqref{eq:subspace_embedding}, we have $\frac{1}{1+\epsilon_0}\sigma_i \leq \tilde{\sigma}_i \leq (1+\epsilon_0)\sigma_i$ for all $1 \leq i \leq r$. Hence,
+\begin{align}\label{eq:tail_cond_bound}
+\bar{\kappa}_k(\tilde{\A}) = \left(\frac{1}{r-k}\sum_{j > k}^r \frac{\tilde{\sigma}_j^2}{\tilde{\sigma}_r^2}\right)^{1/2} \leq (1+\epsilon_0)^2 \left(\frac{1}{r-k}\sum_{j > k}^r \frac{\sigma_j^2}{\sigma_r^2}\right)^{1/2} = (1+\epsilon_0)^2 \bar{\kappa}_k(\A) = O(\bar{\kappa}_k).
+\end{align}
+Since $\bar{\kappa}_k(\A) \leq d^4$, we also have $\bar{\kappa}_k(\tilde{\A}) \leq (1.1)^2 d^4 \leq \phi^4$.
+
+\paragraph{Step 2: Analysis of the Inner Solver (\Cref{alg:main_2}).}
+At outer iteration $t$, the gradient of $f(\x) = \frac{1}{2}\|\A\x - \b\|^2$ is
+\begin{align}\label{eq:gradient_def}
+\g_t = \A^\top(\A\x_t - \b) = \A^\top\A(\x_t - \x^*) \in \range(\A^\top) = \range(\tilde{\A}^\top) = \range(\tilde{\A}^\top\tilde{\A}).
+\end{align}
+Step~5 of \Cref{alg:main_ls} calls \Cref{alg:main_2} on input $(\tilde{\A}, \g_t, \tau, \mathbf{0}, t_{\max}, s_{\max})$ to compute $\hat{\p}_t \approx \p_t^* := (\tilde{\A}^\top\tilde{\A})^\dagger \g_t$.
+Here $\tilde{\A} \in \R^{\phi \times d}$, so the row dimension is $m = \phi = O(d)$ and the column dimension is $n = d$.
+
+In Step~2 of \Cref{alg:main_2}, the randomized Hadamard transform (RHT) matrix is $\Q = \frac{1}{\sqrt{d}}\H_d\D \in \R^{d \times d}$, where $\D$ is a diagonal Rademacher matrix and $\H_d$ is the Hadamard matrix of dimension $d$. Because $\D = \D^\top = \D^{-1}$ and $\H_d = \H_d^\top$ with $\H_d^2 = d\I_d$, we have $\Q\Q^\top = \Q^\top\Q = \frac{1}{d}\H_d\D\D\H_d = \I_d$, so $\Q$ is orthogonal.
+The preprocessed matrix and vector are $\bar{\A} = \tilde{\A}\Q^\top \in \R^{\phi \times d}$ and $\bar{\c} = \Q\g_t \in \R^d$.
+Because $\Q$ is orthogonal, the singular values of $\bar{\A}$ are identical to those of $\tilde{\A}$, so $\bar{\kappa}_k(\bar{\A}) = \bar{\kappa}_k(\tilde{\A}) = O(\bar{\kappa}_k)$ and $\rank(\bar{\A}) = r$.
+Moreover, $\bar{\c} \in \range(\Q\tilde{\A}^\top) = \range(\bar{\A}^\top) = \range(\bar{\A}^\top\bar{\A})$, so the linear system $\bar{\A}^\top\bar{\A}\z = \bar{\c}$ is consistent with unique minimum-length solution $\z^* = (\bar{\A}^\top\bar{\A})^\dagger\bar{\c} = \Q(\tilde{\A}^\top\tilde{\A})^\dagger\Q^\top\Q\g_t = \Q\p_t^*$.
+
+Consider the iterations of \Cref{alg:main_2} for solving $\bar{\A}^\top\bar{\A}\z = \bar{\c}$.
+With initialization $\z_0 = \mathbf{0} \in \range(\bar{\A}^\top)$ and $\y_0 = \bar{\A}\z_0 = \mathbf{0}$, the algorithm maintains the invariant $\y_i = \bar{\A}\z_i$ for all $i \ge 0$. 
+Let $\y^* := \bar{\A}\z^*$. Since $\z^* \in \range(\bar{\A}^\top)$, $\bar{\A}^\top\y^* = \bar{\A}^\top\bar{\A}\z^* = \bar{\c}$.
+Defining the residual vector $\v_i := \y_i - \y^* \in \range(\bar{\A})$, the update in Steps~10--11 of \Cref{alg:main_2} gives:
+\begin{align}\label{eq:residual_update}
+\v_{i+1} = \y_{i+1} - \y^* = \y_i - \bar{\A}\I_{\tilde{S}}^\top \w_{s_{\max}} - \y^* = \v_i - \tilde{\A}_S \w_{s_{\max}},
+\end{align}
+where $\tilde{S} \subseteq [d]$ of size $|\tilde{S}| = \tau$, $\I_{\tilde{S}} \in \R^{\tau \times d}$, and $\tilde{\A}_S := \bar{\A}\I_{\tilde{S}}^\top \in \R^{\phi \times \tau}$.
+The vector $\tilde{\c}$ computed in Step~7 satisfies:
+\begin{align*}
+\tilde{\c} = \tilde{\A}_S^\top \y_i - \I_{\tilde{S}}\bar{\c} = \I_{\tilde{S}}\bar{\A}^\top(\y_i - \y^*) = \tilde{\A}_S^\top \v_i.
+\end{align*}
+The exact coordinate descent update corresponds to $\w^* := (\tilde{\A}_S^\top\tilde{\A}_S)^\dagger \tilde{\c} = (\tilde{\A}_S^\top\tilde{\A}_S)^\dagger \tilde{\A}_S^\top \v_i$.
+Substituting $\w^*$ into \eqref{eq:residual_update} yields:
+\begin{align*}
+\v_i - \tilde{\A}_S\w^* = \left(\I_\phi - \tilde{\A}_S(\tilde{\A}_S^\top\tilde{\A}_S)^\dagger\tilde{\A}_S^\top\right)\v_i = (\I_\phi - \P_{\tilde{S}})\v_i,
+\end{align*}
+where $\P_{\tilde{S}} := \bar{\A}\I_{\tilde{S}}^\top (\I_{\tilde{S}}\bar{\A}^\top\bar{\A}\I_{\tilde{S}}^\top)^\dagger \I_{\tilde{S}}\bar{\A}^\top$ is the orthogonal projection matrix onto $\range(\tilde{\A}_S) = \range(\bar{\A}\I_{\tilde{S}}^\top)$.
+
+Let $\mathbf{B} = \bar{\A}^\top = \Q\tilde{\A}^\top \in \R^{d \times \phi}$. Note that $\mathbf{B}$ is the preprocessed matrix of $\tilde{\A}^\top$ under the RHT $\Q = \frac{1}{\sqrt{d}}\H_d\D$.
+The projection matrix can be written as $\P_{\tilde{S}} = \mathbf{B}^\top \I_{\tilde{S}}^\top (\I_{\tilde{S}}\mathbf{B}\mathbf{B}^\top \I_{\tilde{S}}^\top)^\dagger \I_{\tilde{S}}\mathbf{B}$.
+Applying \Cref{lem:main_coupling} to $\tilde{\A}^\top$ with oracle $\mathcal{O}$ sampling uniformly from $[d]$ and $k' = 2k \geq 2\log d$, for $\tau \geq C k' \log^3 d = 2C k\log^3 d$, conditioned on an RHT event holding with probability at least $0.999$, there is a coupling $(\tilde{S}, S_{\dpp})$ with $S_{\dpp} \sim k'$-$\dpp(\mathbf{B}\mathbf{B}^\top)$ such that $\Pr\{S_{\dpp} \subseteq \tilde{S}\} \geq 1 - \delta_{\mathrm{coup}}$, where $\delta_{\mathrm{coup}} = d^{-9}$.
+
+By \Cref{lem:project_order}, $S_{\dpp} \subseteq \tilde{S}$ implies $\P_{S_{\dpp}} \preceq \P_{\tilde{S}}$. Therefore,
+\begin{align}\label{eq:coupling_expectation}
+\E[\P_{\tilde{S}}] \succeq \E[\P_{\tilde{S}}\mathbf{1}_{\{S_{\dpp} \subseteq \tilde{S}\}}] \succeq \E[\P_{S_{\dpp}}\mathbf{1}_{\{S_{\dpp} \subseteq \tilde{S}\}}] \succeq \E[\P_{S_{\dpp}}] - \delta_{\mathrm{coup}}\I_\phi.
+\end{align}
+Applying \Cref{lem:improve_bound} to $\mathbf{B}$ with $k' = 2k > k$ and rank $r$:
+\begin{align}\label{eq:lower_bound_lambda}
+\lambda_{\min}^+(\E[\P_{S_{\dpp}}]) \geq \frac{2k - k}{2k - k - 1 + (r-k)\bar{\kappa}_k^2(\tilde{\A})} = \frac{k}{k - 1 + (r-k)\bar{\kappa}_k^2(\tilde{\A})} \geq \frac{k}{2r\bar{\kappa}_k^2(\tilde{\A})}.
+\end{align}
+Using $\bar{\kappa}_k(\tilde{\A}) \leq (1+\epsilon_0)^2\bar{\kappa}_k$ from \eqref{eq:tail_cond_bound}, we obtain $\frac{k}{2r\bar{\kappa}_k^2(\tilde{\A})} \geq \frac{k}{4r\bar{\kappa}_k^2}$.
+Since $\bar{\kappa}_k \leq d^4$ and $r \leq d$, $\frac{k}{4r\bar{\kappa}_k^2} \geq \frac{\log d}{4d^9} > d^{-9} = \delta_{\mathrm{coup}}$.
+Combining \eqref{eq:coupling_expectation} and \eqref{eq:lower_bound_lambda} yields:
+\begin{align}\label{eq:rho_bound}
+\rho := \lambda_{\min}^+(\E[\P_{\tilde{S}}]) \geq \frac{k}{4r\bar{\kappa}_k^2} - d^{-9} \geq \frac{k}{8r\bar{\kappa}_k^2} = \Omega\left(\frac{k}{r\bar{\kappa}_k^2}\right).
+\end{align}
+
+Now consider the inexact solution via conjugate gradient in Steps~8--9.
+Algorithm~\ref{alg:preconditioner} is called with $\tilde{\A}_S^\top \in \R^{\tau \times \phi}$.
+By \Cref{lem:approx_converge}, with probability $1 - d^{-10}$, \Cref{alg:preconditioner} outputs $\M \in \R^{\tau \times \tau}$ such that $\tilde{\kappa} = \kappa(\M^\top\tilde{\A}_S^\top) = O(1)$. 
+Running CG for $s_{\max} = O(\log(1/\rho)) = O(\log(r\bar{\kappa}_k/\tau))$ iterations produces an approximate solution $\w_{s_{\max}}$ satisfying the conditions of \Cref{lem:main_convergence}.
+Applying \Cref{lem:main_convergence} to \Cref{alg:main_2} with $\rho = \Omega(k/(r\bar{\kappa}_k^2))$ yields:
+\begin{align}\label{eq:inner_contraction}
+\E[\|\v_{i+1}\|^2] \leq \left(1 - \frac{\rho}{4}\right) \|\v_i\|^2.
+\end{align}
+Running \Cref{alg:main_2} for $t_{\max} = \lceil \frac{8}{\rho} \ln(100/\eta_0) \rceil = O(r\bar{\kappa}_k^2/k)$ iterations, where $\eta_0 \in (0, 1)$ is a target precision parameter to be chosen below, we have:
+\begin{align*}
+\E[\|\v_{t_{\max}}\|^2] \leq \left(1 - \frac{\rho}{4}\right)^{t_{\max}} \|\v_0\|^2 \leq \exp\left(-\frac{\rho t_{\max}}{4}\right) \|\v_0\|^2 \leq \frac{\eta_0^2}{100} \|\v_0\|^2.
+\end{align*}
+The output of \Cref{alg:main_2} is $\hat{\p}_t = \Q^\top \z_{t_{\max}}$.
+Using $\v_i = \bar{\A}(\z_i - \z^*)$, $\bar{\A} = \tilde{\A}\Q^\top$, and $\z^* = \Q\p_t^*$, we have:
+\begin{align*}
+\|\v_{t_{\max}}\|^2 = \|\bar{\A}(\z_{t_{\max}} - \z^*)\|^2 = \|\tilde{\A}\Q^\top(\z_{t_{\max}} - \Q\p_t^*)\|^2 = \|\tilde{\A}(\hat{\p}_t - \p_t^*)\|^2,
+\end{align*}
+and for the initial iterate $\z_0 = \mathbf{0}$:
+\begin{align*}
+\|\v_0\|^2 = \|\bar{\A}(\mathbf{0} - \z^*)\|^2 = \|\tilde{\A}\p_t^*\|^2.
+\end{align*}
+Therefore,
+\begin{align}\label{eq:inner_expected_accuracy}
+\E[\|\tilde{\A}(\hat{\p}_t - \p_t^*)\|^2] \leq \frac{\eta_0^2}{100} \|\tilde{\A}\p_t^*\|^2.
+\end{align}
+By Markov's inequality, with probability at least $0.99$:
+\begin{align}\label{eq:inner_high_prob_accuracy}
+\|\tilde{\A}(\hat{\p}_t - \p_t^*)\| \leq \eta_0 \|\tilde{\A}\p_t^*\|.
+\end{align}
+
+\paragraph{Step 3: Convergence of the Outer Preconditioned Gradient Descent (\Cref{alg:main_ls}).}
+Let $\mathbf{e}_t := \x_t - \x^* \in \R^d$ and define $\mathbf{u}_t := \A\mathbf{e}_t = \A(\x_t - \x^*) \in \range(\A)$.
+By definition of the compact SVD $\A = \U\mathbf{\Sigma}\V^\top$, we can uniquely write $\mathbf{u}_t = \U\mathbf{a}_t$ for some $\mathbf{a}_t \in \R^r$, with $\|\mathbf{u}_t\| = \|\mathbf{a}_t\|$.
+From \eqref{eq:gradient_def}, $\g_t = \A^\top \mathbf{u}_t = \V\mathbf{\Sigma}\U^\top \mathbf{u}_t = \V\mathbf{\Sigma}\mathbf{a}_t$.
+The exact preconditioned gradient step is:
+\begin{align*}
+\p_t^* = (\tilde{\A}^\top\tilde{\A})^\dagger \g_t = (\tilde{\A}^\top\tilde{\A})^\dagger \V\mathbf{\Sigma}\mathbf{a}_t.
+\end{align*}
+Recall from Step~1 that $\V^\top\tilde{\A}^\top\tilde{\A}\V = \mathbf{M} = \mathbf{\Sigma}(\U^\top\mathbf{\Phi}^\top\mathbf{\Phi}\U)\mathbf{\Sigma} \succ \mathbf{0}$, and $\range(\tilde{\A}^\top) = \range(\V)$.
+Therefore, $(\tilde{\A}^\top\tilde{\A})^\dagger = \V\mathbf{M}^{-1}\V^\top$, which implies:
+\begin{align*}
+\A\p_t^* = \A\V\mathbf{M}^{-1}\V^\top\V\mathbf{\Sigma}\mathbf{a}_t = \U\mathbf{\Sigma} \left(\mathbf{\Sigma}(\U^\top\mathbf{\Phi}^\top\mathbf{\Phi}\U)\mathbf{\Sigma}\right)^{-1} \mathbf{\Sigma}\mathbf{a}_t = \U (\U^\top\mathbf{\Phi}^\top\mathbf{\Phi}\U)^{-1} \mathbf{a}_t.
+\end{align*}
+Defining the symmetric positive definite matrix $\mathbf{W} := (\U^\top\mathbf{\Phi}^\top\mathbf{\Phi}\U)^{-1} \in \R^{r \times r}$, \eqref{eq:gram_sandwich} gives:
+\begin{align}\label{eq:W_spectrum}
+\frac{1}{(1+\epsilon_0)^2} \I_r \preceq \mathbf{W} \preceq (1+\epsilon_0)^2 \I_r.
+\end{align}
+Subtracting $\A\p_t^*$ from $\mathbf{u}_t$:
+\begin{align}\label{eq:ideal_contraction}
+\mathbf{u}_t - \A\p_t^* = \U\mathbf{a}_t - \U\mathbf{W}\mathbf{a}_t = \U(\I_r - \mathbf{W})\mathbf{a}_t.
+\end{align}
+Because $\U$ has orthonormal columns, $\|\mathbf{u}_t - \A\p_t^*\| = \|(\I_r - \mathbf{W})\mathbf{a}_t\| \leq \|\I_r - \mathbf{W}\|_2 \|\mathbf{a}_t\|$.
+From \eqref{eq:W_spectrum} with $\epsilon_0 = 1/10$:
+\begin{align*}
+1 - \frac{1}{(1+\epsilon_0)^2} = 1 - \frac{100}{121} = \frac{21}{121} < 0.18, \quad (1+\epsilon_0)^2 - 1 = 1.21 - 1 = 0.21.
+\end{align*}
+Hence, $\|\I_r - \mathbf{W}\|_2 \leq 0.21$, and \eqref{eq:ideal_contraction} yields:
+\begin{align}\label{eq:ideal_step_norm}
+\|\mathbf{u}_t - \A\p_t^*\| \leq 0.21 \|\mathbf{u}_t\|.
+\end{align}
+Furthermore, using $\|\mathbf{W}\|_2 \leq (1+\epsilon_0)^2$:
+\begin{align}\label{eq:A_pt_star_norm}
+\|\A\p_t^*\| = \|\U\mathbf{W}\mathbf{a}_t\| \leq \|\mathbf{W}\|_2 \|\mathbf{a}_t\| \leq (1+\epsilon_0)^2 \|\mathbf{u}_t\|.
+\end{align}
+Now consider the update in Step~6 of \Cref{alg:main_ls}: $\x_{t+1} = \x_t - \hat{\p}_t$. Multiplying by $\A$:
+\begin{align}\label{eq:u_recursion}
+\mathbf{u}_{t+1} = \A(\x_{t+1} - \x^*) = \mathbf{u}_t - \A\hat{\p}_t = (\mathbf{u}_t - \A\p_t^*) - \A(\hat{\p}_t - \p_t^*).
+\end{align}
+Using the subspace embedding property \eqref{eq:subspace_embedding} for the perturbation $\hat{\p}_t - \p_t^* \in \range(\A^\top)$:
+\begin{align}\label{eq:perturbation_bound}
+\|\A(\hat{\p}_t - \p_t^*)\| \leq (1+\epsilon_0) \|\tilde{\A}(\hat{\p}_t - \p_t^*)\|.
+\end{align}
+Under the high probability event \eqref{eq:inner_high_prob_accuracy}, and applying \eqref{eq:subspace_embedding} and \eqref{eq:A_pt_star_norm}:
+\begin{align}\label{eq:perturbation_final}
+\|\A(\hat{\p}_t - \p_t^*)\| \leq (1+\epsilon_0)\eta_0 \|\tilde{\A}\p_t^*\| \leq (1+\epsilon_0)^2\eta_0 \|\A\p_t^*\| \leq (1+\epsilon_0)^4\eta_0 \|\mathbf{u}_t\|.
+\end{align}
+Combining \eqref{eq:u_recursion}, \eqref{eq:ideal_step_norm}, and \eqref{eq:perturbation_final} via the triangle inequality:
+\begin{align}\label{eq:one_step_contraction}
+\|\mathbf{u}_{t+1}\| \leq \|\mathbf{u}_t - \A\p_t^*\| + \|\A(\hat{\p}_t - \p_t^*)\| \leq \left(0.21 + (1+\epsilon_0)^4\eta_0\right) \|\mathbf{u}_t\|.
+\end{align}
+Setting $\eta_0 = \frac{0.04}{(1+\epsilon_0)^4} \approx 0.027$, the bracketed constant satisfies:
+\begin{align*}
+\gamma := 0.21 + (1+\epsilon_0)^4\eta_0 = 0.21 + 0.04 = 0.25 = \frac{1}{4} \leq \frac{1}{2}.
+\end{align*}
+Applying \eqref{eq:one_step_contraction} inductively across all $T$ iterations:
+\begin{align}\label{eq:T_step_contraction}
+\|\mathbf{u}_T\| \leq \left(\frac{1}{2}\right)^T \|\mathbf{u}_0\|.
+\end{align}
+Squaring both sides and noting that $\x_0 = \mathbf{0}$ implies $\mathbf{u}_0 = \A(\mathbf{0} - \x^*) = -\A\x^*$:
+\begin{align*}
+\|\mathbf{u}_T\|^2 \leq \left(\frac{1}{4}\right)^T \|\A\x^*\|^2 \leq \left(\frac{1}{4}\right)^T \|\b\|^2,
+\end{align*}
+where the last inequality uses the fact that $\A\x^* = \A\A^\dagger\b$ is an orthogonal projection of $\b$, so $\|\A\x^*\| \leq \|\b\|$.
+Choosing $T = \lceil \log_4(1/\epsilon) \rceil = O(\log(1/\epsilon))$, we obtain:
+\begin{align*}
+\|\A\tilde{\x} - \A\x^*\|^2 = \|\mathbf{u}_T\|^2 \leq \epsilon \|\b\|^2.
+\end{align*}
+By \eqref{eq:error_pythagoras}, this proves the target accuracy bound:
+\begin{align}\label{eq:target_error_bound}
+\|\A\tilde{\x} - \b\|^2 \leq \min_{\x} \|\A\x - \b\|^2 + \epsilon \|\b\|^2.
+\end{align}
+
+\paragraph{Step 4: Success Probability Analysis.}
+The algorithm succeeds if the following events hold simultaneously:
+\begin{enumerate}
+    \item The embedding matrix $\mathbf{\Phi}$ satisfies the subspace embedding \eqref{eq:subspace_embedding}. By \Cref{lem:precondition_sparse}, this occurs with probability at least $1 - \delta_0 = 1 - 1/500 = 0.998$.
+    \item The RHT conditioning in \Cref{lem:main_coupling} holds. This occurs with probability at least $0.999$.
+    \item In each of the $T$ outer iterations, all calls to \Cref{lem:approx_converge} inside \Cref{alg:main_2} succeed, and the coupling in \Cref{lem:main_coupling} holds. Since there are $t_{\max} = O(d^9)$ inner steps per outer iteration, union bounding over all $T \cdot t_{\max}$ calls with per-step failure probability $d^{-10} \le 1/(1000 T t_{\max})$ contributes at most $0.001$ to the failure probability.
+    \item In \Cref{alg:main_2}, by setting the constant factor in $t_{\max}$ larger by $\ln(100 T)$, \eqref{eq:inner_expected_accuracy} holds with $\frac{\eta_0^2}{100 T}$, so by Markov's inequality, \eqref{eq:inner_high_prob_accuracy} holds at step $t$ with failure probability at most $\frac{1}{1000 T}$. By the union bound across all $T$ iterations, \eqref{eq:inner_high_prob_accuracy} holds for all $t \in \{0, \ldots, T-1\}$ with failure probability at most $0.001$.
+\end{enumerate}
+Applying the union bound over these failure events:
+\begin{align*}
+\Pr\{\text{Failure}\} \leq 0.002 + 0.001 + 0.001 + 0.001 = 0.005 < 0.01.
+\end{align*}
+Hence, the algorithm succeeds with probability at least $1 - 0.005 > 0.99$.
+
+\paragraph{Step 5: Computational Complexity Derivation.}
+We analyze the runtime of each phase of \Cref{alg:main_ls}:
+\begin{itemize}
+    \item \textbf{Initial Sketching (Step~2):} Computing $\tilde{\A} \leftarrow \mathbf{\Phi}\A$ with $\mathbf{\Phi} \in \R^{\phi \times n}$ where $\phi = O(d)$ via \Cref{lem:precondition_sparse} takes:
+    \begin{align*}
+    O\left(\nnz(\A)\log d + d^2\log^4 d\right) \text{ time.}
+    \end{align*}
+    
+    \item \textbf{Gradient Computations (Step~4):} In each of the $T = O(\log(1/\epsilon))$ outer iterations, computing $\g_t = \A^\top(\A\x_t - \b)$ takes $O(\nnz(\A))$ time. Across all $T$ iterations, this requires:
+    \begin{align*}
+    O\left(\nnz(\A)\log(1/\epsilon)\right) \text{ time.}
+    \end{align*}
+    Combining with the sketching phase gives $O(\nnz(\A)(\log d + \log(1/\epsilon))) = O(\nnz(\A)\log(d/\epsilon))$.
+
+    \item \textbf{Solving the Preconditioned Normal Equations via \Cref{alg:main_2} (Step~5):}
+    Each call to \Cref{alg:main_2} on input $(\tilde{\A}, \g_t)$ with $\tilde{\A} \in \R^{\phi \times d}$ ($\phi = O(d)$) consists of:
+    \begin{enumerate}
+        \item \emph{Preprocessing (Step~2 of \Cref{alg:main_2}):} Applying the Hadamard transform to the $d$ coordinates of $\g_t$ and each of the $\phi = O(d)$ rows of $\tilde{\A}$ using the Fast Walsh-Hadamard Transform takes $O(d \log d + \phi \cdot d \log d) = O(d^2 \log d)$ time.
+        \item \emph{Inner Iterations ($t_{\max}$ steps):} In each of the $t_{\max} = O(r\bar{\kappa}_k^2/k)$ inner iterations:
+        \begin{itemize}
+            \item Subsampling $\tilde{S}$ and forming $\tilde{\A}_S = \bar{\A}\I_{\tilde{S}}^\top \in \R^{\phi \times \tau}$ takes $O(\phi\tau) = O(d\tau)$ time.
+            \item Computing $\tilde{\c} = \tilde{\A}_S^\top \y_i - \I_{\tilde{S}}\bar{\c}$ takes $O(\phi\tau) = O(d\tau)$ time.
+            \item Generating preconditioner $\M$ via \Cref{alg:preconditioner} on $\tilde{\A}_S^\top \in \R^{\tau \times \phi}$: by \Cref{lem:approx_converge}, computing the sparse embedding $\mathbf{\Phi}'\tilde{\A}_S \in \R^{O(\tau) \times \tau}$ takes $O(\nnz(\tilde{\A}_S)\log\tau + \tau^2\log^4\tau) = O(d\tau\log\tau + \tau^2\log^4\tau)$ time. The compact SVD of an $O(\tau) \times \tau$ matrix takes $O(\tau^\omega)$ time, where $\omega$ is the matrix multiplication exponent.
+            \item Running CG for $s_{\max}$ steps (Step~9): each CG iteration multiplies vectors by $\M^\top\tilde{\A}_S^\top\tilde{\A}_S\M$. Since $\M \in \R^{\tau \times \tau}$ and $\tilde{\A}_S \in \R^{\phi \times \tau}$, matrix-vector products take $O(\tau^2 + \phi\tau) = O(d\tau)$ time (as $\tau \leq d$). Thus, CG requires $O(d\tau s_{\max})$ time.
+            \item Updates to $\x$ and $\y$ take $O(\tau + \phi\tau) = O(d\tau)$ time.
+        \end{itemize}
+        Summing these, each inner iteration takes:
+        \begin{align*}
+        O\left(d\tau s_{\max} + d\tau\log\tau + \tau^\omega\right) = O\left(d\tau s_{\max} + \tau^\omega\right) \text{ time.}
+        \end{align*}
+    \end{enumerate}
+    Substituting $\tau = O(k\log^3 d)$ and $s_{\max} = O(\log(r\bar{\kappa}_k/\tau))$:
+    Since $\bar{\kappa}_k \leq d^4$ and $r \leq d$, we have $s_{\max} = O(\log d)$. Thus,
+    \begin{align*}
+    d\tau s_{\max} &= O(d \cdot (k\log^3 d) \cdot \log d) = O(dk\log^4 d), \\
+    \tau^\omega &= O((k\log^3 d)^\omega) = O(k^\omega \log^{3\omega} d) = O(k \cdot k^{\omega-1}\log^{3\omega} d).
+    \end{align*}
+    Therefore, the cost per inner iteration is $O\left(k(d\log^4 d + k^{\omega-1}\log^{3\omega} d)\right)$.
+    Multiplying by $t_{\max} = O(r\bar{\kappa}_k^2/k)$:
+    \begin{align*}
+    t_{\max} \cdot O\left(k(d\log^4 d + k^{\omega-1}\log^{3\omega} d)\right) &= O\left(r\bar{\kappa}_k^2 (d\log^4 d + k^{\omega-1}\log^{3\omega} d)\right) \\
+    &\leq O\left((d^2\log^4 d + dk^{\omega-1}\log^{3\omega} d)\cdot \bar{\kappa}_k^2\right),
+    \end{align*}
+    where we used $r \leq d$. 
+    The preprocessing time of $O(d^2\log d)$ is strictly dominated by $d^2\log^4 d \cdot \bar{\kappa}_k^2$ since $\bar{\kappa}_k \geq 1$.
+    \item \textbf{Total Time across all $T$ Outer Iterations:}
+    Multiplying the cost per outer iteration by $T = O(\log(1/\epsilon))$:
+    \begin{align*}
+    O\left((d^2\log^4 d + dk^{\omega-1}\log^{3\omega} d)\cdot \bar{\kappa}_k^2 \log(1/\epsilon)\right).
+    \end{align*}
+\end{itemize}
+Summing the sketching cost, gradient evaluation cost, and inner solver cost, the total running time is:
+\begin{align*}
+O\left(\nnz(\A)\log(d/\epsilon) + (d^2\log^4 d + dk^{\omega-1}\log^{3\omega}d)\cdot \bar{\kappa}_k^2\log(1/\epsilon)\right).
+\end{align*}
+This completes the proof.
+\end{proof}
+================================================================================

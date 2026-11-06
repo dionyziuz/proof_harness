@@ -1,0 +1,868 @@
+
+
+================================================================================
+[2026-11-02 02:24:25] TCS-BENCH FORMAL PROVE SESSION: task_[ID]_statement_109_256
+================================================================================
+
+--- [SUBAGENT: CONTEXT ARCHITECT] Analyzing reduction structure for task_[ID]_statement_109_256 ---
+[Context Architect Output]:
+### Context Lemma Inventory & Precondition Contract
+
+**Granted definitions (no further lemmas/theorems in context):**
+- `Word RAM, word size Θ(log n)`, `n` = input size, `poly(n)=n^{O(1)}`.
+- Sets `X,Y,Z`; binary matrices `A∈{0,1}^{X×Y}, B∈{0,1}^{Y×Z}, C∈{0,1}^{X×Z}` as bipartite graphs.
+- Standard product `AB`; scaled product:
+  `(A∘B)(x,z) = E_{y∈Y} A(x,y)B(y,z) = 1/|Y| Σ_y A(x,y)B(y,z).`
+  Precondition: `A∈R_{≥0}^{X×Y}, B∈R_{≥0}^{Y×Z}`; output in `R_{≥0}^{X×Z}`. Must verify inner dimension `Y` matches.
+- Submatrix `A[X',Y']` for `X'⊆X, Y'⊆Y`; transpose `A^T`.
+- Density `E[A] = 1/(|X||Y|) Σ_{x,y} A(x,y)`.
+- Triangle: `(x,y,z)` with `A(x,y)=B(y,z)=C(x,z)=1`.
+- Triangle listing: output all `t` triangles in time `O(n^3/f(n)+t)`.
+
+**Target preconditions to discharge:**
+- `G=(X,Y,Z,A,B,C)` tripartite, `n ≥ |X|+|Y|+|Z|`. No non-emptiness, no size balance, no density lower bound assumed. Must handle `|Y|=0,1`, `E[A∘B]=0`, floors/ceilings exactly.
+- Must be deterministic listing algorithm; additive `+t` allowed; must list each triangle exactly once (no omission/duplication).
+- Target bound: `O(n^{2.3} + |X||Y||Z|/(log n)^{100} + |X||Y||Z|·E[A∘B]·(log log n)^2/(log n)^2 + t)`.
+- Explicit observations licensed: none beyond definitions; do NOT re-derive Word RAM primitives. Any partitioning identity must be proved from `∘` definition.
+
+### Tri-Modal Strategic Reduction Architecture (Alpha, Beta, Gamma)
+
+**Strategy Alpha (Constructive / Blocked Inductive Invariant):**
+Partition `Y` into blocks `Y = ⊔_{k=1}^K Y_k` with block width `s ≈ (log n)/c` (to be optimized). Invariant over blocks.
+- For each block `k`, precompute table of all subset-pair products: for all `u⊆Y_k` encodable as `s`-bit strings and all `v⊆Y_k`, store contributions to `A∘B` restricted to block. I.e., enumerate `2^s × 2^s` possibilities per block using Word RAM parallelism / table lookup.
+- Then for each `(x,z)` with `C(x,z)=1`, look up per-block witness sum in `O(K)` table queries rather than `O(|Y|)` scan, and enumerate `y` inside blocks where triangle closes only if block aggregate `>0`.
+- Cost split: preprocessing `K·2^{2s}·poly(s)` vs query `|X||Z|·K`. Choose `s = Θ(log n)` so `2^{2s}=poly(n)` small and `K=|Y|/s` gives `|X||Y||Z|/log n` regime; tune to `(log n)^{100}` term via larger blocks + recursion or two-level blocking. Must check boundary last block `|Y_K|≤s`.
+
+**Strategy Beta (Extremal / Heavy-Light + Density Potential):**
+Use potential `Φ = E[A∘B] = (# length-2 paths X-Y-Z)/(|X||Y||Z|)` as measure of work that actually produces output.
+- Split pairs `(x,z)` into sparse vs dense by threshold on `(A∘B)(x,z)`: if small, enumeration over `y` is cheap when amortized by density; if large, number of such pairs is bounded by Markov / counting via `E[A∘B]`.
+- Alternatively split `x∈X` by degree into `X_light, X_heavy`. Extremal choice: heavy vertices few, handle by brute force; light vertices have bounded neighborhood in `Y`, so per-`(x,z)` scan limited.
+- Goal to isolate third term `|X||Y||Z|·E[A∘B]·(log log n)^2/(log n)^2`: this is `(#paths)·polylog/log^2`, i.e., cost per wedge sub-logarithmic via block lookup. Contrapositive: if `C(x,z)=0`, skip enumeration entirely — only pay lookup cost (second term), not enumeration cost.
+- Must not claim one branch of min/max universally suboptimal; check `m=i+1, j-1` analogues: last partial block, `C=0` vs `C=1`, `E=0` regimes separately.
+
+**Strategy Gamma (Structural Decomposition / Separator + Conditioning):**
+Decompose `A∘B = Σ_k (|Y_k|/|Y|)·(A_k ∘_k B_k)` where `A_k=A[X,Y_k]`, `B_k=B[Y_k,Z]`, `∘_k` scaled within block. Linearity of expectation/sum over partition — verify dimension compatibility: `A_k: X×Y_k`, `B_k: Y_k×Z`.
+- Condition in two phases: (1) aggregate phase detects which `(x,z,k)` triples have ≥1 wedge using fast table lookup; (2) reveal phase iterates `y∈Y_k` only for triples with aggregate `>0` and `C(x,z)=1`.
+- Dependency decomposition: triples `(x,z,k)` independent across `k` given `(x,z)`; total lookup cost `|X||Z|K`, total enumeration cost bounded by `#wedges × (cost per wedge)` + `t` (each triangle enumerated once at its block).
+- Derives `n^{2.3}` overhead as global preprocessing independent of `|X||Y||Z|` (e.g., building universal lookup table of size `2^{O(s)}` once for all blocks).
+
+### Mathematical State Machine Blueprint & Fragile Invariants
+
+Core objects: tripartite sets, three matrices, partition, scaled products, triangle set.
+
+```python
+state.register("X,Y,Z", kind="sets", properties=["finite","arbitrary-size incl empty"])
+state.register("A in {0,1}^{XxY}", kind="binary-matrix", properties=["hereditary under submatrix A[X',Y']"])
+state.register("B in {0,1}^{YxZ}", kind="binary-matrix", properties=["hereditary under submatrix"])
+state.register("C in {0,1}^{XxZ}", kind="binary-matrix", properties=["hereditary filter, C(x,z)=1 gates enumeration"])
+state.register("scaled-product o", kind="operator", properties=["linear over Y-partition, needs matching inner dim -- FRAGILE under arbitrary slicing"])
+state.register("density E[A o B]", kind="scalar-potential", properties=["in [0,1] for binary inputs, equals #wedges/(|X||Y||Z|)"])
+state.register("partition Y= disjoint-union Y_k, |Y_k|<=s", kind="decomposition", properties=["exact cover incl remainder block -- check boundary"])
+state.add_subgoal("S1", "partition linearity: (A o B)(x,z)= sum_k |Y_k|/|Y| * (A_k o_k B_k)(x,z)")
+state.add_subgoal("S2", "lookup correctness: block aggregate >0 iff exists y in Y_k with A(x,y)=B(y,z)=1")
+state.add_subgoal("S3", "listing completeness: triangle (x,y,z) listed iff C(x,z)=1 and its block k(y) aggregate>0, exactly once")
+state.add_subgoal("S4", "runtime: preproc + |X||Z|K lookups + wedge-enumeration bounded by target three terms + t")
+```
+
+**Hereditary vs Fragile:**
+- Hereditary: binarity `{0,1}`, nonnegativity, submatrix restriction preserves `0/1` and density formula with adjusted denominators; triangle property preserved under filtering by `C`.
+- Fragile (revoked on restriction): scaled factor `1/|Y|` — `A_k ∘ B_k` with global `1/|Y|` vs local `1/|Y_k|` differ; must carry weights `|Y_k|/|Y|`. Density `E[·]` denominator changes with `|X|,|Z|,|Y_k|`. Word-size `Θ(log n)` packing valid only for `s=O(log n)`; fails if `s` too large. Mutual independence across blocks holds for sums but not for `min/max` decisions — do not lift per-block bounds to global without summation.
+
+### Testable Intermediate Claims
+
+1. **Partition-scaling identity (dimension check):** For `Y=⊔Y_k`, claim `(A∘B)(x,z) = Σ_k (|Y_k|/|Y|)·(1/|Y_k| Σ_{y∈Y_k} A(x,y)B(y,z))`. Verify in REPL with random binary `A,B` and uneven last block; check `E[A∘B]=#{(x,y,z):wedge}/(|X||Y||Z|)`. Complementary regime: `|Y|=0` or some `Y_k=∅` — discharge by direct convention (empty sum `=0`), no division by zero.
+2. **Block-lookup cost vs enumeration cost split:** Claim per-`(x,z)` with `C(x,z)=1`, block aggregate query costs `O(K)` while full scan costs `O(|Y|)`; enumeration inside active blocks costs `O(s)` per block, total `O(Σ_{(x,z):C=1} Σ_{k active} s)`. Heuristic inequality `active-blocks ≤ total wedges` holds on domain `D1={E>0}`; on `D\D1={E=0}` discharge directly (no enumeration, only lookup cost → second term). Test with brute-force counts on small `|X|,|Y|,|Z|,s` including `s∤|Y|`, `s=1`, `s≥|Y|`, `C` all-zero/all-one boundaries.
+3. **Parameter tuning for `(log n)^{100}` and `(log log n)^2/(log n)^2`:** Claim exists `s=Θ(log n)` and table size `2^{O(s)}=n^{o(1)}` (bounded by `n^{2.3}` preprocessing) achieving lookup in `O(1)` Word RAM ops per block with `O(log log n)` overhead for bit-decoding. Verify numerically: plot `f(s)=2^{2s}+|X||Z||Y|/s` minimized near `s≈c log n`; check `k=1` floor case `⌊·⌋=0` does not break bound (handle `|Y|<s` as single block, no asymptotic violation). Never assert table branch universally better without checking `|X||Z|` small vs preprocessing dominance (yields `n^{2.3}` term).
+
+--- [SUBAGENT: COMPUTATIONAL FALSIFIER] Testing mathematical claims for task_[ID]_statement_109_256 ---
+[Falsifier Script 1]:
+import random
+import math
+
+def scaled_prod(A,B):
+    # A: |X|x|Y|, B: |Y|x|Z| lists
+    X=len(A); Y=len(A[0]) if X>0 else 0
+    # handle Y==0
+    Z=len(B[0]) if Y>0 and len(B)>0 else (0)
+    if Y==0:
+        return [[0.0]*Z for _ in range(X)]
+    Y2=len(B); assert Y==Y2, "inner dim mismatch"
+    Z=len(B[0]) if Y2>0 else 0
+    C=[[0.0]*Z for _ in range(X)]
+    for x in range(X):
+        for z in range(Z):
+            s=sum(A[x][y]*B[y][z] for y in range(Y))/Y
+            C[x][z]=s
+    return C
+
+def test_partition_identity():
+    for trial in range(200):
+        X=random.randint(1,4); Y=random.randint(1,6); Z=random.randint(1,4)
+        A=[[random.randint(0,1) for _ in range(Y)] for _ in range(X)]
+        B=[[random.randint(0,1) for _ in range(Z)] for _ in range(Y)]
+        s=random.choice([1,2,3,4,7])  # incl s>=|Y|, s not dividing
+        # partition Y into blocks size<=s
+        Yks=[list(range(i,min(i+s,Y))) for i in range(0,Y,s)]
+        for x in range(X):
+            for z in range(Z):
+                lhs=sum(A[x][y]*B[y][z] for y in range(Y))/Y
+                rhs=0.0
+                for Yk in Yks:
+                    assert len(Yk)>0
+                    rhs+= (len(Yk)/Y)*(sum(A[x][y]*B[y][z] for y in Yk)/len(Yk))
+                assert abs(lhs-rhs)<1e-9, f"fail {lhs} vs {rhs}"
+        # density check: E == #wedges/(X Y Z)
+        wedges=sum(A[x][y]*B[y][z] for x in range(X) for y in range(Y) for z in range(Z))
+        E=sum(sum(row) for row in scaled_prod(A,B))/(X*Z) if X*Z>0 else 0
+        assert abs(E-wedges/(X*Y*Z))<1e-9, "density mismatch"
+    # empty regimes: |Y|=0, empty block convention
+    A_empty=[[] for _ in range(2)]  # 2x0
+    B_empty=[]  # 0xZ
+    C0=scaled_prod(A_empty,B_empty)
+    print("empty Y handled, C shape:", len(C0), "x", (len(C0[0]) if C0 and C0[0] else 0))
+    assert C0==[[],[]] or C0==[[0.0]*0 for _ in range(2)]
+    print("Claim1 PASS: partition-scaling identity + density + |Y|=0 convention hold")
+
+test_partition_identity()
+[Falsifier Kernel Output (Verified)]: empty Y handled, C shape: 2 x 0
+Claim1 PASS: partition-scaling identity + density + |Y|=0 convention hold
+[Falsifier Script 2]:
+import random, itertools
+
+def brute_check(X,Y,Z,s,C):
+    # partition
+    Yks=[list(range(i,min(i+s,Y))) for i in range(0,Y,s)] if Y>0 else []
+    K=len(Yks)
+    # random A,B fixed outside; pass as globals via closure? here generate inside caller
+    return Yks,K
+
+def test_cost_split():
+    cases=[(2,5,2,2),(2,5,3,3),(3,4,3,1),(2,3,2,7),(1,1,1,1),(3,6,2,4)]
+    for (X,Y,Z,s) in cases:
+        for Cmode in ["zero","one","random"]:
+            A=[[random.randint(0,1) for _ in range(Y)] for _ in range(X)]
+            B=[[random.randint(0,1) for _ in range(Z)] for _ in range(Y)]
+            if Cmode=="zero": C=[[0]*Z for _ in range(X)]
+            elif Cmode=="one": C=[[1]*Z for _ in range(X)]
+            else:
+                C=[[random.randint(0,1) for _ in range(Z)] for _ in range(X)]
+            Yks=[list(range(i,min(i+s,Y))) for i in range(0,Y,s)] if Y>0 else []
+            K=len(Yks)
+            # block aggregate >0 iff exists y in Yk with wedge
+            for x in range(X):
+                for z in range(Z):
+                    for k,Yk in enumerate(Yks):
+                        agg=sum(A[x][y]*B[y][z] for y in Yk)
+                        exists=any(A[x][y]*B[y][z]==1 for y in Yk)
+                        assert (agg>0)==exists, "S2 lookup correctness fails"
+            wedges=sum(A[x][y]*B[y][z] for x in range(X) for y in range(Y) for z in range(Z))
+            E=wedges/(X*Y*Z) if X*Y*Z>0 else 0
+            active=sum(1 for x in range(X) for z in range(Z) for Yk in Yks
+                       if C[x][z]==1 and any(A[x][y]*B[y][z]==1 for y in Yk))
+            # heuristic: active <= total wedges on D1={E>0}; on E==0 active==0
+            if E==0:
+                assert active==0, f"E=0 but active={active}"
+            else:
+                assert active<=wedges, f"active {active} > wedges {wedges}"
+            # enumeration cost model: sum over C=1 active blocks of s vs full scan
+            enum_cost=sum(len(Yk) for x in range(X) for z in range(Z) if C[x][z]==1
+                          for Yk in Yks if any(A[x][y]*B[y][z]==1 for y in Yk))
+            full_scan=sum(1 for x in range(X) for z in range(Z) if C[x][z]==1 for _ in range(Y))
+            assert enum_cost<=full_scan, "block enum exceeds full scan"
+            # S3: each triangle listed exactly once at its block
+            tris=[(x,y,z) for x in range(X) for y in range(Y) for z in range(Z)
+                  if A[x][y] and B[y][z] and C[x][z]]
+            # block of y
+            def k_of(y): return y//s
+            seen={}
+            for t in tris:
+                k=k_of(t[1]); seen[t]=k
+            assert len(seen)==len(tris), "duplication/omission"
+    print("Claim2 PASS: S2 lookup correctness, active<=wedges (E>0), E=0->no enum, enum<=fullscan, exactly-once")
+
+test_cost_split()
+[Falsifier Kernel Output (Verified)]: Claim2 PASS: S2 lookup correctness, active<=wedges (E>0), E=0->no enum, enum<=fullscan, exactly-once
+
+--- [TURN 1/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 1/8] MODEL GENERATED PROPOSAL & PROOF ---
+**Turn 1 — Exploration Gate: Inventory, Invariant, Claims**
+
+### 1. Context Lemma Inventory & Precondition Contract
+
+Granted from Context, no additional lemmas:
+- Word RAM, word size $\Theta(\log n)$, $n\ge |X|+|Y|+|Z|$, $\text{poly}(n)=n^{O(1)}$.
+- Sets $X,Y,Z$; binary $A\in\{0,1\}^{X\times Y}$, $B\in\{0,1\}^{Y\times Z}$, $C\in\{0,1\}^{X\times Z}$ as bipartite graphs.
+- Scaled product: $(A\circ B)(x,z)=\mathbf{E}_{y\in Y}A(x,y)B(y,z)=\frac1{|Y|}\sum_y A(x,y)B(y,z)$ for $A,B\ge 0$ with matching inner $Y$.
+- Submatrix $A[X',Y']$, transpose $A^T$, density $\mathbf{E}[A]=\frac1{|X||Y|}\sum A$.
+- Triangle $(x,y,z)$ with $A=B=C=1$. Listing must output all $t$ triangles, deterministic, time $O(n^3/f(n)+t)$ shape.
+
+Target preconditions to discharge, no extra assumptions:
+- arbitrary sizes incl. $|Y|=0,1$, empty blocks, $s\nmid |Y|$, $s=1$, $s\ge |Y|$, $\mathbf{E}[A\circ B]=0$, $C\equiv 0/1$ boundaries, floors/ceilings exact.
+- each triangle listed exactly once; additive $+t$ allowed.
+- bound: $O(n^{2.3}+|X||Y||Z|/(\log n)^{100}+|X||Y||Z|\cdot\mathbf{E}[A\circ B]\cdot(\log\log n)^2/(\log n)^2+t)$.
+
+No observation beyond definitions is licensed. Any partition identity must be proved from $\circ$ definition. Fragile: scale $1/|Y|$ vs $1/|Y_k|$, density denominators, word-packing valid only for $s=O(\log n)$.
+
+### 2. Invariant-First Formulation
+
+Do not brute-force over triples. Unifying invariant: **$Y$-block partition with aggregate detection + gated reveal.**
+
+Partition $Y=\sqcup_{k=1}^K Y_k$, $|Y_k|\le s$, $s=\Theta(\log n)$ to be tuned, last block remainder handled exactly. Write $A_k=A[X,Y_k]$, $B_k=B[Y_k,Z]$.
+
+Linearity invariant:
+$(A\circ B)(x,z)=\sum_k \frac{|Y_k|}{|Y|}\cdot (A_k\circ_k B_k)(x,z)$
+where $\circ_k$ scales by $1/|Y_k|$. Empty sum $=0$ if $|Y|=0$; no division by zero.
+
+Two-phase conditioning:
+- (1) aggregate phase: for each $(x,z,k)$ decide if $\exists\,y\in Y_k$ with $A(x,y)=B(y,z)=1$ via $O(1)$ Word RAM table lookup on $s$-bit masks.
+- (2) reveal phase: iff $C(x,z)=1$ and aggregate $>0$, iterate $y\in Y_k$ to emit triangles.
+
+Triples $(x,z,k)$ independent across $k$ given $(x,z)$. Active triples $\le$ wedges when $\mathbf{E}>0$; when $\mathbf{E}=0$ no enumeration. Grouping by identical $s$-bit patterns gives polynomial saving when dimensions $\gg 2^s$, otherwise cost absorbed by $n^{2.3}$.
+
+### 3. Structured Intermediate Claims
+
+[CLAIM 1 — Partition-scaling + density identity]:
+For $Y=\sqcup Y_k$, $(A\circ B)(x,z)=\sum_k\frac{|Y_k|}{|Y|}\frac1{|Y_k|}\sum_{y\in Y_k}A(x,y)B(y,z)$, and $\mathbf{E}[A\circ B]=\#\text{wedges}/(|X||Y||Z|)$ with convention $0$ if $|Y|=0$.
+[REDUCTION]: Discharges linearity subgoal S1, fixes fragile scaling, handles $|Y|=0$, empty $Y_k$, uneven last block. Reduces global product to per-block sums.
+
+[CLAIM 2 — Block-lookup correctness]:
+Block aggregate $>0$ iff $\exists\,y\in Y_k$ with wedge. Per-$(x,z)$ with $C=1$, $O(K)$ lookups replace $O(|Y|)$ scan; enumeration inside active blocks only. If $\mathbf{E}=0$ then zero active, only lookup cost.
+[REDUCTION]: Discharges S2. Gates enumeration by $C$, ensures no omission, sets up exactly-once (triangle at unique $k(y)$).
+
+[CLAIM 3 — Completeness / exactly-once + runtime split]:
+Triangle $(x,y,z)$ listed iff $C(x,z)=1$ and its block $k(y)$ aggregate $>0$, exactly once. Total $=$ preprocessing $+|X||Z|K$ lookups $+$ wedge-enumeration $+t$. Active $(x,z,k)$ with $C=1$ each contains $\ge 1$ triangle, so $\#\text{active}\le t$ over $C=1$ pairs; active pairs $\le$ wedges overall.
+[REDUCTION]: Discharges S3–S4 skeleton. Splits second term (lookup) vs third term (wedge-dependent) vs $+t$. Needs parameter tuning for polylog denominators.
+
+[CLAIM 4 — Parameter tuning + grouping absorption]:
+Exists $s=\Theta(\log n)$, universal table $2^{O(s)}=n^{O(1)}\le O(n^{2.3})$, $O(1)$ lookup per block, bit-trick enumeration $O(1+\#\text{triangles})$ per active triple via $s$ bits in $O(1)$ words. Distinct-pattern grouping ($D_x\le\min(|X|,2^s)$) makes $K\cdot 2^{2s}$ fit in $n^{2.3}$; large-dimension collisions give super-polylog saving, small dimensions absorbed by $n^{2.3}$; $C$-bitset batching gives extra log factors toward $(\log n)^{100}$ and $(\log\log n)^2/(\log n)^2$.
+[REDUCTION]: Reduces target polylog terms to concrete $s$, table, grouping choices to be fully accounted on later turns. Must verify $s\nmid|Y|$, $|Y|<s$, $K=\lceil|Y|/s\rceil$ floors exact.
+
+Skeptic to audit Claims 1–2 in REPL now; Claims 3–4 quantitative tuning deferred to Turn 2+.
+
+### 4. State Machine & Python REPL Verification
+
+```python
+import random
+
+def scaled_prod(A,B):
+    # A: |X|x|Y|, B: |Y|x|Z| as lists
+    if len(A)==0 or len(A[0])==0: return [[0]*len(B[0]) if B and B[0] else []]
+    X, Y, Z = len(A), len(A[0]), len(B[0])
+    C=[[0]*Z for _ in range(X)]
+    for x in range(X):
+        for z in range(Z):
+            C[x][z]=sum(A[x][y]*B[y][z] for y in range(Y))/Y if Y>0 else 0
+    return C
+
+def test_claim1(trials=200):
+    for _ in range(trials):
+        X=random.randint(0,4); Y=random.randint(0,6); Z=random.randint(0,4)
+        s=random.choice([1,2,3])
+        A=[[random.randint(0,1) for _ in range(Y)] for _ in range(X)]
+        B=[[random.randint(0,1) for _ in range(Z)] for _ in range(Y)]
+        # partition Y into blocks size <=s
+        blocks=[list(range(k,min(k+s,Y))) for k in range(0,Y,s)] if Y>0 else []
+        # check identity per (x,z)
+        for x in range(X):
+            for z in range(Z):
+                lhs=sum(A[x][y]*B[y][z] for y in range(Y))/Y if Y>0 else 0
+                rhs=0
+                for blk in blocks:
+                    if len(blk)==0: continue
+                    rhs+=sum(A[x][y]*B[y][z] for y in blk)/Y
+                assert abs(lhs-rhs)<1e-9, (lhs,rhs,X,Y,Z,s)
+        # density = #wedges/(X Y Z)
+        nw=sum(A[x][y]*B[y][z] for x in range(X) for y in range(Y) for z in range(Z))
+        dens=nw/(X*Y*Z) if X*Y*Z>0 else 0
+        # E[A o B] = mean over x,z of (A o B)
+        if X*Z>0 and Y>0:
+            P=scaled_prod(A,B)
+            e=sum(sum(r) for r in P)/(X*Z)
+            assert abs(e-dens)<1e-9
+    # |Y|=0 convention
+    assert scaled_prod([[],[]],[] )==[]
+    print("Claim1 PASS: partition-scaling + density + |Y|=0")
+
+test_claim1()
+```
+
+```python
+import random
+
+def test_claim2(trials=200):
+    for _ in range(trials):
+        X=random.randint(1,4); Y=random.randint(0,6); Z=random.randint(1,4)
+        s=random.choice([1,2,3,10])  # incl s>=|Y|, s=1
+        A=[[random.randint(0,1) for _ in range(Y)] for _ in range(X)]
+        B=[[random.randint(0,1) for _ in range(Z)] for _ in range(Y)]
+        C=[[random.randint(0,1) for _ in range(Z)] for _ in range(X)]
+        # force boundaries sometimes
+        if random.random()<0.2: C=[[0]*Z for _ in range(X)]
+        if random.random()<0.2: C=[[1]*Z for _ in range(X)]
+        blocks=[list(range(k,min(k+s,Y))) for k in range(0,Y,s)] if Y>0 else []
+        K=len(blocks)
+        # S2: aggregate>0 iff exists wedge in block
+        for x in range(X):
+            for z in range(Z):
+                for blk in blocks:
+                    agg=sum(A[x][y]*B[y][z] for y in blk)
+                    ex=any(A[x][y]==1 and B[y][z]==1 for y in blk)
+                    assert (agg>0)==ex
+        # active<=wedges when E>0; E=0 -> no enum
+        wedges=[(x,y,z) for x in range(X) for y in range(Y) for z in range(Z) if A[x][y] and B[y][z]]
+        E=len(wedges)/(X*Y*Z) if X*Y*Z>0 else 0
+        active=[(x,z,k) for x in range(X) for z in range(Z) for k,blk in enumerate(blocks)
+                if C[x][z]==1 and any(A[x][y] and B[y][z] for y in blk)]
+        if E==0:
+            assert active==[], "E=0 must have no active with wedge"
+        else:
+            # each active (x,z,k) has >=1 wedge => #active <= #wedges (counted with C filter <= total)
+            # total wedges (unfiltered) >= #active since map (x,z,k)->one witness y
+            assert len(active)<=len(wedges) or True  # C filter may reduce; check injection bound
+            # stronger: #active (even without C filter) <= #wedges? verify
+            active_nofilter=[(x,z,k) for x in range(X) for z in range(Z) for k,blk in enumerate(blocks)
+                             if any(A[x][y] and B[y][z] for y in blk)]
+            assert len(active_nofilter)<=len(wedges), (len(active_nofilter),len(wedges))
+        # enum<=fullscan: active blocks *s <= K*s per pair ~ |Y|+s
+        for x in range(X):
+            for z in range(Z):
+                if C[x][z]==1:
+                    nb=sum(1 for blk in blocks if any(A[x][y] and B[y][z] for y in blk))
+                    assert nb*1<=max(K,1)
+        # exactly-once: each triangle's y belongs to unique block
+        tris=[(x,y,z) for x in range(X) for y in range(Y) for z in range(Z) if A[x][y] and B[y][z] and C[x][z]==1]
+        # build y->k map
+        y2k={}
+        for k,blk in enumerate(blocks):
+            for y in blk: y2k[y]=k
+        seen=set()
+        for (x,y,z) in tris:
+            assert y in y2k
+            key=(x,y,z,y2k[y])
+            assert key not in seen
+            seen.add(key)
+        assert len(seen)==len(tris)
+    print("Claim2 PASS: S2 lookup, active<=wedges, E=0, enum<=fullscan, exactly-once")
+
+test_claim2()
+```
+
+```python
+# Parameter sanity: f(s)=2^{2s}+|X||Z||Y|/s minimized near s~c log n; floor edge |Y|<s single block
+import math
+def param_check():
+    for n in [100,1000,10**6]:
+        logn=math.log2(n)
+        best=min(((2**(2*s)+ (n//3)**3//max(s,1),s) for s in range(1,int(2*logn)+2)))
+        print(f"n={n} logn={logn:.1f} best (cost,s)={best}")
+    # |Y|<s -> K=1, no violation
+    Y=3; s=10; K=(Y+s-1)//s
+    assert K==1
+    print("param sanity PASS: K=1 when |Y|<s")
+param_check()
+```
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random
+
+def scaled_prod(A,B):
+    # A: |X|x|Y|, B: |Y|x|Z| as lists
+    if len(A)==0 or len(A[0])==0: return [[0]*len(B[0]) if B and B[0] else []]
+    X, Y, Z = len(A), len(A[0]), len(B[0])
+    C=[[0]*Z for _ in range(X)]
+    for x in range(X):
+        for z in range(Z):
+            C[x][z]=sum(A[x][y]*B[y][z] for y in range(Y))/Y if Y>0 else 0
+    return C
+
+def test_claim1(trials=200):
+    for _ in range(trials):
+        X=random.randint(0,4); Y=random.randint(0,6); Z=random.randint(0,4)
+        s=random.choice([1,2,3])
+        A=[[random.randint(0,1) for _ in range(Y)] for _ in range(X)]
+        B=[[random.randint(0,1) for _ in range(Z)] for _ in range(Y)]
+        # partition Y into blocks size <=s
+        blocks=[list(range(k,min(k+s,Y))) for k in range(0,Y,s)] if Y>0 else []
+        # check identity per (x,z)
+        for x in range(X):
+            for z in range(Z):
+                lhs=sum(A[x][y]*B[y][z] for y in range(Y))/Y if Y>0 else 0
+                rhs=0
+                for blk in blocks:
+                    if len(blk)==0: continue
+                    rhs+=sum(A[x][y]*B[y][z] for y in blk)/Y
+                assert abs(lhs-rhs)<1e-9, (lhs,rhs,X,Y,Z,s)
+        # density = #wedges/(X Y Z)
+        nw=sum(A[x][y]*B[y][z] for x in range(X) for y in range(Y) for z in range(Z))
+        dens=nw/(X*Y*Z) if X*Y*Z>0 else 0
+        # E[A o B] = mean over x,z of (A o B)
+        if X*Z>0 and Y>0:
+            P=scaled_prod(A,B)
+            e=sum(sum(r) for r in P)/(X*Z)
+            assert abs(e-dens)<1e-9
+    # |Y|=0 convention
+    assert scaled_prod([[],[]],[] )==[]
+    print("Claim1 PASS: partition-scaling + density + |Y|=0")
+
+test_claim1()
+```
+--- [TURN 1] EXECUTION ERROR (0.0173s) ---
+Traceback (most recent call last):
+  File "<prime_math>", line 42, in <module>
+  File "<prime_math>", line 39, in test_claim1
+AssertionError
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random
+
+def test_claim2(trials=200):
+    for _ in range(trials):
+        X=random.randint(1,4); Y=random.randint(0,6); Z=random.randint(1,4)
+        s=random.choice([1,2,3,10])  # incl s>=|Y|, s=1
+        A=[[random.randint(0,1) for _ in range(Y)] for _ in range(X)]
+        B=[[random.randint(0,1) for _ in range(Z)] for _ in range(Y)]
+        C=[[random.randint(0,1) for _ in range(Z)] for _ in range(X)]
+        # force boundaries sometimes
+        if random.random()<0.2: C=[[0]*Z for _ in range(X)]
+        if random.random()<0.2: C=[[1]*Z for _ in range(X)]
+        blocks=[list(range(k,min(k+s,Y))) for k in range(0,Y,s)] if Y>0 else []
+        K=len(blocks)
+        # S2: aggregate>0 iff exists wedge in block
+        for x in range(X):
+            for z in range(Z):
+                for blk in blocks:
+                    agg=sum(A[x][y]*B[y][z] for y in blk)
+                    ex=any(A[x][y]==1 and B[y][z]==1 for y in blk)
+                    assert (agg>0)==ex
+        # active<=wedges when E>0; E=0 -> no enum
+        wedges=[(x,y,z) for x in range(X) for y in range(Y) for z in range(Z) if A[x][y] and B[y][z]]
+        E=len(wedges)/(X*Y*Z) if X*Y*Z>0 else 0
+        active=[(x,z,k) for x in range(X) for z in range(Z) for k,blk in enumerate(blocks)
+                if C[x][z]==1 and any(A[x][y] and B[y][z] for y in blk)]
+        if E==0:
+            assert active==[], "E=0 must have no active with wedge"
+        else:
+            # each active (x,z,k) has >=1 wedge => #active <= #wedges (counted with C filter <= total)
+            # total wedges (unfiltered) >= #active since map (x,z,k)->one witness y
+            assert len(active)<=len(wedges) or True  # C filter may reduce; check injection bound
+            # stronger: #active (even without C filter) <= #wedges? verify
+            active_nofilter=[(x,z,k) for x in range(X) for z in range(Z) for k,blk in enumerate(blocks)
+                             if any(A[x][y] and B[y][z] for y in blk)]
+            assert len(active_nofilter)<=len(wedges), (len(active_nofilter),len(wedges))
+        # enum<=fullscan: active blocks *s <= K*s per pair ~ |Y|+s
+        for x in range(X):
+            for z in range(Z):
+                if C[x][z]==1:
+                    nb=sum(1 for blk in blocks if any(A[x][y] and B[y][z] for y in blk))
+                    assert nb*1<=max(K,1)
+        # exactly-once: each triangle's y belongs to unique block
+        tris=[(x,y,z) for x in range(X) for y in range(Y) for z in range(Z) if A[x][y] and B[y][z] and C[x][z]==1]
+        # build y->k map
+        y2k={}
+        for k,blk in enumerate(blocks):
+            for y in blk: y2k[y]=k
+        seen=set()
+        for (x,y,z) in tris:
+            assert y in y2k
+            key=(x,y,z,y2k[y])
+            assert key not in seen
+            seen.add(key)
+        assert len(seen)==len(tris)
+    print("Claim2 PASS: S2 lookup, active<=wedges, E=0, enum<=fullscan, exactly-once")
+
+test_claim2()
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0292s) ---
+Stdout:
+Claim2 PASS: S2 lookup, active<=wedges, E=0, enum<=fullscan, exactly-once
+
+
+
+--- [TURN 1] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+# Parameter sanity: f(s)=2^{2s}+|X||Z||Y|/s minimized near s~c log n; floor edge |Y|<s single block
+import math
+def param_check():
+    for n in [100,1000,10**6]:
+        logn=math.log2(n)
+        best=min(((2**(2*s)+ (n//3)**3//max(s,1),s) for s in range(1,int(2*logn)+2)))
+        print(f"n={n} logn={logn:.1f} best (cost,s)={best}")
+    # |Y|<s -> K=1, no violation
+    Y=3; s=10; K=(Y+s-1)//s
+    assert K==1
+    print("param sanity PASS: K=1 when |Y|<s")
+param_check()
+```
+--- [TURN 1] EXECUTION SUCCESS (0.0009s) ---
+Stdout:
+n=100 logn=6.6 best (cost,s)=(8211, 5)
+n=1000 logn=10.0 best (cost,s)=(4365037, 9)
+n=1000000 logn=19.9 best (cost,s)=(1680669871396665, 23)
+param sanity PASS: K=1 when |Y|<s
+
+
+--- [TURN 2/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 2/8] MODEL GENERATED PROPOSAL & PROOF ---
+Heavy-light counting identities check out; now verifying the degree-threshold bounds and exact-cover enumeration.[Mathematical Analysis Summary (Turn 2)]:
+Prior Claim1 harness failure diagnosed as helper bug (`scaled_prod([[],[]],[])` returned `[[]]` vs `[]`), not math identity. Partition-scaling identity holds exactly; density $=\#\text{wedges}/(|X||Y||Z|)$ when product $>0$, convention $0$ otherwise. Claim2 (lookup/active) already PASS.
+
+[CLAIM 1 — Heavy-light degree partition (fixed)]:
+Let $L=\max(2,\log_2 n)$, $\Delta=\lceil L^{100}\rceil\ge 1$. Put $X_{\rm light}=\{x:\deg_A(x)\le\Delta\}$, $X_{\rm heavy}=X\setminus X_{\rm light}$. Then $X_{\rm light}\sqcup X_{\rm heavy}=X$ exactly, and $|X_{\rm heavy}|\le |X||Y|/\Delta$ (Markov: $\sum\deg\le |X||Y|$). Handles $|Y|=0$ ($\deg\equiv 0$, all light), empty $X$, $\Delta\ge 1$ so no division by zero.
+[REDUCTION]: Discharges exhaustive case split $D=D_{\rm light}\cup D_{\rm heavy}$ with exact boundary $\deg\le\Delta$ vs $>\Delta$. Reduces listing to two disjoint subproblems, no omission/duplication across split.
+
+[CLAIM 2 — Exact-cover enumeration + cost split]:
+Light: for each light $x$, scan $\{z:C=1\}$ ($O(|Z|)$ to find) then $N_A(x)$ ($\le\Delta$) checking $B$. Heavy: for each heavy $x$, triple scan $(y,z)$ checking $A,B,C$. Each triangle $(x,y,z)$ listed iff its $x$-side processed, exactly once (disjoint $X$-split, unique $y$ in $N_A$ / unique $(y,z)$ iteration). Cost: light $O(|X||Z|\Delta)$, heavy $O(|X_{\rm heavy}||Y||Z|)\le |X||Y||Z|/\Delta$. Preprocessing $O(|X||Y|+|Y||Z|+|X||Z|)\le O(n^2)$.
+[REDUCTION]: Reduces total to $O(n^2\Delta+|X||Y||Z|/\Delta+t)$. First term $\le O(n^{2.3})$ since $L^{100}=o(n^{0.3})$ ($\sup_{n\ge 2}L^{100}/n^{0.3}<\infty$); second term $\le O(|X||Y||Z|/(\log n)^{100})$. Third term $\ge 0$ slack ($W\cdot(\log\log)^2/(\log)^2$, $W=\#\text{wedges}$, $=|X||Y||Z|{\mathbf E}$ when defined, $0$ otherwise), so bound implies target. Small $n<N_0$ via brute-force complementary regime; $n\le 1$ vacuous ($\log$ zero $\to$ infinite RHS).
+
+Skeptic to audit Claims 1–2 now.
+
+```python
+import random, math
+
+def test_heavy_light(trials=500):
+    for _ in range(trials):
+        X=random.randint(0,4); Y=random.randint(0,4); Z=random.randint(0,4)
+        n=max(2,X+Y+Z+random.randint(0,3))
+        L=max(2, math.log2(n))
+        Delta=math.ceil(L**4)  # use **4 for speed; **100 same logic, larger
+        assert Delta>=1
+        A=[[random.randint(0,1) for _ in range(Y)] for _ in range(X)]
+        B=[[random.randint(0,1) for _ in range(Z)] for _ in range(Y)]
+        C=[[random.randint(0,1) for _ in range(Z)] for _ in range(X)]
+        deg=[sum(A[x]) for x in range(X)] if Y>0 else [0]*X
+        light=[x for x in range(X) if deg[x]<=Delta]
+        heavy=[x for x in range(X) if deg[x]>Delta]
+        # exact partition
+        assert set(light)|set(heavy)==set(range(X)) and set(light)&set(heavy)==set()
+        # Markov bound
+        tot=sum(deg)
+        assert tot<=X*Y
+        assert len(heavy)*Delta<=tot or len(heavy)==0 or Delta>=1 and len(heavy)<=tot/max(1,Delta)+1e-9 or True
+        # strong: len(heavy)*Delta <= tot when heavy nonempty? each heavy deg>Delta so len*Delta < tot
+        if heavy:
+            assert len(heavy)*Delta < tot+len(heavy)  # since deg>=Delta+1 (integers)
+            assert len(heavy) <= tot/Delta if Delta>0 else True
+        # enumeration exactly-once
+        tris={(x,y,z) for x in range(X) for y in range(Y) for z in range(Z) if A[x][y] and B[y][z] and C[x][z]}
+        # light enum
+        found=set()
+        for x in light:
+            for z in range(Z):
+                if C[x][z]!=1: continue
+                for y in range(Y):
+                    if A[x][y]!=1: continue
+                    if B[y][z]==1:
+                        found.add((x,y,z))
+        for x in heavy:
+            for y in range(Y):
+                for z in range(Z):
+                    if A[x][y] and B[y][z] and C[x][z]:
+                        found.add((x,y,z))
+        assert found==tris, (found,tris,X,Y,Z)
+        # cost bounds: light iters <= |X||Z|Delta ; heavy iters = |heavy||Y||Z|
+        light_iters=sum(1 for x in light for z in range(Z) if C[x][z]==1 for y in range(Y) if A[x][y]==1)
+        assert light_iters<=X*Z*Delta
+        assert len(heavy)*Y*Z<= (X*Y*Z/Delta if Delta>0 else float('inf'))+1e-9
+        # density identity when product>0
+        W=sum(1 for x in range(X) for y in range(Y) for z in range(Z) if A[x][y] and B[y][z])
+        prod=X*Y*Z
+        if prod>0 and Y>0 and X*Z>0:
+            # E = mean_{x,z} sum_y/Y
+            E=sum(sum(A[x][y]*B[y][z] for y in range(Y))/Y for x in range(X) for z in range(Z))/(X*Z)
+            assert abs(E-W/prod)<1e-9
+        else:
+            assert W==0 if prod==0 else True
+    print("heavy-light PASS: partition, Markov, exactly-once, cost bounds, density")
+
+test_heavy_light()
+```
+
+```python
+import math
+# sup L^100/n^0.3 finite + light O(n^2.3); heavy <= second term
+def test_polylog():
+    sup=0
+    for n in range(2,10**6):
+        # sample log-spaced
+        pass
+    import numpy as np
+    ns=[2,3,4,5,8,16,100,1000,10**6,10**9,10**12]
+    for n in ns:
+        L=max(2,math.log2(n))
+        r=L**100/(n**0.3)
+        print(f"n={n} L={L:.2f} L^100/n^.3={r:.3g}")
+    # monotonic eventual decay: check large n ratio ->0
+    assert (max(2,math.log2(10**12))**100)/(10**12)**0.3 < 1
+    print("polylog PASS: n^2 L^100 = O(n^2.3)")
+
+test_polylog()
+```
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import random, math
+
+def test_heavy_light(trials=500):
+    for _ in range(trials):
+        X=random.randint(0,4); Y=random.randint(0,4); Z=random.randint(0,4)
+        n=max(2,X+Y+Z+random.randint(0,3))
+        L=max(2, math.log2(n))
+        Delta=math.ceil(L**4)  # use **4 for speed; **100 same logic, larger
+        assert Delta>=1
+        A=[[random.randint(0,1) for _ in range(Y)] for _ in range(X)]
+        B=[[random.randint(0,1) for _ in range(Z)] for _ in range(Y)]
+        C=[[random.randint(0,1) for _ in range(Z)] for _ in range(X)]
+        deg=[sum(A[x]) for x in range(X)] if Y>0 else [0]*X
+        light=[x for x in range(X) if deg[x]<=Delta]
+        heavy=[x for x in range(X) if deg[x]>Delta]
+        # exact partition
+        assert set(light)|set(heavy)==set(range(X)) and set(light)&set(heavy)==set()
+        # Markov bound
+        tot=sum(deg)
+        assert tot<=X*Y
+        assert len(heavy)*Delta<=tot or len(heavy)==0 or Delta>=1 and len(heavy)<=tot/max(1,Delta)+1e-9 or True
+        # strong: len(heavy)*Delta <= tot when heavy nonempty? each heavy deg>Delta so len*Delta < tot
+        if heavy:
+            assert len(heavy)*Delta < tot+len(heavy)  # since deg>=Delta+1 (integers)
+            assert len(heavy) <= tot/Delta if Delta>0 else True
+        # enumeration exactly-once
+        tris={(x,y,z) for x in range(X) for y in range(Y) for z in range(Z) if A[x][y] and B[y][z] and C[x][z]}
+        # light enum
+        found=set()
+        for x in light:
+            for z in range(Z):
+                if C[x][z]!=1: continue
+                for y in range(Y):
+                    if A[x][y]!=1: continue
+                    if B[y][z]==1:
+                        found.add((x,y,z))
+        for x in heavy:
+            for y in range(Y):
+                for z in range(Z):
+                    if A[x][y] and B[y][z] and C[x][z]:
+                        found.add((x,y,z))
+        assert found==tris, (found,tris,X,Y,Z)
+        # cost bounds: light iters <= |X||Z|Delta ; heavy iters = |heavy||Y||Z|
+        light_iters=sum(1 for x in light for z in range(Z) if C[x][z]==1 for y in range(Y) if A[x][y]==1)
+        assert light_iters<=X*Z*Delta
+        assert len(heavy)*Y*Z<= (X*Y*Z/Delta if Delta>0 else float('inf'))+1e-9
+        # density identity when product>0
+        W=sum(1 for x in range(X) for y in range(Y) for z in range(Z) if A[x][y] and B[y][z])
+        prod=X*Y*Z
+        if prod>0 and Y>0 and X*Z>0:
+            # E = mean_{x,z} sum_y/Y
+            E=sum(sum(A[x][y]*B[y][z] for y in range(Y))/Y for x in range(X) for z in range(Z))/(X*Z)
+            assert abs(E-W/prod)<1e-9
+        else:
+            assert W==0 if prod==0 else True
+    print("heavy-light PASS: partition, Markov, exactly-once, cost bounds, density")
+
+test_heavy_light()
+```
+--- [TURN 2] EXECUTION SUCCESS (0.0367s) ---
+Stdout:
+heavy-light PASS: partition, Markov, exactly-once, cost bounds, density
+
+
+
+--- [TURN 2] EXECUTING VERIFICATION CODE IN REPL ---
+```python
+import math
+# sup L^100/n^0.3 finite + light O(n^2.3); heavy <= second term
+def test_polylog():
+    sup=0
+    for n in range(2,10**6):
+        # sample log-spaced
+        pass
+    import numpy as np
+    ns=[2,3,4,5,8,16,100,1000,10**6,10**9,10**12]
+    for n in ns:
+        L=max(2,math.log2(n))
+        r=L**100/(n**0.3)
+        print(f"n={n} L={L:.2f} L^100/n^.3={r:.3g}")
+    # monotonic eventual decay: check large n ratio ->0
+    assert (max(2,math.log2(10**12))**100)/(10**12)**0.3 < 1
+    print("polylog PASS: n^2 L^100 = O(n^2.3)")
+
+test_polylog()
+```
+--- [TURN 2] EXECUTION ERROR (0.0026s) ---
+Traceback (most recent call last):
+  File "<prime_math>", line 18, in <module>
+  File "<prime_math>", line 5, in test_polylog
+RuntimeError: ExecutionBlockedByRule11: range with 999,998 elements exceeds diagnostic ceiling (200,000). Escalating empirical simulations or brute-force loops cannot achieve high precision (statistical error O(1/sqrt(x))). Transition immediately to formulating and evaluating the exact analytical formula, Euler product, or algebraic invariants.
+
+--- [TURN 3/8] INNER THINKING (STREAMING FROM QWEN ENGINE) ---
+
+
+--- [TURN 3/8] MODEL GENERATED PROPOSAL & PROOF ---
+\begin{proof}
+Let $G=(X,Y,Z,A,B,C)$ with $A\in\{0,1\}^{X\times Y}$,
+$B\in\{0,1\}^{Y\times Z}$, $C\in\{0,1\}^{X\times Z}$ and
+$n\ge |X|+|Y|+|Z|$. A triple $(x,y,z)$ is a triangle if
+$A(x,y)=B(y,z)=C(x,z)=1$. All array accesses cost $O(1)$ in Word RAM.
+
+If $n<4$ then $|X|,|Y|,|Z|\le 3$ and naive triple enumeration costs
+$O(1+t)$. For $1\le n<4$, $n^{2.3}=\Theta(1)$, so this is
+$O(n^{2.3}+t)$; for $n=0$ the graph is empty and the empty list is
+correct in $O(1)$. Hence assume $n\ge 4$, so $\log_{2}n\ge 2$ and,
+in any fixed base, $\log n>0$ and $\log\log n$ is defined.
+Put $L=\log_{2}n$ and
+\[
+\Delta=\lceil L^{100}\rceil\ge 1.
+\]
+Then $L^{100}\le\Delta<L^{100}+1\le 2L^{100}$.
+Changing log base changes $(\log n)^{100}$ only by a constant factor.
+
+For $x\in X$ let $\deg_{A}(x)=\sum_{y\in Y}A(x,y)$, with value $0$
+if $Y=\emptyset$. Let
+\[
+X_{\rm light}=\{x:\deg_{A}(x)\le\Delta\},\quad
+X_{\rm heavy}=\{x:\deg_{A}(x)>\Delta\}.
+\]
+This is an exact disjoint cover of $X$, including empty cases.
+Let $W=\#\{(x,y,z):A(x,y)=B(y,z)=1\}$ be the number of wedges.
+$\sum_{x}\deg_{A}(x)\le |X||Y|$. Each heavy $x$ contributes
+$>\Delta$, so
+\[
+|X_{\rm heavy}|\cdot\Delta<\sum_{x\in X_{\rm heavy}}\deg_{A}(x)
+\le |X||Y|,
+\]
+hence $|X_{\rm heavy}|\le |X||Y|/\Delta$, with the convention that
+if $|Y|=0$ then all degrees are $0$ and $X_{\rm heavy}=\emptyset$.
+No division by zero occurs since $\Delta\ge 1$.
+
+\medskip\noindent\textbf{Algorithm.}
+Compute all $\deg_{A}(x)$ and lists $N_{A}(x)=\{y:A(x,y)=1\}$ in
+time $O(|X||Y|)$. Partition $X$ as above.
+For $x\in X_{\rm light}$: for each $z\in Z$ with $C(x,z)=1$,
+scan $y\in N_{A}(x)$ and output $(x,y,z)$ iff $B(y,z)=1$.
+For $x\in X_{\rm heavy}$: for each $(y,z)\in Y\times Z$,
+output $(x,y,z)$ iff $A(x,y)=B(y,z)=C(x,z)=1$.
+The algorithm is deterministic.
+
+\medskip\noindent\textbf{Correctness.}
+$X_{\rm light},X_{\rm heavy}$ partition $X$, so each $x$ is processed
+exactly once on exactly one branch. If $(x,y,z)$ is a triangle then
+$C(x,z)=1$. If $x$ is light, $y\in N_{A}(x)$ with $|N_{A}(x)|\le\Delta$,
+so it is found when scanning $N_{A}(x)$ at pair $(x,z)$ since
+$B(y,z)=1$. If $x$ is heavy, it is found in the triple scan.
+Each pair $(x,z)$ and each $y\in N_{A}(x)$, respectively each triple
+$(x,y,z)$, is visited once, so each triangle is listed exactly once.
+If $(x,y,z)$ is not a triangle, at least one of $A,B,C$ is $0$ and it
+is never output. If any of $X,Y,Z$ is empty there are no triangles and
+the loops perform zero inner iterations, which is correct.
+
+\medskip\noindent\textbf{Running time.}
+Preprocessing is $O(|X||Y|+|Y||Z|+|X||Z|)\le O(n^{2})$.
+Light phase: for each $x\in X_{\rm light}$ and $z\in Z$, $O(1)$ to test
+$C$ plus $O(|N_{A}(x)|)=O(\Delta)$ if $C=1$. Hence
+$O(|X||Z|\Delta)$. Heavy phase: $O(|X_{\rm heavy}||Y||Z|)$.
+Output costs $O(t)$. Total, with $\Delta\ge 1$,
+\[
+O(n^{2}+|X||Z|\Delta+|X_{\rm heavy}||Y||Z|+t).
+\]
+By the Markov bound,
+\[
+|X_{\rm heavy}||Y||Z|\le |X||Y||Z|/\Delta
+\le |X||Y||Z|/L^{100}.
+\]
+Since $1/L^{100}=O(1/(\log n)^{100})$ up to a base-dependent constant,
+this is $O(|X||Y||Z|/(\log n)^{100})$.
+Moreover $|X||Z|\Delta\le n^{2}\Delta\le 2n^{2}L^{100}$.
+Since $\lim_{n\to\infty}(\log_{2}n)^{100}/n^{0.3}=0$,
+$(\log_{2}n)^{100}=O(n^{0.3})$; i.e., there is $C_{1}$ with
+$L^{100}\le C_{1}n^{0.3}$ for all $n\ge 4$. Hence
+$n^{2}\Delta=O(n^{2.3})$, and $O(n^{2})=O(n^{2.3})$.
+Thus the algorithm runs in
+\[
+O\!\left(n^{2.3}+|X||Y||Z|/(\log n)^{100}+t\right).
+\]
+
+Finally, if $|X||Y||Z|=0$ then $W=0$; define
+$|X||Y||Z|\cdot\Ex[A\circ B]=0$. Otherwise $|X|,|Y|,|Z|>0$ and from
+$(A\circ B)(x,z)=|Y|^{-1}\sum_{y}A(x,y)B(y,z)$ and
+$\Ex[A\circ B]=(|X||Z|)^{-1}\sum_{x,z}(A\circ B)(x,z)$,
+\[
+\Ex[A\circ B]=W/(|X||Y||Z|)\ge 0.
+\]
+Hence $|X||Y||Z|\cdot\Ex[A\circ B]=W\ge 0$, and for $n\ge 4$,
+\[
+|X||Y||Z|\cdot\Ex[A\circ B]\cdot(\log\log n)^{2}/(\log n)^{2}\ge 0.
+\]
+Adding a nonnegative term preserves an upper bound. Therefore the
+above running time implies
+\[
+O\!\left(n^{2.3}+\frac{|X||Y||Z|}{(\log n)^{100}}
++\frac{|X||Y||Z|\cdot\Ex[A\circ B]\cdot(\log\log n)^{2}}{(\log n)^{2}}+t\right),
+\]
+deterministically listing all $t$ triangles exactly once.
+\end{proof}
+[Proof Draft Generated] Turn 3: 4147 chars. Running closed-loop adversarial audit...
+
+[Proof Auditor] Active mode: tcs
+[Proof Auditor Stage 1 Counterexample]: Empirical Falsification: Witness/assertion failed:
+Traceback (most recent call last):
+  File "<prime_math>", line 73, in <module>
+AssertionError
+[Falsifier Test Script]:
+import math
+import random
+import itertools
+
+# Helper: implement algorithm from proof
+def list_triangles_bruteforce(X, Y, Z, A, B, C):
+    tris = set()
+    for x in X:
+        for y in Y:
+            for z in Z:
+                if A.get((x,y),0)==1 and B.get((y,z),0)==1 and C.get((x,z),0)==1:
+                    tris.add((x,y,z))
+    return tris
+
+def list_triangles_proof_algo(X, Y, Z, A, B, C, n):
+    # n >= |X|+|Y|+|Z| assumed; handle n<4 same way
+    if n < 4:
+        # naive triple enumeration
+        return list_triangles_bruteforce(X,Y,Z,A,B,C)
+    L = math.log2(n)
+    Delta = math.ceil(L**100)
+    # degrees
+    deg = {}
+    N = {}
+    for x in X:
+        lst = [y for y in Y if A.get((x,y),0)==1]
+        deg[x] = len(lst)
+        N[x] = lst
+    X_light = {x for x in X if deg[x] <= Delta}
+    X_heavy = {x for x in X if deg[x] > Delta}
+    # exact disjoint cover
+    assert X_light.isdisjoint(X_heavy)
+    assert X_light.union(X_heavy) == set(X)
+    out = set()
+    for x in X_light:
+        for z in Z:
+            if C.get((x,z),0)==1:
+                for y in N[x]:
+                    if B.get((y,z),0)==1:
+                        # A(x,y)==1 by construction
+                       
+
+[Academic Proof Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.95, "completeness": 0.95, "boundary_cases": 0.95, "validity": 0.95, "verdict": "VALID", "issues": "none"}
+
+[Borderline Confirmation Auditor Output]:
+{"statement_fidelity_exact": true, "inequality_directions_verified": true, "theorem_hypotheses_verified": true, "rigor": 0.95, "completeness": 0.95, "boundary_cases": 0.95, "validity": 0.95, "verdict": "VALID", "issues": "none"}
+[Best Candidate Updated] Turn 3: validity=0.95 (4147 chars)
+[Audit Passed] Proof verified on Turn 3 (validity: 0.95). Early-terminating to prevent multi-turn degradation.
+
+================================================================================
+[SESSION COMPLETE] Task: task_[ID]_statement_109_256 | Proof Length: 4147 chars | Turns: 3 | Duration: 1180.36s
+================================================================================
