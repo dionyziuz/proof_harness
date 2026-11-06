@@ -64,6 +64,10 @@ That is an illusion caused by the **ceiling effect** of percentages:
 > * **Student B** scores 80% (20 wrong). It is mathematically impossible for Student B to double their score (2.0× would be 160%). If tutoring improves their score to 90% (10 wrong), their score only grew by **1.12×**.
 >
 > Did tutoring work worse for Student B? **No, the opposite is true.** Student B **cut their errors in half** (from 20 mistakes down to 10). Student A only eliminated 11% of their mistakes (from 90 down to 80).
+>
+> **Two Different Questions, Two Different Starting Points**:
+> * **Measuring the Model (Starting from 0%)**: If your goal is to evaluate raw model capability, you measure absolute pass rate from zero. Gemini 3.8 Flash is the decisive leader, solving 33.7% unassisted and 55.3% overall.
+> * **Measuring the Harness (Starting from 1-Pass Failures)**: If your goal is to evaluate the *agent scaffolding itself*, you cannot start from zero—crediting the harness for the 101 theorems Flash already proved on its own in 3 minutes would be scientifically dishonest. You must take the model's unassisted failures as the control baseline, and measure how many impossible dead-ends the harness genuinely rescues.
 
 In machine learning and agent evaluation, measuring **Multiplicative Decrease in Failures** (or **Error Cut**) tells the true story of how effective an intervention is:
 
