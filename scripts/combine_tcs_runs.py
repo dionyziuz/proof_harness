@@ -154,6 +154,12 @@ def main():
             source_dir = onepass_dir
             chosen_rec["solved_in_step"] = 1
             missing_filled.append(tid)
+        elif not h_pass and o_rec is not None and o_val > h_val:
+            # Neither passed >= threshold, but Step 1 achieved a higher near-miss validity score
+            chosen_source = "step1_higher_nearmiss"
+            chosen_rec = dict(o_rec)
+            source_dir = onepass_dir
+            chosen_rec["solved_in_step"] = 1
         else:
             # Step 1 was not a pass; take Step 2 harness attempt
             chosen_source = "step2_harness"

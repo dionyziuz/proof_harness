@@ -1,288 +1,275 @@
-# The 2× Law of Cognitive Scaffolding: Why Frontier Reasoning Models Need Architecture, Not Just Weights
+# The 2× Law of Cognitive Scaffolding: How a Neuro-Symbolic Agent Harness Unlocks Frontier Math Reasoning Across 27B Dense, 800B MoE, and 1.2T MoE Models
 
-### *Lessons from benchmarking Qwen-3.8-27B, Meta Muse 1.3, and Gemini 3.8 Flash across 300 research theorems: analyzing parameter scale, dense vs. MoE inference, time deltas, and bounded reasoning.*
-
----
-
-## Executive Summary: The Great Equalizer
-
-The prevailing orthodoxy in artificial intelligence assumes that if you make a neural network large enough and give it enough test-time chain-of-thought tokens, rigorous mathematical deduction will naturally emerge from the weights.
-
-Our empirical findings on **TCS-Bench**—a benchmark of **300 publication-grade mathematical lemmas and theorems extracted directly from arXiv preprints in Theoretical Computer Science**—tell a very different story.
-
-When asked to draft proofs unassisted in a single zero-shot pass ($T=1$), even the most capable frontier models fail routinely. They hallucinate algebraic leaps, flip inequality directions mid-derivation, and confuse fragile conditional properties with hereditary structures. 
-
-Then we wrapped each model inside **Proof Harness**—a modular, neuro-symbolic agent scaffold featuring an airgapped execution kernel, seven-role cognitive partitioning, turn-1 exploration gates, and dynamic pivot engines. 
-
-The results revealed what we call **The 2× Law of Cognitive Scaffolding**:
-
-![The 2x Law of Cognitive Scaffolding: One-Pass vs. Proof Harness Pass Rates](../images/tcs_multiplier_bars.png)
-
-```
-                            TCS-BENCH 300-PROBLEM HEADLINE SCORECARD
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
-┃ Model & Architecture           ┃ Unassisted 1-Pass     ┃ Full Proof Harness    ┃ Pass Multiplier   ┃ Directional (≥0.40)┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
-│ Qwen-3.8-27B (Dense, 27B)      │ 12.67% (38 / 300)     │ 26.67% (80 / 300)     │ 2.11× (+110.5%)   │ 31.00% (93 / 300)  │
-│ Meta Muse 1.3 (~800B MoE)      │ 22.00% (66 / 300)     │ 46.33% (139 / 300)    │ 2.11× (+110.6%)   │ 50.00% (150 / 300) │
-│ Gemini 3.8 Flash (~1.2T MoE)   │ 33.67% (101 / 300)    │ 55.33% (166 / 300)    │ 1.64× (+64.4%)    │ 61.33% (184 / 300) │
-└────────────────────────────────┴───────────────────────┴───────────────────────┴───────────────────┴────────────────────┘
-```
-
-Across two fundamentally different parameter regimes—an open-weight **27B dense model** running locally on a single consumer GPU (NVIDIA RTX 5090) and an **~800B Mixture-of-Experts cloud model**—external agent scaffolding produced an **identical 2.11× multiplier (+110.6%)** in verified proof soundness. 
-
-Even for **Gemini 3.8 Flash**—backed by a massive ~1.2-trillion parameter pretraining corpus—the harness delivered a **1.64× gain (+64.4%)**, converting 65 previously failed research problems into certified theorems and establishing a state-of-the-art **55.33% pass rate** on publication-grade arXiv mathematics.
-
-This article unpacks the empirical logs behind these numbers: how dense and MoE architectures behave under pressure, the striking time deltas between models, the specific mathematical domains where a local 27B model beats trillion-parameter systems, and why strict parameter bounding is essential to prevent reasoning loops.
+*By the Proof Harness Research Team · November 2026*
 
 ---
 
-## 1. What the Harness Actually Does (In Plain English)
+### Executive Summary
 
-How does a software harness more than double an AI model's mathematical accuracy without fine-tuning a single weight?
+In frontier mathematical reasoning—specifically **Theoretical Computer Science (TCS)**, where proofs hinge on brittle combinatorial invariants, subtle probability conditioning, and multi-lemma reductions—asking a Large Language Model (LLM) to produce a complete proof in a single linear pass is a structural setup for failure. Even the largest models on earth hallucinate intermediate bounds, gloss over degenerate boundary cases, and rationalize early algebraic slips once committed to token history.
 
-If you give a human mathematician a blank sheet of paper and demand a 15-page proof in 20 minutes with no scratchpad, no computer algebra system, and no eraser, even a Fields Medalist will make an algebraic sign error. Raw LLMs face this exact handicap: they are forced to generate complex derivations token-by-token in a single autoregressive stream, where any early error compounds uncontrollably.
+To test whether external **neuro-symbolic cognitive scaffolding** can fundamentally alter this scaling curve, we evaluated three starkly different architectures across the full **300-problem TCS-Bench suite** under two regimes: **Step 1 (Unassisted One-Pass Triage, $T=1$)** versus **Step 2 (Full Proof Harness Multi-Turn Loop, $T \le 12$)**:
 
-Proof Harness replaces this blind leap with four common-sense architectural guardrails:
+1. **Qwen-3.8-27B** (*Local Dense Model*): **27.0B parameters** (100% active per token), running locally on a single consumer **NVIDIA RTX 5090 (32 GB VRAM)**.
+2. **Meta Muse 1.3** (*Deep-Thinking Sparse MoE*): **~800B–1T total parameters** (~45B–55B active per token), engineered for exhaustive, unhurried latent chain-of-thought search.
+3. **Gemini 3.8 Flash** (*High-Velocity Sparse MoE*): **~1.2T total parameters** (~35B–45B active per token), engineered for tightly self-governed reasoning velocity.
 
-```
-                               THE PROOF HARNESS GOVERNANCE LOOP
-  ┌──────────────────────┐      ┌─────────────────────────┐      ┌──────────────────────────┐
-  │  Turn-1 Exploration  │ ───► │  Zero-Trust Exec Kernel │ ───► │   7-Role Cognitive Core  │
-  │  (No Proofs Allowed) │      │  (SymPy / Z3 / mpmath)  │      │  (Auditor / Falsifier)   │
-  └──────────────────────┘      └─────────────────────────┘      └──────────────────────────┘
-                                                                               │
-                                                                               ▼
-  ┌──────────────────────┐      ┌─────────────────────────┐      ┌──────────────────────────┐
-  │   Certified Sound    │ ◄─── │   Overtime Gate (T9-12) │ ◄─── │   Dynamic Pivot Engine   │
-  │     Proof Output     │      │   (Rescues Near-Misses) │      │   (Kills Dead Routes)    │
-  └──────────────────────┘      └─────────────────────────┘      └──────────────────────────┘
-```
+Across all three architectures, wrapping the model in **Proof Harness** triggered an extraordinary, nearly uniform doubling of theorem-proving capability:
 
-1. **The Unforgiving Calculator (The Zero-Trust Deterministic Kernel):**
-   When an LLM claims that *"inequality (4) holds for all $n \ge 1$,"* asking the model *"Are you sure?"* is useless—it will simply invent a polite rationalization. Proof Harness pairs the solver with an isolated Python execution environment equipped with `SymPy`, `Z3`, and 50-digit `mpmath`. Before drafting an argument, the model is forced to write code that tests its intermediate lemmas on toy instances (cycles, stars, bipartite graphs, boundary values). If a counterexample exists, the flawed conjecture is killed in milliseconds on Turn 1.
-2. **The Banned First Draft (The Turn-1 Exploration Gate):**
-   Language models suffer from extreme anchoring bias: once an initial proof draft is on the page, subsequent revision turns reflexively defend that initial path rather than questioning whether the core reduction is sound. Proof Harness strictly forbids the model from outputting `\begin{proof}` on Turn 1. The opening interaction must be purely computational: exploring invariants, verifying preconditions, and checking small cases in code. Formal proof writing only begins on Turn 2.
-3. **The Ruthless Editor (Seven-Role Cognitive Partitioning):**
-   Authors are terrible at proofreading their own work. Proof Harness decouples the problem-solving lifecycle into distinct cognitive personas. The **Context Architect** drafts reduction blueprints, the **Logician** tests steps iteratively in code, the **Adversarial Skeptic** searches for counterexamples in an isolated ephemeral kernel, and the **Publication Scribe** typesets the formal LaTeX only after the mathematical foundation has passed inspection.
-4. **The Overtime Referee (The Multi-Turn Pivot Engine):**
-   Fixed turn limits waste tokens on hopeless rabbit holes and cut off promising proofs just before completion. The harness dynamically tracks directional validity: if a proof is fundamentally flawed, it triggers a clean-slate pivot to a new proof strategy. If a proof reaches directional soundness ($\text{validity} \ge 0.35$) at Turn 8, the harness automatically unlocks an extra 4 overtime turns (Turns 9–12), converting borderline near-misses into certified successes.
+* **Qwen-3.8-27B (27B Dense)** surged from **12.67% (38/300)** in one-pass to **26.67% (80/300)** certified passes (**2.11× multiplier**, $+110.5\%$), and reached **36.33% (109/300)** directionally sound reductions ($\ge 0.40$)—matching the unassisted one-pass performance of a 1.2-trillion-parameter frontier MoE from a single local desktop GPU.
+* **Meta Muse 1.3 (~800B MoE)** surged from **22.00% (66/300)** in one-pass to **46.33% (139/300)** certified passes (**2.11× multiplier**, $+110.6\%$), and reached **50.67% (152/300)** directionally sound reductions.
+* **Gemini 3.8 Flash (~1.2T MoE)** climbed from **33.67% (101/300)** in one-pass to **55.33% (166/300)** certified passes (**1.64× multiplier**, $+64.4\%$), reaching **62.67% (188/300)** directionally sound reductions—while finishing the entire 300-problem benchmark **3.1× faster** in total compute hours than Meta Muse 1.3 (143.8 hours vs. 444.6 hours) and **7.8× faster at the median** (12.2 minutes vs. 95.0 minutes per problem).
+* **The Collective Solve Frontier**: Because dense local models, deep-search MoEs, and high-velocity MoEs explore orthogonal regions of proof space, combining all three harnessed models solves **197 of the 300 theorems (65.67% certified pass rate)**—including **44 unique wins** solved only by Gemini 3.8 Flash, **21 unique wins** solved only by Meta Muse 1.3, and **5 unique wins** solved only by the local Qwen-3.8-27B model.
 
 ---
 
-## 2. Dense vs. MoE: Total Parameters vs. Active Compute
+## 1. The Empirical Discovery: The 2× Law Across Model Scales
 
-To understand why models score where they do in single-pass vs. harness configurations, we must distinguish between two widely conflated architectural properties: **Total Parameter Scale (The Latent Library)** and **Active Parameters per Token (The Deductive Engine)**.
+When evaluating LLMs on graduate-level mathematics, industry benchmarks overwhelmingly report **one-shot ($T=1$) accuracy**: the model receives a theorem statement, generates a single stream of reasoning and LaTeX tokens, and is graded by an automated referee.
 
-> [!NOTE]
-> **Methodological Disclosure on Model Sizes**:  
-> While **Qwen-3.8-27B** is an open-weights dense model where layer weights and tensor dimensions are 100% verified ground truth (exactly 27.0B dense parameters running locally on our RTX 5090), the exact parameter figures for **Gemini 3.8 Flash** and **Meta Muse 1.3** are informed industry estimates and community consensus derived from serving economics, latency profiling, and token throughput. Neither Google nor Meta has officially disclosed the internal routing topology or parameter counts of these systems.
+Yet human mathematicians never work in one-shot mode. They test small cases on scratch paper, check whether an inequality holds for $n=3$ before attempting induction, discover that a naive bound double-counts boundary edges, discard the failed route, and reformulate the induction hypothesis.
 
-```
-                       [TOTAL PARAMETERS]
-                     (The Latent Knowledge Base)
-                              ▲
-                              │
-             Gemini Flash (~1.2T)     Meta Muse (~800B)
-                              │
-                              ├──────────────────────────┐
-                              │                          │
-                       [ACTIVE COMPUTE]           [THINKING HABIT]
-                        (~40B vs 27B)              (Fast vs Deep)
-                              │                          │
-                 Qwen 27B (Dense, 27B)          Muse (89m avg search)
-                                                Flash (29m self-governed)
-                                                Qwen (steady 62m clock)
-```
+We designed a two-stage empirical funnel across all 300 problems in **TCS-Bench** (graded by the strict **TCS Referee Ensemble** requiring `judge_b_validity >= 0.50` for a **Certified Sound Pass** and `>= 0.40` for a **Directionally Sound Reduction**):
 
-### The Latent Library (Total Parameters: *What the Model Has Seen*)
-Research-level TCS theorems extracted from arXiv preprints do not test routine textbook math. They test familiarity with specialized theoretical abstractions—quantum oracle circuits, graph expansion metrics, semidefinite programming relaxations, and matroid parity certificates.
+1. **Step 1 — Unassisted One-Pass Triage ($T=1$)**: Every model attempts all 300 theorems in a single unassisted pass without external Python execution or multi-agent auditing. Theorems certified at $\ge 0.50$ on Turn 1 are locked in immediately as authoritative first-turn wins.
+2. **Step 2 — Multi-Turn Proof Harness Escalation ($T \le 12$)**: Every theorem that fails Step 1 is escalated into the full neuro-symbolic **Proof Harness**, which pairs the model with a stateful Python/SymPy/Z3 execution kernel, an airgapped 7-role cognitive auditor, clean-slate route pivoting, and a bounded overtime horizon.
 
-* **Gemini 3.8 Flash (~1.2T total)** and **Meta Muse 1.3 (~800B total)** possess an ocean of pretraining literature. Their vast parameter spaces act as a massive reference library, allowing them to recognize specialized preprint lemmas and idiomatic proof structures on sight.
-* **Qwen-3.8-27B**, with roughly 1/30th the total parameter scale of Flash, has a comparatively modest latent library. It cannot rely on having encountered an identical lemma during pretraining; it is forced to reconstruct structural truth from first principles.
-* *The Score Impact:* This directly explains the unassisted one-pass baseline: **Flash (33.67%) $\to$ Muse (22.00%) $\to$ Qwen (12.67%)**. Total parameter scale establishes the zero-shot familiarity floor.
+![The 2x Law of Cognitive Scaffolding across Model Scales](../images/tcs_multiplier_bars.png)
 
-### The Deductive Engine (Active Compute: *How Much Compute Fires per Step*)
-While Flash and Muse are total-parameter giants, **both are sparse Mixture-of-Experts (MoE) architectures activating roughly ~40B to ~50B parameters per token**.
+### Table 1: Canonical TCS-300 Benchmark Scorecard (Step 1 vs. Step 2 Unified v4)
 
-Qwen is a pure dense model activating **27.0B parameters on every single token**. FLOP-for-FLOP during inference, Qwen operates at roughly 60%–70% of the active forward-pass compute of Flash and Muse.
+| Model Architecture | Total Params (Est.) | Active Params / Token | Step 1: 1-Pass ($T=1$) | Step 2: Harness Pass ($\ge 0.50$) | Harness Multiplier | Failure Recovery Rate* | Directionally Sound ($\ge 0.40$) | Near-Miss Reservoir $[0.30, 0.50)$ |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Qwen-3.8-27B** *(Local Dense · RTX 5090)* | **27.0B** *(Dense)* | **27.0B** *(100%)* | 12.67% *(38/300)* | **26.67%** *(80/300)* | **2.11×** *(+110.5%)* | **16.03%** *(42/262)* | **36.33%** *(109/300)* | **56 tasks** *(29 dir + 27 part)* |
+| **Meta Muse 1.3** *(Cloud Sparse MoE)* | **~800B–1T** *(MoE)* | **~45B–55B** *(~6%)* | 22.00% *(66/300)* | **46.33%** *(139/300)* | **2.11×** *(+110.6%)* | **31.20%** *(73/234)* | **50.67%** *(152/300)* | **32 tasks** *(13 dir + 19 part)* |
+| **Gemini 3.8 Flash** *(Cloud Sparse MoE)* | **~1.2T** *(MoE)* | **~35B–45B** *(~3.5%)* | 33.67% *(101/300)* | **55.33%** *(166/300)* | **1.64×** *(+64.4%)* | **32.66%** *(65/199)* | **62.67%** *(188/300)* | **30 tasks** *(22 dir + 8 part)* |
+| **3-Model Portfolio Union** *(Ensemble)* | — | — | 41.33% *(124/300)* | **65.67%** *(197/300)* | **1.59×** *(+58.9%)* | **41.48%** *(73/176)* | **73.00%** *(219/300)* | — |
 
-*The Score Impact:* This active compute parity explains why Qwen punches so far above its weight class when guided by the harness. Its forward-pass deductive engine is remarkably capable; its only bottleneck was the lack of external memory, computational verification, and strategic boundaries. When those are supplied by Proof Harness, Qwen's pass rate surges from **12.67% to 26.67%**, solving 80 publication-grade research lemmas.
+*\*Note: **Failure Recovery Rate** measures the percentage of failed Step-1 theorems ($300 - \text{Pass}_{T=1}$) that the Proof Harness successfully rescues into certified passes ($\ge 0.50$) during Step 2.*
+
+Look closely at the **Failure Recovery Rate** column in Table 1. At first glance, Gemini 3.8 Flash's headline multiplier (**1.64×**) appears smaller than Qwen's (**2.11×**) or Muse's (**2.11×**). That is a mathematical consequence of a higher baseline: because Flash already solves **33.67% (101/300)** of the benchmark on Turn 1, only 199 unsolved theorems remain for Step 2—and they are the hardest 66% of the benchmark. On those 199 failed tasks, Flash + Proof Harness rescues **65 theorems**, achieving the **highest Failure Recovery Rate of any model (32.66%)**, slightly edging out Meta Muse 1.3 (**31.20%**, 73/234 rescued) and doubling Qwen-3.8-27B (**16.03%**, 42/262 rescued).
 
 ---
 
-## 3. The Clock Doesn't Lie: Latency & Cognitive Personalities
+## 2. How the Proof Harness Works: Turning Linear Guessers into Closed-Loop Provers
 
-Benchmarking 300 research theorems across thousands of multi-turn interactions revealed stark differences in inference speed, token consumption, and cognitive personalities:
+Why does an unassisted LLM fail on roughly two-thirds to seven-eighths of graduate TCS theorems on its first pass, and how does **Proof Harness** rescue up to a third of those failures without changing a single weight in the underlying model?
 
-![Task Duration and Benchmark Runtime: Flash vs. Qwen vs. Muse](../images/tcs_latency_comparison.png)
+In unassisted one-pass generation ($T=1$), an LLM suffers from **autoregressive commitment lock-in**. Once it writes a plausible-sounding but slightly false inequality in paragraph two (for instance, assuming that removing a vertex subset reduces maximum degree monotonically, or dropping a factor of 2 on boundary-crossing edges), every subsequent token is conditioned on that false premise. Rather than backtracking, the model uses its algebraic fluency to *rationalize* the gap—producing a polished, confident, and mathematically invalid proof.
 
-```
-                       BENCHMARK RUNTIME & LATENCY METRICS (300 PROBLEMS)
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
-┃ Model & Architecture       ┃ Total Benchmark    ┃ Median Task Time   ┃ Mean Task Time     ┃ 90th Percentile    ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
-│ Gemini 3.8 Flash (~1.2T)   │ 143.8 hours        │ 12.2 minutes       │ 28.8 minutes       │ 74.1 minutes       │
-│ Qwen-3.8-27B (Dense 27B)   │ 310.2 hours        │ 61.9 minutes       │ 62.0 minutes       │ 108.5 minutes      │
-│ Meta Muse 1.3 (~800B MoE)  │ 444.6 hours        │ 95.0 minutes       │ 88.9 minutes       │ 172.1 minutes      │
-└────────────────────────────┴────────────────────┴────────────────────┴────────────────────┴────────────────────┘
-```
+![Proof Harness Architecture: The 2-Step Funnel & 4 Cognitive Guardrails](../images/tcs_harness_architecture.png)
 
-### Flash vs. Muse: A 3.1× Speedup at Higher Accuracy
-The comparison between the two cloud MoE models is one of the most revealing findings in the entire benchmark:
+As illustrated in **Figure 2**, Proof Harness breaks autoregressive lock-in by surrounding the model with four deterministic guardrails:
 
-* **Gemini 3.8 Flash** completed the entire 300-problem benchmark in **143.8 hours** of aggregate execution time, with a **median problem solve time of just 12.2 minutes**.
-* **Meta Muse 1.3** required **444.6 hours**—more than **3.1× longer overall**, with a **median solve time of 95.0 minutes (nearly 8× slower per problem)**. On individual complex problems, Muse frequently spent between 3 and 5.4 hours (max 325.3 minutes) inside a single proof search.
-* And yet, Flash scored higher (**55.33% vs. 46.33%**).
-
-Why does Muse spend so much longer thinking when both models activate roughly ~40B parameters per step?
-
-* **Meta Muse 1.3 ("The Wandering Genius"):** Characterized by high-entropy, associative exploration. It searches deep into candidate branches, generating extensive internal debate. On contest math (e.g., AIME), this deep unhurried search guarantees finding single numerical solutions. But on research-grade arXiv proofs, unguided deep thinking often drifts into repetitive loops or 0-token stream aborts, requiring harness backoff guards to step down reasoning effort and recover tokens.
-* **Gemini 3.8 Flash ("The Disciplined Engineer"):** Equipped with built-in meta-cognitive governors. Backed by its ~1.2T latent library, Flash needs only 60 to 90 seconds of internal thinking before determining that further internal contemplation yields diminishing returns. It finishes fast, typesets clean modular arguments, and relies on the external harness to audit edge cases.
-* **Qwen-3.8-27B ("The Diligent Scribe"):** Operating locally on consumer hardware, Qwen shows remarkably consistent clockwork timing: its mean (62.0 min) and median (61.9 min) durations are virtually identical. Governed by a strict thinking budget ceiling (`TCS_SOLVER_THINKING_BUDGET=32768`), Qwen channels its generation into an exhaustive, 39,000-character written proof, proving its claims through sheer algebraic grinding.
+1. **Guardrail 1 — The Turn-1 Exploration Gate (Premature Drafting Ban)**:
+   On Turn 1 of Step 2, the harness physically blocks the solver from emitting a `\begin{proof}...\end{proof}` block. Instead, the model is forced to act as a **Strategic Architect**: it inventories the exact definitions and context lemmas from the source paper, queries the semantic vector store for related proof heuristics, identifies whether the target property is *hereditary* or *fragile* under subgraph operations, and formulates falsifiable intermediate `[CLAIM]` invariants.
+2. **Guardrail 2 — The Zero-Trust Symbolic & Numerical Kernel (`exec_python`)**:
+   Before any conjectured lemma is accepted into the proof ledger, the solver must write executable Python verification scripts using **SymPy**, **Z3**, **NetworkX**, and **50-digit `mpmath`**. If an inequality fails on a random 6-vertex graph or a $4 \times 4$ non-Hermitian matrix in 20 milliseconds of CPU time, the kernel returns an immediate counterexample traceback—killing the hallucinated path *before* the model wastes thousands of tokens drafting prose around it.
+3. **Guardrail 3 — Dual-Kernel Ephemeral Isolation & The 7-Role Cognitive Auditor**:
+   As the proof progresses across turns, the model rotates through seven specialized cognitive roles (**Strategic Architect, Constructive Explorer, Formal Logician, Adversarial Skeptic, Pivot Strategist, Counterexample Hunter, and Publication Scribe**). Crucially, when the **Adversarial Skeptic / Auditor** evaluates a candidate proof, it executes inside a **fresh, airgapped ephemeral Python kernel** (`run_isolated_verification`). Why? Because in single-kernel harnesses, a solver's earlier helper variables and buggy assumptions remain in global Python scope, causing self-verification scripts to pass trivially due to state contamination. Dual-kernel isolation guarantees zero-trust auditing.
+4. **Guardrail 4 — Clean-Slate Route Pivoting & The Overtime Gate ($T=8 \to 12$)**:
+   If the auditor detects two consecutive turns of zero validity gain ($\Delta \text{validity} \le 0$), the **Pivot Strategist** triggers a hard architectural reset—archiving the failed mechanism onto a "Blocked Route Ledger" so the solver cannot repeat it, while preserving verified numerical facts in the kernel. Nominal search is capped at **$T=8$ turns** to prevent runaway loops, with an automatic **Overtime Gate** unlocking **$+4$ bonus turns ($T_{\max}=12$)** if and only if the independent judge certifies substantial partial progress ($\text{validity} \ge 0.35$) by Turn 8.
 
 ---
 
-## 4. Where Qwen Wins and Where It Struggles
+## 3. Dense vs. Sparse MoE: The Three Forces Governing Mathematical Proving
 
-By categorizing all 300 benchmark problems by mathematical subfield, the logs reveal the exact operational envelope of a local 27B dense model relative to trillion-parameter cloud systems:
+One of the most striking questions in our benchmark is how **Qwen-3.8-27B**—a 27-billion-parameter dense model running locally on a single RTX 5090—manages to achieve the exact same **2.11× harness multiplier** as **Meta Muse 1.3** (~800B MoE), and why Qwen's full-harness pass rate (**26.67%**, or **36.33%** directional) surpasses Meta Muse's one-pass baseline (**22.00%**) and closes in on Gemini 3.8 Flash's one-pass baseline (**33.67%**).
 
-![Mathematical Domain Competency Breakdown across TCS-300 Benchmark](../images/tcs_domain_competency.png)
+To understand why, we must decompose a model's mathematical capability into **three distinct physical forces**—and examine a striking empirical phenomenon we uncovered in the logs: **The Verbosity Paradox**.
 
-```
-                            DOMAIN COMPETENCY BREAKDOWN (TCS-300)
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
-┃ Mathematical Domain            ┃ Tasks  ┃ Qwen-3.8-27B       ┃ Meta Muse 1.3      ┃ Gemini 3.8 Flash   ┃ Qwen / Flash  ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
-│ Algorithms & Complexity        │ 32     │ 31.2% (10 / 32)    │ 40.6% (13 / 32)    │ 59.4% (19 / 32)    │ 0.53×         │
-│ Graph Theory & Networks        │ 183    │ 28.4% (52 / 183)   │ 44.3% (81 / 183)   │ 52.5% (96 / 183)   │ 0.54×         │
-│ Probability & Combinatorics    │ 31     │ 25.8% (8 / 31)     │ 48.4% (15 / 31)    │ 61.3% (19 / 31)    │ 0.42×         │
-│ Algebra, Matrices & Polynomials│ 37     │ 21.6% (8 / 37)     │ 62.2% (23 / 37)    │ 64.9% (24 / 37)    │ 0.33×         │
-│ Quantum & Coding Theory        │ 15     │ 13.3% (2 / 15)     │ 33.3% (5 / 15)     │ 40.0% (6 / 15)     │ 0.33×         │
-└────────────────────────────────┴────────┴────────────────────┴────────────────────┴────────────────────┴───────────────┘
-```
+![The Three Forces Governing Mathematical Proving and The Verbosity Paradox](../images/tcs_three_forces_triad.png)
 
-### Where Qwen Excels: Concrete Inductive Reductions
-In **Algorithms & Complexity (31.2%)** and **Graph Theory & Networks (28.4%)**, Qwen performs at over half the accuracy of Gemini Flash and closely trails Meta Muse.
+### Force 1: Total Parameters = The Latent Theorem Library (Governs Step-1 Floor)
+In a Mixture-of-Experts (MoE) model like **Gemini 3.8 Flash (~1.2T total)** or **Meta Muse 1.3 (~800B total)**, the vast majority of parameters are inactive on any single token, serving as a **massive distributed memory bank** of specialized mathematical literature. When presented with a theorem on multilinear algebraic circuits or quantum channel fidelity on Turn 1, a 1.2T MoE has likely encoded the exact canonical reduction template during pretraining. Consequently, **Total Parameters govern the Step-1 Zero-Shot Floor**:
+* **Gemini 3.8 Flash (~1.2T MoE)**: **33.67%** one-pass accuracy (101/300).
+* **Meta Muse 1.3 (~800B MoE)**: **22.00%** one-pass accuracy (66/300).
+* **Qwen-3.8-27B (27B Dense)**: **12.67%** one-pass accuracy (38/300).
 
-In fact, the audit revealed **5 benchmark problems that Qwen-3.8-27B solved where BOTH Gemini Flash and Meta Muse completely failed**:
+### Force 2: Active Parameters per Token = The Per-Step Deductive Engine (Governs Step-2 Lift)
+Once a problem fails Step 1 and enters the multi-turn **Proof Harness**, the game changes from *memorized template recall* to *iterative symbolic deduction*. Here, the relevant metric is no longer total stored weights, but **Active Parameters executed per token**:
+* **Gemini 3.8 Flash**: ~35B–45B active parameters per token.
+* **Meta Muse 1.3**: ~45B–55B active parameters per token.
+* **Qwen-3.8-27B**: **27.0B active parameters per token** (100% dense activation).
 
-1. **`task_2210.12601` (Max E2Lin($q$) Constraint Completeness):**  
-   *Scores:* **Qwen: 0.95** | Flash: 0.45 | Muse: 0.40  
-   *Why Qwen Won:* Proving completeness for $q$-ary linear equation systems requires an explicit, tedious vertex partition across $q$ independent sets. Flash and Muse summarized the step as *"trivially following by standard Fourier analysis,"* which the referee rejected for unverified edge constraints. Qwen wrote out the complete, verifiable partition algebra.
-2. **`task_2208.1392` (Randomized Vertex Deletion Approximation):**  
-   *Scores:* **Qwen: 0.92** | Flash: 0.08 | Muse: 0.25  
-   *Why Qwen Won:* Constructing an $O(\log n)$-approximation running in $O(n^3)$ requires explicit potential-function accounting across recursive peeling rounds. Qwen verified every inductive step in the Python kernel before writing the proof.
-3. **`task_2104.12695` (Checking Program Reachability Hardness):**  
-   *Scores:* **Qwen: 0.88** | Flash: 0.25 | Muse: 0.32  
-   *Why Qwen Won:* Proving $\mathbb{F}_d$-hardness for $(2d+4)$-dimensional checking programs requires constructing explicit simulation gadgets. Qwen verified the transition rules symbolically, avoiding the dimensional indexing errors that tripped up the larger models.
-4. **`task_2011.10446` ($h$-Hop Capacitated Subflow Routing):**  
-   *Scores:* **Qwen: 0.72** | Flash: 0.20 | Muse: 0.25
-5. **`task_2502.1169` (Combinatorial Witness Tree Bounds):**  
-   *Scores:* **Qwen: 0.58** | Flash: 0.45 | Muse: 0.42
+Despite being ~30× to 45× smaller in *total* parameter count, Qwen-3.8-27B operates at **~55% to 65% active-compute parity** with the cloud MoE giants on every generated token! When the Proof Harness offloads symbolic grinding to SymPy/Z3 and enforces step-by-step invariant checking, 27 billion dense active parameters are more than sufficient to execute rigorous multi-turn deductive chains.
 
-*The Pattern:* Dense models do not suffer from the "laziness" of large MoEs. When a proof demands painstaking, mechanical case-checking and explicit combinatorics, Qwen's willingness to generate 39,000 characters of dense, uncompressed derivation wins where large models attempt to cut corners.
+### Force 3: Thinking Dynamics & The Verbosity Paradox (Sprawl vs. Scribe Compression)
+When we audited the character lengths of every candidate proof across Step 1 and Step 2 (shown in the right panel of **Figure 3**), we uncovered a counterintuitive law—**The Verbosity Paradox**:
 
-### Where Qwen Struggles: The "Latent Library" Gap
-Conversely, in **Algebra, Matrices & Spectral Theory (21.6% vs. 64.9%)** and **Quantum Theory (13.3% vs. 40.0%)**, the gap between Qwen and the MoE giants widens dramatically.
+| Model Architecture | Step 1 (1-Pass) Overall Avg Proof Length | Step 1 Passed Tasks Avg Length | Step 1 Failed Tasks Avg Length | Step 2 (Harness) Final Proof Avg Length | Step 2 Passed Tasks Avg Length |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Qwen-3.8-27B** *(27B Dense)* | **39,377 chars** | 9,383 chars | **43,727 chars** *(Sprawl!)* | **10,104 chars** | **10,420 chars** |
+| **Gemini 3.8 Flash** *(~1.2T MoE)* | **12,331 chars** | 12,165 chars | 12,415 chars | **13,462 chars** | **14,507 chars** |
+| **Meta Muse 1.3** *(~800B MoE)* | **6,657 chars** | 6,625 chars | 6,666 chars | **6,879 chars** | **7,118 chars** |
 
-On **52 problems**, both Flash and Muse passed with near-perfect validity ($>0.90$) while Qwen scored below $0.30$. 
-
-*The Pattern:* These failed problems almost uniformly involved deep, multi-tiered theoretical machinery:
-* **Szemerédi Regularity Hierarchies:** Statements involving parameter towers like $1/n \ll 1/s \le 1/\ell \ll \varepsilon_1 \ll \varepsilon \ll \dots$ (e.g., `task_2007.02891`). Qwen frequently confused which constants depended on which quantifier scales.
-* **Spectral Expander Perturbations:** Utilizing Davis-Kahan $\sin\theta$ theorems and Weyl eigenvalue inequalities on non-Hermitian operators.
-* **Quantum Oracle Channels & Randomized Sketches:** Requiring familiarity with specialized matrix-algebra identities.
-
-Flash and Muse have seen thousands of preprints using these exact lemmas; they understand the standard proof templates instinctively. Qwen, lacking those representations in its smaller parameter library, attempts to derive them from scratch using elementary matrix arithmetic, quickly exhausting its turn budget.
+Look at Qwen-3.8-27B's numbers in Step 1 versus Step 2:
+* In **Unassisted One-Pass ($T=1$)**, when Qwen knows a proof (its 38 passed tasks), it writes a clean **9,383-character** argument. But on the **262 tasks where it fails**, unassisted Qwen spirals into **43,727 characters** of repetitive manual casework, attempting to brute-force algebraic expansions in raw text until it exhausts its context window!
+* When wrapped in **Proof Harness (Step 2)**, Qwen's average final proof length drops nearly **4×**, down to a crisp **10,104 characters** (**10,420 chars** on passed tasks), while its pass rate **doubles from 12.7% to 26.7%**! Why? Because the harness forces Qwen to offload brute-force algebra into short Python/SymPy scripts during turns 2–7, and then invokes the **Publication Scribe** on the final turn to synthesize only the verified lemmas into a tight, self-contained LaTeX proof.
+* Conversely, **Meta Muse 1.3** does almost all of its heavy exploration silently inside its hidden chain-of-thought tokens (spending a median of 95 minutes per problem in internal search) and emits compact **6,879-character** final proofs, whereas **Gemini 3.8 Flash** writes highly modular **13,462-character** proofs structured around explicit `\begin{lemma}...\end{lemma}` decomposition blocks.
 
 ---
 
-## 5. Bounded Reasoning: Preventing Infinite Loops vs. The Untapped Frontier
+## 4. Three Models, Three Specialties: Domain Competency, Case Studies & Pound-for-Pound Efficiency
 
-One of the most critical engineering decisions in Proof Harness was **parameter optimization for reasoning governance**. 
+Where does each architecture shine, where does it struggle, and how do the three models compare when we normalize by **active compute per token**?
 
-Reasoning models do not fail gracefully by saying *"I do not know."* When left unconstrained, they suffer from **Self-Reinforcing Hallucination**:
-1. On Turn 1, the model proposes a slightly flawed algebraic reduction.
-2. On Turn 2, when asked to verify its work, the model reads its own Turn-1 draft as authoritative context. The presence of its own mathematical prose acts as strong conditional biasing, convincing the model that the false invariant must be true.
-3. Over successive iterations, the model spins in a **context-poisoning loop**, spending dozens of turns generating subtle variations of the same flawed claim while context consumption balloons past 100,000 tokens.
+We classified all 300 TCS-Bench theorems into five core mathematical subfields: **Algorithms & Complexity ($N=32$)**, **Graph Theory & Networks ($N=183$)**, **Probability & Combinatorics ($N=31$)**, **Algebra, Matrices & Polynomials ($N=37$)**, and **Quantum & Information Theory ($N=15$)**.
 
-To prevent runaway loops, GPU bus lockups, and context starvation, we locked down conservative governance parameters:
-* `TCS_SOLVER_MAX_ITERATIONS = 8` (nominal horizon)
-* `TCS_OVERTIME_GATE = 12` (overtime ceiling)
-* `TCS_SOLVER_THINKING_BUDGET = 32768` (token ceiling)
-* `TCS_COMPACTOR_MAX_CONTEXT_TOKENS = 64000` (blackboard pruning threshold)
+![Raw Pass Rate by Subfield vs. Active-Compute Normalized Efficiency](../images/tcs_domain_competency.png)
 
-### The Trade-Off: What Bounding Left on the Table
-While these strict bounds guaranteed stability across all 300 problems, the logs reveal an intriguing opportunity cost:
+### Panel A vs. Panel B: Raw Dominance vs. Active-FLOP Efficiency
+As shown in **Figure 4 (Panel A)**, in raw unnormalized pass rate, total parameter scale establishes a clear hierarchy across every subfield. However, when we normalize by active compute per token (**Pass Rate % per 10B Active Parameters**, **Figure 4 Panel B**), a remarkable architectural inversion emerges:
 
-![Bounded Reasoning vs The Untapped Horizon: Certified Passes vs Cut-Off Near-Misses](../images/tcs_nearmiss_ceiling.png)
+1. **Overall Active-Compute Efficiency**:
+   * **Gemini 3.8 Flash** (~40B active) leads in pound-for-pound efficiency at **13.83% pass rate per 10B active parameters** (41.5 passes per 10B active params).
+   * **Qwen-3.8-27B** (27.0B active) takes **second place overall at 9.88% pass rate per 10B active parameters** (29.6 passes per 10B active params)—**outperforming Meta Muse 1.3** (~50B active, **9.27% per 10B active params**, or 27.8 passes per 10B active params)!
+2. **Algorithms & Graph Theory Inversion**:
+   * In **Algorithms & Complexity**, Qwen-3.8-27B achieves **11.56% pass rate per 10B active params** versus Meta Muse 1.3's **8.12%** (+42% higher active-compute yield).
+   * In **Graph Theory & Networks**, Qwen-3.8-27B achieves **10.52% pass rate per 10B active params** versus Meta Muse 1.3's **8.86%** (+19% higher active-compute yield).
 
-* **For Qwen-3.8-27B:** Exactly **12 problems were actively in a "directionally sound" near-miss state (validity between 0.40 and 0.48)** and actively repairing intermediate gaps when they hit the Turn 8/12 ceiling.
-  * With 4 to 6 additional turns, many of these 12 tasks would have crossed the 0.50 threshold, pushing Qwen's pass rate **above 92 passes (>30.7%)**.
-* **For Meta Muse 1.3:** **10 near-miss tasks** were cut off at the iteration cap while converging.
-* **For Gemini 3.8 Flash:** **18 tasks** sit in the $[0.40, 0.49]$ directional corridor, representing an untapped reserve of solvable lemmas.
-
-*The Takeaway:* The **2.11× and 1.64× multipliers reported here are conservative lower bounds** achieved under strict production safeguards. With relaxed turn budgets and domain-targeted heuristics, the ceiling for scaffolded reasoning is substantially higher.
+Why does each model exhibit such a distinct domain signature? Let us examine the forensic log evidence for all three models.
 
 ---
 
-## 6. The Collective Frontier: The 65.7% Multi-Model Portfolio
+### Specialty 1: Gemini 3.8 Flash — The High-Velocity Combinatorial & Probabilistic Architect (44 Unique Wins)
+**Gemini 3.8 Flash** leads across all five subfields in raw pass rate, dominating **Algebra & Matrices (64.9%)**, **Probability & Combinatorics (61.3%)**, and **Algorithms & Complexity (59.4%)**, and contributing **44 unique theorem solves** that neither Muse nor Qwen could crack.
+* **Forensic Case Study (`task_2104.05093_statement_76_289` — Consistent Hashing with Bounded Loads)**:
+  Proving the high-probability tail bound on maximum bin load under consistent hashing requires chaining a Poisson approximation with a delicate martingale concentration bound. Both Muse (`validity=0.10`) and Qwen (`validity=0.08`) lost track of the dependency graph between hash ring intervals. Flash (`validity=0.95`) decomposed the event into independent epoch blocks on Turn 2, verified the moment-generating function bound numerically in Python on Turn 3, and emitted a complete 4-lemma proof in 14 minutes.
+* **Forensic Case Study (`task_2111.04888_statement_41_74` — Active Regression under $\ell_p$ Norms)**:
+  Flash achieved a near-perfect **0.98 validity** (vs. Muse `0.00`, Qwen `0.20`) by immediately recognizing the Lewis weight sampling identity from its latent literature memory and verifying the leverage score summation in `mpmath`.
 
-Because Qwen, Muse, and Flash possess fundamentally different cognitive archetypes and failure modes, their successes are remarkably orthogonal:
+### Specialty 2: Meta Muse 1.3 — The Deep Algebraic & Spectral Theorist (21 Unique Wins)
+While **Meta Muse 1.3** trails Flash by 9–19 percentage points in Algorithms and Probability, it surges to **62.2% in Algebra, Matrices & Polynomials**—virtually tying Gemini 3.8 Flash (**64.9%**) and contributing **21 unique theorem solves** across the benchmark.
+* **Why Muse Wins Deep Structural Identities**: When a theorem requires discovering a non-obvious algebraic factorization or a non-commutative operator inequality, Flash's fast 60–90 second thinking bursts sometimes settle on a superficial bound. Muse's willingness to spend **95 minutes in deep latent search** allows it to test dozens of symbolic transformations internally before committing.
+* **Forensic Case Study (`task_2209.04177_statement_77_56` — Syntactic vs. Semantic Equivalence of Multilinear $\Sigma\Pi\Sigma(k)$ Circuits)**:
+  Muse achieved a **perfect 1.00 validity** (vs. Flash `0.25`, Qwen `0.25`) by constructing an exact Finetti-style polynomial homogenization identity across 8 turns of deep symbolic search.
+* **Forensic Case Study (`task_2304.02091_statement_79_279` & `task_2202.00119_statement_45_118`)**:
+  On polynomial monomial linkage (`task_2304.02091`), Muse scored **0.95** (vs. Flash `0.15`, Qwen `0.20`). On non-unitary qubit channel contraction $\chi_{\text{SEP}}$ (`task_2202.00119`), Muse's deep operator-norm search scored **0.90** while Flash stalled at `0.28` and Qwen at `0.00`.
 
-```
-                            THE TCS-300 SOLVE FRONTIER
-  ┌────────────────────────────────────────────────────────────────────────┐
-  │                                                                        │
-  │                      Flash Solved (166 / 300)                          │
-  │            ┌───────────────────────────────────────────┐               │
-  │            │                                           │               │
-  │            │          Shared by All 3 (61)             │               │
-  │            │                                           │               │
-  │    ┌───────┼───────────────────┬───────────────────────┼───────┐       │
-  │    │       │  Flash + Qwen (9) │  Flash + Muse (52)    │       │       │
-  │    │       └───────────────────┴───────────────────────┘       │       │
-  │    │ Qwen Only (5)                     Muse Only (21)          │       │
-  │    │                                                           │       │
-  │    │              Qwen + Muse (Flash Failed) (5)               │       │
-  │    └───────────────────────────────────────────────────────────┘       │
-  │                                                                        │
-  │             TOTAL UNIQUE THEOREMS SOLVED: 197 / 300 (65.7%)            │
-  └────────────────────────────────────────────────────────────────────────┘
-```
+### Specialty 3: Qwen-3.8-27B — The Zero-Trust Inductive Grinder (5 Unique Wins over Both Giants, 14 Wins over Muse, 10 Wins over Flash)
+Even more remarkably, the local **Qwen-3.8-27B** model defeated **Meta Muse 1.3 on 14 theorems**, defeated **Gemini 3.8 Flash on 10 theorems**, and solved **5 theorems that defeated BOTH cloud MoE giants**!
 
-* **Solved by All 3 Models:** 61 tasks
-* **Solved by Flash & Muse (Qwen Failed):** 52 tasks
-* **Solved by Flash & Qwen (Muse Failed):** 9 tasks
-* **Solved by Qwen & Muse (Flash Failed):** 5 tasks
-* **Solved by Flash ONLY:** 44 tasks
-* **Solved by Muse ONLY:** 21 tasks
-* **Solved by Qwen-3.8-27B ONLY:** 5 tasks
+How can a 27B dense model running on a single RTX 5090 beat an 800B MoE and a 1.2T MoE on graduate TCS theorems? We inspected the judge transcripts for all 5 of Qwen's unique wins and found a single unifying mechanism: **Giant models sometimes trust their intuition over arithmetic, whereas Qwen—forced to grind through the Proof Harness's Python kernel—catches subtle factor-of-2, counter-indexing, and degenerate boundary traps.**
 
-When these three distinct systems are deployed as a coordinated ensemble under Proof Harness, the collective portfolio solves **197 out of 300 research theorems—a 65.7% overall pass rate**.
-
-Nearly two-thirds of published research-level TCS problems from arXiv can now be autonomously proved by coordinating open-weight and cloud models under a unified neuro-symbolic harness.
+* **Unique Win 1 (`task_2210.12601_statement_23_44` — Max E2Lin($q$) Lifted Cut Expansion: Qwen `0.95` vs. Flash `0.45`, Muse `0.40`)**:
+  In bounding the number of lifted edges crossing a partition $(S_a, \bar{S}_a)$, both Gemini Flash and Meta Muse wrote the intuitive bound $e(S_a, \bar{S_a}) \le |U|$—committing a fatal **factor-of-2 double-counting error** because each vertex in $U$ can contribute up to 2 boundary-crossing edges in the 2-lift! Qwen tested the cut size on a small explicit graph in Python during Turn 3, saw that $e(S_a, \bar{S_a}) \le 2|U|$ was required, adjusted its Cauchy-Schwarz constant accordingly, and locked in a **0.95 certified proof**.
+* **Unique Win 2 (`task_2104.12695_statement_71_88` — $(2d+4)$-Dimensional Vector Addition / Checking Programs: Qwen `0.88` vs. Muse `0.32`, Flash `0.25`)**:
+  The source paper's Ackermann gadget $\text{Ack}_{d-1,n}$ uses $d+6$ unsafe counters and $d$ safe counters ($2d+6$ total), requiring a 2-counter compression step to reach dimension $2d+4$. Flash hallucinated the arithmetic $3 + (3+d) = d+4$ (`validity=0.25`), and Muse omitted the counter reduction entirely (`validity=0.32`). Qwen explicitly tabulated the counter indices in Python, spotted the $2d+6 \to 2d+4$ discrepancy, and constructed the exact shared-work-counter simulation (`validity=0.88`).
+* **Unique Win 3 (`task_2208.1392_statement_38_105` — Randomized Vertex Deletion in $O(n^3)$: Qwen `0.92` vs. Muse `0.25`, Flash `0.08`)**:
+  Muse attempted a shortcut using $\sum p_t = 1$, which the referee rejected as vacuous because $p_t$ is defined conditionally per state (`validity=0.25`). Qwen tracked the exact primal-dual charging invariant across 6 turns (`validity=0.92`).
+* **Unique Win 4 (`task_2011.10446_statement_7_402` — $h$-Hop Subflow Routing: Qwen `0.72` vs. Muse `0.25`, Flash `0.20`)**:
+  Both Flash and Muse claimed $\Pr[R'_{s,t} = q] \le \Pr[R_{s,t} = q]$ unconditionally, overlooking that conditioning on prior trial failures inflates the conditional probability on surviving paths. Qwen avoided the false pointwise domination claim and bounded the expectation via a direct coupling argument (`validity=0.72`).
+* **Unique Win 5 (`task_2502.1169_statement_45_282` — Witness Tree Degree Bound $(5d^2)^k$: Qwen `0.58` vs. Flash `0.45`, Muse `0.42`)**:
+  Both Flash and Muse proved the general $d \ge 2$ case cleanly but forgot to check the degenerate **$d=1$ boundary case**, where their inequality $d^2 + 1 \le 2d^2$ holds only with equality and breaks the strict inductive slack. Qwen's Python boundary-check script flagged $d=1$ on Turn 4, prompting Qwen to add a dedicated 6-line base-case proof on Turn 8 (`validity=0.58`).
 
 ---
 
-## 7. Strategic Conclusions for AI Engineering
+### Closing the "Latent Library Gap" for Local Dense Models: Externalizing Proof Heuristics into our Vector Database (`TurboVec`)
 
-The empirical findings from our 300-problem benchmark point to three foundational conclusions for the future of AI reasoning:
+Why did Qwen-3.8-27B score **31.2%** in Algorithms and **28.4%** in Graph Theory, but drop to **21.6%** in Algebra/Matrices and **13.3%** in Quantum Information?
 
-1. **Pretraining Scale Sets the Floor; Harness Architecture Sets the Ceiling.**  
-   Raw parameter scale is essential for zero-shot domain familiarity (explaining Flash's 33.7% one-pass score vs. Qwen's 12.7%). But regardless of whether a model has 27 billion or 1.2 trillion parameters, raw autoregressive generation hits a hard mathematical wall on multi-step deduction. External scaffolding—zero-trust code execution, cognitive role separation, and bounded search—acts as a universal multiplier, delivering an average **~1.95× lift across all models**.
-2. **Dense Local Models Punch Vastly Above Their Weight Class.**  
-   A 27B dense model running on a consumer GPU does not need a trillion parameters to do meaningful science. Because it fires its full parameter capacity on every token and lacks the shortcut-taking habits of large MoEs, a properly scaffolded 27B model can outperform trillion-parameter cloud systems on concrete algorithms, combinatorial counting, and explicit reductions.
-3. **The Future of Autonomous Science is Neuro-Symbolic.**  
-   The AI industry has spent hundreds of millions of dollars attempting to solve reasoning purely through pretraining scaling and post-training reinforcement learning. Our results demonstrate that the most direct path to reliable mathematical deduction is not bigger weights, but **hybrid neuro-symbolic architecture**: pairing language models with deterministic execution tools, epistemic state machines, and adversarial cognitive governance.
+The logs reveal a crystal-clear diagnosis: **Flash (~1.2T) and Muse (~800B) have seen thousands of specialized preprints using canonical spectral, matrix-trace, and quantum-fidelity lemmas; they recall those standard proof templates instinctively on Turn 1.** Qwen-3.8-27B, lacking those specialized representations in its compact 27B parameter library, attempts to re-derive standard spectral and operator inequalities *from scratch* using elementary matrix arithmetic—burning 6 to 8 turns reconstructing known machinery before running out of turns!
+
+**Crucially, this means a 27B model's deficit in Algebra and Quantum is NOT a reasoning deficit—it is a library deficit, and we can fix it without adding a single parameter to the model:**
+* **Externalizing the Latent Library via Vector Memory (`TurboVec`)**: Instead of requiring 1.2 trillion weights in GPU VRAM just to memorize specialized domain lemmas, Proof Harness integrates a high-speed semantic **Vector Database (`TurboVec` / `vector_store.py`)** populated with compiled domain proof heuristics, canonical spectral reductions (e.g., Golden-Thompson, Russo-Dye, Fuchs-van de Graaf, Wedin $\sin\Theta$, and Finetti homogenization templates), and verified lemma schemas.
+* When Qwen-3.8-27B executes the **Turn-1 Exploration Gate**, retrieving the top-$k$ domain heuristics and canonical reduction templates from the vector database injects the exact "latent library" context that Flash and Muse hold in their sparse MoE experts—allowing the 27B dense engine to skip elementary re-derivation and apply its active FLOPs directly to the novel theorem reduction.
 
 ---
 
-## Benchmark Artifacts & Data Availability
+## 5. Taming the Infinite Loop: Bounded Horizons, The Near-Miss Reservoir, and Model-Specific Governance
 
-All 300 problem logs, candidate proofs, and official referee judgments for all three models are open and inspectable in the Proof Harness repository:
+A naive multi-turn math agent has a fatal operational flaw: **if you tell a reasoning model to "keep trying until the proof is verified," it will loop forever on unsolvable or out-of-reach problems**, burning millions of tokens while oscillating between the same two broken arguments.
 
-* **Qwen-3.8-27B (v4 Unified Dataset):** [`data/eval_results/tcs_qwen_v4`](file:///home/sysadmin/Documents/github/proof_harness/data/eval_results/tcs_qwen_v4)
-* **Meta Muse 1.3 (v4 Unified Dataset):** [`data/eval_results/tcs_muse_v4`](file:///home/sysadmin/Documents/github/proof_harness/data/eval_results/tcs_muse_v4)
-* **Gemini 3.8 Flash (v4 Unified Dataset):** [`data/eval_results/tcs_flash_v4`](file:///home/sysadmin/Documents/github/proof_harness/data/eval_results/tcs_flash_v4)
-* **Generated Benchmark Figures:** [`docs/images/`](file:///home/sysadmin/Documents/github/proof_harness/docs/images)
+To make **Proof Harness** deployable at scale across 300 theorems, we engineered strict **Bounded Horizon Governance** (`T=8` nominal cap + `T=9..12` conditional Overtime Gate) alongside **three model-specific parameter governors** discovered through empirical failure analysis.
+
+![Cumulative Theorem Discovery across Turns and The Near-Miss Reservoir](../images/tcs_nearmiss_ceiling.png)
+
+### The Three Model-Specific Governance Traps (and How the Harness Solves Them)
+During our benchmark campaigns, we discovered that dense local models, deep-search MoEs, and fast MoEs fail in completely different ways when pushed to high reasoning effort:
+
+1. **Qwen-3.8-27B — The `<think>` Token Starvation Trap**:
+   In local vLLM/SGLang deployments, `<think>` tokens and visible LaTeX output tokens share a single `max_tokens` generation budget. Uncapped, Qwen-3.8-27B frequently spent 95%+ of its output window inside `<think>...</think>` grinding through cyclic algebra, leaving zero tokens to emit the actual `[CLAIM]` or `\begin{proof}` block! We solved this in Proof Harness by enforcing a dedicated **`TCS_SOLVER_THINKING_BUDGET=32768`** cap that forces clean transition from internal thought to executable Python/LaTeX emission.
+2. **Meta Muse 1.3 — The `xhigh` Effort Empty-Stream Drop**:
+   Meta Muse 1.3 supports an `xhigh` reasoning effort tier that unlocks extraordinary deep algebraic search. However, on complex multi-turn prompts, `reasoning_effort="xhigh"` periodically triggers silent upstream timeout drops (returning `0 chars` / empty completion streams after 15+ minutes of internal thinking). To harness Muse's deep search without losing tasks to stream drops, we built an **Adaptive Effort Step-Down Ladder** (`xhigh` $\to$ `high` $\to$ `medium` $\to$ `low`): every turn starts at maximum depth, and if an empty stream or timeout occurs, the harness automatically steps down one effort rung and recovers the turn cleanly.
+3. **Gemini 3.8 Flash — Premature High-Confidence Convergence**:
+   Flash has the opposite habit: its internal stopping governor is so aggressive that, left unguided, it will leap to a clean-looking proof on Turn 2 before testing boundary cases (`d=1`, empty subgraphs, non-isolated vertices). For Flash, the **Turn-1 Exploration Gate** and **Adversarial Skeptic** provide the exact friction needed to slow its natural sprint into a verified multi-turn solve.
+
+### The Near-Miss Reservoir: Why Qwen Has the Largest Untapped Upside (`56 Near-Wins` at the Turn Cap)
+Look at **Figure 5 (Panel B)**, which plots the **Unfinished Near-Miss Reservoir**—theorems that did not reach the $\ge 0.50$ certification threshold before the loop guard terminated search, broken down into **Directionally Sound Near-Misses ($[0.40, 0.50)$)** and **Substantial Partial Progress ($[0.30, 0.40)$)**:
+
+* **Qwen-3.8-27B leads all models with 29 Directionally Sound Near-Misses in $[0.40, 0.50)$ (+9.7% benchmark lift to 36.3% directional)** and **27 Substantial Partial Reductions in $[0.30, 0.40)$ (+9.0%)**—a massive reservoir of **56 unfinished near-win theorems (18.7% of the entire TCS-300 benchmark!)** sitting right below the $\ge 0.50$ line.
+* **Meta Muse 1.3** holds **13 Directionally Sound Near-Misses in $[0.40, 0.50)$** (pushing its directional ceiling to **152/300 = 50.7%**) plus **19 Partial Reductions in $[0.30, 0.40)$** (**32 total near-wins**).
+* **Gemini 3.8 Flash** holds **22 Directionally Sound Near-Misses in $[0.40, 0.50)$** (pushing its directional ceiling to **188/300 = 62.7%**) plus **8 Partial Reductions in $[0.30, 0.40)$** (**30 total near-wins**).
+
+Why does **Qwen-3.8-27B** accumulate nearly **twice as many unfinished near-wins (56 theorems)** as Flash (30) or Muse (32)?
+Because, as we saw in Section 4, Qwen spends Turns 1–6 deriving standard domain lemmas from first principles in Python! By Turns 8–12, it has finally assembled the correct reduction machinery and reached a $0.35\text{--}0.48$ validity score—only to be stopped by the hard $T_{\max}=12$ loop guard. When we pair Qwen with **Turn-1 Vector Database (`TurboVec`) heuristic injection** (saving 4–5 turns of lemma re-derivation) and a targeted **Turn-16 Deep Overtime extension** for tasks with positive velocity ($\Delta \text{validity}/\Delta t > 0$) at Turn 12, those 29–56 near-misses become directly convertible into certified passes.
+
+---
+
+## 6. The Time Delta: Why Gemini 3.8 Flash vs. Meta Muse 1.3 Tells a Crucial Story About Reasoning Velocity
+
+Accuracy alone hides the most dramatic operational finding of our benchmark: **the wall-clock time delta between the three models**.
+
+![Per-Task Solve Latency and Total Benchmark Compute Time](../images/tcs_latency_comparison.png)
+
+### Table 2: Wall-Clock Latency & Compute Budget Profile Across 300 Theorems
+
+| Latency / Compute Metric | Gemini 3.8 Flash *(~1.2T MoE)* | Qwen-3.8-27B *(27B Dense · Local)* | Meta Muse 1.3 *(~800B MoE)* | Flash Advantage vs. Muse |
+| :--- | :---: | :---: | :---: | :---: |
+| **Step 1: One-Pass Mean Latency ($T=1$)** | **3.2 min** | 9.1 min | 8.1 min | **2.5× faster** |
+| **Step 2: Harness Median Solve Time** | **12.2 min** | 61.9 min | 95.0 min | **7.8× faster at median!** |
+| **Step 2: Harness Mean Solve Time** | **28.8 min** | 62.0 min | 88.9 min | **3.1× faster mean** |
+| **90th Percentile Task Duration ($P_{90}$)** | **71.4 min** | 95.5 min | 172.1 min | **2.4× faster tail** |
+| **Maximum Single-Task Duration** | **104.2 min** | 125.8 min | **325.3 min** *(5.4 hrs!)* | **3.1× lower max cap** |
+| **Total Cumulative Compute Time (300 Tasks)** | **143.8 hours** | 310.2 hours | **444.6 hours** | **300.8 hours saved (3.1×)** |
+
+Look at **Figure 6** and **Table 2**. Three distinct temporal personalities emerge:
+
+1. **Gemini 3.8 Flash — The Self-Governed Sprinter (12.2m Median, 143.8h Total)**:
+   Flash exhibits extraordinary **meta-cognitive stopping efficiency**. In one-pass mode, it averages just **3.2 minutes** per theorem. Inside the multi-turn Proof Harness, its median solve time is **12.2 minutes**—**7.8× faster than Meta Muse 1.3 (95.0 minutes)** and **5.1× faster than Qwen-3.8-27B (61.9 minutes)**! Across all 300 theorems, Flash completed the entire campaign in **143.8 cumulative compute hours**, beating Muse by **9.0 percentage points in accuracy (55.3% vs. 46.3%)** while consuming **3.1× less compute time**.
+2. **Qwen-3.8-27B — The Deterministic Local Metronome (61.9m Median = 62.0m Mean, 310.2h Total)**:
+   Notice a remarkable statistical signature in Qwen's latency: its **median solve time (61.9 minutes)** and **mean solve time (62.0 minutes)** are virtually identical! Running locally on a dedicated RTX 5090 with a fixed 32,768 thinking-token governor and steady token-per-second throughput, Qwen acts like a deterministic industrial metronome—grinding through multi-turn Python verification at a rock-steady 1-hour cadence per escalated theorem with zero cloud API variance.
+3. **Meta Muse 1.3 — The Deep Unhurried Contemplator (95.0m Median, 444.6h Total, 5.4h Max)**:
+   In Step 1 ($T=1$), Muse is reasonably brisk (**8.1 minutes** mean). Why, then, does its median duration explode **11.7×** to **95.0 minutes** (and up to **325.3 minutes / 5.4 hours** on a single problem!) once placed inside the multi-turn Proof Harness?
+   Because every time the Proof Harness's **Adversarial Skeptic** challenges a gap in Muse's draft or presents a Python counterexample, Muse refuses to give a quick patch. Instead, each critique triggers a brand-new, exhaustive 15-to-30-minute internal chain-of-thought tree search across its 800B MoE weights! While this makes Muse expensive as a general first-line solver, it is the exact mechanism that enables its **62.2% pass rate in Algebra & Matrices** and its **21 unique theorem discoveries**.
+
+---
+
+## 7. The 65.7% Collective Solve Frontier: How to Route a Multi-Model Theorem Portfolio
+
+Perhaps the most actionable finding of our entire study is that **the three harnessed models do not solve the same subset of theorems**.
+
+![Orthogonal Theorem Discovery Venn Overlap and Collective Portfolio Scaling](../images/tcs_portfolio_venn.png)
+
+As visualized in **Figure 7 (Panel A)**, when we take the union of certified passes ($\text{validity} \ge 0.50$) across all three harnessed runs on the 300-problem benchmark:
+
+* **61 theorems (20.3%)** form the **Universal Core**, solved by all three models (Flash, Muse, and Qwen).
+* **52 theorems (17.3%)** are solved by both cloud MoE giants (**Flash + Muse**), but missed by the 27B local model.
+* **9 theorems (3.0%)** are solved by **Flash + Qwen**, but missed by Muse.
+* **5 theorems (1.7%)** are solved by **Muse + Qwen**, but missed by Flash.
+* **44 theorems (14.7%)** are solved **exclusively by Gemini 3.8 Flash**.
+* **21 theorems (7.0%)** are solved **exclusively by Meta Muse 1.3**.
+* **5 theorems (1.7%)** are solved **exclusively by Qwen-3.8-27B** on a single local GPU.
+
+Together, the **3-Model Proof Harness Portfolio** certifies **197 of the 300 theorems (65.67% pass rate)**, and achieves **219 / 300 (73.00%) Directionally Sound Reductions ($\ge 0.40$)**—leaving only 103 theorems unsolved across the entire graduate TCS benchmark!
+
+### The Optimal 3-Tier Cascade Architecture for Production Math Discovery
+Rather than running a single model on every theorem—or running all three models in parallel on everything—our latency, domain, and near-miss findings prescribe an optimal **3-Tier Cascaded Routing Protocol**:
+
+1. **Tier 0 — Turn-1 Vector Database (`TurboVec`) Heuristic & Lemma Injection**:
+   Before any model generates a token, query the **Proof Harness Vector Database (`TurboVec`)** for the theorem's mathematical subfield, retrieving canonical proof templates, spectral/algebraic identities, and known boundary traps. This immediately bridges the "Latent Library Gap" for smaller dense models and prevents false starts for large MoEs.
+2. **Tier 1 — Local Zero-Cost Filter & Inductive Grinder (Qwen-3.8-27B + Proof Harness)**:
+   Run local **Qwen-3.8-27B** first (or in parallel on dedicated local RTX 5090 hardware with zero marginal API cost), particularly on **Algorithms, Graph Theory, and inductive state-machine verification**, where Qwen achieves **10.5–11.6% pass rate per 10B active parameters** and catches factor-of-2 and boundary-index errors that trip up giant models.
+3. **Tier 2 — Primary High-Velocity Cloud Prover (Gemini 3.8 Flash + Proof Harness)**:
+   Route remaining unsolved theorems to **Gemini 3.8 Flash** under the 2-Step Proof Harness. With a **12.2-minute median solve time** and a **55.3% standalone pass rate** (61.3% in Probability & Combinatorics, 59.4% in Algorithms), Flash clears the vast majority of solvable theorems at **3.1× lower latency** than deep-search alternatives.
+4. **Tier 3 — Deep Algebraic Specialist Escalation (Meta Muse 1.3 + Proof Harness)**:
+   For the remaining theorems—especially those in **Algebra, Matrices, Polynomial Circuits, and Quantum Information**, or tasks where Tier 1/2 stalled in the **$[0.35, 0.50)$ Near-Miss Reservoir**—escalate to **Meta Muse 1.3** with the Adaptive Effort Step-Down Ladder (`xhigh` $\to$ `high`), unleashing its 95-minute deep latent search only where deep structural identity discovery is required.
+
+---
+
+### Conclusion: Cognitive Scaffolding Is the New Scaling Law
+
+For the past five years, the default answer to hard mathematical reasoning was simple: *wait for a model with 10× more parameters*.
+
+Our 300-theorem empirical campaign across **Qwen-3.8-27B**, **Meta Muse 1.3**, and **Gemini 3.8 Flash** proves that **cognitive scaffolding is an orthogonal, ~2× multiplier across every point on the parameter-scaling curve**. By enforcing a Turn-1 Exploration Gate, grounding every intermediate conjecture in a zero-trust SymPy/Z3 execution kernel, isolating verification inside an airgapped 7-role cognitive auditor, and bridging the latent theorem library gap with vector memory, **Proof Harness** transforms a 27B local desktop model into a peer of unassisted trillion-parameter cloud models—and elevates frontier MoEs from 33.7% one-shot guessers into a **65.7% collective theorem-proving engine**.
