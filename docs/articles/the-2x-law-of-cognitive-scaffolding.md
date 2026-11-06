@@ -10,9 +10,9 @@ In frontier mathematical reasoning—specifically **Theoretical Computer Science
 
 To test whether external **neuro-symbolic cognitive scaffolding** can fundamentally alter this scaling curve, we evaluated three starkly different architectures across the full **300-problem TCS-Bench suite** under two regimes: **Step 1 (Unassisted One-Pass Triage, $T=1$)** versus **Step 2 (Full Proof Harness Multi-Turn Loop, $T \le 12$)**:
 
-1. **Qwen-3.8-27B**: **27.0B parameters** (100% active per token, dense reasoning model).
-2. **Meta Muse 1.3**: **~800B–1T total parameters** (~45B–55B active per token), engineered for exhaustive, unhurried latent chain-of-thought search.
-3. **Gemini 3.8 Flash**: **~1.2T total parameters** (~35B–45B active per token), engineered for tightly self-governed reasoning velocity.
+1. **Qwen-3.8-27B**: **27.0B parameters** (100% active per token, open dense reasoning model).
+2. **Meta Muse 1.3**: Proprietary deep-thinking sparse MoE (exact weights undisclosed; industry estimates suggest **~800B–1T total parameters** with ~45B–55B active per token), engineered for exhaustive, unhurried latent chain-of-thought search.
+3. **Gemini 3.8 Flash**: High-velocity sparse MoE (exact weights undisclosed; industry consensus estimates **~1.2T total parameters** with ~35B–45B active per token), engineered for tightly self-governed reasoning velocity.
 
 Across all three architectures, wrapping the model in **Proof Harness** triggered an extraordinary, nearly uniform doubling of theorem-proving capability:
 
@@ -38,14 +38,15 @@ We designed a two-stage empirical funnel across all 300 problems in **TCS-Bench*
 
 ### Table 1: Canonical TCS-300 Benchmark Scorecard (Step 1 vs. Step 2 Unified v4)
 
-| Model Architecture | Total Params (Est.) | Active Params / Token | Step 1: 1-Pass ($T=1$) | Step 2: Harness Pass ($\ge 0.50$) | Harness Multiplier | Failure Recovery Rate* | Directionally Sound ($\ge 0.40$) | Near-Miss Reservoir $[0.30, 0.50)$ |
+| Model Architecture | Total Params (Est.)* | Active Params / Token* | Step 1: 1-Pass ($T=1$) | Step 2: Harness Pass ($\ge 0.50$) | Harness Multiplier | Failure Recovery Rate** | Directionally Sound ($\ge 0.40$) | Near-Miss Reservoir $[0.30, 0.50)$ |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Qwen-3.8-27B** *(Dense)* | **27.0B** *(Dense)* | **27.0B** *(100%)* | 12.67% *(38/300)* | **26.67%** *(80/300)* | **2.11×** *(+110.5%)* | **16.03%** *(42/262)* | **36.33%** *(109/300)* | **56 tasks** *(29 dir + 27 part)* |
-| **Meta Muse 1.3** *(Sparse MoE)* | **~800B–1T** *(MoE)* | **~45B–55B** *(~6%)* | 22.00% *(66/300)* | **46.33%** *(139/300)* | **2.11×** *(+110.6%)* | **31.20%** *(73/234)* | **50.67%** *(152/300)* | **32 tasks** *(13 dir + 19 part)* |
-| **Gemini 3.8 Flash** *(Sparse MoE)* | **~1.2T** *(MoE)* | **~35B–45B** *(~3.5%)* | 33.67% *(101/300)* | **55.33%** *(166/300)* | **1.64×** *(+64.4%)* | **32.66%** *(65/199)* | **62.67%** *(188/300)* | **30 tasks** *(22 dir + 8 part)* |
+| **Meta Muse 1.3** *(Sparse MoE)* | **~800B–1T** *(MoE, Est.)* | **~45B–55B** *(~6%)* | 22.00% *(66/300)* | **46.33%** *(139/300)* | **2.11×** *(+110.6%)* | **31.20%** *(73/234)* | **50.67%** *(152/300)* | **32 tasks** *(13 dir + 19 part)* |
+| **Gemini 3.8 Flash** *(Sparse MoE)* | **~1.2T** *(MoE, Est.)* | **~35B–45B** *(~3.5%)* | 33.67% *(101/300)* | **55.33%** *(166/300)* | **1.64×** *(+64.4%)* | **32.66%** *(65/199)* | **62.67%** *(188/300)* | **30 tasks** *(22 dir + 8 part)* |
 | **3-Model Portfolio Union** *(Ensemble)* | — | — | 41.33% *(124/300)* | **65.67%** *(197/300)* | **1.59×** *(+58.9%)* | **41.48%** *(73/176)* | **73.00%** *(219/300)* | — |
 
-*\*Note: **Failure Recovery Rate** measures the percentage of failed Step-1 theorems ($300 - \text{Pass}_{T=1}$) that the Proof Harness successfully rescues into certified passes ($\ge 0.50$) during Step 2.*
+*\*Note: Exact parameter counts and active routing budgets for Meta Muse 1.3 and Gemini 3.8 Flash are proprietary and not publicly disclosed; figures reported represent widely accepted community and architectural estimates based on MoE sizing and latency footprints.*
+*\*\*Note: **Failure Recovery Rate** measures the percentage of failed Step-1 theorems ($300 - \text{Pass}_{T=1}$) that the Proof Harness successfully rescues into certified passes ($\ge 0.50$) during Step 2.*
 
 Look closely at the **Failure Recovery Rate** column in Table 1. At first glance, Gemini 3.8 Flash's headline multiplier (**1.64×**) appears smaller than Qwen's (**2.11×**) or Muse's (**2.11×**). That is a mathematical consequence of a higher baseline: because Flash already solves **33.67% (101/300)** of the benchmark on Turn 1, only 199 unsolved theorems remain for Step 2—and they are the hardest 66% of the benchmark. On those 199 failed tasks, Flash + Proof Harness rescues **65 theorems**, achieving the **highest Failure Recovery Rate of any model (32.66%)**, slightly edging out Meta Muse 1.3 (**31.20%**, 73/234 rescued) and doubling Qwen-3.8-27B (**16.03%**, 42/262 rescued).
 
@@ -74,22 +75,22 @@ As illustrated in **Figure 2**, Proof Harness breaks autoregressive lock-in by s
 
 ## 3. Dense vs. Sparse MoE: The Three Forces Governing Mathematical Proving
 
-One of the most striking questions in our benchmark is how **Qwen-3.8-27B**—a dense model with 27 billion parameters—manages to achieve the exact same **2.11× harness multiplier** as **Meta Muse 1.3** (~800B MoE), and why Qwen's full-harness pass rate (**26.67%**, or **36.33%** directional) surpasses Meta Muse's one-pass baseline (**22.00%**) and closes in on Gemini 3.8 Flash's one-pass baseline (**33.67%**).
+One of the most striking questions in our benchmark is how **Qwen-3.8-27B**—a dense model with 27 billion parameters—manages to achieve the exact same **2.11× harness multiplier** as **Meta Muse 1.3** (estimated at ~800B MoE), and why Qwen's full-harness pass rate (**26.67%**, or **36.33%** directional) surpasses Meta Muse's one-pass baseline (**22.00%**) and closes in on Gemini 3.8 Flash's one-pass baseline (**33.67%**).
 
 To understand why, we must decompose a model's mathematical capability into **three distinct physical forces**—and examine a striking empirical phenomenon we uncovered in the logs: **The Verbosity Paradox**.
 
 ![The Three Forces Governing Mathematical Proving and The Verbosity Paradox](../images/tcs_three_forces_triad.png)
 
 ### Force 1: Total Parameters = The Latent Theorem Library (Governs Step-1 Floor)
-In a Mixture-of-Experts (MoE) model like **Gemini 3.8 Flash (~1.2T total)** or **Meta Muse 1.3 (~800B total)**, the vast majority of parameters are inactive on any single token, serving as a **massive distributed memory bank** of specialized mathematical literature. When presented with a theorem on multilinear algebraic circuits or quantum channel fidelity on Turn 1, a 1.2T MoE has likely encoded the exact canonical reduction template during pretraining. Consequently, **Total Parameters govern the Step-1 Zero-Shot Floor**:
-* **Gemini 3.8 Flash (~1.2T MoE)**: **33.67%** one-pass accuracy (101/300).
-* **Meta Muse 1.3 (~800B MoE)**: **22.00%** one-pass accuracy (66/300).
+In a Mixture-of-Experts (MoE) model like **Gemini 3.8 Flash (estimated at ~1.2T total)** or **Meta Muse 1.3 (estimated at ~800B total)**, the vast majority of parameters are inactive on any single token, serving as a **massive distributed memory bank** of specialized mathematical literature. (While proprietary providers do not disclose exact parameter counts, empirical FLOP-latency and expert routing analyses consistently point to trillion-parameter class architectures). When presented with a theorem on multilinear algebraic circuits or quantum channel fidelity on Turn 1, a massive MoE has likely encoded the exact canonical reduction template during pretraining. Consequently, **Total Parameters govern the Step-1 Zero-Shot Floor**:
+* **Gemini 3.8 Flash (~1.2T MoE, Est.)**: **33.67%** one-pass accuracy (101/300).
+* **Meta Muse 1.3 (~800B MoE, Est.)**: **22.00%** one-pass accuracy (66/300).
 * **Qwen-3.8-27B (27B Dense)**: **12.67%** one-pass accuracy (38/300).
 
 ### Force 2: Active Parameters per Token = The Per-Step Deductive Engine (Governs Step-2 Lift)
 Once a problem fails Step 1 and enters the multi-turn **Proof Harness**, the game changes from *memorized template recall* to *iterative symbolic deduction*. Here, the relevant metric is no longer total stored weights, but **Active Parameters executed per token**:
-* **Gemini 3.8 Flash**: ~35B–45B active parameters per token.
-* **Meta Muse 1.3**: ~45B–55B active parameters per token.
+* **Gemini 3.8 Flash**: ~35B–45B estimated active parameters per token.
+* **Meta Muse 1.3**: ~45B–55B estimated active parameters per token.
 * **Qwen-3.8-27B**: **27.0B active parameters per token** (100% dense activation).
 
 Despite being ~30× to 45× smaller in *total* parameter count, Qwen-3.8-27B operates at **~55% to 65% active-compute parity** with the cloud MoE giants on every generated token! When the Proof Harness offloads symbolic grinding to SymPy/Z3 and enforces step-by-step invariant checking, 27 billion dense active parameters are more than sufficient to execute rigorous multi-turn deductive chains.
