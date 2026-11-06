@@ -12,26 +12,24 @@ Autonomous reasoning systems tackling research-level mathematics face three foun
 3. **The Configurable Bounded Constraint & Human-in-the-Loop Governance Engine (`compactor.py`, `core_engine/prover.py`, `core_engine/prover_auditor.py`, `core_engine/judging/`)**: Mathematical reasoning is treated as a **strictly bounded, adversarial search under resource limits**. The harness prevents models from thinking indefinitely through fully configurable spatial token leashes (calibrated reference defaults: `PROVER_COMPACTOR_MAX_CONTEXT_TOKENS=48000`, `PROVER_COMPACTOR_RESERVE_TOKENS=16000`), bounded cognitive thinking token budgets (`PROVER_THINKING_BUDGET=24576`, tunable to model verbosity), configurable iteration budgets (reference tournament: `PROVER_MAX_ITERATIONS=8`, Turns 1..8 Standard $\to$ Overtime Gate $\ge 0.35$ $\to$ Turns 9..12 Overtime $\to$ Forced Emission), in-the-loop adversarial auditing with score-gated repair routing (Surgical Repair for validity $\ge 0.40$, Early Acceptance for $\ge 0.70$), automated **anti-perseveration reductive pivots** (forcibly purging refuted mathematical premises from memory when an approach collapses), and **granular JSON checkpointing** (`checkpoints/*.ckpt.json`) that allows human researchers to inspect partial proofs on open problems, pause loss-free via SIGINT, and resume anytime with zero wasted compute.
 
 📄 **Technical Papers & Deep Dives:**
-- **The Art of Bounded Reasoning (Medium Deep-Dive):** [`docs/articles/stop-thinking-forever-the-architecture-of-bounded-mathematical-reasoning.md`](docs/articles/stop-thinking-forever-the-architecture-of-bounded-mathematical-reasoning.md) (Why unconstrained reasoning models loop into multi-day black holes, how configurable constraints and reductive pivots force convergence, and orchestrating human-in-the-loop oversight on open research problems)
-- **Taming the Reasoners Benchmark Article:** [`docs/articles/taming-the-reasoners-qwen-muse-flash-benchmark.md`](docs/articles/taming-the-reasoners-qwen-muse-flash-benchmark.md) (Empirical reasoning dynamics, token expenditure, and harness governance across Qwen-3.8-27B, Meta Muse 1.3, and Gemini 3.8 Flash)
-- **The Second Generation of Agent Harnesses:** [`docs/articles/the-second-generation-of-agent-harnesses.md`](docs/articles/the-second-generation-of-agent-harnesses.md) (Why frontier mathematical reasoning demands cognitive architecture, the data flywheel, and self-pruning procedural memory)
-- **Frontier Physics Deep Dive:** [`docs/articles/from-spacetime-thermodynamics-to-open-quantum-horizons.md`](docs/articles/from-spacetime-thermodynamics-to-open-quantum-horizons.md) (Autonomous discovery, Casini/Wall/Bousso QNEC heuristics, and solving open AQFT horizon problems)
-- **Technical Report:** [`docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md`](docs/articles/arxiv-prime-math-neuro-symbolic-prover-harness.md)
-- **Engineering Deep Dive:** [`docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md`](docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md)
+- **Flagship Benchmark Article:** [`docs/articles/the-2x-law-of-cognitive-scaffolding.md`](docs/articles/the-2x-law-of-cognitive-scaffolding.md) (*Scale the Model, Scale the Harness: Unlocking a 2× Leap in Mathematical Reasoning* — Empirical scaling dynamics, error-reduction cuts, and harness multipliers across Qwen-3.8-27B, Meta Muse 1.3, and Gemini 3.8 Flash on TCS-300)
+- **The Architecture of Bounded Reasoning:** [`docs/articles/stop-thinking-forever-the-architecture-of-bounded-mathematical-reasoning.md`](docs/articles/stop-thinking-forever-the-architecture-of-bounded-mathematical-reasoning.md) (*Stop Thinking Forever: The Architecture of Bounded Mathematical Reasoning* — Why unconstrained reasoning models loop into multi-day black holes, how configurable constraints and reductive pivots force convergence, and orchestrating human-in-the-loop oversight on open research problems)
+- **Deterministic Kernel Architecture:** [`docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md`](docs/articles/how-an-agent-harness-unlocks-llm-math-reasoning.md) (*How an Agent Harness Unlocks LLM Mathematical Reasoning* — Engineering walk-through of the zero-trust Python/SymPy/Z3 execution kernel, continuous heuristic memory, and local 27B model deployment)
 
 ---
 
 ## 🏆 Headline Benchmark Results: TCS-Bench (N = 300)
 
-Evaluated across **300 research-level problems from TCS-Bench** (arXiv Theoretical Computer Science preprints, [arXiv:2608.09538](https://arxiv.org/abs/2608.09538)). All baseline and harness attempts have individual recorded validation logs and referee judgments on disk:
+Evaluated across **300 research-level problems from TCS-Bench** (arXiv Theoretical Computer Science preprints, [arXiv:2608.09538](https://arxiv.org/abs/2608.09538)). Every baseline and harness attempt has individual recorded validation logs and referee judgments in `data/eval_results/`:
 
-| Model & Evaluation Paradigm | Certified Sound Pass (≥ 0.50)<br>Grade B & Above | Directionally Sound (≥ 0.40)<br>Grade C & Above | Proof Emission Yield | Pass Multiplier vs. Unassisted Baseline |
-| :--- | :---: | :---: | :---: | :---: |
-| **Meta Muse Spark 1.3 — Unassisted One-Shot ($T=1$)** | 66 / 300 (**22.00%**) | 78 / 300 (**26.00%**) | 114 / 300 (38.00%) | 1.00× |
-| **Meta Muse Spark 1.3 — Standalone Agent Harness ($T \le 12$)** | 124 / 297 (**41.75%**) | 138 / 297 (**46.46%**) | 263 / 297 (88.55%) | **1.90× (+89.8% rel)** |
-| **Meta Muse Spark 1.3 — 2-Step Funnel (One-Shot + Harness Union)** | **133 / 300** (**44.33%**) | **146 / 300** (**48.67%**) | **272 / 300 (90.67%)** | **2.02× (+101.5% rel)** |
-| *Qwen 2.5-Math-27B — Unassisted One-Shot ($T=1$)* | 10 / 300 (**3.33%**) | 18 / 300 (**6.00%**) | 68 / 300 (22.67%) | 1.00× |
-| *Qwen 2.5-Math-27B — Full Proof Harness ($T \le 12$)* | 76 / 300 (**25.33%**) | 89 / 300 (**29.67%**) | 241 / 300 (80.33%) | **7.60× (+660% rel)** |
+| Model Architecture | Step 1: 1-Pass<br>Certified (≥ 0.50) | Step 1: 1-Pass<br>Directional (≥ 0.40) | Step 2: Harness<br>Pass (≥ 0.50) | Harness<br>Multiplier | Unsolved Problems<br>Reduced (Error Cut)* | Step 2: Directionally<br>Sound (≥ 0.40) | Near-Miss<br>Reservoir [0.30, 0.50) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Qwen-3.8-27B** *(Dense, 27B)* | 12.67% *(38/300)* | 18.00% *(54/300)* | **26.67%** *(80/300)* | **2.11×** *(+110.5%)* | **16.03%** *(42 / 262 cut)* | **36.33%** *(109/300)* | **56 tasks** *(29 dir + 27 part)* |
+| **Meta Muse 1.3** *(Sparse MoE)* | 22.00% *(66/300)* | 26.00% *(78/300)* | **46.33%** *(139/300)* | **2.11×** *(+110.6%)* | **31.20%** *(73 / 234 cut)* | **50.67%** *(152/300)* | **32 tasks** *(13 dir + 19 part)* |
+| **Gemini 3.8 Flash** *(Sparse MoE)* | 33.67% *(101/300)* | 39.67% *(119/300)* | **55.33%** *(166/300)* | **1.64×** *(+64.4%)* | **32.66%** *(65 / 199 cut)* | **62.67%** *(188/300)* | **30 tasks** *(22 dir + 8 part)* |
+| **3-Model Oracle Portfolio Union** | **41.33%** *(124/300)* | **48.33%** *(145/300)* | **65.67%** *(197/300)* | **1.59×** *(+58.9%)* | **41.48%** *(73 / 176 cut)* | **73.00%** *(219/300)* | — |
+
+*\*Note: **Unsolved Problems Reduced (Error Cut)** measures the percentage of Step-1 failures (300 − One-Pass Solved) rescued into certified passes ($\ge 0.50$) during Step 2.*
 
 ---
 
@@ -71,7 +69,7 @@ Starting with production benchmark runs, Proof-Harness adopts a **2-Step Evaluat
 #### Why the 2-Step Funnel is Essential:
 1. **Massive Compute Efficiency**: Models routinely solve 20–25% of theorems on the very first turn. Locking those in immediately eliminates running dozens of redundant 12-turn agent iterations, saving over 80+ hours of compute per 300-problem evaluation run.
 2. **Mitigates Multi-Turn Revision Drift**: Frontier models can occasionally discover a near-perfect proof on Turn 1 ($T=1$), only for an overly aggressive internal referee or skeptic in Turns 2–12 to suggest unnecessary revisions that degrade bounds or hit max-turn limits. On Meta Muse Spark 1.3, Step 1 preserved **9 additional certified proofs** (e.g. median validities $\ge 0.85$–$0.95$) that drifted in a standalone multi-turn run.
-3. **Reflects the True Capability Frontier**: Combining Step 1 triage with Step 2 deep reasoning captures both raw zero-shot capability and complex multi-turn error correction, driving Meta Muse Spark 1.3 to **133 / 300 (44.33%) certified passes** and **146 / 300 (48.67%) directionally sound proofs**.
+3. **Reflects the True Capability Frontier**: Combining Step 1 triage with Step 2 deep reasoning captures both raw zero-shot capability and complex multi-turn error correction, driving Meta Muse 1.3 to **139 / 300 (46.33%) certified passes** (152 / 300 directionally sound), Gemini 3.8 Flash to **166 / 300 (55.33%) certified passes** (188 / 300 directionally sound), and the 3-model portfolio union to **197 / 300 (65.67%) certified passes** (219 / 300 directionally sound).
 
 #### Shared Logs & Run Directory Architecture (`--prove-dir`)
 By default, Step 1 and Step 2 share the **exact same run directory** (`--prove-dir data/eval_results/tcs_<model>_v1`):
@@ -91,7 +89,7 @@ Evaluated across mathematical physics and Algebraic Quantum Field Theory (AQFT) 
 | **`task_2510.24491_statement_01_01`** | **Dorau & Much (2026)**: *Modular Flow on Null Hypersurfaces* | Proves that the modular Hamiltonian on null Cauchy surfaces generates local geometric translations $K_V = 2\pi \int H_V(x) T_{uu}(x) d\Sigma$ under local algebra inclusions. | Turn 8<br>(2,816.8s) | **0.76 / 1.00** | **PASS (Certified Sound)** |
 | **`task_2510.24491_open_01_01`** | **Open Frontier Problem**: *General Hadamard Modular Invariance* | Deep autonomous 50-turn exploration of the modular obstruction across general Hadamard states, deriving iso-entropic conditions ($\Delta S_{\mathrm{ent}} = 0$) and integrating Quantum Null Energy Condition (QNEC) boundary tensor corrections. | 50-turn deep search | Checkpointed | **Active Exploration** |
 
-- **Physics Suite Baseline Pass Rate:** **2 / 2 (100.0%)** recorded in `data/eval_results/physics_qwen_solved_v1/pipeline_metrics.json`.
+- **Physics Suite Baseline Pass Rate:** **2 / 2 (100.0%)** recorded in `archive/eval_results_archive/physics_qwen_solved_v1/pipeline_metrics.json`.
 - **Domain Memory Specialization:** Evaluated using dedicated `physics_procedural` memory partition (`--domain physics`), harvesting frontier heuristics from Casini (2008), Faulkner et al. (2014), Wall (2012), Bousso et al. (2014), and Ciolli–Longo–Ruzzi (2021).
 
 ---
@@ -383,9 +381,8 @@ proof_harness/
 │   └── tcs_bench_leakage_audit.py
 ├── docs/
 │   ├── articles/                    # Technical papers & deep-dive engineering articles
-│   │   ├── the-second-generation-of-agent-harnesses.md
-│   │   ├── from-spacetime-thermodynamics-to-open-quantum-horizons.md
-│   │   ├── arxiv-prime-math-neuro-symbolic-prover-harness.md
+│   │   ├── the-2x-law-of-cognitive-scaffolding.md
+│   │   ├── stop-thinking-forever-the-architecture-of-bounded-mathematical-reasoning.md
 │   │   └── how-an-agent-harness-unlocks-llm-math-reasoning.md
 │   └── adr/                         # Architecture Decision Records
 ├── data/                            # Benchmark suites (TCS-Bench, Physics, Open Problems 50, Euler)
@@ -606,8 +603,10 @@ While Proof-Harness's **CoALA Vector Memory** can be trained to specialize in an
 
 ## 📚 Academic References
 
-- **[Cognitive Architectures for Language Agents (CoALA)](https://arxiv.org/abs/2309.02427)** *(Sumers et al., Princeton NLP, TMLR 2023)*: The tripartite cognitive memory taxonomy (Working, Procedural, and Episodic Memory) extended in [`core_engine/memory.py`](core_engine/memory.py).
-- **[TCS-Bench (`arXiv:2608.09538`)](https://arxiv.org/abs/2608.09538)**: The 300-problem research-level Theoretical Computer Science benchmark suite.
+- **[Cognitive Architectures for Language Agents (CoALA)](https://arxiv.org/abs/2309.02427)** *(Sumers et al., Princeton University & Google DeepMind, 2023)*: The tripartite cognitive memory taxonomy (Working, Procedural, and Episodic Memory) extended in [`core_engine/memory.py`](core_engine/memory.py).
+- **[Prime Agent: A Self-Improving RLM Harness](https://arxiv.org/abs/2608.23552)** *(Prime Intellect with Princeton and MIT, August 2026, arXiv:2608.23552)*: Persistent Python REPL execution environments and procedural memory consolidation for long-horizon agentic task solving.
+- **[Towards Autonomous Mathematics Research](https://arxiv.org/abs/2602.10177)** *(Tony Feng, Trieu H. Trinh, Demis Hassabis, Thang Luong, et al., Google DeepMind, 2026, arXiv:2602.10177)*: Decoupled natural language verification, agentic harnesses (Aletheia), and inference-time scaling for research-level mathematics.
+- **[TCS-Bench](https://arxiv.org/abs/2608.09538)** *(arXiv:2608.09538)*: The 300-problem research-level Theoretical Computer Science benchmark suite.
 
 ---
 
