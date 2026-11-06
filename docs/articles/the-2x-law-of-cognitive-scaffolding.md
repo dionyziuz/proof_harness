@@ -163,15 +163,18 @@ How can a 27B dense model beat an 800B MoE and a 1.2T MoE on graduate TCS theore
 
 ---
 
-### Closing the "Latent Library Gap": Externalizing Proof Heuristics into our Vector Database (`TurboVec`)
+### Bridging the Knowledge Gap: Externalizing Proof Heuristics into Vector Memory (`TurboVec`)
 
 Why did Qwen-3.8-27B score **31.2%** in Algorithms and **28.4%** in Graph Theory, but drop to **21.6%** in Algebra/Matrices and **13.3%** in Quantum Information?
 
-The logs reveal a crystal-clear diagnosis: **Flash (~1.2T) and Muse (~800B) have seen thousands of specialized preprints using canonical spectral, matrix-trace, and quantum-fidelity lemmas; they recall those standard proof templates instinctively on Turn 1.** Qwen-3.8-27B, lacking those specialized representations in its compact 27B parameter library, attempts to re-derive standard spectral and operator inequalities *from scratch* using elementary matrix arithmetic—burning 6 to 8 turns reconstructing known machinery before running out of turns!
+Part of this gap naturally reflects differences in pretraining depth, architectural design, and raw model capability. Larger frontier models benefit from vast training corpora, sophisticated post-training, and deep RL optimizations that enhance their overall mathematical intuition.
 
-**Crucially, this means a 27B model's deficit in Algebra and Quantum is NOT a reasoning deficit—it is a library deficit, and we can fix it without adding a single parameter to the model:**
-* **Externalizing the Latent Library via Vector Memory (`TurboVec`)**: Instead of requiring 1.2 trillion weights in VRAM just to memorize specialized domain lemmas, Proof Harness integrates a high-speed semantic **Vector Database (`TurboVec` / `vector_store.py`)** populated with compiled domain proof heuristics, canonical spectral reductions (e.g., Golden-Thompson, Russo-Dye, Fuchs-van de Graaf, Wedin $\sin\Theta$, and Finetti homogenization templates), and verified lemma schemas.
-* When Qwen-3.8-27B executes the **Turn-1 Exploration Gate**, retrieving the top-$k$ domain heuristics and canonical reduction templates from the vector database injects the exact "latent library" context that Flash and Muse hold in their sparse MoE experts—allowing the 27B dense engine to skip elementary re-derivation and apply its active FLOPs directly to the novel theorem reduction.
+However, the proof trajectories point to another major contributing factor: **the latent library gap**. Flash and Muse frequently deploy specialized machinery on Turn 1—such as canonical spectral bounds, matrix-trace identities, and quantum-fidelity lemmas—that appear drawn directly from pretraining exposure to advanced literature. Qwen-3.8-27B, having a smaller parameter library, more frequently attempts to re-derive these standard lemmas *from scratch* using elementary matrix arithmetic—spending valuable turns reconstructing known machinery before running out of turn budget.
+
+While model scale and architecture certainly play a role, a model's familiarity with domain-specific lemma templates can be significantly augmented without modifying model weights:
+
+* **Externalizing Domain Heuristics via Vector Memory (`TurboVec`)**: To support smaller or less familiar models, Proof Harness integrates a semantic **Vector Database (`TurboVec` / `vector_store.py`)** populated with compiled domain proof heuristics, canonical reduction templates (e.g., Golden-Thompson, Russo-Dye, Fuchs-van de Graaf, Wedin $\sin\Theta$, and Finetti homogenization), and verified lemma schemas.
+* **Injecting Context at the Turn-1 Exploration Gate**: Retrieving relevant domain heuristics and standard reduction templates before the first derivation step equips the model with useful mathematical context, reducing the need to re-derive elementary tools and allowing the model to focus its reasoning budget directly on the novel aspects of the theorem.
 
 ---
 
