@@ -97,19 +97,19 @@ In unassisted Step 1, Qwen was hobbled not because its per-token reasoning was w
 2. **The Harness Structures the Deduction**: The 7-role cognitive pipeline breaks proof discovery into incremental, auditor-verified steps.
 3. **The Active Core Drives the Logic**: Freed from the need to have memorized every lemma in advance, Qwen's 27 billion active parameters are more than sufficient to execute rigorous logical steps—allowing it to match the exact same **2.11× harness multiplier** as the 800B MoE.
 
-### Force 3: Thinking Dynamics & The Verbosity Paradox (Sprawl vs. Scribe Compression)
-When we audited the character lengths of every candidate proof across Step 1 and Step 2 (shown in the right panel of **Figure 3**), we uncovered a counterintuitive law—**The Verbosity Paradox**:
+### Force 3: The Verbosity Paradox (Sprawl vs. Scribe Compression)
+When auditing proof lengths across Step 1 and Step 2, we uncovered a striking contrast in output behavior:
 
-| Model Architecture | Step 1 (1-Pass) Overall Avg Proof Length | Step 1 Passed Tasks Avg Length | Step 1 Failed Tasks Avg Length | Step 2 (Harness) Final Proof Avg Length | Step 2 Passed Tasks Avg Length |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Qwen-3.8-27B** *(27B Dense)* | **39,377 chars** | 9,383 chars | **43,727 chars** *(Sprawl!)* | **10,104 chars** | **10,420 chars** |
-| **Gemini 3.8 Flash** *(~1.2T MoE)* | **12,331 chars** | 12,165 chars | 12,415 chars | **13,462 chars** | **14,507 chars** |
-| **Meta Muse 1.3** *(~800B MoE)* | **6,657 chars** | 6,625 chars | 6,666 chars | **6,879 chars** | **7,118 chars** |
+| Model Architecture | Step 1 (1-Pass) Avg Proof | Step 2 (Harness) Avg Proof | Compression Effect |
+| :--- | :---: | :---: | :---: |
+| **Qwen-3.8-27B** *(Dense)* | **~9,800 tokens** *(Sprawl on failures: ~10.9k)* | **~2,500 tokens** | **~4× reduction** (tight synthesis) |
+| **Gemini 3.8 Flash** *(MoE)* | **~3,000 tokens** | **~3,400 tokens** | **Modular paper format** |
+| **Meta Muse 1.3** *(MoE)* | **~1,700 tokens** | **~1,700 tokens** | **Compact abstract** |
 
-Look at Qwen-3.8-27B's numbers in Step 1 versus Step 2:
-* In **Unassisted One-Pass ($T=1$)**, when Qwen knows a proof (its 38 passed tasks), it writes a clean **9,383-character** argument. But on the **262 tasks where it fails**, unassisted Qwen spirals into **43,727 characters** of repetitive manual casework, attempting to brute-force algebraic expansions in raw text until it exhausts its context window!
-* When wrapped in **Proof Harness (Step 2)**, Qwen's average final proof length drops nearly **4×**, down to a crisp **10,104 characters** (**10,420 chars** on passed tasks), while its pass rate **doubles from 12.7% to 26.7%**! Why? Because the harness forces Qwen to offload brute-force algebra into short Python/SymPy scripts during turns 2–7, and then invokes the **Publication Scribe** on the final turn to synthesize only the verified lemmas into a tight, self-contained LaTeX proof.
-* Conversely, **Meta Muse 1.3** does almost all of its heavy exploration silently inside its hidden chain-of-thought tokens (spending a median of 95 minutes per problem in internal search) and emits compact **6,879-character** final proofs, whereas **Gemini 3.8 Flash** writes highly modular **13,462-character** proofs structured around explicit `\begin{lemma}...\end{lemma}` decomposition blocks.
+Look at Qwen-3.8-27B's numbers:
+* In **Unassisted One-Pass ($T=1$)**, when Qwen fails, it spirals into **~11,000 tokens** of repetitive manual casework, attempting to brute-force expansions in raw text until it exhausts its context window.
+* In **Proof Harness (Step 2)**, Qwen's final proof drops **4× down to ~2,500 tokens**, while its pass rate **doubles from 12.7% to 26.7%**. The harness offloads calculation to Python during intermediate turns, letting the final Scribe emit only verified, concise arguments.
+* Conversely, **Meta Muse 1.3** does its exploration internally during thinking time and emits dense, **~1,700-token** proofs, while **Gemini 3.8 Flash** produces modular, **~3,400-token** proofs structured with clean lemma blocks.
 
 ---
 
@@ -194,7 +194,7 @@ During our benchmark campaigns, we discovered that dense models, deep-search MoE
 1. **Qwen-3.8-27B — The `<think>` Token Starvation Trap**:
    In vLLM/SGLang deployments, `<think>` tokens and visible LaTeX output tokens share a single `max_tokens` generation budget. Uncapped, Qwen-3.8-27B frequently spent 95%+ of its output window inside `<think>...</think>` grinding through cyclic algebra, leaving zero tokens to emit the actual `[CLAIM]` or `\begin{proof}` block! We solved this in Proof Harness by enforcing a dedicated **`TCS_SOLVER_THINKING_BUDGET=32768`** cap that forces clean transition from internal thought to executable Python/LaTeX emission.
 2. **Meta Muse 1.3 — The `xhigh` Effort Empty-Stream Drop**:
-   Meta Muse 1.3 supports an `xhigh` reasoning effort tier that unlocks extraordinary deep algebraic search. However, on complex multi-turn prompts, `reasoning_effort="xhigh"` periodically triggers silent upstream timeout drops (returning `0 chars` / empty completion streams after 15+ minutes of internal thinking). To harness Muse's deep search without losing tasks to stream drops, we built an **Adaptive Effort Step-Down Ladder** (`xhigh` $\to$ `high` $\to$ `medium` $\to$ `low`): every turn starts at maximum depth, and if an empty stream or timeout occurs, the harness automatically steps down one effort rung and recovers the turn cleanly.
+   Meta Muse 1.3 supports an `xhigh` reasoning effort tier that unlocks extraordinary deep algebraic search. However, on complex multi-turn prompts, `reasoning_effort="xhigh"` periodically triggers silent upstream timeout drops (returning empty completion streams after 15+ minutes of internal thinking). To harness Muse's deep search without losing tasks to stream drops, we built an **Adaptive Effort Step-Down Ladder** (`xhigh` $\to$ `high` $\to$ `medium` $\to$ `low`): every turn starts at maximum depth, and if an empty stream or timeout occurs, the harness automatically steps down one effort rung and recovers the turn cleanly.
 3. **Gemini 3.8 Flash — Premature High-Confidence Convergence**:
    Flash has the opposite habit: its internal stopping governor is so aggressive that, left unguided, it will leap to a clean-looking proof on Turn 2 before testing boundary cases (`d=1`, empty subgraphs, non-isolated vertices). For Flash, the **Turn-1 Exploration Gate** and **Adversarial Skeptic** provide the exact friction needed to slow its natural sprint into a verified multi-turn solve.
 
