@@ -175,9 +175,13 @@ def test_sse_error_event_retryable_is_retried_then_succeeds(monkeypatch):
 def test_no_retry_on_non_retryable_4xx_stream_collect(monkeypatch, status):
     rec = _Recorder(monkeypatch, lambda req: httpx.Response(status, json={"error": "nope"}))
     client = TunnelThinkingClient(config=_cfg())
-    with pytest.raises(httpx.HTTPStatusError) as ei:
-        client.complete([{"role": "user", "content": "hi"}], max_retries=5)
-    assert ei.value.response.status_code == status
+    if status == 404:
+        with pytest.raises(RuntimeError, match="FATAL: Model not found or invalid endpoint"):
+            client.complete([{"role": "user", "content": "hi"}], max_retries=5)
+    else:
+        with pytest.raises(httpx.HTTPStatusError) as ei:
+            client.complete([{"role": "user", "content": "hi"}], max_retries=5)
+        assert ei.value.response.status_code == status
     assert len(rec.calls) == 1
 
 
@@ -339,7 +343,7 @@ def test_build_payload_thinking_budget_semantics():
 
     p = client._build_payload(msgs, 99, 0.0, True, 512, stream=True)
     assert p["max_tokens"] == 99 and p["temperature"] == 0.0
-    assert p["chat_template_kwargs"] == {"enable_thinking": True}
+    assert p["chat_template_kwargs"] == {"enable_thinking": True, "thinking_budget": 512}
     assert p["thinking_token_budget"] == 512 and p["thinking_budget_tokens"] == 512
     assert p["stream"] is True
 

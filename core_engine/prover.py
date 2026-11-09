@@ -41,6 +41,7 @@ logger = logging.getLogger("prime_math.prover")
 from .prover_types import (
     DEFAULT_LOG_PATH,
     CandidatePool,
+    CandidatePoolManager,
     CandidateRecord,
     ProofResult,
     THRESHOLDS,
@@ -58,8 +59,10 @@ from .prover_stages import (
 TCS_BENCH_SYSTEM_PROMPT = load_tcs_prompt("system")
 
 from .proof_extractor import (
+    extract_code_blocks,
     extract_latex_proof,
     is_valid_latex_proof,
+    recover_latex_proof,
     sanitize_informal_proof,
 )
 
@@ -250,23 +253,7 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
 
     def extract_code_blocks(self, text: str) -> List[str]:
         """Extracts python code blocks from markdown text, ignoring LaTeX/prose fences."""
-        explicit_pattern = r"```(?:python|py)\b[ \t]*\n(.*?)```"
-        blocks = [m.strip() for m in re.findall(explicit_pattern, text, flags=re.DOTALL) if m.strip()]
-        if blocks:
-            return blocks
-        # Fallback: check bare ``` ... ``` blocks only if they contain valid Python AST and no LaTeX proof environment
-        bare_pattern = r"```[ \t]*\n(.*?)```"
-        valid_bare: List[str] = []
-        for m in re.findall(bare_pattern, text, flags=re.DOTALL):
-            cand = m.strip()
-            if not cand or r"\begin{proof}" in cand or r"\end{proof}" in cand:
-                continue
-            try:
-                ast.parse(cand)
-                valid_bare.append(cand)
-            except SyntaxError:
-                continue
-        return valid_bare
+        return extract_code_blocks(text)
 
     def _log_write(self, text: str) -> None:
         """Appends text to the live thinking log file with immediate disk flush."""
@@ -1431,41 +1418,20 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                             or boundary_defect
                         )
                         structural_val = getattr(audit_res, "structural_validity", validity)
-                        best_stagnant_count = getattr(pool.best, "stagnant_revisions", 0) if pool.best else 0
-                        pool_has_viable_foundation = bool(
-                            pool.best
-                            and (
-                                pool.best.verdict == "VALID"
-                                or pool.best_validity >= THRESHOLDS.pivot_threshold
-                                or getattr(pool.best, "is_boundary_defect", False)
-                                or (
-                                    pool.best.has_substantive_structure
-                                    and pool.best.structural_validity >= 0.40
-                                    and rejection_count <= 2
-                                    and best_stagnant_count < 2
-                                )
-                            )
-                        )
+                        pool_has_viable_foundation = pool.has_viable_foundation(rejection_count=rejection_count)
                         is_improving = rejection_count >= 2 and (
                             validity > prev_rejected_validity + 0.05
                             or (rejection_count <= 2 and structural_val > prev_structural_validity + 0.05)
                         )
                         stagnation_pivot_turns = int(getattr(self.config, "stagnation_pivot_turns", 6) or 6)
-                        deep_stagnation_pivot = (
-                            not audit_inconclusive
-                            and not overtime_triggered_now
-                            and not boundary_defect
-                            and (current_max_turns - turn) >= 2
-                            and rejection_count >= stagnation_pivot_turns
-                            and best_stagnant_count >= max(2, stagnation_pivot_turns - 2)
-                            and not is_improving
-                            and (
-                                pool.best is None
-                                or (
-                                    pool.best.verdict != "VALID"
-                                    and pool.best_validity < THRESHOLDS.audit_verdict_floor
-                                )
-                            )
+                        deep_stagnation_pivot = pool.can_deep_stagnation_pivot(
+                            rejection_count=rejection_count,
+                            stagnation_pivot_turns=stagnation_pivot_turns,
+                            turns_remaining=current_max_turns - turn,
+                            is_improving=is_improving,
+                            boundary_defect=boundary_defect,
+                            overtime_triggered_now=overtime_triggered_now,
+                            audit_inconclusive=audit_inconclusive,
                         )
                         would_hard_pivot_raw = (not audit_inconclusive) and (
                             (validity <= THRESHOLDS.hard_pivot_floor)
@@ -1612,31 +1578,14 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
 
                         else:
                             # Best-Candidate Restoration for Overtime & Revision:
-                            # Restore pool.best when it is a VALID candidate (e.g. Task 18 at 0.78) or when a rejected candidate
-                            # has not yet exhausted its 2 surgical revision attempts (stagnant_revisions < 2).
-                            # Once a rejected candidate has stagnated for >= 2 revisions without improvement (e.g. Tasks 51 & 109),
-                            # stop overwriting the draft verbatim and direct the solver to prove the missing auxiliary bridging lemma.
-                            stagnant_rejected_loop = bool(
-                                pool.best
-                                and pool.best.verdict != "VALID"
-                                and getattr(pool.best, "stagnant_revisions", 0) >= 2
-                            )
-                            can_restore_best = bool(
-                                pool.best
-                                and (
-                                    pool.best.verdict == "VALID"
-                                    or pool.best_validity >= THRESHOLDS.audit_verdict_floor
-                                    or not stagnant_rejected_loop
-                                )
-                            )
-                            if can_restore_best and (
-                                pool.best_validity >= THRESHOLDS.judge_pass_threshold
-                                or (pool.best.structural_validity >= 0.45 and rejection_count <= 2)
-                            ) and (
-                                overtime_triggered_now
-                                or (turn >= max_turns and (validity < pool.best_validity or structural_val < pool.best.structural_validity))
-                                or (pool.best_validity > validity + THRESHOLDS.restore_margin)
-                                or (pool.best.structural_validity > structural_val + THRESHOLDS.restore_margin and pool.best_validity >= validity)
+                            stagnant_rejected_loop = pool.is_stagnant_rejected
+                            if pool.should_restore_for_revision(
+                                current_validity=validity,
+                                current_structural=structural_val,
+                                turn=turn,
+                                max_turns=max_turns,
+                                rejection_count=rejection_count,
+                                overtime_triggered_now=overtime_triggered_now,
                             ):
                                 self._log_write(
                                     f"[Best Candidate Restored for Revision] Restoring highest-scoring candidate from Turn {pool.best.turn} "
@@ -2587,24 +2536,11 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
                 result.verified = True
 
         if not result.candidate_proof:
-            proof = extract_latex_proof(result.final_response)
-            if proof and is_valid_latex_proof(proof):
-                result.candidate_proof = proof
-            else:
-                for tr in reversed(result.reasoning_traces):
-                    p = extract_latex_proof(tr)
-                    if p and is_valid_latex_proof(p):
-                        result.candidate_proof = p
-                        break
-
-            # Also scan assistant messages in conversation history
-            if not result.candidate_proof and hasattr(self, "_last_messages"):
-                for m in reversed(getattr(self, "_last_messages", [])):
-                    if m.get("role") == "assistant" and m.get("content"):
-                        p = extract_latex_proof(m["content"])
-                        if p and is_valid_latex_proof(p):
-                            result.candidate_proof = p
-                            break
+            result.candidate_proof = recover_latex_proof(
+                final_response=result.final_response,
+                reasoning_traces=result.reasoning_traces,
+                messages=getattr(self, "_last_messages", []),
+            )
 
             if not result.candidate_proof:
                 draft_src = result.final_response or (result.reasoning_traces[-1] if result.reasoning_traces else "")

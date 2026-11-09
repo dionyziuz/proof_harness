@@ -28,6 +28,7 @@ from .heuristic_validation import parse_benchmark_header, strip_benchmark_prefix
 from .kernel import ExecutionResult, PersistentMathKernel
 from .llm_client import FastComposerClient, TunnelThinkingClient
 from .memory import CoALAMemoryManager
+from .proof_extractor import extract_code_blocks
 from .research import clean_search_query, search_math
 
 logger = logging.getLogger("prime_math.solver")
@@ -271,8 +272,7 @@ class MathSolver:
 
     def extract_code_blocks(self, text: str) -> List[str]:
         """Extracts python code blocks from markdown text."""
-        pattern = r"```(?:python|py)?\s*\n(.*?)```"
-        return [match.strip() for match in re.findall(pattern, text, flags=re.DOTALL) if match.strip()]
+        return extract_code_blocks(text)
 
     def extract_boxed_answer(self, text: Optional[str]) -> Optional[str]:
         """Extracts content inside LaTeX \\boxed{...} with nested brace support or \\boxed format."""

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 import json
 import logging
 import os
@@ -43,10 +44,23 @@ auth_manager = AuthManager(config, db)
 set_auth_manager(auth_manager)
 worker = ProverQueueWorker(config, db)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db.sync_admin_users(config.admin_emails)
+    worker.start()
+    logger.info(f"Prime Math Portal started on {config.host}:{config.port} (base: {config.base_url})")
+    try:
+        yield
+    finally:
+        worker.stop()
+        logger.info("Prime Math Portal shutdown cleanly.")
+
+
 app = FastAPI(
     title="Prime Math Research Portal",
     description="Mathematician problem submission, queue management, and autonomous theorem proving.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -56,19 +70,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def startup_event():
-    db.sync_admin_users(config.admin_emails)
-    worker.start()
-    logger.info(f"Prime Math Portal started on {config.host}:{config.port} (base: {config.base_url})")
-
-
-@app.on_event("shutdown")
-def shutdown_event():
-    worker.stop()
-    logger.info("Prime Math Portal shutdown cleanly.")
 
 
 # ── Public & System Endpoints ───────────────────────────────────────────────

@@ -6,8 +6,9 @@ sanitization, and structural validation of LaTeX proof candidates.
 
 from __future__ import annotations
 
+import ast
 import re
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def is_nested_proof_start(cleaned: str, pos: int, tag_str: str) -> bool:
@@ -476,3 +477,62 @@ def extract_latex_proof(text: Optional[str]) -> Optional[str]:
             return san_body
 
     return None
+
+
+def extract_code_blocks(text: str) -> List[str]:
+    """Extracts python code blocks from markdown text, ignoring LaTeX/prose fences."""
+    if not text:
+        return []
+    explicit_pattern = r"```(?:python|py)\b[ \t]*\n(.*?)```"
+    blocks = [m.strip() for m in re.findall(explicit_pattern, text, flags=re.DOTALL) if m.strip()]
+    if blocks:
+        return blocks
+    # Fallback: check bare ``` ... ``` blocks only if they contain valid Python AST and no LaTeX proof environment
+    bare_pattern = r"```[ \t]*\n(.*?)```"
+    valid_bare: List[str] = []
+    for m in re.findall(bare_pattern, text, flags=re.DOTALL):
+        cand = m.strip()
+        if not cand or r"\begin{proof}" in cand or r"\end{proof}" in cand:
+            continue
+        try:
+            ast.parse(cand)
+            valid_bare.append(cand)
+        except SyntaxError:
+            continue
+    return valid_bare
+
+
+def recover_latex_proof(
+    final_response: Optional[str] = None,
+    reasoning_traces: Optional[List[str]] = None,
+    messages: Optional[List[Dict[str, Any]]] = None,
+) -> Optional[str]:
+    """Recovers a valid LaTeX proof across final response, reasoning traces, and conversation messages."""
+    if final_response:
+        proof = extract_latex_proof(final_response)
+        if proof and is_valid_latex_proof(proof):
+            return proof
+
+    if reasoning_traces:
+        for tr in reversed(reasoning_traces):
+            p = extract_latex_proof(tr)
+            if p and is_valid_latex_proof(p):
+                return p
+
+    if messages:
+        for m in reversed(messages):
+            if m.get("role") == "assistant" and m.get("content"):
+                p = extract_latex_proof(m["content"])
+                if p and is_valid_latex_proof(p):
+                    return p
+
+    return None
+
+
+__all__ = [
+    "extract_latex_proof",
+    "is_valid_latex_proof",
+    "sanitize_informal_proof",
+    "extract_code_blocks",
+    "recover_latex_proof",
+]

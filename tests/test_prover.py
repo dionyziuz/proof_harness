@@ -27,6 +27,7 @@ from core_engine.prover_types import (
     ProofResult,
     has_fatal_issue,
 )
+from core_engine.candidate_pool import CandidatePoolManager
 
 
 PROOF = (
@@ -1057,6 +1058,48 @@ def test_candidate_pool_reaudit_demotion_and_clean_valid_supersede():
     assert pool2.best.proof == p_repaired
     assert pool2.best.verdict == "VALID"
     assert pool2.best.issues == "none"
+
+
+def test_candidate_pool_manager_arbitration_methods():
+    """Verifies CandidatePoolManager arbitration methods: has_viable_foundation,
+    should_restore_for_revision, and can_deep_stagnation_pivot.
+    """
+    mgr = CandidatePoolManager()
+    assert mgr.best is None
+    assert mgr.has_viable_foundation() is False
+    assert mgr.is_stagnant_rejected is False
+
+    # 1. Offer a viable candidate
+    mgr.offer(PROOF, 0.72, "VALID", "none", turn=2, rigor=0.80, completeness=0.75)
+    assert mgr.has_viable_foundation() is True
+    assert mgr.best_validity == 0.72
+
+    # 2. Should restore for revision when current turn is lower by more than restore margin (0.10)
+    assert mgr.should_restore_for_revision(
+        current_validity=0.55,
+        current_structural=0.55,
+        turn=3,
+        max_turns=8,
+    ) is True
+
+    # 3. Should not restore if current turn is better or close
+    assert mgr.should_restore_for_revision(
+        current_validity=0.70,
+        current_structural=0.70,
+        turn=3,
+        max_turns=8,
+    ) is False
+
+    # 4. Deep stagnation pivot check
+    low_mgr = CandidatePoolManager()
+    low_mgr.offer(PROOF, 0.20, "REJECT", "dead reduction", turn=1)
+    low_mgr.best.stagnant_revisions = 4
+    assert low_mgr.can_deep_stagnation_pivot(
+        rejection_count=6,
+        stagnation_pivot_turns=6,
+        turns_remaining=3,
+        is_improving=False,
+    ) is True
 
 
 def test_prover_turn_level_checkpoint_crash_at_turn_4_and_resume(tmp_path):

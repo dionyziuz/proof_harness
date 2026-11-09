@@ -147,8 +147,9 @@ def run_lean(
             execution_time=0.0,
         )
 
-    # Strip single-line comments before scanning for 'sorry' or forbidden axiom/unsafe tokens
-    code_no_comments = "\n".join(line.split("--")[0] for line in clean_code.splitlines())
+    # Strip block comments /- ... -/ and single-line comments -- ... before scanning for 'sorry' or forbidden tokens
+    code_no_block = re.sub(r"/-.*?-/", "", clean_code, flags=re.DOTALL)
+    code_no_comments = "\n".join(line.split("--")[0] for line in code_no_block.splitlines())
     has_sorry_in_source = bool(_SORRY_CODE_RE.search(code_no_comments))
     forbidden_match = _FORBIDDEN_AXIOM_CODE_RE.search(code_no_comments)
 
@@ -242,3 +243,63 @@ def run_lean(
         execution_time=exec_time,
         lean_version=get_lean_version(binary),
     )
+
+
+# Patterns for trivial / placeholder Lean theorem anti-patterns (Boixo Audit Gate)
+_TRIVIAL_TAUTOLOGY_PATTERNS = [
+    (
+        re.compile(r":\s*\(?0\s*\+\s*\w+\s*=\s*\w+\)?\s*:=\s*by\s+(?:omega|rfl|decide)"),
+        "Trivial additive zero identity `0 + d = d` disguised as a theorem.",
+    ),
+    (
+        re.compile(r":\s*\(?\w+\s*=\s*\w+\s*\+\s*0\)?\s*:=\s*by\s+(?:omega|rfl|decide)"),
+        "Trivial additive zero identity `k = k + 0` disguised as a theorem.",
+    ),
+    (
+        re.compile(r":\s*\(?0\s*=\s*0\)?\s*:=\s*by\s+(?:omega|rfl|decide)"),
+        "Trivial reflexivity `0 = 0` disguised as a theorem.",
+    ),
+    (
+        re.compile(r":\s*\(?\w+\s*\*\s*\w+\s*=\s*\w+\s*\*\s*\w+\)?\s*:=\s*by\s+ exact\s+Int\.mul_comm"),
+        "Trivial integer commutativity `a * b = b * a` disguised as a physics/math theorem.",
+    ),
+    (
+        re.compile(r":\s*\(\w+\s*-\s*\w+\s*(?:≥|>=)\s*0\)\s*(?:↔|<->)\s*\(\w+\s*(?:≥|>=)\s*\w+\)\s*:=\s*by\s+omega"),
+        "Trivial subtraction-inequality rewrite `(A - B ≥ 0) ↔ (A ≥ B)` without domain structure.",
+    ),
+]
+
+
+def audit_lean_semantic_depth(code: str, require_imports_or_structures: bool = True) -> List[str]:
+    """Audits a Lean 4 source file for trivial placeholder anti-patterns (e.g., `0 + d = d`,
+    `0 = 0`, `a * b = b * a` over bare Int/Nat without domain structures or operator definitions).
+
+    Returns a list of violation descriptions (empty list if the Lean file passes semantic audit).
+    """
+    violations: List[str] = []
+    # Strip block comments /- ... -/ and line comments -- ...
+    no_block = re.sub(r"/-.*?-/", "", code, flags=re.DOTALL)
+    clean_lines = [line.split("--")[0] for line in no_block.splitlines()]
+    exec_code = "\n".join(line for line in clean_lines if line.strip())
+
+    for pattern, msg in _TRIVIAL_TAUTOLOGY_PATTERNS:
+        if pattern.search(exec_code):
+            violations.append(msg)
+
+    if require_imports_or_structures:
+        has_import = bool(re.search(r"^\s*import\s+\w+", exec_code, re.MULTILINE))
+        has_domain_decl = bool(
+            re.search(r"^\s*(?:structure|inductive|class|def)\s+\w+", exec_code, re.MULTILINE)
+        )
+        if not has_import:
+            violations.append(
+                "Lean file contains zero `import` statements (e.g., `import Std` or `import Mathlib`)."
+            )
+        if not has_domain_decl:
+            violations.append(
+                "Lean file defines zero domain structures (`structure`, `inductive`, `class`, or `def`); "
+                "formalizations must model the mathematical objects (tensors, Hilbert spaces, GKSL operators, etc.)."
+            )
+
+    return violations
+
