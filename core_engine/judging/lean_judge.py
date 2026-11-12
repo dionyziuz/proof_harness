@@ -230,20 +230,35 @@ def run_lean_with_optional_lake(
     lean_bin: Optional[Path] = None,
 ) -> LeanRunResult:
     """Runs Lean 4 code via standalone `run_lean` (default generic local Lean 4 installation)
-    or via `lake env lean` if `lake_dir` is explicitly provided.
+    or via `lake env lean` with automatic Mathlib discovery.
     """
     active_lake = lake_dir or (
         Path(os.environ["LEAN_LAKE_DIR"]) if os.environ.get("LEAN_LAKE_DIR") else None
     )
+    # Auto-discover local precompiled Mathlib cache if lake_dir is not explicitly set
+    if active_lake is None:
+        cached_mathlib = Path.home() / ".cache/conjectures/verifier/conjectures-validator"
+        if cached_mathlib.is_dir() and (
+            (cached_mathlib / "lakefile.lean").is_file() or (cached_mathlib / "lakefile.toml").is_file()
+        ):
+            active_lake = cached_mathlib
+
     if active_lake and active_lake.is_dir() and (
         (active_lake / "lakefile.lean").is_file() or (active_lake / "lakefile.toml").is_file()
     ):
-        lake_bin = Path.home() / ".elan/bin/lake"
+        pinned_lake = active_lake / ".elan" / "bin" / "lake"
+        lake_bin = pinned_lake if pinned_lake.is_file() else (Path.home() / ".elan/bin/lake")
         if not lake_bin.is_file():
             lake_bin = Path("lake")
+
+        lake_env = os.environ.copy()
+        if (active_lake / ".elan").is_dir():
+            lake_env["ELAN_HOME"] = str(active_lake / ".elan")
+            lake_env["PATH"] = f"{active_lake / '.elan' / 'bin'}{os.pathsep}{lake_env.get('PATH', '')}"
+
         start_t = time.perf_counter()
         with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".lean", dir=str(active_lake), delete=False, encoding="utf-8"
+            mode="w", suffix=".lean", dir="/tmp", delete=False, encoding="utf-8"
         ) as tmpf:
             tmp_path = Path(tmpf.name)
             tmpf.write(code.strip() + "\n")
@@ -251,6 +266,7 @@ def run_lean_with_optional_lake(
             proc = subprocess.run(
                 [str(lake_bin), "env", "lean", str(tmp_path)],
                 cwd=str(active_lake),
+                env=lake_env,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
