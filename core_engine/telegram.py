@@ -80,7 +80,7 @@ def format_task_report(entry: Dict[str, Any], metrics: Optional[Dict[str, Any]] 
     iters = entry.get("iterations", "?")
     p_chars = entry.get("candidate_chars", 0)
 
-    # Detect benchmark domain (Physics vs TCS-Bench)
+    # Detect problem domain (Physics, Lean 4 / FormalConjectures, Number Theory, TCS-Bench, or General Math)
     str_tid = str(task_id).lower()
     is_physics = (
         "gr-qc" in str_tid
@@ -88,8 +88,28 @@ def format_task_report(entry: Dict[str, Any], metrics: Optional[Dict[str, Any]] 
         or "physics" in str_tid
         or (metrics and metrics.get("target_total_problems") == 2)
     )
-    bench_name = "Physics Benchmark" if is_physics else "TCS-Bench"
-    bench_icon = "⚛️" if is_physics else "🎯"
+    is_lean_or_nt = (
+        "fc-v2" in str_tid
+        or "erdos" in str_tid
+        or "lean" in str_tid
+        or "subnet66" in str_tid
+    )
+    if is_physics:
+        bench_name = "Physics Benchmark"
+        bench_icon = "⚛️"
+        judge_label = "Proof Judge"
+    elif is_lean_or_nt:
+        bench_name = "Formal Lean 4 Prover"
+        bench_icon = "🔢"
+        judge_label = "Lean 4 Kernel Judge"
+    elif "tcs" in str_tid or (metrics and metrics.get("target_total_problems") == 300):
+        bench_name = "TCS-Bench"
+        bench_icon = "🎯"
+        judge_label = "TCS Judge"
+    else:
+        bench_name = "Prime Math Prover"
+        bench_icon = "📐"
+        judge_label = "Proof Judge"
 
     # Detect model and execution mode for clear attribution
     model_env = (
@@ -126,11 +146,11 @@ def format_task_report(entry: Dict[str, Any], metrics: Optional[Dict[str, Any]] 
     verdict_badge = "PASS ✅" if pass_tcs else "FAIL ❌"
 
     if pass_tcs:
-        overall_badge = "🏆 <b>PASS ✅ (TCS Judge Valid ≥0.50)</b>"
+        overall_badge = f"🏆 <b>PASS ✅ ({judge_label} Valid ≥0.50)</b>"
     elif val is not None and val >= 0.40:
         overall_badge = "⚠️ <b>PARTIAL (Directionally Sound Reduction ≥0.40)</b>"
     else:
-        overall_badge = "❌ <b>FAIL ❌ (Rejected by TCS Judge)</b>"
+        overall_badge = f"❌ <b>FAIL ❌ (Rejected by {judge_label})</b>"
 
     target_disp = metrics.get("target_total_problems", 300) if metrics else 300
     lines = [
@@ -138,8 +158,8 @@ def format_task_report(entry: Dict[str, Any], metrics: Optional[Dict[str, Any]] 
         f"<b>ID:</b> <code>{html.escape(str(task_id))}</code>",
         f"⏱ <b>Solve Time:</b> <code>{dur_s:.1f}s</code> | <b>Turns:</b> <code>{iters}</code> | <b>Proof Size:</b> <code>{p_chars} chars</code>",
         "",
-        "⚖️ <b>TCS Judge Decision:</b>",
-        f"  • <b>TCS Judge Score:</b> <code>{val:.2f} / 1.00</code> (Pass Threshold ≥ 0.50) → <b>{verdict_badge}</b>",
+        f"⚖️ <b>{judge_label} Decision:</b>",
+        f"  • <b>{judge_label} Score:</b> <code>{val:.2f} / 1.00</code> (Pass Threshold ≥ 0.50) → <b>{verdict_badge}</b>",
         f"  • <b>Verdict:</b> {overall_badge}",
     ]
 

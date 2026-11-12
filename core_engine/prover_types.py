@@ -316,6 +316,7 @@ class ProofResult:
         )
 
 
+ProverSolveResult = ProofResult
 TCSSolveResult = ProofResult
 
 __all__ = [
@@ -325,6 +326,7 @@ __all__ = [
     "CandidatePool",
     "CandidatePoolManager",
     "ProofResult",
+    "ProverSolveResult",
     "TCSSolveResult",
     "DEFAULT_LOG_PATH",
     "has_fatal_issue",

@@ -31,9 +31,9 @@ from .math_tools import (
     detect_topological_or_structural_graph_problem,
 )
 from .memory import CoALAMemoryManager
-from .prompt_loader import load_tcs_prompt
+from .prompt_loader import load_prover_prompt, load_tcs_prompt
 from .prompts import MATH_PROVER_SYSTEM_PROMPT as MATH_PROVER_SYSTEM_PROMPT
-from .tcs_config import TCSConfig, load_tcs_config
+from .prover_config import ProverConfig, TCSConfig, load_prover_config, load_tcs_config
 
 
 logger = logging.getLogger("prime_math.prover")
@@ -48,7 +48,7 @@ from .prover_types import (
     TCSSolveResult,
     is_boundary_or_local_defect,
 )
-from .prover_kernel import TCSCompliantKernel
+from .prover_kernel import ProverCompliantKernel, TCSCompliantKernel
 from .prover_auditor import ProverAuditorMixin
 from .prover_stages import (
     SKEPTIC_REFUTED,
@@ -56,6 +56,7 @@ from .prover_stages import (
     ProverStagesMixin,
 )
 
+GENERAL_PROVER_SYSTEM_PROMPT = load_prover_prompt("system", domain="general")
 TCS_BENCH_SYSTEM_PROMPT = load_tcs_prompt("system")
 
 from .proof_extractor import (
@@ -694,7 +695,11 @@ class MathProver(ProverAuditorMixin, ProverStagesMixin):
             except Exception as e:
                 logger.debug(f"Pre-proof research error: {e}")
 
-        system_content = TCS_BENCH_SYSTEM_PROMPT
+        system_content = (
+            GENERAL_PROVER_SYSTEM_PROMPT
+            if getattr(self, "proof_mode", "auto") == "general"
+            else TCS_BENCH_SYSTEM_PROMPT
+        )
         if research_briefing:
             system_content += f"\n\nACADEMIC LITERATURE & THEORETICAL FOUNDATIONS (STAGE 0 RESEARCH):\n{research_briefing}\n"
         if retrieved:

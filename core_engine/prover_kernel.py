@@ -202,10 +202,10 @@ class _NetworkIsolationMixin:
         return None
 
 
-class TCSCompliantKernel(_NetworkIsolationMixin, PersistentMathKernel):
+class ProverCompliantKernel(_NetworkIsolationMixin, PersistentMathKernel):
     """Harness kernel with optional web research tools and safety ceilings.
 
-    When allow_internet is False (default for TCS-Bench), replaces search_math / read_paper
+    When allow_internet is False (default for offline benchmarks), replaces search_math / read_paper
     with protocol stubs and AST-scans code for network imports to prevent benchmark contamination.
     When allow_internet is True (for open research theorems), allows live research queries.
     """
@@ -350,7 +350,14 @@ class AuditorKernel(_NetworkIsolationMixin, PersistentMathKernel):
         return super().execute(code, timeout_seconds)
 
 
+# Domain-independent & backward-compatible aliases
+SandboxedMathKernel = ProverCompliantKernel
+TCSCompliantKernel = ProverCompliantKernel
+
+
 __all__ = [
+    "ProverCompliantKernel",
+    "SandboxedMathKernel",
     "TCSCompliantKernel",
     "AuditorKernel",
     "_NETWORK_MODULES",

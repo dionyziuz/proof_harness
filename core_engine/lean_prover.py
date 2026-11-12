@@ -27,11 +27,13 @@ Architecture:
 
 from __future__ import annotations
 
+import datetime
 import json
 import logging
+import os
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from .judging.lean_judge import (
     ALLOWED_CORE_AXIOMS,
@@ -53,8 +55,8 @@ from .lean_runner import (
     run_lean,
 )
 from .prover import MathProver
-from .prover_kernel import TCSCompliantKernel
-from .prover_types import AuditResult, ProofResult, TCSSolveResult
+from .prover_kernel import ProverCompliantKernel, TCSCompliantKernel
+from .prover_types import AuditResult, ProofResult, ProverSolveResult, TCSSolveResult
 
 logger = logging.getLogger("prime_math.lean_prover")
 
@@ -142,7 +144,7 @@ STRICT RULES:
 """
 
 
-class LeanCompliantKernel(TCSCompliantKernel):
+class LeanCompliantKernel(ProverCompliantKernel):
     """Persistent Python REPL Kernel preloaded with `verify_lean4_kernel`, `run_lean`,
     `judge_lean_proof`, `sympy`, and `mpmath` so `LeanProver` can compile and debug Lean 4
     code interactively on every turn.
@@ -436,6 +438,7 @@ class LeanProver(MathProver):
         max_iterations: Optional[int] = None,
         max_time_seconds: float = 3600.0,
         on_step: Optional[Callable[[str, Any], None]] = None,
+        checkpoint_path: Optional[Union[Path, str]] = None,
     ) -> Tuple[TCSSolveResult, LeanKernelValidationResult]:
         """Dedicated Lean 4 Formal Proving Loop.
 
@@ -452,6 +455,9 @@ class LeanProver(MathProver):
         """
         max_turns = max_iterations or self.default_max_iterations
         start_time = time.perf_counter()
+
+        ckpt_p = Path(checkpoint_path) if checkpoint_path else self.checkpoint_path
+        ckpt = self._load_checkpoint(ckpt_p, task_id)
 
         if isinstance(self.kernel, LeanCompliantKernel):
             self.kernel.required_theorems = list(self.required_theorems)
@@ -475,23 +481,39 @@ class LeanProver(MathProver):
             except Exception as e:
                 self._log_write(f"[Literature Search Warning]: {e}\n")
 
-        messages: List[Dict[str, str]] = [
-            {"role": "system", "content": self._get_base_prover_system_prompt()},
-            {
-                "role": "user",
-                "content": (
-                    f"{task_prompt}{req_banner}{lit_briefing}\n\n"
-                    "Use the Python REPL (`verify_lean4_kernel(lean_src)`) to test and verify your Lean 4 "
-                    "formalization interactively, then output the complete, certified ```lean ... ``` file."
-                ),
-            },
-        ]
+        start_turn = 1
+        if ckpt and isinstance(ckpt.get("messages"), list) and ckpt["messages"]:
+            messages = ckpt["messages"]
+            reasoning_traces: List[str] = list(ckpt.get("reasoning_traces", []))
+            code_history: List[str] = list(ckpt.get("code_history", []))
+            start_turn = int(ckpt.get("turn", 0)) + 1
+            self._log_write(
+                f"\n[LeanProver Checkpoint Resume] Loaded checkpoint from {ckpt_p}. "
+                f"Resuming at Turn {start_turn}/{max_turns} (previous elapsed: {ckpt.get('elapsed_s', 0)}s).\n"
+            )
+            if on_step:
+                on_step(
+                    "checkpoint_resume",
+                    {"turn": start_turn, "max_turns": max_turns, "checkpoint_path": str(ckpt_p)},
+                )
+        else:
+            messages: List[Dict[str, str]] = [
+                {"role": "system", "content": self._get_base_prover_system_prompt()},
+                {
+                    "role": "user",
+                    "content": (
+                        f"{task_prompt}{req_banner}{lit_briefing}\n\n"
+                        "Use the Python REPL (`verify_lean4_kernel(lean_src)`) to test and verify your Lean 4 "
+                        "formalization interactively, then output the complete, certified ```lean ... ``` file."
+                    ),
+                },
+            ]
+            reasoning_traces = []
+            code_history = []
 
-        reasoning_traces: List[str] = []
-        code_history: List[str] = []
         best_val: Optional[LeanKernelValidationResult] = None
 
-        for turn in range(1, max_turns + 1):
+        for turn in range(start_turn, max_turns + 1):
             elapsed = time.perf_counter() - start_time
             if elapsed >= max_time_seconds:
                 self._log_write(f"\n[LeanProver Timeout] Reached {elapsed:.1f}s >= {max_time_seconds:.1f}s.\n")
@@ -538,6 +560,8 @@ class LeanProver(MathProver):
                         on_step("audit_result", {"verdict": "VALID", "validity": 1.0, "status": k_val.status})
                         on_step("proof_accepted", k_val.lean_code)
                     duration = round(time.perf_counter() - start_time, 2)
+                    if ckpt_p is not None:
+                        self._unlink_checkpoint(ckpt_p)
                     solve_res = TCSSolveResult(
                         task_id=task_id,
                         verified=True,
@@ -604,6 +628,8 @@ class LeanProver(MathProver):
                     if on_step:
                         on_step("proof_accepted", val_res.lean_code)
                     duration = round(time.perf_counter() - start_time, 2)
+                    if ckpt_p is not None:
+                        self._unlink_checkpoint(ckpt_p)
                     solve_res = TCSSolveResult(
                         task_id=task_id,
                         verified=True,
@@ -645,6 +671,29 @@ class LeanProver(MathProver):
                 )
                 messages.append({"role": "user", "content": "\n\n".join(feedback_parts)})
 
+            # Save intra-cycle turn checkpoint atomically
+            if ckpt_p is not None:
+                try:
+                    ckpt_payload = {
+                        "version": 1,
+                        "task_id": str(task_id),
+                        "turn": turn,
+                        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        "elapsed_s": round(time.perf_counter() - start_time, 2),
+                        "messages": messages,
+                        "code_history": list(code_history),
+                        "reasoning_traces": list(reasoning_traces),
+                    }
+                    ckpt_p.parent.mkdir(parents=True, exist_ok=True)
+                    tmp_p = ckpt_p.with_suffix(ckpt_p.suffix + ".tmp")
+                    with open(tmp_p, "w", encoding="utf-8") as f:
+                        json.dump(ckpt_payload, f, ensure_ascii=False)
+                        f.flush()
+                        os.fsync(f.fileno())
+                    os.replace(tmp_p, ckpt_p)
+                except Exception as ce:
+                    self._log_write(f"[Checkpoint Save Warning]: {ce}\n")
+
         if best_val is not None and not best_val.passed and best_val.lean_code and not locals().get("repair_ran", False):
             best_val = self._repair_lean_code_loop(task_prompt, best_val.lean_code, best_val)
 
@@ -656,6 +705,9 @@ class LeanProver(MathProver):
                 lean_code="",
                 issues_summary="Prover completed turns without producing a certified Lean 4 file.",
             )
+
+        if best_val.passed and ckpt_p is not None:
+            self._unlink_checkpoint(ckpt_p)
 
         duration = round(time.perf_counter() - start_time, 2)
         solve_res = TCSSolveResult(

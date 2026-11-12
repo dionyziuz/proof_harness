@@ -11,18 +11,19 @@ from .solver import MathSolver, SolveResult
 from .prover import MathProver
 from .prover_types import (
     ProofResult,
+    ProverSolveResult,
     TCSSolveResult,
     CandidatePool,
     CandidateRecord,
     AuditResult,
     ProverThresholds,
 )
-from .prover_kernel import TCSCompliantKernel, AuditorKernel
-from .tcs_config import (
-    TCSConfig,
-    load_tcs_config,
+from .prover_kernel import ProverCompliantKernel, SandboxedMathKernel, TCSCompliantKernel, AuditorKernel
+from .prover_config import (
     ProverConfig,
     load_prover_config,
+    TCSConfig,
+    load_tcs_config,
 )
 from .falsifier import MathFalsifier, FalsificationResult
 
@@ -81,11 +82,14 @@ __all__ = [
     "extract_lean_declarations",
     "strip_lean_comments",
     "ProofResult",
+    "ProverSolveResult",
     "TCSSolveResult",
     "CandidatePool",
     "CandidateRecord",
     "AuditResult",
     "ProverThresholds",
+    "ProverCompliantKernel",
+    "SandboxedMathKernel",
     "TCSCompliantKernel",
     "AuditorKernel",
     "MathFalsifier",

@@ -79,9 +79,10 @@ class CoALAMemoryManager:
         self.timeout = timeout
         resolved_agent = (
             agent_id
-            or os.getenv("TCS_MEMORY_DOMAIN")
+            or os.getenv("PROVER_MEMORY_DOMAIN")
             or os.getenv("PROOF_HARNESS_DOMAIN")
             or os.getenv("PRIME_MATH_DOMAIN")
+            or os.getenv("TCS_MEMORY_DOMAIN")
             or "prime_math"
         )
         self.agent_id = str(resolved_agent).strip()

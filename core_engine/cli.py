@@ -21,7 +21,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 from .config import configure_env_file, load_config
-from .tcs_config import load_tcs_config
+from .prover_config import load_prover_config
 from .kernel import PersistentMathKernel
 from .solver import MathSolver
 from .prover import MathProver
@@ -113,8 +113,8 @@ def cmd_prove(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     cfg = load_config()
-    tcs_cfg = load_tcs_config()
-    max_iters = args.max_iterations or tcs_cfg.prover_max_iterations
+    prover_cfg = load_prover_config()
+    max_iters = args.max_iterations or prover_cfg.prover_max_iterations
     console.print(
         Panel(
             f"[bold cyan]Conjecture / Model Spec:[/bold cyan] {spec}",

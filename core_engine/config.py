@@ -90,11 +90,16 @@ def configure_env_file(
     else:
         load_dotenv(dotenv_path=target, override=False)
 
-    if reload_tcs and "core_engine.tcs_config" in sys.modules:
-        try:
-            sys.modules["core_engine.tcs_config"].load_tcs_config(env_path=target, reload=True)
-        except Exception:
-            pass
+    if reload_tcs:
+        for mod_name, fn_name in (
+            ("core_engine.prover_config", "load_prover_config"),
+            ("core_engine.tcs_config", "load_tcs_config"),
+        ):
+            if mod_name in sys.modules:
+                try:
+                    getattr(sys.modules[mod_name], fn_name)(env_path=target, reload=True)
+                except Exception:
+                    pass
     return target
 
 
@@ -235,16 +240,13 @@ def load_config(
             cfg.max_tokens = int(os.environ["PRIME_MATH_MAX_TOKENS"])
         except ValueError:
             pass
-    if "TCS_SOLVER_THINKING_BUDGET" in os.environ:
-        try:
-            cfg.thinking_token_budget = int(os.environ["TCS_SOLVER_THINKING_BUDGET"])
-        except ValueError:
-            pass
-    elif "PROVER_THINKING_BUDGET" in os.environ:
-        try:
-            cfg.thinking_token_budget = int(os.environ["PROVER_THINKING_BUDGET"])
-        except ValueError:
-            pass
+    for tb_key in ("PROVER_THINKING_BUDGET", "PROVER_SOLVER_THINKING_BUDGET", "TCS_SOLVER_THINKING_BUDGET"):
+        if tb_key in os.environ:
+            try:
+                cfg.thinking_token_budget = int(os.environ[tb_key])
+                break
+            except ValueError:
+                pass
 
     # Fast Composer overrides
     if "PRIME_MATH_FAST_ENABLED" in os.environ:
