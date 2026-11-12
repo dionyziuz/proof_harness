@@ -81,6 +81,12 @@ class LeanKernelValidationResult:
     lean_version: Optional[str] = None
     compiler_output: str = ""
     issues_summary: str = "none"
+    verified_theorems: List[str] = field(default_factory=list)
+    validity_score: float = 0.0
+    rigor_score: float = 0.0
+    completeness_score: float = 0.0
+    boundary_cases_score: float = 0.0
+    compiler_health_score: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -90,6 +96,7 @@ class LeanKernelValidationResult:
             "theorems_found": self.theorems_found,
             "definitions_found": self.definitions_found,
             "missing_required_theorems": self.missing_required_theorems,
+            "verified_theorems": self.verified_theorems,
             "axiom_report": self.axiom_report,
             "unauthorized_axioms": self.unauthorized_axioms,
             "compiler_errors": self.compiler_errors,
@@ -101,6 +108,11 @@ class LeanKernelValidationResult:
             "lean_version": self.lean_version,
             "compiler_output": self.compiler_output,
             "issues_summary": self.issues_summary,
+            "validity_score": self.validity_score,
+            "rigor_score": self.rigor_score,
+            "completeness_score": self.completeness_score,
+            "boundary_cases_score": self.boundary_cases_score,
+            "compiler_health_score": self.compiler_health_score,
         }
 
 
@@ -406,6 +418,26 @@ def verify_lean4_kernel(
         verdict = "REJECT"
         issues_summary = " | ".join(issues)
 
+    # Identify theorems verified by `#print axioms` with strictly pure core axioms
+    verified_thms = [
+        thm for thm in theorems
+        if thm in axiom_report and thm not in unauthorized_axioms
+    ]
+    scores = compute_lean_audit_scores(
+        passed=passed,
+        status=status,
+        theorems_found=theorems,
+        required_theorems=req_list,
+        missing_required_theorems=missing_reqs,
+        verified_theorems=verified_thms,
+        compiler_errors=run_res.errors,
+        compiler_warnings=run_res.warnings,
+        unsolved_goals=run_res.unsolved_goals,
+        semantic_violations=sem_violations,
+        unauthorized_axioms=unauthorized_axioms,
+        has_sorry=run_res.has_sorry,
+    )
+
     return LeanKernelValidationResult(
         passed=passed,
         verdict=verdict,
@@ -414,6 +446,7 @@ def verify_lean4_kernel(
         theorems_found=theorems,
         definitions_found=defs,
         missing_required_theorems=missing_reqs,
+        verified_theorems=verified_thms,
         axiom_report=axiom_report,
         unauthorized_axioms=unauthorized_axioms,
         compiler_errors=run_res.errors,
@@ -425,7 +458,120 @@ def verify_lean4_kernel(
         lean_version=run_res.lean_version,
         compiler_output=f"{run_res.stdout}\n{run_res.stderr}".strip(),
         issues_summary=issues_summary,
+        validity_score=scores["validity"],
+        rigor_score=scores["rigor"],
+        completeness_score=scores["completeness"],
+        boundary_cases_score=scores["boundary_cases"],
+        compiler_health_score=scores["compiler_health"],
     )
+
+
+def format_lean_progress_bar(score: float, width: int = 20) -> str:
+    """Renders a visual ASCII/Unicode progress bar for Lean audit scores (0.00 to 1.00)."""
+    clamped = max(0.0, min(1.0, float(score)))
+    filled = int(round(clamped * width))
+    empty = width - filled
+    return f"[{'█' * filled}{'░' * empty}] {clamped:.2f}"
+
+
+def compute_lean_audit_scores(
+    *,
+    passed: bool,
+    status: str,
+    theorems_found: List[str],
+    required_theorems: List[str],
+    missing_required_theorems: List[str],
+    verified_theorems: List[str],
+    compiler_errors: List[str],
+    compiler_warnings: List[str],
+    unsolved_goals: List[str],
+    semantic_violations: List[str],
+    unauthorized_axioms: Dict[str, List[str]],
+    has_sorry: bool,
+) -> Dict[str, float]:
+    """Computes continuous, multi-dimensional audit scores (0.00 - 1.00) from Lean 4 kernel diagnostics.
+
+    Axes:
+      - `compiler_health`: Smooth inverse decay over compiler error and unsolved-goal counts.
+      - `completeness`: Milestone ratio of declared and kernel-verified helper/target theorems.
+      - `rigor`: Axiomatic purity (`#print axioms`), absence of `sorry`/`admit`, and semantic depth.
+      - `boundary_cases`: Linter cleanliness, warning-free elaboration, and complete goal closure.
+      - `validity`: Weighted composite score (strictly capped at 0.95 until 100% kernel certification).
+    """
+    if status == "NO_LEAN_CODE":
+        return {
+            "validity": 0.0,
+            "rigor": 0.0,
+            "completeness": 0.0,
+            "boundary_cases": 0.0,
+            "compiler_health": 0.0,
+        }
+
+    if passed:
+        return {
+            "validity": 1.0,
+            "rigor": 1.0,
+            "completeness": 1.0,
+            "boundary_cases": 1.0,
+            "compiler_health": 1.0,
+        }
+
+    # 1. Compiler Health (0.15 to 1.00)
+    num_errors = len(compiler_errors) + len(unsolved_goals)
+    num_warnings = len(compiler_warnings)
+    if num_errors == 0 and num_warnings == 0:
+        compiler_health = 1.0
+    elif num_errors == 0:
+        compiler_health = max(0.85, round(1.0 - 0.02 * num_warnings, 2))
+    else:
+        compiler_health = max(0.15, round(0.85 / (1.0 + 0.35 * num_errors), 2))
+
+    # 2. Completeness (0.00 to 1.00)
+    if required_theorems:
+        req_total = max(1, len(required_theorems))
+        present_ratio = max(0.0, (req_total - len(missing_required_theorems)) / req_total)
+        verified_req = sum(1 for r in required_theorems if r in verified_theorems)
+        verified_ratio = verified_req / req_total
+        extra_helpers = max(0, len(verified_theorems) - verified_req)
+        helper_bonus = min(0.25, 0.08 * extra_helpers)
+        completeness = min(0.95, round(0.35 * present_ratio + 0.65 * verified_ratio + helper_bonus, 2))
+    else:
+        if not theorems_found:
+            completeness = 0.0
+        else:
+            verified_ratio = len(verified_theorems) / len(theorems_found)
+            completeness = min(0.95, round(0.30 + 0.65 * verified_ratio, 2))
+
+    # 3. Rigor (0.10 to 1.00)
+    if not theorems_found:
+        rigor = 0.10
+    else:
+        rigor = 1.0
+        if has_sorry:
+            rigor = min(rigor, 0.45)
+        if unauthorized_axioms:
+            rigor = min(rigor, 0.35)
+        if semantic_violations:
+            rigor -= 0.25 * len(semantic_violations)
+        rigor = max(0.10, round(rigor, 2))
+
+    # 4. Boundary Cases & Linter Cleanliness (0.15 to 0.95)
+    b_score = 1.0 - 0.15 * len(unsolved_goals) - 0.02 * num_warnings - 0.20 * len(missing_required_theorems)
+    if num_errors > 0:
+        b_score -= min(0.50, 0.10 * num_errors)
+    boundary_cases = max(0.15, min(0.95, round(b_score, 2)))
+
+    # 5. Composite Validity (capped at 0.95 until `passed == True`)
+    raw_validity = 0.45 * compiler_health + 0.30 * completeness + 0.25 * rigor
+    validity = max(0.10, min(0.95, round(raw_validity, 2)))
+
+    return {
+        "validity": validity,
+        "rigor": rigor,
+        "completeness": completeness,
+        "boundary_cases": boundary_cases,
+        "compiler_health": compiler_health,
+    }
 
 
 def judge_lean_proof(

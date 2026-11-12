@@ -157,4 +157,63 @@ res = verify_lean4_kernel(lean_src)
     assert exec_res.success is True
     assert kernel.last_verified_lean_result is not None
     assert kernel.last_verified_lean_result.passed is True
+    assert kernel.last_verified_lean_result.validity_score == 1.0
+
+
+def test_lean_gradual_audit_scores_monotonicity():
+    """Verifies that audit scores progress smoothly from early compile errors to certified hit."""
+    from core_engine.judging.lean_judge import compute_lean_audit_scores, format_lean_progress_bar
+
+    # Stage 1: Early draft with 3 compile errors, 0 verified theorems
+    s1 = compute_lean_audit_scores(
+        passed=False,
+        status="COMPILE_ERROR",
+        theorems_found=["target"],
+        required_theorems=["target"],
+        missing_required_theorems=[],
+        verified_theorems=[],
+        compiler_errors=["err1", "err2", "err3"],
+        compiler_warnings=[],
+        unsolved_goals=[],
+        semantic_violations=[],
+        unauthorized_axioms={},
+        has_sorry=False,
+    )
+    # Stage 2: Helper lemma verified, 1 compile error remaining
+    s2 = compute_lean_audit_scores(
+        passed=False,
+        status="COMPILE_ERROR",
+        theorems_found=["helper_1", "target"],
+        required_theorems=["target"],
+        missing_required_theorems=[],
+        verified_theorems=["helper_1"],
+        compiler_errors=["err1"],
+        compiler_warnings=[],
+        unsolved_goals=[],
+        semantic_violations=[],
+        unauthorized_axioms={},
+        has_sorry=False,
+    )
+    # Stage 3: Certified Hit
+    s3 = compute_lean_audit_scores(
+        passed=True,
+        status="CERTIFIED_HIT",
+        theorems_found=["helper_1", "target"],
+        required_theorems=["target"],
+        missing_required_theorems=[],
+        verified_theorems=["helper_1", "target"],
+        compiler_errors=[],
+        compiler_warnings=[],
+        unsolved_goals=[],
+        semantic_violations=[],
+        unauthorized_axioms={},
+        has_sorry=False,
+    )
+
+    assert 0.20 < s1["validity"] < s2["validity"] < s3["validity"] == 1.0
+    assert s1["compiler_health"] < s2["compiler_health"] < s3["compiler_health"] == 1.0
+    assert s1["completeness"] < s2["completeness"] < s3["completeness"] == 1.0
+    bar = format_lean_progress_bar(s2["validity"])
+    assert "█" in bar and f"{s2['validity']:.2f}" in bar
+
 

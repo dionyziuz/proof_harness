@@ -37,6 +37,7 @@ from core_engine import (
     verify_lean4_kernel,
 )
 from core_engine.config import configure_env_file
+from core_engine.judging.lean_judge import format_lean_progress_bar
 
 console = Console()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -53,7 +54,13 @@ def print_lean_validation_table(title: str, val_res: LeanKernelValidationResult)
         if val_res.passed
         else f"[bold red]REJECT ({val_res.status})[/bold red]"
     )
+    bar = format_lean_progress_bar(val_res.validity_score)
     table.add_row("Overall LeanProver Verdict", hit_badge)
+    table.add_row(
+        "Audit Progress & Scores",
+        f"Validity: {bar} | CompilerHealth: {val_res.compiler_health_score:.2f} | "
+        f"Rigor: {val_res.rigor_score:.2f} | Completeness: {val_res.completeness_score:.2f}",
+    )
     table.add_row("Lean Compiler Version", str(val_res.lean_version or "Lean 4"))
     table.add_row("Execution Time", f"{val_res.execution_time:.3f}s")
     table.add_row(
@@ -83,8 +90,9 @@ def print_lean_validation_table(title: str, val_res: LeanKernelValidationResult)
         else f"FAIL (missing: {val_res.missing_required_theorems})",
     )
     table.add_row(
-        "Theorems Certified",
-        f"{len(val_res.theorems_found)}: {', '.join(val_res.theorems_found)}",
+        "Theorems Declared / Kernel Verified",
+        f"Declared ({len(val_res.theorems_found)}): {', '.join(val_res.theorems_found)}\n"
+        f"Verified ({len(val_res.verified_theorems)}): {', '.join(val_res.verified_theorems)}",
     )
     table.add_row(
         "Definitions / Structures",
@@ -264,10 +272,20 @@ def main() -> None:
         elif event == "audit_result":
             verdict = data.get("verdict", "")
             status = data.get("status", "")
+            bar = data.get("progress_bar") or format_lean_progress_bar(data.get("validity", 0.0))
+            delta = data.get("delta", 0.0)
+            delta_str = f"+{delta:.2f}" if delta >= 0 else f"{delta:.2f}"
             if verdict == "VALID":
-                console.print(f"[bold green]>>> LEAN 4 ENGINE HIT: {status} (validity=1.00)[/bold green]")
+                console.print(f"[bold green]>>> LEAN 4 ENGINE HIT: {status} | {bar} (100% Certified)[/bold green]")
             else:
-                console.print(f"[bold red]>>> LEAN 4 ENGINE REJECT ({status}):[/bold red] {str(data.get('issues', ''))[:200]}")
+                console.print(
+                    f"[bold yellow]>>> Audit Progress:[/bold yellow] {bar} ({delta_str}) | "
+                    f"Compiler={data.get('compiler_health', 0.0):.2f} | "
+                    f"Rigor={data.get('rigor', 0.0):.2f} | "
+                    f"Completeness={data.get('completeness', 0.0):.2f} | "
+                    f"Verified={data.get('verified_theorems', [])}\n"
+                    f"[bold red]>>> Status ({status}):[/bold red] {str(data.get('issues', ''))[:240]}"
+                )
         elif event == "proof_accepted":
             console.print("[bold green]*** 100% CERTIFIED LEAN 4 PROOF LOCKED IN ***[/bold green]")
 
