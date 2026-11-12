@@ -454,12 +454,22 @@ class LeanProver(MathProver):
                 + "\n".join(f"  - `{t}`" for t in self.required_theorems)
             )
 
+        lit_briefing = ""
+        if getattr(self, "enable_literature_search", False):
+            try:
+                brief = self._pre_proof_research(task_prompt)
+                if brief:
+                    lit_briefing = f"\n\n--- PRE-PROOF ACADEMIC LITERATURE & LEMMA BRIEFING ---\n{brief}\n"
+                    self._log_write(lit_briefing)
+            except Exception as e:
+                self._log_write(f"[Literature Search Warning]: {e}\n")
+
         messages: List[Dict[str, str]] = [
             {"role": "system", "content": self._get_base_prover_system_prompt()},
             {
                 "role": "user",
                 "content": (
-                    f"{task_prompt}{req_banner}\n\n"
+                    f"{task_prompt}{req_banner}{lit_briefing}\n\n"
                     "Use the Python REPL (`verify_lean4_kernel(lean_src)`) to test and verify your Lean 4 "
                     "formalization interactively, then output the complete, certified ```lean ... ``` file."
                 ),
