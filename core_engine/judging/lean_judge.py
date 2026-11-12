@@ -185,19 +185,41 @@ def extract_lean_code(text: str) -> str:
         # Clean stray markdown backtick line artifacts at start/end
         cleaned_lines = []
         for line in joined.splitlines():
-            if line.strip() in ("`", "``", "```"):
+            s = line.strip()
+            if s in ("`", "``", "```", "````") or s.startswith("```"):
                 continue
+            if s.startswith("`") and not s.startswith("`("):
+                line = s.lstrip("`").strip()
             cleaned_lines.append(line)
-        return "\n".join(cleaned_lines).strip()
+        res = "\n".join(cleaned_lines).strip()
+        while res.startswith("`"):
+            res = res.lstrip("`").strip()
+        while res.endswith("`"):
+            res = res.rstrip("`").strip()
+        return res
 
     lines = text.strip().splitlines()
+    cleaned_lines = []
+    for line in lines:
+        s = line.strip()
+        if s in ("`", "``", "```", "````") or s.startswith("```"):
+            continue
+        if s.startswith("`") and not s.startswith("`("):
+            line = s.lstrip("`").strip()
+        cleaned_lines.append(line)
+    res = "\n".join(cleaned_lines).strip()
+    while res.startswith("`"):
+        res = res.lstrip("`").strip()
+    while res.endswith("`"):
+        res = res.rstrip("`").strip()
+
     first_words = [
         line.strip().split()[0]
-        for line in lines
+        for line in res.splitlines()
         if line.strip() and not line.strip().startswith("--")
     ]
     if any(w in _LEAN_KEYWORDS for w in first_words):
-        return text.strip()
+        return res
 
     return ""
 
