@@ -406,6 +406,14 @@ class LeanProver(MathProver):
                     def _repair_rank(v: LeanKernelValidationResult) -> Tuple[bool, int, float, float]:
                         return (v.passed, len(v.verified_theorems), v.completeness_score, v.validity_score)
 
+                    self._log_write(
+                        f"\n[Lean 4 Compiler Repair Loop — Attempt {attempt}/{self.max_compiler_repair_attempts}]: "
+                        f"status={current_val.status}, errors={len(current_val.compiler_errors)}, "
+                        f"warnings={len(current_val.compiler_warnings)}, validity={format_lean_progress_bar(current_val.validity_score)}, "
+                        f"verified={current_val.verified_theorems}\n"
+                        f"```lean\n{current_code}\n```\n"
+                    )
+
                     if _repair_rank(current_val) >= _repair_rank(best_repair_val):
                         best_repair_val = current_val
                     if current_val.passed:
@@ -546,6 +554,7 @@ class LeanProver(MathProver):
             # 3. Extract any ```lean ... ``` block from assistant output (or reasoning fallback)
             lean_cand = extract_lean_code(c_text) or extract_lean_code(r_text)
             if lean_cand:
+                self._log_write(f"\n[Turn {turn} Candidate Lean Code]:\n```lean\n{lean_cand}\n```\n")
                 if on_step:
                     on_step("audit_start", lean_cand)
                 val_res = self.validate_lean_candidate(lean_cand)
