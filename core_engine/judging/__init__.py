@@ -12,9 +12,15 @@ from typing import Any, Dict, Optional
 from core_engine.llm_client import TunnelThinkingClient
 
 from .lean_judge import (
+    ALLOWED_CORE_AXIOMS,
     LeanJudgeRecord,
+    LeanKernelValidationResult,
     extract_lean_code,
+    extract_lean_declarations,
     judge_lean_proof,
+    run_lean_with_optional_lake,
+    strip_lean_comments,
+    verify_lean4_kernel,
 )
 from .tcs_judge import (
     A1_INSTRUCTIONS,

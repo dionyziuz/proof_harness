@@ -47,6 +47,16 @@ from .prompts import (
 )
 
 from .lean_runner import run_lean, LeanRunResult, find_lean_binary, get_lean_version
+from .lean_prover import (
+    ALLOWED_CORE_AXIOMS,
+    LeanCompliantKernel,
+    LeanKernel,
+    LeanKernelValidationResult,
+    LeanProver,
+    extract_lean_declarations,
+    strip_lean_comments,
+    verify_lean4_kernel,
+)
 from .judging import (
     judge_lean_proof,
     LeanJudgeRecord,
@@ -62,6 +72,14 @@ __all__ = [
     "MathSolver",
     "SolveResult",
     "MathProver",
+    "LeanProver",
+    "LeanKernel",
+    "LeanCompliantKernel",
+    "LeanKernelValidationResult",
+    "verify_lean4_kernel",
+    "ALLOWED_CORE_AXIOMS",
+    "extract_lean_declarations",
+    "strip_lean_comments",
     "ProofResult",
     "TCSSolveResult",
     "CandidatePool",

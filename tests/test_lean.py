@@ -2,7 +2,13 @@
 
 import pytest
 from core_engine.lean_runner import find_lean_binary, get_lean_version, run_lean
-from core_engine.judging import judge_lean_proof, extract_lean_code
+from core_engine.judging import (
+    judge_lean_proof,
+    extract_lean_code,
+    verify_lean4_kernel,
+    ALLOWED_CORE_AXIOMS,
+)
+from core_engine.lean_prover import LeanKernel, LeanProver
 from core_engine.kernel import PersistentMathKernel
 from core_engine.prover_kernel import TCSCompliantKernel
 
@@ -101,3 +107,54 @@ result = lean_check(proof)
     res = kernel.execute(py_code, timeout_seconds=30.0)
     assert res.success is True
     assert kernel.namespace["result"]["success"] is True
+
+
+def test_verify_lean4_kernel_5gate_and_print_axioms():
+    code = """
+import Std
+
+def doubleNat (n : Nat) : Nat := n + n
+
+theorem doubleNat_pos (n : Nat) (h : n > 0) : doubleNat n >= 2 := by
+  unfold doubleNat
+  omega
+"""
+    val = verify_lean4_kernel(code, required_theorems=["doubleNat", "doubleNat_pos"])
+    assert val.passed is True
+    assert val.verdict == "VALID"
+    assert val.status == "CERTIFIED_HIT"
+    assert "doubleNat_pos" in val.theorems_found
+    assert "doubleNat_pos" in val.axiom_report
+    assert set(val.axiom_report["doubleNat_pos"]).issubset(ALLOWED_CORE_AXIOMS)
+
+
+def test_verify_lean4_kernel_rejects_custom_axiom():
+    code = """
+import Std
+
+def myVal (n : Nat) : Nat := n + 1
+
+axiom fake_axiom : ∀ n : Nat, myVal n = 0
+
+theorem cheated_thm (n : Nat) : myVal n = 0 := fake_axiom n
+"""
+    val = verify_lean4_kernel(code, required_theorems=["cheated_thm"])
+    assert val.passed is False
+    assert val.verdict == "REJECT"
+
+
+def test_lean_kernel_repl_integration():
+    kernel = LeanKernel(required_theorems=["sq_zero"])
+    py_code = """
+lean_src = '''
+import Std
+def sq (n : Nat) : Nat := n * n
+theorem sq_zero : sq 0 = 0 := rfl
+'''
+res = verify_lean4_kernel(lean_src)
+"""
+    exec_res = kernel.execute(py_code, timeout_seconds=30.0)
+    assert exec_res.success is True
+    assert kernel.last_verified_lean_result is not None
+    assert kernel.last_verified_lean_result.passed is True
+

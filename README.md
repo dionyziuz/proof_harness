@@ -119,6 +119,10 @@ Evaluated across mathematical physics and Algebraic Quantum Field Theory (AQFT) 
 | Prover (`prove`)     | (`prover.py`, `prover_stages.py`| Quarantine, 4-Msg Blackboard,   |
 |                      |  `prover_auditor.py`)           | Noise-Band Occam's Razor        |
 +----------------------+---------------------------------+---------------------------------+
+| Formal Lean 4        | LeanProver & 5-Gate Kernel      | Interactive REPL `LeanKernel`,  |
+| Prover (`lean_prover`| (`core_engine/lean_prover.py`,  | `#print axioms` purity audit,   |
+| & `run_lean_prover`) |  `core_engine/judging/`)        | closed-loop compiler repair     |
++----------------------+---------------------------------+---------------------------------+
 | Autonomous Numeric   | MathSolver Engine               | Small-case search -> Closed-form|
 | Solver (`solve`)     | (`core_engine/solver.py`)       | derivation -> Boxed extraction  |
 +----------------------+---------------------------------+---------------------------------+
@@ -349,12 +353,28 @@ flowchart TD
 
 ---
 
+## ⚙️ Dual-Prover Architecture: `MathProver` (`prover.py`) vs. `LeanProver` (`lean_prover.py`)
+
+Proof-Harness provides two complementary theorem-proving engines under [`core_engine/`](core_engine/):
+
+| Dimension | `MathProver` ([`core_engine/prover.py`](core_engine/prover.py)) | `LeanProver` ([`core_engine/lean_prover.py`](core_engine/lean_prover.py)) |
+| :--- | :--- | :--- |
+| **Output Artifact** | Publication-grade LaTeX manuscript (`.tex` / `.pdf`) | Machine-certified Lean 4 source file (`.lean`) |
+| **Interactive Kernel** | `TCSCompliantKernel` (`SymPy`, `Z3`, `mpmath`, `NetworkX`, `MathStateMachine`) | `LeanKernel` (`LeanCompliantKernel`: preloads `verify_lean4_kernel`, `run_lean`, `SymPy`, `mpmath`) |
+| **Verification Authority** | Multi-stage LLM Referee (Auditor, Skeptic, Scribe) + `AuditorKernel` falsification | **Deterministic 5-Gate Lean 4 Compiler & `#print axioms` Kernel Judge** (`verify_lean4_kernel`) |
+| **Axiom & Shortcut Enforcement** | Stage 1.5 unauthorized domain restriction regex + Stage 2 boolean validity caps | **Gate 1:** `0` compiler errors & `0` unsolved goals<br>**Gate 2:** `0` `sorry`/`admit` & `0` compiler warnings<br>**Gate 3:** `#print axioms <thm>` restricted strictly to `propext`, `Classical.choice`, `Quot.sound`<br>**Gate 4:** Semantic anti-tautology depth audit (`audit_lean_semantic_depth`)<br>**Gate 5:** Required theorem signature completeness (`required_theorems`) |
+| **Error Recovery Loop** | Surgical LaTeX revision + Stateless 4-Message Blackboard + Hard Pivot | Closed-loop Lean 4 compiler repair feeding exact line numbers and goal states until `verify_lean4_kernel` passes |
+| **Primary Use Case** | Research papers, asymptotic derivations, theoretical computer science & physics | 100% machine-checked formalization, zero-axiom proof certification, verified theorem libraries |
+
+---
+
 ## 📁 Repository Structure
 
 ```text
 proof_harness/
 ├── core_engine/                     # Core neuro-symbolic reasoning & proving package
-│   ├── prover.py                    # Central MathProver orchestrator & multi-turn search loop
+│   ├── prover.py                    # Central MathProver (LaTeX) orchestrator & multi-turn search loop
+│   ├── lean_prover.py               # Formal LeanProver (.lean) orchestrator & 5-Gate Kernel Engine
 │   ├── prover_stages.py             # 7-role cognitive stage prompts & subagent runners
 │   ├── prover_auditor.py            # Multi-stage internal proof auditor & domain pre-checks
 │   ├── prover_kernel.py             # Benchmark airgapped mixins & ephemeral AuditorKernel
@@ -369,11 +389,12 @@ proof_harness/
 │   ├── solver.py                    # MathSolver for autonomous numerical/closed-form solving
 │   ├── falsifier.py                 # MathFalsifier for Z3/boundary counterexample hunting
 │   ├── discoverer.py                # MathDiscoverer for sequence & law mining (PSLQ/rsolve)
-│   ├── lean_runner.py               # Sandboxed Lean 4 compiler & verifier
-│   ├── judging/                     # Decoupled external evaluation judges (tcs_judge, lean_judge)
+│   ├── lean_runner.py               # Sandboxed Lean 4 compiler & semantic anti-tautology verifier
+│   ├── judging/                     # Decoupled external evaluation judges (tcs_judge, 5-gate lean_judge)
 │   ├── mcp_server.py                # Model Context Protocol (MCP) stdio server
 │   └── cli.py                       # Unified `prime-math` CLI entrypoint
-├── scripts/                         # Benchmark orchestration & leakage audit pipelines
+├── scripts/                         # Benchmark orchestration & formal verification pipelines
+│   ├── run_lean_prover.py           # CLI runner & 5-gate verifier for LeanProver (.lean tasks)
 │   ├── run_tcs_continuous_pipeline.py
 │   ├── run_tcs_bench_prove.py
 │   ├── run_tcs_bench_judge.py
@@ -439,13 +460,19 @@ uv run pytest -v
 
 ## 🛠️ CLI Usage Guide
 
-### 1. Autonomous Theorem Proving (`prove`)
+### 1. Autonomous Theorem Proving (`prove` & `run_lean_prover.py`)
 ```bash
-# Standard airgapped mathematical derivation and proof synthesis
+# Standard airgapped mathematical derivation and LaTeX proof synthesis (MathProver)
 uv run prime-math prove "Derive the stationary distribution, Perron-Frobenius spectral gap, and relaxation time of an irreducible row-stochastic matrix."
 
-# Open research conjecture with literature search enabled
+# Open research conjecture with literature search enabled (MathProver)
 uv run prime-math prove "Investigate convergence rates and algebraic invariants of Apéry-like series" --literature-search
+
+# Formal Lean 4 theorem proving with 5-gate compiler & #print axioms verification (LeanProver)
+.venv/bin/python scripts/run_lean_prover.py --task-file path/to/task.json
+
+# Deterministic 5-gate Lean 4 kernel audit of an existing .lean file (0 LLM calls)
+.venv/bin/python scripts/run_lean_prover.py --verify-only path/to/Proof.lean
 ```
 
 ### 2. Autonomous Numerical & Closed-Form Problem Solving (`solve`)
