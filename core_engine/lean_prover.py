@@ -403,7 +403,10 @@ class LeanProver(MathProver):
                 if extracted:
                     current_code = extracted
                     current_val = self.validate_lean_candidate(current_code)
-                    if current_val.validity_score >= best_repair_val.validity_score:
+                    def _repair_rank(v: LeanKernelValidationResult) -> Tuple[bool, int, float, float]:
+                        return (v.passed, len(v.verified_theorems), v.completeness_score, v.validity_score)
+
+                    if _repair_rank(current_val) >= _repair_rank(best_repair_val):
                         best_repair_val = current_val
                     if current_val.passed:
                         self._log_write(
@@ -564,7 +567,10 @@ class LeanProver(MathProver):
                     f"VerifiedTheorems={val_res.verified_theorems}\n"
                 )
 
-                if best_val is None or val_res.validity_score >= best_val.validity_score or val_res.passed:
+                def _candidate_rank(v: LeanKernelValidationResult) -> Tuple[bool, int, float, float]:
+                    return (v.passed, len(v.verified_theorems), v.completeness_score, v.validity_score)
+
+                if best_val is None or _candidate_rank(val_res) >= _candidate_rank(best_val):
                     best_val = val_res
                 self.last_lean_validation = val_res
                 if on_step:
