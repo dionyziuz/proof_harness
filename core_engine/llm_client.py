@@ -472,11 +472,16 @@ class TunnelThinkingClient:
             yielded_any = False
             meta.clear()
             parser = _SSEStreamParser(meta)
+            stream_start = time.monotonic()
             try:
                 with httpx.Client(timeout=timeout, verify=get_tls_verify()) as client:
                     with client.stream("POST", self.chat_url, headers=self.headers, json=payload) as response:
                         _raise_for_stream_status(response)
                         for line in response.iter_lines():
+                            if timeout and (time.monotonic() - stream_start) > timeout:
+                                raise TimeoutError(
+                                    f"SSE stream exceeded total wall-clock timeout ({timeout:.1f}s)"
+                                )
                             events, stop = parser.feed(line)
                             for ev in events:
                                 yielded_any = True
@@ -526,11 +531,16 @@ class TunnelThinkingClient:
             yielded_any = False
             meta.clear()
             parser = _SSEStreamParser(meta)
+            stream_start = time.monotonic()
             try:
                 async with httpx.AsyncClient(timeout=timeout, verify=get_tls_verify()) as client:
                     async with client.stream("POST", self.chat_url, headers=self.headers, json=payload) as response:
                         await _araise_for_stream_status(response)
                         async for line in response.aiter_lines():
+                            if timeout and (time.monotonic() - stream_start) > timeout:
+                                raise TimeoutError(
+                                    f"Async SSE stream exceeded total wall-clock timeout ({timeout:.1f}s)"
+                                )
                             events, stop = parser.feed(line)
                             for ev in events:
                                 yielded_any = True
