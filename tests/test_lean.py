@@ -259,3 +259,67 @@ def test_lean_prover_overtime_unlock():
     overtime_ev = [d for ev, d in events if ev == "overtime_triggered"]
     assert len(overtime_ev) == 1
     assert overtime_ev[0]["new_max_turns"] == 6
+
+
+def test_detect_dummy_target_stubs_multiline_eof():
+    from core_engine.judging.lean_judge import detect_dummy_target_stubs, strip_lean_comments
+
+    dummy_src = """
+lemma c34_helper (x : Nat) : x = x := rfl
+
+theorem target : Prop := by
+  intro h
+  exact False.elim (huv rfl)
+"""
+    violations = detect_dummy_target_stubs(strip_lean_comments(dummy_src), ["target"])
+    assert len(violations) == 1
+    assert "target" in violations[0]
+
+    clean_src = """
+theorem target : 1 + 1 = 2 := by
+  rfl
+"""
+    assert detect_dummy_target_stubs(strip_lean_comments(clean_src), ["target"]) == []
+
+
+def test_best_lean_validation_not_clobbered_by_regressed_turn():
+    from unittest.mock import MagicMock
+    from core_engine.lean_prover import LeanKernelValidationResult, LeanProver
+
+    prover = LeanProver(
+        client=MagicMock(),
+        kernel=MagicMock(),
+        required_theorems=["target"],
+        default_max_iterations=2,
+        max_compiler_repair_attempts=0,
+    )
+
+    good_val = LeanKernelValidationResult(
+        passed=False,
+        verdict="REJECT",
+        status="COMPILE_ERROR",
+        lean_code="lemma c34_good : True := trivial\ntheorem target : True := sorry",
+        verified_theorems=["c34_good"],
+        compiler_errors=["unsolved"],
+        completeness_score=0.5,
+        validity_score=0.55,
+    )
+    regressed_dup_val = LeanKernelValidationResult(
+        passed=False,
+        verdict="REJECT",
+        status="COMPILE_ERROR",
+        lean_code="lemma c27_dup : True := trivial\ntheorem target : True := sorry",
+        verified_theorems=["c27_dup", "c27_dup2"],
+        compiler_errors=["`Bounty.c27_dup` has already been declared"],
+        completeness_score=0.6,
+        validity_score=0.60,
+    )
+
+    flushed = []
+    prover._update_best_validation(good_val, on_step=lambda ev, d: flushed.append((ev, d.lean_code)))
+    prover._update_best_validation(regressed_dup_val, on_step=lambda ev, d: flushed.append((ev, d.lean_code)))
+
+    assert prover.best_lean_validation is good_val
+    assert len(flushed) == 1
+    assert "c34_good" in flushed[0][1]
+

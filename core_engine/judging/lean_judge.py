@@ -388,6 +388,8 @@ def verify_lean4_kernel(
     sem_violations = audit_lean_semantic_depth(
         clean_code, require_imports_or_structures=require_imports_or_structures
     )
+    if req_list:
+        sem_violations.extend(detect_dummy_target_stubs(strip_lean_comments(clean_code), req_list))
     if not theorems:
         sem_violations.append("Lean file declares zero `theorem` or `lemma` statements.")
 
@@ -512,6 +514,30 @@ def format_lean_progress_bar(score: float, width: int = 20) -> str:
     return f"[{'█' * filled}{'░' * empty}] {clamped:.2f}"
 
 
+def detect_dummy_target_stubs(stripped_code: str, required_theorems: List[str]) -> List[str]:
+    """Detects trivial placeholder stubs (`False.elim (... rfl)`, `G.loopless`, etc.) inside required theorem bodies."""
+    violations: List[str] = []
+    for req in required_theorems:
+        m = re.search(
+            rf"^\s*(?:noncomputable\s+)?(?:theorem|lemma)\s+{re.escape(req)}\b.*?:=\s*by\b(.*?)"
+            rf"(?=^\s*(?:noncomputable\s+)?(?:theorem|lemma|def|abbrev|structure|inductive|end|#)|\Z)",
+            stripped_code,
+            flags=re.MULTILINE | re.DOTALL,
+        )
+        if not m:
+            continue
+        body = m.group(1).strip()
+        if (
+            re.search(r"\bFalse\.elim\s*\([^)]*\brfl\b", body)
+            or re.search(r"\bFalse\.elim\s*\(\s*(?:G\.(?:ne_of_adj|loopless)|Nat\.not_lt_zero)\b", body)
+            or re.search(r"\babsurd\s+rfl\b", body)
+        ):
+            violations.append(
+                f"Dummy placeholder stub (`False.elim` / `absurd rfl`) in `{req}` — do not fake `{req}` before closing it."
+            )
+    return violations
+
+
 def compute_lean_audit_scores(
     *,
     passed: bool,
@@ -567,7 +593,7 @@ def compute_lean_audit_scores(
     # 2. Completeness (0.00 to 1.00)
     if required_theorems:
         req_total = max(1, len(required_theorems))
-        present_ratio = max(0.0, (req_total - len(missing_required_theorems)) / req_total)
+        present_ratio = 0.0 if semantic_violations else max(0.0, (req_total - len(missing_required_theorems)) / req_total)
         verified_req = sum(1 for r in required_theorems if r in verified_theorems)
         verified_ratio = verified_req / req_total
         extra_helpers = max(0, len(verified_theorems) - verified_req)

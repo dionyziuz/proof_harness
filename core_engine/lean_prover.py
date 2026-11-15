@@ -253,6 +253,7 @@ class LeanProver(MathProver):
         self.max_compiler_repair_attempts: int = max_compiler_repair_attempts
         self.last_problem_audit_result: Optional[Dict[str, Any]] = None
         self.last_lean_validation: Optional[LeanKernelValidationResult] = None
+        self.best_lean_validation: Optional[LeanKernelValidationResult] = None
 
         if "kernel" not in kwargs or kwargs["kernel"] is None:
             kwargs["kernel"] = LeanCompliantKernel(
@@ -384,12 +385,32 @@ class LeanProver(MathProver):
             boundary_cases=val_res.boundary_cases_score,
         )
 
+    @staticmethod
+    def _candidate_rank(v: LeanKernelValidationResult) -> Tuple[bool, bool, int, float, float]:
+        no_dup = not any("has already been declared" in e for e in v.compiler_errors)
+        return (v.passed, no_dup, len(v.verified_theorems), v.completeness_score, v.validity_score)
+
+    def _update_best_validation(
+        self,
+        candidate: LeanKernelValidationResult,
+        on_step: Optional[Callable[[str, Any], None]] = None,
+    ) -> LeanKernelValidationResult:
+        if (
+            self.best_lean_validation is None
+            or self._candidate_rank(candidate) >= self._candidate_rank(self.best_lean_validation)
+        ):
+            self.best_lean_validation = candidate
+            if on_step and candidate.lean_code.strip():
+                on_step("best_updated", candidate)
+        return self.best_lean_validation
+
     def _repair_lean_code_loop(
         self,
         task_prompt: str,
         initial_code: str,
         val_res: LeanKernelValidationResult,
         deadline: Optional[float] = None,
+        on_step: Optional[Callable[[str, Any], None]] = None,
     ) -> LeanKernelValidationResult:
         """Closed-loop Lean 4 compiler repair: sends exact Lean 4 compiler errors and line numbers
         to the thinking model to repair syntax/tactic errors until `verify_lean4_kernel` passes.
@@ -397,10 +418,7 @@ class LeanProver(MathProver):
         current_code = initial_code
         current_val = val_res
         best_repair_val = val_res
-
-        def _repair_rank(v: LeanKernelValidationResult) -> Tuple[bool, bool, int, float, float]:
-            no_dup = not any("has already been declared" in e for e in v.compiler_errors)
-            return (v.passed, no_dup, len(v.verified_theorems), v.completeness_score, v.validity_score)
+        self._update_best_validation(val_res, on_step=on_step)
 
         for attempt in range(1, self.max_compiler_repair_attempts + 1):
             if current_val.passed:
@@ -465,8 +483,9 @@ class LeanProver(MathProver):
                         f"```lean\n{current_code}\n```\n"
                     )
 
-                    if _repair_rank(current_val) >= _repair_rank(best_repair_val):
+                    if self._candidate_rank(current_val) >= self._candidate_rank(best_repair_val):
                         best_repair_val = current_val
+                    self._update_best_validation(current_val, on_step=on_step)
                     if current_val.passed:
                         self._log_write(
                             f"[Lean 4 Compiler Repair Loop SUCCESS on Attempt {attempt}]: "
@@ -546,12 +565,16 @@ class LeanProver(MathProver):
 
         start_turn = 1
         current_max_turns = max_turns
+        enable_overtime_cfg = getattr(self.config, "enable_overtime", True)
         if ckpt and isinstance(ckpt.get("messages"), list) and ckpt["messages"]:
             messages = ckpt["messages"]
             reasoning_traces: List[str] = list(ckpt.get("reasoning_traces", []))
             code_history: List[str] = list(ckpt.get("code_history", []))
             start_turn = int(ckpt.get("turn", 0)) + 1
-            current_max_turns = max(max_turns, int(ckpt.get("current_max_turns", max_turns)))
+            ckpt_max = int(ckpt.get("current_max_turns", max_turns))
+            current_max_turns = (
+                max(max_turns, ckpt_max) if enable_overtime_cfg else max(max_turns, start_turn)
+            )
             self._log_write(
                 f"\n[LeanProver Checkpoint Resume] Loaded checkpoint from {ckpt_p}. "
                 f"Resuming at Turn {start_turn}/{current_max_turns} (previous elapsed: {ckpt.get('elapsed_s', 0)}s).\n"
@@ -577,6 +600,7 @@ class LeanProver(MathProver):
             code_history = []
 
         best_val: Optional[LeanKernelValidationResult] = None
+        self.best_lean_validation = None
         repair_ran = False
         turn = start_turn - 1
 
@@ -622,7 +646,7 @@ class LeanProver(MathProver):
             if isinstance(self.kernel, LeanCompliantKernel) and self.kernel.last_verified_lean_result is not None:
                 k_val = self.kernel.last_verified_lean_result
                 if k_val.passed:
-                    best_val = k_val
+                    best_val = self._update_best_validation(k_val, on_step=on_step)
                     self.last_lean_validation = k_val
                     if on_step:
                         on_step("audit_result", {"verdict": "VALID", "validity": 1.0, "status": k_val.status})
@@ -651,13 +675,7 @@ class LeanProver(MathProver):
                     on_step("audit_start", lean_cand)
                 val_res = self.validate_lean_candidate(lean_cand)
                 prev_score = best_val.validity_score if best_val is not None else 0.0
-
-                def _candidate_rank(v: LeanKernelValidationResult) -> Tuple[bool, bool, int, float, float]:
-                    no_dup = not any("has already been declared" in e for e in v.compiler_errors)
-                    return (v.passed, no_dup, len(v.verified_theorems), v.completeness_score, v.validity_score)
-
-                if best_val is None or _candidate_rank(val_res) >= _candidate_rank(best_val):
-                    best_val = val_res
+                best_val = self._update_best_validation(val_res, on_step=on_step)
 
                 # High-Potential Overtime Extension Gate (unlocks +4 turns on strong progress)
                 enable_overtime = getattr(self.config, "enable_overtime", True)
@@ -693,11 +711,14 @@ class LeanProver(MathProver):
 
                 if not val_res.passed and turn == current_max_turns:
                     val_res = self._repair_lean_code_loop(
-                        task_prompt, lean_cand, val_res, deadline=start_time + max_time_seconds
+                        task_prompt,
+                        lean_cand,
+                        val_res,
+                        deadline=start_time + max_time_seconds,
+                        on_step=on_step,
                     )
                     repair_ran = True
-                    if _candidate_rank(val_res) >= _candidate_rank(best_val):
-                        best_val = val_res
+                    best_val = self._update_best_validation(val_res, on_step=on_step)
                 else:
                     repair_ran = False
 
@@ -803,8 +824,13 @@ class LeanProver(MathProver):
 
         if best_val is not None and not best_val.passed and best_val.lean_code and not repair_ran:
             best_val = self._repair_lean_code_loop(
-                task_prompt, best_val.lean_code, best_val, deadline=start_time + max_time_seconds
+                task_prompt,
+                best_val.lean_code,
+                best_val,
+                deadline=start_time + max_time_seconds,
+                on_step=on_step,
             )
+            best_val = self._update_best_validation(best_val, on_step=on_step)
 
         if best_val is None:
             best_val = LeanKernelValidationResult(
