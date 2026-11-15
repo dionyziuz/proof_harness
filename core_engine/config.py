@@ -123,7 +123,7 @@ class FastComposerConfig:
 class PrimeMathConfig:
     base_url: str = "http://127.0.0.1:8091/v1"
     api_key: str = "agy-local-key"  # default to local agy wrapper
-    model: str = "gemini-3.8-flash-high"
+    model: str = "gemini-4-hydrogen-medium"
     timeout_seconds: float = 240.0
     max_tokens: int = 65536
     temperature: float = 0.7

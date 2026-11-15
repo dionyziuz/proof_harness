@@ -70,13 +70,16 @@ machine-certified Lean 4 formal proof file (`.lean`) that compiles cleanly with
 ZERO errors, ZERO warnings, ZERO `sorry` shortcuts, and ZERO custom axioms.
 
 CRITICAL LEAN 4 FORMAL VERIFICATION RULES:
-1. Interactive REPL Testing First (`verify_lean4_kernel`):
+1. Interactive REPL Testing First (`verify_lean4_kernel` / `run_lean`):
    - Your Python REPL kernel has `verify_lean4_kernel(lean_code, required_theorems=...)`
-     and `run_lean(lean_code)` preloaded!
-   - On EVERY turn, test your candidate Lean 4 code inside a ```python ... ``` block using:
+     and `run_lean(lean_code)` preloaded (plus `probe_lean(snippet)` when provided by a task
+     wrapper). These tools genuinely run the Lean 4 compiler—NEVER claim they are mocked
+     or disabled, and NEVER dismiss a proof direction in prose without testing a minimal
+     10-15 line Lean compile probe first.
+   - Work bottom-up: prove and compile tricky helper lemmas individually inside ```python ... ```
+     blocks, then test the complete assembled file before outputting your final candidate:
      ```python
      lean_src = r'''
-     import Std
      ...
      '''
      res = verify_lean4_kernel(lean_src)
@@ -85,26 +88,46 @@ CRITICAL LEAN 4 FORMAL VERIFICATION RULES:
      print("AXIOMS:", res.axiom_report)
      if not res.passed:
          print("ISSUES:", res.issues_summary)
-         print("COMPILER OUTPUT:\\n", res.compiler_output)
+         print("COMPILER OUTPUT:\\n", res.compiler_output[:2500])
      ```
-   - Fix every compiler error, type mismatch, or unused variable warning inside the REPL
+   - Fix every compiler error, type mismatch, or unused-variable warning inside the REPL
      BEFORE outputting your final candidate proof!
 
-2. Lean 4 Environment & Tactics (`import Std`):
-   - Always begin your Lean file with `import Std` (unless a specific library import is instructed).
-   - Use standard kernel-verified types (`Nat`, `Int`, `Bool`, `List`, `Fin`, `structure`, `def`)
-     and tactics (`decide`, `omega`, `rfl`, `simp`, `simp only`, `dsimp`, `rw`, `exact`,
-     `apply`, `induction`, `cases`, `rcases`, `obtain`, `constructor`, `intro`, `have`, `split`).
-   - NEVER use `sorry`, `admit`, `axiom`, `constant`, `unsafe`, or `extern`.
+2. Environment, Imports & Wrapper Precedence (Non-Conflicting):
+   - Always follow the active task specification's import and wrapper rules FIRST:
+     • If the task uses an external validator wrapper or explicitly forbids `import`,
+       `prelude`, `module`, or wrapper `namespace` declarations, emit declarations ONLY
+       (no `import` lines) and make the code 100% self-contained against the provided imports.
+     • Otherwise (for standalone Lean 4 files), begin with `import Std` or the exact imports
+       requested by the task.
+
+3. Strict Purity, Completeness & Namespace Hygiene:
+   - NEVER use `sorry`, `admit`, `sorryAx`, `axiom`, `axioms`, `constant`, `constants`,
+     `unsafe`, `extern`, or `partial`.
    - Every theorem must pass `#print axioms <thm>` using ONLY standard Lean 4 core axioms
      (`propext`, `Classical.choice`, `Quot.sound`, or no axioms).
-   - Avoid unused variables in theorem signatures (or prefix intentionally unused hypothesis names
-     with an underscore `_h`, e.g., `(_hS : S > 0)`), because Lean compiler warnings are treated
-     as failures!
+   - NEVER emit `...` ellipses, dummy placeholders (`def foo`), or bare prototype
+     signatures without bodies: every `def` / `lemma` / `theorem` must immediately carry
+     its complete `:= ...` or `:= by ...` definition/proof.
+   - NEVER open library namespaces (e.g., `namespace Nat.Prime`, `namespace ZMod`) or
+     declare dotted library names that shadow or collide with existing declarations; give
+     custom helpers clean problem-specific prefixes.
+   - Prefix intentionally unused hypothesis binders with `_` (e.g., `(_hS : S > 0)`),
+     because Lean compiler warnings are treated as validation failures.
 
-3. How to Output Your Final Candidate Proof:
-   - Once `verify_lean4_kernel(lean_src).passed` is `True` in the Python REPL, output your complete,
-     self-contained Lean 4 source file inside a ```lean ... ``` code block!
+4. Clean Tactics, Arithmetic & Anti-Loop Discipline:
+   - Discharge `Nat`/`Int` linear, divisibility, and parity bounds directly with `omega`,
+     `nlinarith`, or `Nat.div_mul_cancel`—NEVER emit repetitive primed-variable unrolling
+     chains (`have h' ...`, `have h'' ...`) or brute-force hand arithmetic tables.
+   - Use `decide` ONLY on small, finite, computable bounds (chunk bounded ranges if needed
+     so `maxRecDepth` or timeouts are avoided).
+   - Ensure required type coercions and typeclass instances (e.g., `(q : ZMod p)`,
+     `haveI : Fact p.Prime := ⟨hp⟩`) are explicit where needed.
+
+5. How to Output Your Final Candidate Proof:
+   - Once `verify_lean4_kernel(lean_src).passed` is `True` in the Python REPL (or on your
+     final turn after repairing diagnostics), output your complete, self-contained Lean 4
+     source inside a single ```lean ... ``` code block containing all required theorems.
    - Passing the 5-Gate Lean 4 compiler + `#print axioms` audit is a 100% deterministic Certified Hit!
 """
 
@@ -132,15 +155,23 @@ Output ONLY a single valid JSON object:
 """
 
 LEAN_SYNTHESIS_SCRIBE_PROMPT = """You are the Lean 4 Formal Verification Scribe.
-Given the Target Problem and the exploration/REPL traces, output ONLY a complete, self-contained,
-compilable Lean 4 source file enclosed in a single ```lean ... ``` code block.
+Given the Target Specification, current Lean 4 code, and exact compiler/policy diagnostics,
+output ONLY a complete, self-contained, compilable Lean 4 source file enclosed in a single
+```lean ... ``` code block.
 
 STRICT RULES:
-1. Start with `import Std` at the top of the Lean 4 file (unless another import is specified).
-2. Include all required `def` / `structure` declarations and prove all required `theorem` declarations.
-3. NEVER use `sorry`, `admit`, `axiom`, `constant`, or `unsafe`.
-4. Ensure zero unused variable warnings (prefix unused hypothesis identifiers with `_`, e.g. `_h`).
-5. Output ONLY the ```lean ... ``` code block.
+1. Obey the exact import and wrapper rules in TARGET SPECIFICATION:
+   - If the target forbids `import` / `namespace` (wrapper-managed file), emit declarations ONLY.
+   - Otherwise, begin standalone files with `import Std` or the exact instructed import(s).
+2. Preserve all already-verified helper declarations verbatim unless they cause a compiler or
+   policy error, and include every required `def` / `lemma` / `theorem` in full.
+3. NEVER use `sorry`, `admit`, `sorryAx`, `axiom`, `constant`, `unsafe`, `extern`, `partial`,
+   `...` ellipses, dummy `foo` stubs, or bodyless prototype signatures.
+4. Respect namespace hygiene (never open/shadow library namespaces) and prefix unused binders
+   with `_` (e.g. `_h`) to eliminate warnings.
+5. Fix the exact root errors instead of repeating failed tactic patterns; discharge `Nat`/`Int`
+   arithmetic cleanly with `omega` / `nlinarith` rather than primed-variable (`h'''`) loops.
+6. Output ONLY a single ```lean ... ``` code block.
 """
 
 
@@ -236,6 +267,9 @@ class LeanProver(MathProver):
 
     def _get_base_prover_system_prompt(self) -> str:
         return LEAN_PROVER_SYSTEM_PROMPT
+
+    def _get_repair_scribe_system_prompt(self) -> str:
+        return LEAN_SYNTHESIS_SCRIBE_PROMPT
 
     def audit_problem_statement(self, task_prompt: str) -> Dict[str, Any]:
         """Stage-0 Formal Problem-Formulation & Axiom Purity Auditor."""
@@ -355,6 +389,7 @@ class LeanProver(MathProver):
         task_prompt: str,
         initial_code: str,
         val_res: LeanKernelValidationResult,
+        deadline: Optional[float] = None,
     ) -> LeanKernelValidationResult:
         """Closed-loop Lean 4 compiler repair: sends exact Lean 4 compiler errors and line numbers
         to the thinking model to repair syntax/tactic errors until `verify_lean4_kernel` passes.
@@ -363,9 +398,23 @@ class LeanProver(MathProver):
         current_val = val_res
         best_repair_val = val_res
 
+        def _repair_rank(v: LeanKernelValidationResult) -> Tuple[bool, bool, int, float, float]:
+            no_dup = not any("has already been declared" in e for e in v.compiler_errors)
+            return (v.passed, no_dup, len(v.verified_theorems), v.completeness_score, v.validity_score)
+
         for attempt in range(1, self.max_compiler_repair_attempts + 1):
             if current_val.passed:
                 return current_val
+            if deadline is not None:
+                remaining = deadline - time.perf_counter()
+                if remaining < 30.0:
+                    self._log_write(
+                        f"\n[Lean 4 Compiler Repair Loop Stopped]: Only {remaining:.1f}s remaining in cycle budget.\n"
+                    )
+                    break
+                call_timeout = min(240.0, max(30.0, remaining))
+            else:
+                call_timeout = 240.0
 
             bar = format_lean_progress_bar(current_val.validity_score)
             self._log_write(
@@ -385,28 +434,28 @@ class LeanProver(MathProver):
                 f"Issues Summary: {current_val.issues_summary}\n"
                 f"Raw Compiler Output:\n{current_val.compiler_output}\n\n"
                 "Repair every compiler error, warning, unsolved goal, or missing theorem above. "
-                "Preserve all already-verified helper lemmas verbatim. "
+                "Preserve all already-verified helper lemmas verbatim, and NEVER re-declare any symbol "
+                "that is already in the preloaded library (`has already been declared`). "
                 "Output the complete, self-contained, corrected Lean 4 file inside a single ```lean ... ``` block."
             )
             try:
                 resp = self.client.complete(
                     [
-                        {"role": "system", "content": LEAN_SYNTHESIS_SCRIBE_PROMPT},
+                        {"role": "system", "content": self._get_repair_scribe_system_prompt()},
                         {"role": "user", "content": repair_user},
                     ],
                     temperature=0.1,
                     max_tokens=32768,
                     enable_thinking=True,
                     thinking_budget_tokens=8192,
-                    timeout_seconds=360.0,
+                    timeout_seconds=call_timeout,
+                    max_retries=2,
                 )
                 repaired_text = (resp.content or "").strip()
                 extracted = extract_lean_code(repaired_text)
                 if extracted:
                     current_code = extracted
                     current_val = self.validate_lean_candidate(current_code)
-                    def _repair_rank(v: LeanKernelValidationResult) -> Tuple[bool, int, float, float]:
-                        return (v.passed, len(v.verified_theorems), v.completeness_score, v.validity_score)
 
                     self._log_write(
                         f"\n[Lean 4 Compiler Repair Loop — Attempt {attempt}/{self.max_compiler_repair_attempts}]: "
@@ -481,20 +530,36 @@ class LeanProver(MathProver):
             except Exception as e:
                 self._log_write(f"[Literature Search Warning]: {e}\n")
 
+        heuristics_briefing = ""
+        if getattr(self, "memory", None) is not None:
+            try:
+                rules = self.memory.query_procedural_heuristics(task_prompt[:600], limit=6, min_score=0.55)
+                if rules:
+                    formatted_rules = "\n".join(f"- {r}" for r in rules)
+                    heuristics_briefing = (
+                        "\n\n--- RETRIEVED TURBOVEC PROCEDURAL HEURISTICS (SHARED LESSONS LEARNED) ---\n"
+                        f"{formatted_rules}\n"
+                    )
+                    self._log_write(heuristics_briefing)
+            except Exception as e:
+                self._log_write(f"[TurboVec Heuristic Retrieval Warning]: {e}\n")
+
         start_turn = 1
+        current_max_turns = max_turns
         if ckpt and isinstance(ckpt.get("messages"), list) and ckpt["messages"]:
             messages = ckpt["messages"]
             reasoning_traces: List[str] = list(ckpt.get("reasoning_traces", []))
             code_history: List[str] = list(ckpt.get("code_history", []))
             start_turn = int(ckpt.get("turn", 0)) + 1
+            current_max_turns = max(max_turns, int(ckpt.get("current_max_turns", max_turns)))
             self._log_write(
                 f"\n[LeanProver Checkpoint Resume] Loaded checkpoint from {ckpt_p}. "
-                f"Resuming at Turn {start_turn}/{max_turns} (previous elapsed: {ckpt.get('elapsed_s', 0)}s).\n"
+                f"Resuming at Turn {start_turn}/{current_max_turns} (previous elapsed: {ckpt.get('elapsed_s', 0)}s).\n"
             )
             if on_step:
                 on_step(
                     "checkpoint_resume",
-                    {"turn": start_turn, "max_turns": max_turns, "checkpoint_path": str(ckpt_p)},
+                    {"turn": start_turn, "max_turns": current_max_turns, "checkpoint_path": str(ckpt_p)},
                 )
         else:
             messages: List[Dict[str, str]] = [
@@ -502,7 +567,7 @@ class LeanProver(MathProver):
                 {
                     "role": "user",
                     "content": (
-                        f"{task_prompt}{req_banner}{lit_briefing}\n\n"
+                        f"{task_prompt}{req_banner}{lit_briefing}{heuristics_briefing}\n\n"
                         "Use the Python REPL (`verify_lean4_kernel(lean_src)`) to test and verify your Lean 4 "
                         "formalization interactively, then output the complete, certified ```lean ... ``` file."
                     ),
@@ -512,8 +577,11 @@ class LeanProver(MathProver):
             code_history = []
 
         best_val: Optional[LeanKernelValidationResult] = None
+        repair_ran = False
+        turn = start_turn - 1
 
-        for turn in range(start_turn, max_turns + 1):
+        while turn < current_max_turns:
+            turn += 1
             elapsed = time.perf_counter() - start_time
             if elapsed >= max_time_seconds:
                 self._log_write(f"\n[LeanProver Timeout] Reached {elapsed:.1f}s >= {max_time_seconds:.1f}s.\n")
@@ -521,7 +589,7 @@ class LeanProver(MathProver):
 
             if on_step:
                 on_step("turn_start", turn)
-            self._log_write(f"\n==================== LEAN PROVER TURN {turn}/{max_turns} ====================\n")
+            self._log_write(f"\n==================== LEAN PROVER TURN {turn}/{current_max_turns} ====================\n")
 
             r_text, c_text = self._stream_completion_with_retry(
                 messages,
@@ -583,9 +651,53 @@ class LeanProver(MathProver):
                     on_step("audit_start", lean_cand)
                 val_res = self.validate_lean_candidate(lean_cand)
                 prev_score = best_val.validity_score if best_val is not None else 0.0
-                if not val_res.passed and turn == max_turns:
-                    val_res = self._repair_lean_code_loop(task_prompt, lean_cand, val_res)
+
+                def _candidate_rank(v: LeanKernelValidationResult) -> Tuple[bool, bool, int, float, float]:
+                    no_dup = not any("has already been declared" in e for e in v.compiler_errors)
+                    return (v.passed, no_dup, len(v.verified_theorems), v.completeness_score, v.validity_score)
+
+                if best_val is None or _candidate_rank(val_res) >= _candidate_rank(best_val):
+                    best_val = val_res
+
+                # High-Potential Overtime Extension Gate (unlocks +4 turns on strong progress)
+                enable_overtime = getattr(self.config, "enable_overtime", True)
+                overtime_iters = int(getattr(self.config, "overtime_iterations", 4))
+                overtime_thresh = float(getattr(self.config, "lean_overtime_validity_threshold", 0.50))
+                if (
+                    enable_overtime
+                    and not val_res.passed
+                    and turn == current_max_turns
+                    and current_max_turns == max_turns
+                    and best_val is not None
+                    and best_val.validity_score >= overtime_thresh
+                ):
+                    current_max_turns += overtime_iters
+                    overtime_seconds = float(getattr(self.config, "overtime_seconds_per_iter", 450.0) * overtime_iters)
+                    max_time_seconds += overtime_seconds
+                    self._log_write(
+                        f"\n================================================================================\n"
+                        f"[HIGH-POTENTIAL OVERTIME GATE TRIGGERED]\n"
+                        f"Lean candidate achieved strong directional validity ({best_val.validity_score:.2f} >= {overtime_thresh:.2f}).\n"
+                        f"Granting {overtime_iters}-turn overtime extension (Turn {turn} -> Max turns: {current_max_turns}, +{overtime_seconds:.0f}s).\n"
+                        f"================================================================================\n\n"
+                    )
+                    if on_step:
+                        on_step(
+                            "overtime_triggered",
+                            {
+                                "new_max_turns": current_max_turns,
+                                "validity": best_val.validity_score,
+                                "extended_seconds": overtime_seconds,
+                            },
+                        )
+
+                if not val_res.passed and turn == current_max_turns:
+                    val_res = self._repair_lean_code_loop(
+                        task_prompt, lean_cand, val_res, deadline=start_time + max_time_seconds
+                    )
                     repair_ran = True
+                    if _candidate_rank(val_res) >= _candidate_rank(best_val):
+                        best_val = val_res
                 else:
                     repair_ran = False
 
@@ -599,12 +711,6 @@ class LeanProver(MathProver):
                     f"Completeness={val_res.completeness_score:.2f} | "
                     f"VerifiedTheorems={val_res.verified_theorems}\n"
                 )
-
-                def _candidate_rank(v: LeanKernelValidationResult) -> Tuple[bool, int, float, float]:
-                    return (v.passed, len(v.verified_theorems), v.completeness_score, v.validity_score)
-
-                if best_val is None or _candidate_rank(val_res) >= _candidate_rank(best_val):
-                    best_val = val_res
                 self.last_lean_validation = val_res
                 if on_step:
                     on_step(
@@ -678,6 +784,7 @@ class LeanProver(MathProver):
                         "version": 1,
                         "task_id": str(task_id),
                         "turn": turn,
+                        "current_max_turns": current_max_turns,
                         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                         "elapsed_s": round(time.perf_counter() - start_time, 2),
                         "messages": messages,
@@ -694,8 +801,10 @@ class LeanProver(MathProver):
                 except Exception as ce:
                     self._log_write(f"[Checkpoint Save Warning]: {ce}\n")
 
-        if best_val is not None and not best_val.passed and best_val.lean_code and not locals().get("repair_ran", False):
-            best_val = self._repair_lean_code_loop(task_prompt, best_val.lean_code, best_val)
+        if best_val is not None and not best_val.passed and best_val.lean_code and not repair_ran:
+            best_val = self._repair_lean_code_loop(
+                task_prompt, best_val.lean_code, best_val, deadline=start_time + max_time_seconds
+            )
 
         if best_val is None:
             best_val = LeanKernelValidationResult(
@@ -716,7 +825,7 @@ class LeanProver(MathProver):
             candidate_proof=best_val.lean_code,
             audit_verdict=best_val.verdict,
             audit_validity=best_val.validity_score,
-            iterations=max_turns,
+            iterations=turn if turn > 0 else max_turns,
             duration_s=duration,
             reasoning_traces=reasoning_traces,
             code_history=code_history,

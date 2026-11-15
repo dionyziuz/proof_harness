@@ -217,3 +217,45 @@ def test_lean_gradual_audit_scores_monotonicity():
     assert "█" in bar and f"{s2['validity']:.2f}" in bar
 
 
+def test_lean_prover_overtime_unlock():
+    from unittest.mock import MagicMock
+    from core_engine.lean_prover import LeanKernelValidationResult, LeanProver
+
+    prover = LeanProver(client=MagicMock(), kernel=MagicMock())
+    turns = [0]
+
+    def mock_stream(messages, **kwargs):
+        turns[0] += 1
+        return f"Thinking {turns[0]}", f"```lean\n-- Turn {turns[0]}\n```"
+
+    prover._stream_completion_with_retry = mock_stream
+    prover.kernel.execute = MagicMock(return_value=MagicMock(stdout="", stderr="", error=None))
+
+    def mock_validate(code):
+        if turns[0] >= 5:
+            return LeanKernelValidationResult(
+                passed=True, verdict="VALID", status="KERNEL_PASSED", lean_code=code, validity_score=1.0
+            )
+        return LeanKernelValidationResult(
+            passed=False,
+            verdict="REJECT",
+            status="COMPILE_ERROR",
+            lean_code=code,
+            compiler_errors=["err"],
+            validity_score=0.55,
+        )
+
+    prover.validate_lean_candidate = mock_validate
+    events = []
+    solve_res, val_res = prover.prove_lean(
+        task_id="overtime_test",
+        task_prompt="Prove dummy",
+        max_iterations=2,
+        on_step=lambda ev, data: events.append((ev, data)),
+    )
+
+    assert solve_res.verified is True
+    assert solve_res.iterations == 5
+    overtime_ev = [d for ev, d in events if ev == "overtime_triggered"]
+    assert len(overtime_ev) == 1
+    assert overtime_ev[0]["new_max_turns"] == 6
