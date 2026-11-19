@@ -2,6 +2,12 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+> **What it is:** a system that wraps a language model in a checking loop so it can prove hard math theorems. Every step is verified with real math tools, the system remembers what worked, and a second pass tries to break the proof before it counts.
+>
+> **What it did:** on 300 research-level problems, a 27B open model on a single GPU went from 12.7% to 26.7% solved, Muse from 22% to 46.3%, Gemini Flash from 33.7% to 55.3%. The loop fixed 16–33% of the problems each model got wrong on its own.
+>
+> **Read the story:** [Scale the Model, Scale the Harness](https://generativeai.pub/scale-the-model-scale-the-harness-unlocking-a-2-leap-in-mathematical-reasoning-231314ab3ea7) — published in Generative AI on Medium. All test results are public in `data/eval_results/`.
+
 **Proof-Harness** is an open-source neuro-symbolic mathematical reasoning engine, autonomous theorem prover, and zero-trust deterministic Python/Lean execution harness.
 
 Autonomous reasoning systems tackling research-level mathematics face three foundational challenges: **(1) Symbolic Verification Bottlenecks** (statistical next-token prediction alone cannot deterministically guarantee whether delicate multi-step algebraic derivations, inequality directions, and boundary cases hold), **(2) Continual Learning without Fine-Tuning** (the need to accumulate and specialize domain knowledge from solved problems across sessions without expensive model retraining), and **(3) Long-Horizon Search Governance** (when tackling stubborn open problems, extended reasoning can drift into cognitive perseveration—spending excessive tokens patching a flawed intermediate lemma rather than stepping back to explore alternative reductions, or running indefinitely without inspectable interim milestones).
