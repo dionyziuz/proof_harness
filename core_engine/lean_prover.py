@@ -47,6 +47,20 @@ from .judging.lean_judge import (
     strip_lean_comments,
     verify_lean4_kernel,
 )
+from .lean_harness_guards import (
+    check_signature_drift,
+    classify_lean_failure_triage,
+    extract_declaration_signatures,
+    format_compact_library_toc,
+    format_computational_witness_briefing,
+    format_obstructions_briefing,
+    load_computational_witnesses,
+    load_obstructions,
+    register_obstruction,
+    retrieve_cached_arxiv_briefing,
+    save_computational_witness,
+    search_library_signatures,
+)
 from .lean_runner import (
     LeanRunResult,
     audit_lean_semantic_depth,
@@ -176,9 +190,9 @@ STRICT RULES:
 
 
 class LeanCompliantKernel(ProverCompliantKernel):
-    """Persistent Python REPL Kernel preloaded with `verify_lean4_kernel`, `run_lean`,
-    `judge_lean_proof`, `sympy`, and `mpmath` so `LeanProver` can compile and debug Lean 4
-    code interactively on every turn.
+    """Persistent Python REPL Kernel preloaded with `verify_lean4_kernel`, `verify_lemma`,
+    `lean_tactic_help`, `run_lean`, `judge_lean_proof`, `sympy`, and `mpmath` so `LeanProver`
+    can compile and debug Lean 4 code interactively on every turn.
     """
 
     def __init__(
@@ -191,11 +205,13 @@ class LeanCompliantKernel(ProverCompliantKernel):
         self.required_theorems: List[str] = list(required_theorems or [])
         self.lake_dir: Optional[Path] = lake_dir
         self.last_verified_lean_result: Optional[LeanKernelValidationResult] = None
+        self.verified_helper_lemmas: Dict[str, str] = {}
         super().__init__(*args, **kwargs)
         self._inject_lean_tools()
 
     def reset(self) -> None:
         super().reset()
+        self.verified_helper_lemmas = {}
         self._inject_lean_tools()
 
     def _inject_lean_tools(self) -> None:
@@ -215,17 +231,153 @@ class LeanCompliantKernel(ProverCompliantKernel):
                 self.last_verified_lean_result = res
             return res
 
+        def _repl_verify_lemma(lemma_code: str, timeout: float = 90.0) -> Dict[str, Any]:
+            """Compiles a standalone helper lemma/theorem/def without requiring `target`,
+            verifying 0 errors and 0 sorry, and banks it into `verified_helper_lemmas`.
+            """
+            res = verify_lean4_kernel(
+                lemma_code,
+                required_theorems=[],
+                timeout=timeout,
+                lake_dir=self.lake_dir,
+                require_imports_or_structures=False,
+            )
+            if res.passed and res.verified_theorems:
+                for thm_name in res.verified_theorems:
+                    if thm_name != "target":
+                        self.verified_helper_lemmas[thm_name] = lemma_code.strip()
+            return {
+                "passed": res.passed,
+                "status": res.status,
+                "verified_theorems": res.verified_theorems,
+                "banked_helpers": list(self.verified_helper_lemmas.keys()),
+                "issues": res.issues_summary,
+                "compiler_output": res.compiler_output[:1500],
+                "tactic_hints": diagnose_lean_compiler_traps(res.compiler_output),
+                "regulator_triage": classify_lean_failure_triage(
+                    res.compiler_output, res.status, res.verified_theorems
+                ),
+            }
+
+        def _active_preload_lib() -> Optional[Path]:
+            env_lib = (
+                os.environ.get("CONJECTURES_PRELOAD_LIB", "").strip()
+                or os.environ.get("ERDOS985_PRELOAD_LIB", "").strip()
+            )
+            if env_lib and Path(env_lib).is_file():
+                return Path(env_lib).resolve()
+            if self.lake_dir and (self.lake_dir / "Verified_Library.lean").is_file():
+                return (self.lake_dir / "Verified_Library.lean").resolve()
+            return None
+
+        def _active_work_dir() -> Path:
+            lib_p = _active_preload_lib()
+            if lib_p is not None:
+                return lib_p.parent
+            env_wd = os.environ.get("CONJECTURES_WORK_DIR", "").strip()
+            if env_wd and Path(env_wd).is_dir():
+                return Path(env_wd).resolve()
+            if self.lake_dir and self.lake_dir.is_dir():
+                return self.lake_dir.resolve()
+            return Path.cwd()
+
+        def _repl_search_verified_library(query: str = "", limit: int = 25) -> str:
+            return search_library_signatures(_active_preload_lib(), query=query, limit=limit)
+
+        def _repl_register_obstruction(
+            dead_route: str, witness_or_no_go: str, banned_pattern: str = ""
+        ) -> Dict[str, Any]:
+            return register_obstruction(
+                _active_work_dir(),
+                dead_route=dead_route,
+                witness_or_no_go=witness_or_no_go,
+                banned_pattern=banned_pattern,
+            )
+
+        def _repl_list_obstructions() -> List[Dict[str, Any]]:
+            return load_obstructions(_active_work_dir())
+
+        def _repl_save_computational_witness(
+            key: str, summary: str, data: Any = None
+        ) -> Dict[str, Any]:
+            return save_computational_witness(_active_work_dir(), key=key, summary=summary, data=data)
+
+        def _repl_load_computational_witnesses() -> Dict[str, Any]:
+            return load_computational_witnesses(_active_work_dir())
+
+        def _repl_check_signature_guard(candidate_code: str) -> Dict[str, Any]:
+            lib_p = _active_preload_lib()
+            base_sigs = (
+                extract_declaration_signatures(lib_p.read_text(encoding="utf-8", errors="replace"))
+                if (lib_p and lib_p.is_file())
+                else {}
+            )
+            ok, drifts = check_signature_drift(candidate_code, base_sigs)
+            return {"ok": ok, "drifts": drifts, "guarded_count": len(base_sigs)}
+
         tools = {
             "run_lean": run_lean,
             "judge_lean_proof": judge_lean_proof,
             "audit_lean_semantic_depth": audit_lean_semantic_depth,
             "verify_lean4_kernel": _repl_verify_lean4_kernel,
+            "verify_lemma": _repl_verify_lemma,
+            "lean_tactic_help": diagnose_lean_compiler_traps,
+            "classify_lean_failure_triage": classify_lean_failure_triage,
+            "search_verified_library": _repl_search_verified_library,
+            "register_obstruction": _repl_register_obstruction,
+            "list_obstructions": _repl_list_obstructions,
+            "save_computational_witness": _repl_save_computational_witness,
+            "load_computational_witnesses": _repl_load_computational_witnesses,
+            "check_signature_guard": _repl_check_signature_guard,
             "extract_lean_declarations": extract_lean_declarations,
             "ALLOWED_CORE_AXIOMS": ALLOWED_CORE_AXIOMS,
             "REQUIRED_THEOREMS": list(self.required_theorems),
         }
         for name, obj in tools.items():
             self.namespace[name] = obj
+
+
+def diagnose_lean_compiler_traps(compiler_output: str) -> str:
+    """Deterministic Lean 4 / Mathlib error-to-idiom helper for common model failure modes."""
+    if not compiler_output:
+        return ""
+    out = compiler_output
+    hints: List[str] = []
+    if "has already been declared" in out:
+        hints.append(
+            "• DUPLICATE DECLARATION: A lemma/theorem name is already in `Verified_Library.lean` or declared twice. "
+            "Remove the duplicate declaration and call the preloaded lemma directly (or rename with a fresh cycle prefix)."
+        )
+    if "sup_eq_zero" in out or "Finset.sup" in out:
+        hints.append(
+            "• FINSET.SUP ON NAT: For `ℕ`, `0` is `⊥` (`Nat.bot_eq_zero`), so `@Finset.sup_eq_zero` often fails to unify. "
+            "Use `apply Nat.eq_zero_of_le_zero; apply Finset.sup_le; intro x hx` instead."
+        )
+    if "Tactic `rewrite` failed" in out or "Tactic `rw` failed" in out:
+        hints.append(
+            "• REWRITE FAILED: The target pattern is under binders (`fun i => ...` or `Finset.sum`) or syntactically differs. "
+            "Use `simp_rw [...]`, `congr; ext i`, or prove an intermediate `have h_eq : ... := by ...` first."
+        )
+    if "linarith failed to find a contradiction" in out:
+        hints.append(
+            "• LINARITH FAILED: `linarith` is linear-only and cannot prove `A ≤ B` from `0 ≤ A` and `0 ≤ B` alone, nor handle nonlinear products/powers. "
+            "Feed explicit bounding hypotheses (`have h : ...`) or use `nlinarith` / `gcongr` / `positivity`."
+        )
+    if "typeclass instance problem is stuck" in out:
+        hints.append(
+            "• STUCK TYPECLASS INSTANCE: Provide explicit type annotations (e.g. `(d : ℝ)`, `(Finset.univ : Finset (Fin n))`) "
+            "or introduce needed instances (`haveI : Fact p.Prime := ⟨hp⟩`, `classical`)."
+        )
+    if "Tactic `introN` failed" in out:
+        hints.append(
+            "• INTRON FAILED: The goal's definition is not unfolded yet. Run `unfold <DefName>` or `dsimp [<DefName>]` before `intro`."
+        )
+    if "unsolved goals" in out:
+        hints.append(
+            "• UNSOLVED GOALS: A branch or tactic (`simp`, `cases`, `refine`) left residual goals. "
+            "Check the exact goal state in `Compiler Output` and close every branch explicitly."
+        )
+    return "\n".join(hints)
 
 
 # Concise alias
@@ -320,6 +472,17 @@ class LeanProver(MathProver):
 
     def validate_lean_candidate(self, candidate_text: str) -> LeanKernelValidationResult:
         """Runs the deterministic 5-gate Lean 4 compiler & `#print axioms` validator."""
+        if isinstance(self.kernel, LeanCompliantKernel) and self.kernel.verified_helper_lemmas:
+            existing_thms, existing_defs = extract_lean_declarations(candidate_text)
+            existing_names = set(existing_thms) | set(existing_defs)
+            missing_helpers = [
+                code
+                for name, code in self.kernel.verified_helper_lemmas.items()
+                if name not in existing_names
+            ]
+            if missing_helpers and candidate_text.strip():
+                candidate_text = "\n\n".join(missing_helpers) + "\n\n" + candidate_text
+
         val_res = verify_lean4_kernel(
             candidate_text,
             required_theorems=self.required_theorems,
@@ -366,15 +529,18 @@ class LeanProver(MathProver):
             )
 
         self._log_write(f"[Deterministic Lean 4 Kernel Judge REJECT]: {val_res.issues_summary}\n")
+        trap_hints = diagnose_lean_compiler_traps(val_res.compiler_output)
+        hints_block = f"• Targeted Tactic Remediation Hints:\n{trap_hints}\n" if trap_hints else ""
         detailed_feedback = (
             f"[LEAN 4 COMPILER & AXIOM AUDIT FAILED ({val_res.status})]:\n"
             f"• Validity Progress: {bar} (CompilerHealth={val_res.compiler_health_score:.2f}, "
             f"Rigor={val_res.rigor_score:.2f}, Completeness={val_res.completeness_score:.2f})\n"
             f"• Verified Theorems So Far: {val_res.verified_theorems}\n"
             f"• Issues: {val_res.issues_summary}\n"
+            f"{hints_block}"
             f"• Compiler Output:\n{val_res.compiler_output[:2500]}\n"
             f"Action Required: Fix the exact Lean 4 compiler errors/warnings in `verify_lean4_kernel` "
-            f"inside the Python REPL until `res.passed == True`."
+            f"(or test individual helper lemmas via `verify_lemma(lemma_src)`) until `res.passed == True`."
         )
         return AuditResult(
             verdict="REJECT",
@@ -443,6 +609,12 @@ class LeanProver(MathProver):
             numbered_code = "\n".join(
                 f"{idx + 1:4d}: {line}" for idx, line in enumerate(current_code.splitlines())
             )
+            trap_hints = diagnose_lean_compiler_traps(current_val.compiler_output)
+            triage_note = classify_lean_failure_triage(
+                current_val.compiler_output, current_val.status, current_val.verified_theorems
+            )
+            hints_section = f"--- TARGETED TACTIC REMEDIATION HINTS ---\n{trap_hints}\n\n" if trap_hints else ""
+            triage_section = f"{triage_note}\n\n" if triage_note else ""
             repair_user = (
                 f"--- TARGET SPECIFICATION ---\n{task_prompt}\n\n"
                 f"--- REQUIRED THEOREMS ---\n{self.required_theorems}\n\n"
@@ -450,6 +622,8 @@ class LeanProver(MathProver):
                 f"--- LEAN 4 COMPILER DIAGNOSTICS ({current_val.status}) ---\n"
                 f"Audit Progress: {bar} (Verified Theorems: {current_val.verified_theorems})\n"
                 f"Issues Summary: {current_val.issues_summary}\n"
+                f"{triage_section}"
+                f"{hints_section}"
                 f"Raw Compiler Output:\n{current_val.compiler_output}\n\n"
                 "Repair every compiler error, warning, unsolved goal, or missing theorem above. "
                 "Preserve all already-verified helper lemmas verbatim, and NEVER re-declare any symbol "
@@ -540,14 +714,39 @@ class LeanProver(MathProver):
             )
 
         lit_briefing = ""
+        active_lib_env = (
+            os.environ.get("CONJECTURES_PRELOAD_LIB", "").strip()
+            or os.environ.get("ERDOS985_PRELOAD_LIB", "").strip()
+        )
+        active_lib_path = Path(active_lib_env).resolve() if (active_lib_env and Path(active_lib_env).is_file()) else None
+        active_work_dir = active_lib_path.parent if active_lib_path else (
+            Path(self.log_path).resolve().parent.parent.parent
+            if getattr(self, "log_path", None) and Path(self.log_path).parent.name == "logs"
+            else None
+        )
+
         if getattr(self, "enable_literature_search", False):
             try:
-                brief = self._pre_proof_research(task_prompt)
-                if brief:
-                    lit_briefing = f"\n\n--- PRE-PROOF ACADEMIC LITERATURE & LEMMA BRIEFING ---\n{brief}\n"
+                cached_arxiv = retrieve_cached_arxiv_briefing(active_work_dir, task_prompt)
+                if cached_arxiv:
+                    lit_briefing = cached_arxiv
                     self._log_write(lit_briefing)
+                else:
+                    brief = self._pre_proof_research(task_prompt)
+                    if brief:
+                        lit_briefing = f"\n\n--- PRE-PROOF ACADEMIC LITERATURE & LEMMA BRIEFING ---\n{brief}\n"
+                        self._log_write(lit_briefing)
             except Exception as e:
                 self._log_write(f"[Literature Search Warning]: {e}\n")
+
+        harness_guards_briefing = ""
+        try:
+            obs_b = format_obstructions_briefing(active_work_dir)
+            comp_b = format_computational_witness_briefing(active_work_dir)
+            toc_b = format_compact_library_toc(active_lib_path, max_recent=20)
+            harness_guards_briefing = f"{obs_b}{comp_b}{toc_b}"
+        except Exception as e:
+            self._log_write(f"[Harness Guards Briefing Warning]: {e}\n")
 
         heuristics_briefing = ""
         if getattr(self, "memory", None) is not None:
@@ -590,9 +789,11 @@ class LeanProver(MathProver):
                 {
                     "role": "user",
                     "content": (
-                        f"{task_prompt}{req_banner}{lit_briefing}{heuristics_briefing}\n\n"
-                        "Use the Python REPL (`verify_lean4_kernel(lean_src)`) to test and verify your Lean 4 "
-                        "formalization interactively, then output the complete, certified ```lean ... ``` file."
+                        f"{task_prompt}{req_banner}{harness_guards_briefing}{lit_briefing}{heuristics_briefing}\n\n"
+                        "Use the Python REPL (`verify_lean4_kernel(lean_src)`, `verify_lemma(lemma_src)`, "
+                        "`search_verified_library('keyword')`, `save_computational_witness(key, summary, data)`) "
+                        "to test and verify your Lean 4 formalization interactively, then output the complete, "
+                        "certified ```lean ... ``` file."
                     ),
                 },
             ]
@@ -773,6 +974,12 @@ class LeanProver(MathProver):
                 feedback_parts = []
                 if repl_outputs:
                     feedback_parts.append("\n\n".join(repl_outputs))
+                trap_hints = diagnose_lean_compiler_traps(val_res.compiler_output)
+                triage_note = classify_lean_failure_triage(
+                    val_res.compiler_output, val_res.status, val_res.verified_theorems
+                )
+                hints_block = f"• Targeted Tactic Remediation Hints:\n{trap_hints}\n" if trap_hints else ""
+                triage_block = f"{triage_note}\n" if triage_note else ""
                 feedback_parts.append(
                     f"[LEAN 4 COMPILER & AXIOM AUDIT ({val_res.status})]:\n"
                     f"• Composite Progress: {bar} ({delta_str} from previous best)\n"
@@ -780,10 +987,13 @@ class LeanProver(MathProver):
                     f"Rigor={val_res.rigor_score:.2f}, Completeness={val_res.completeness_score:.2f}\n"
                     f"• Verified Theorems So Far (keep verbatim): {val_res.verified_theorems}\n"
                     f"• Issues: {val_res.issues_summary}\n"
+                    f"{triage_block}"
+                    f"{hints_block}"
                     f"• Theorems Found: {val_res.theorems_found}\n"
                     f"• Missing Required Theorems: {val_res.missing_required_theorems}\n"
                     f"• Compiler Output:\n{val_res.compiler_output[:3000]}\n\n"
-                    "Please repair the exact Lean 4 errors above, verify with `verify_lean4_kernel(lean_src)` "
+                    "Please repair the exact Lean 4 errors above (you can also test individual helper lemmas "
+                    "one at a time via `verify_lemma(lemma_src)`), verify with `verify_lean4_kernel(lean_src)` "
                     "in a ```python``` block until `res.passed == True`, and output the complete ```lean``` file."
                 )
                 messages.append({"role": "user", "content": "\n\n".join(feedback_parts)})

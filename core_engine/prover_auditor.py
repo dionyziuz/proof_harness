@@ -590,6 +590,8 @@ class ProverAuditorMixin:
             reasoning_chunks: List[str] = []
             content_chunks: List[str] = []
             switched_to_content = False
+            rolling_tail = ""
+            aborted_repetition = False
             try:
                 for typ, delta in self.client.stream_complete(
                     messages,
@@ -615,9 +617,29 @@ class ProverAuditorMixin:
                         self._log_write(delta)
                         if on_content:
                             on_content(delta)
+
+                    rolling_tail = (rolling_tail + delta)[-1200:]
+                    if "''''''''''''" in rolling_tail:
+                        aborted_repetition = True
+                        self._log_write(
+                            "\n[Stream Repetition Circuit Breaker] Detected primed-identifier loop (''''''''); truncating stream early.\n"
+                        )
+                        break
+                    tail_lines = [ln.strip() for ln in rolling_tail.splitlines() if len(ln.strip()) > 25]
+                    if len(tail_lines) >= 6 and len(set(tail_lines[-6:])) == 1:
+                        aborted_repetition = True
+                        self._log_write(
+                            "\n[Stream Repetition Circuit Breaker] Detected 6x identical line loop; truncating stream early.\n"
+                        )
+                        break
                 
                 r_text = "".join(reasoning_chunks).strip()
                 c_text = "".join(content_chunks).strip()
+                if aborted_repetition and c_text:
+                    clean_lines = [ln for ln in c_text.splitlines() if "''''''''" not in ln]
+                    c_text = "\n".join(clean_lines).strip()
+                    if c_text.count("```") % 2 == 1:
+                        c_text += "\n```"
 
                 if not r_text and not c_text:
                     can_step_down_effort = active_effort and active_effort not in ("minimal", "low")

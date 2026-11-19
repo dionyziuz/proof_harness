@@ -58,6 +58,24 @@ from .lean_prover import (
     strip_lean_comments,
     verify_lean4_kernel,
 )
+from .lean_harness_guards import (
+    check_signature_drift,
+    classify_lean_failure_triage,
+    extract_declaration_signatures,
+    extract_library_index,
+    format_compact_library_toc,
+    format_computational_witness_briefing,
+    format_obstructions_briefing,
+    load_computational_witnesses,
+    load_obstructions,
+    record_cycle_and_check_stall,
+    register_obstruction,
+    retrieve_cached_arxiv_briefing,
+    save_computational_witness,
+    search_library_signatures,
+    snapshot_and_verify_library_signatures,
+    write_library_index_markdown,
+)
 from .judging import (
     judge_lean_proof,
     LeanJudgeRecord,
@@ -126,6 +144,22 @@ __all__ = [
     "judge_proof",
     "build_a_prompt",
     "build_b_prompt",
+    "check_signature_drift",
+    "classify_lean_failure_triage",
+    "extract_declaration_signatures",
+    "extract_library_index",
+    "format_compact_library_toc",
+    "format_computational_witness_briefing",
+    "format_obstructions_briefing",
+    "load_computational_witnesses",
+    "load_obstructions",
+    "record_cycle_and_check_stall",
+    "register_obstruction",
+    "retrieve_cached_arxiv_briefing",
+    "save_computational_witness",
+    "search_library_signatures",
+    "snapshot_and_verify_library_signatures",
+    "write_library_index_markdown",
 ]
 
 
