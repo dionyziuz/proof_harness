@@ -576,27 +576,50 @@ def retrieve_cached_arxiv_briefing(
             except Exception:
                 pass
 
-    # Extract clean mathematical keywords from query_seed
-    clean_line = re.sub(r"```.*?```", " ", query_seed, flags=re.DOTALL)
+    # Prefer the human-readable problem title in `(Subnet 66: ... (<Title>))` or Section 4 if present
+    title_m = re.search(r"\(Subnet\s*66:[^(]*\(([^)]+)\)\)", query_seed)
+    seed_text = title_m.group(1) if title_m else query_seed
+
+    # Extract clean mathematical keywords from seed_text, skipping harness/Lean boilerplate
+    clean_line = re.sub(r"```.*?```", " ", seed_text, flags=re.DOTALL)
+    clean_line = re.sub(r"\bfc-v2-[A-Za-z0-9\-]+\b", " ", clean_line)
     clean_line = re.sub(r"[^A-Za-z0-9_\-\s]", " ", clean_line)
+    boilerplate = {
+        "theorem",
+        "lemma",
+        "target",
+        "import",
+        "mathlib",
+        "formalconjectures",
+        "prove",
+        "section",
+        "mandatory",
+        "validator",
+        "wrapper",
+        "formal",
+        "formalizing",
+        "proof",
+        "bittensor",
+        "subnet",
+        "conjectures",
+        "task",
+        "solving",
+        "lean",
+        "exact",
+        "solution",
+        "header",
+        "footer",
+        "bounty",
+        "inserted",
+        "here",
+        "math30",
+        "catalog",
+        "main",
+    }
     words = [
         w
         for w in clean_line.split()
-        if len(w) > 3
-        and w.lower()
-        not in {
-            "theorem",
-            "lemma",
-            "target",
-            "import",
-            "mathlib",
-            "formalconjectures",
-            "prove",
-            "section",
-            "mandatory",
-            "validator",
-            "wrapper",
-        }
+        if len(w) > 2 and w.lower() not in boilerplate and not w.isdigit()
     ]
     short_query = " ".join(dict.fromkeys(words[:10]))
     if not short_query:
