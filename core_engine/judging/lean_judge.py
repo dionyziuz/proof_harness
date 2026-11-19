@@ -44,9 +44,9 @@ logger = logging.getLogger("core_engine.judging.lean_judge")
 # Standard core axioms permitted by Lean 4 & Mathlib
 ALLOWED_CORE_AXIOMS: Set[str] = {"propext", "Classical.choice", "Quot.sound"}
 
-# Patterns to extract Lean code from markdown responses
-_LEAN_BLOCK_RE = re.compile(r"```(?:lean|lean4)?\s*\n(.*?)\n```", re.DOTALL | re.IGNORECASE)
-_LEAN_KEYWORDS = {"theorem", "lemma", "def", "inductive", "structure", "open", "import", "example"}
+# Patterns to extract fenced code blocks in strict left-to-right parity order
+_ANY_FENCED_BLOCK_RE = re.compile(r"```([A-Za-z0-9_\-+]*)[ \t]*\n(.*?)```", re.DOTALL)
+_LEAN_KEYWORDS = {"theorem", "lemma", "def", "abbrev", "inductive", "structure", "namespace", "example"}
 
 _THEOREM_DECL_RE = re.compile(
     r"^\s*(?:private\s+|protected\s+)?(?:theorem|lemma)\s+([A-Za-z_][A-Za-z0-9_']*)\b",
@@ -177,30 +177,9 @@ def extract_lean_declarations(code: str) -> Tuple[List[str], List[str]]:
     return theorems, defs
 
 
-def extract_lean_code(text: str) -> str:
-    """Extracts Lean 4 source code from candidate markdown response."""
-    blocks = _LEAN_BLOCK_RE.findall(text)
-    if blocks:
-        joined = "\n\n".join(b.strip() for b in blocks if b.strip())
-        # Clean stray markdown backtick line artifacts at start/end
-        cleaned_lines = []
-        for line in joined.splitlines():
-            s = line.strip()
-            if s in ("`", "``", "```", "````") or s.startswith("```"):
-                continue
-            if s.startswith("`") and not s.startswith("`("):
-                line = s.lstrip("`").strip()
-            cleaned_lines.append(line)
-        res = "\n".join(cleaned_lines).strip()
-        while res.startswith("`"):
-            res = res.lstrip("`").strip()
-        while res.endswith("`"):
-            res = res.rstrip("`").strip()
-        return res
-
-    lines = text.strip().splitlines()
+def _clean_extracted_lean(raw_block: str) -> str:
     cleaned_lines = []
-    for line in lines:
+    for line in raw_block.splitlines():
         s = line.strip()
         if s in ("`", "``", "```", "````") or s.startswith("```"):
             continue
@@ -212,7 +191,47 @@ def extract_lean_code(text: str) -> str:
         res = res.lstrip("`").strip()
     while res.endswith("`"):
         res = res.rstrip("`").strip()
+    return res
 
+
+def extract_lean_code(text: str) -> str:
+    """Extracts Lean 4 source code from candidate markdown response without fence-parity inversion."""
+    if not text or not text.strip():
+        return ""
+
+    fenced = _ANY_FENCED_BLOCK_RE.findall(text)
+    if fenced:
+        explicit_lean = [
+            body.strip()
+            for lang, body in fenced
+            if lang.strip().lower() in ("lean", "lean4") and body.strip()
+        ]
+        if explicit_lean:
+            # If the model emitted small illustrative snippets earlier and a complete candidate at the end,
+            # prefer the last block when earlier blocks don't declare distinct non-overlapping theorems,
+            # or join explicit Lean blocks cleanly.
+            if len(explicit_lean) > 1 and "theorem target" in explicit_lean[-1]:
+                return _clean_extracted_lean(explicit_lean[-1])
+            return _clean_extracted_lean("\n\n".join(explicit_lean))
+
+        # Fallback to untagged ``` ... ``` blocks only if they contain genuine Lean declarations
+        untagged_lean = []
+        for lang, body in fenced:
+            if lang.strip() == "" and body.strip():
+                first_words = [
+                    ln.strip().split()[0]
+                    for ln in body.splitlines()
+                    if ln.strip() and not ln.strip().startswith("--")
+                ]
+                if any(w in _LEAN_KEYWORDS for w in first_words):
+                    untagged_lean.append(body.strip())
+        if untagged_lean:
+            return _clean_extracted_lean("\n\n".join(untagged_lean))
+
+        # Only non-Lean fenced blocks (e.g. ```python ... ```) were present -> no Lean candidate in this turn
+        return ""
+
+    res = _clean_extracted_lean(text)
     first_words = [
         line.strip().split()[0]
         for line in res.splitlines()
